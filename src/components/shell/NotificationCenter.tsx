@@ -66,10 +66,13 @@ export function NotificationCenter({
   items,
   place,
   onClearAll,
+  onOpen,
 }: {
   items: AppNotification[];
   place: "below" | "right";
   onClearAll: () => void;
+  /** Opens a notification's help in the browser, and says when it can't. */
+  onOpen: (url: string) => void;
 }) {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -299,7 +302,7 @@ export function NotificationCenter({
                           <span style={{ width: `${Math.min(100, Math.max(0, n.progress * 100))}%` }} />
                         </span>
                       )}
-                      {(n.action || !!n.thumbs?.length) && (
+                      {(n.action || n.secondary || n.help || !!n.thumbs?.length) && (
                       <div className="nt-actions">
                         {!!n.thumbs?.length && (
                           <span className="nt-thumbs" aria-hidden>
@@ -335,7 +338,16 @@ export function NotificationCenter({
                             {n.secondary.label}
                           </button>
                         )}
-                        {n.help && <HelpLink topic={n.help} className="px-1" />}
+                        {n.help && (
+                          <HelpLink
+                            topic={n.help}
+                            onOpen={(url) => {
+                              close(false);
+                              onOpen(url);
+                            }}
+                            className="px-1"
+                          />
+                        )}
                       </div>
                       )}
                       {n.dismiss && (

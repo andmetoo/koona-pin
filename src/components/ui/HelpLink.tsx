@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next";
-import { api } from "../../services/api";
 import { HelpTopic, helpUrl } from "../../services/help";
 
 /**
@@ -10,30 +9,21 @@ export function HelpLink({
   topic,
   label = "learnMore",
   onOpen,
-  onError,
-  inherit = false,
-  size = "xs",
+  look = "xs",
   className = "",
 }: {
   topic: HelpTopic;
   label?: "learnMore" | "help";
-  /** The screen's own way to open a link, where it has one. */
-  onOpen?: (url: string) => void;
-  /** Where to say that the browser could not be opened. */
-  onError?: (err: unknown) => void;
-  /** In a coloured banner: the banner's colour, underlined, instead of the accent. */
-  inherit?: boolean;
-  size?: "xs" | "sm";
+  /** The screen's way to open a link, which also says when the browser could not be opened. */
+  onOpen: (url: string) => void;
+  /** Accent text, small or as the text around; `inherit`: a coloured banner's colour, underlined. */
+  look?: "xs" | "sm" | "inherit";
   className?: string;
 }) {
   const { t } = useTranslation();
-  const url = helpUrl(topic);
+  const style = look === "inherit" ? "underline hover:no-underline" : `${look === "sm" ? "text-sm" : "text-xs"} text-accent hover:underline`;
   return (
-    <button
-      type="button"
-      onClick={() => (onOpen ? onOpen(url) : void api.openUrl(url).catch((err) => onError?.(err)))}
-      className={`font-medium ${inherit ? "underline hover:no-underline" : `${size === "sm" ? "text-sm" : "text-xs"} text-accent hover:underline`} ${className}`}
-    >
+    <button type="button" onClick={() => onOpen(helpUrl(topic))} className={`font-medium ${style} ${className}`}>
       {t(`help.${label}`)}
     </button>
   );

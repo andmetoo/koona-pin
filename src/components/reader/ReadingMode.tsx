@@ -418,7 +418,7 @@ export function ReadingMode({
                       ? t("readingMode.offlineText", { site: current.domain })
                       : `${failureText(failure, t)} ${t("readingMode.failedTail")}`
                   }
-                  help={offline ? undefined : <HelpLink topic="readingMode" inherit onOpen={onOpen} />}
+                  help={offline ? undefined : <HelpLink topic="readingMode" look="inherit" onOpen={onOpen} />}
                   offline={offline}
                 >
                   {offline ? (

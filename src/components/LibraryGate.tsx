@@ -182,7 +182,7 @@ function LibraryFailure({ failure, onRetry, onRestore }: { failure: OpenFailure;
             {t("gate.restore")}
           </button>
         )}
-        <HelpLink topic="libraryWontOpen" onError={(err) => setNote(describeError(err))} />
+        <HelpLink topic="libraryWontOpen" onOpen={(url) => void api.openUrl(url).catch((err) => setNote(describeError(err)))} />
       </div>
       {note && (
         <p role="status" className="text-xs">

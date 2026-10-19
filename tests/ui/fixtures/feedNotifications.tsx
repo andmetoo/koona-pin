@@ -17,5 +17,5 @@ export async function mount(): Promise<void> {
     onShow: (uid) => calls.push(`show:${uid}`),
     onUnfollow: (uid) => calls.push(`unfollow:${uid}`),
   });
-  createRoot(host).render(<NotificationCenter items={items} place="below" onClearAll={() => {}} />);
+  createRoot(host).render(<NotificationCenter items={items} place="below" onClearAll={() => {}} onOpen={() => {}} />);
 }

@@ -485,6 +485,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
         onAddToBundle={addRowToBundle}
         notifications={notifications}
         onClearNotifications={clearNotifications}
+        onOpenUrl={(url) => void api.openUrl(url).catch((err) => say(describeError(err), true))}
         feeds={feeds}
         feedsOpen={page === "feeds"}
         feedUid={feedPlace.feed}
@@ -652,7 +653,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
                       {latestCopy
                         ? t("library.damagedLatest", { when: copyTime(latestCopy.created_at, t, i18n.language, true) })
                         : t("library.damaged")}{" "}
-                      <HelpLink topic="libraryMessages" inherit onError={(err) => say(describeError(err), true)} />
+                      <HelpLink topic="libraryMessages" look="inherit" onOpen={(url) => void api.openUrl(url).catch((err) => say(describeError(err), true))} />
                     </Banner>
                   )}
                   {library.error && (

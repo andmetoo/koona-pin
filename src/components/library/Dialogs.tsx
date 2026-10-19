@@ -965,7 +965,13 @@ export function ConnectDialog({
               {status}
             </p>
           </div>
-          <HelpLink topic="addExtension" label="help" onOpen={onOpen} className="ml-auto self-start" />
+          {/* Connected or not yet: how to add the extension; a connection in trouble: what to do about it. */}
+          <HelpLink
+            topic={capture && capture.state !== "connected" && capture.state !== "none" ? "savingFails" : "addExtension"}
+            label="help"
+            onOpen={onOpen}
+            className="ml-auto self-start"
+          />
         </div>
         <Segmented<ConnectTab>
           label={t("connect.browsers")}

@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useRef, useState } from "react";
 import { Link } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { McpSetup, McpStatus } from "../../types";
-import { desktopOnly } from "../../services/api";
+import { api, desktopOnly } from "../../services/api";
 import { describeError } from "../../services/errors";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
@@ -142,7 +142,7 @@ export function AssistantDialog({
           )}
         </TabPanels>
         <p className="border-t border-divider pt-4 text-xs leading-4 text-muted">
-          {t("assistant.note")} <HelpLink topic="aiAssistants" onError={(err) => onNotice(describeError(err), true)} />
+          {t("assistant.note")} <HelpLink topic="aiAssistants" onOpen={(url) => void api.openUrl(url).catch((err) => onNotice(describeError(err), true))} />
         </p>
       </div>
     </Dialog>

@@ -50,7 +50,7 @@ const readerThemeName = (theme: ReaderChoice["theme"], t: TFunction) => (theme =
 /** The list: General, Reading, Sync, Data, Help (FL3's rows: an icon, the name, the value, a chevron). */
 export function SettingsList({ go }: { go: (page: SettingsPage) => void }) {
   const { app, fold, hand, bar } = usePhone();
-  const { t, i18n, theme, readerLook, sync, setSurface, dataVersion } = app;
+  const { t, i18n, theme, readerLook, sync, setSurface, dataVersion, say } = app;
   const [data] = useDataSummary(dataVersion);
   const card = useSyncCard();
   const syncNow = useSyncNow();
@@ -116,6 +116,13 @@ export function SettingsList({ go }: { go: (page: SettingsPage) => void }) {
         />
       </Shelf>
       <Shelf label={t("phone.settings.help")} className="st-shelf">
+        <ShelfRow
+          icon={ExternalLink}
+          title={t("settings.help")}
+          subtitle={t("settings.helpHint")}
+          chevron
+          onClick={() => void api.openUrl(helpUrl("home")).catch((err) => say(describeError(err), true))}
+        />
         <ShelfRow icon={MessageSquare} title={t("settings.feedback")} chevron onClick={() => setSurface("feedback")} />
         <ShelfRow icon={Info} title={t("phone.settings.about")} chevron onClick={() => go("about")} />
       </Shelf>
@@ -393,7 +400,6 @@ export function AboutPage() {
         <ShelfRow icon={ExternalLink} title={t("phone.settings.licences")} subtitle={t("phone.settings.licencesHint")} chevron onClick={() => open(licensesUrl(i18n.language))} />
       </Shelf>
       <Shelf label={t("phone.settings.help")} className="st-shelf">
-        <ShelfRow icon={ExternalLink} title={t("settings.help")} subtitle={t("settings.helpHint")} chevron onClick={() => open(helpUrl("home"))} />
         <ShelfRow icon={MessageSquare} title={t("settings.feedback")} subtitle={t("settings.feedbackHint")} chevron onClick={() => setSurface("feedback")} />
         <ShelfRow icon={Bug} title={t("settings.github")} subtitle={t("settings.githubHint")} chevron onClick={() => open(GITHUB_ISSUES_URL)} />
       </Shelf>
