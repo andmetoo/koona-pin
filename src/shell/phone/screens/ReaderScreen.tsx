@@ -26,10 +26,10 @@ import type { Bookmark, BookmarkChange } from "../../../types";
  * page's text in Literata (`ArticleView`, the reader's extraction; no offline copy: the text
  * comes from the page). A floating action pill: favourite, open original and how far it is read,
  * a pie (owner, 19 October: no Done). Pulling the pie up out of the pill finishes the reading (it
- * leaves Reading, with Undo); a tap asks first; at the article's end a quiet row offers the same,
+ * leaves Reading and is marked read, one Undo); a tap asks first; at the article's end a quiet row offers the same,
  * as the ⋯ menu does. On iPhone Duo's outer display the pill gives way to the column (DO2): the
  * actions on a slab under the status block, the navigation, and the progress as a drop to pull up
- * in the thumb zone with the time left above it. A page that cannot be read shows why and opens
+ * in the rail's "+" slot with the time left above it. A page that cannot be read shows why and opens
  * the original. There is no Share: the app has no way to share on a phone yet.
  */
 export function ReaderScreen({ route, hidden }: { route: Extract<Route, { name: "reader" }>; hidden: boolean }) {
@@ -187,7 +187,7 @@ function Reader({ bookmark: b, hidden }: { bookmark: Bookmark; hidden: boolean }
         </div>
       </>
       {outer ? (
-        // DO2: the actions on a slab under the status block, the progress as the drop in the thumb zone.
+        // DO2: the actions on a slab under the status block, the progress as the drop in the rail's "+" slot.
         <>
           <div className="rd-dock">
             <div className="rd-fade-bottom" aria-hidden="true" />

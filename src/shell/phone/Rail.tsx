@@ -25,9 +25,10 @@ import { openSettings } from "./you/settingsRoute";
  * On iPhone Duo (iOS 27.1) the rail stands in the system's vertical bar instead, where UIKit puts
  * its tab bar, on both displays (frames DU1–DU4): no account cluster (it stays in the headers) and
  * no popover, since the controls do not change sides there. On the outer display it shows where
- * the nav pill would (`hidden`: a pushed screen, the keyboard).
+ * the nav pill would (`hidden`: a pushed screen, the keyboard), and in the reader, whose drop takes
+ * the "+" slot (`thumb`): the rail stays where it is on every screen.
  */
-export function Rail({ account, hidden = false }: { account: ReactNode; hidden?: boolean }) {
+export function Rail({ account, hidden = false, thumb }: { account: ReactNode; hidden?: boolean; thumb?: (el: HTMLElement | null) => void }) {
   const { app, stack, sheets, primary, keyboardUp, bar } = usePhone();
   const { t } = app;
   const [menu, setMenu] = useState(false);
@@ -73,6 +74,8 @@ export function Rail({ account, hidden = false }: { account: ReactNode; hidden?:
           </button>
         ))}
         <span className="ph-rail-rule" aria-hidden="true" />
+        {/* iPhone Duo: a screen's own control in the "+" slot (the reader's drop, DO2). */}
+        {thumb && <div ref={thumb} className="ph-rail-thumb" data-vbar-thumb />}
         {primary && (
           <CircleButton
             icon={primary.icon}

@@ -414,7 +414,7 @@
   stroke: rgb(255 255 255 / 0.22);
 }
 
-/* iPhone Duo's outer display (DO2): the drop in the column's thumb zone, "6 min left" above it. */
+/* iPhone Duo's outer display (DO2): the drop in the rail's "+" slot, "6 min left" above it. */
 .phone .lq-drop {
   display: flex;
   flex-direction: column;

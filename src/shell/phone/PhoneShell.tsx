@@ -110,9 +110,8 @@ export function PhoneShell() {
             {bar ? (
               <>
                 {/* On the outer display the reader keeps the navigation beside its drop (DO2). */}
-                <Rail account={null} hidden={!fold && !pillShown && !(stack.top?.name === "reader" && !keyboardUp)} />
+                <Rail account={null} hidden={!fold && !pillShown && !(stack.top?.name === "reader" && !keyboardUp)} thumb={setThumb} />
                 <div ref={setColumn} className="ph-vbar-actions" data-vbar-actions />
-                <div ref={setThumb} className="ph-vbar-thumb" data-vbar-thumb />
               </>
             ) : fold ? (
               <Rail account={account} />

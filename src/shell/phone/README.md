@@ -70,7 +70,7 @@ On both of iPhone Duo's displays the status bar is a vertical column on the righ
 - **A screen's secondary actions** move into UIKit's toolbar slots under the status block, 38 pt circles: wrap them in `<ColumnActions rank active>`; the lowest rank holds the slots (Feeds' refresh, 1, before a bookmark's open-original and favourite, 2), the others stay in place.
 - **The inner display** keeps the Fold's two panes on either side of the fold: the detail sheet beyond it, the list between the fold and the column; triage spans both (DU3).
 - **No handedness**: the bar stays on the device's side (Apple's guidance), so the Layout setting and the rail's popover are left out; the account cluster stays in the list's header.
-- **The outer display's reader (DO2)** keeps the navigation in the column, compact and 80 higher, its actions on a slab under the status block, and the reading progress as a drop in the thumb zone (`ColumnThumb`) with the time left above it, and no "+" over it (the places stay where they are); no drop while there is nothing to read.
+- **The outer display's reader (DO2)** keeps the navigation in the column exactly where it is on every screen, its actions on a slab under the status block, and the reading progress as a drop in the rail's "+" slot (`ColumnThumb`), "N min left" in the hairline's place; pulled up, its liquid rises over the places. No drop while there is nothing to read ("+" stays).
 - **Triage on the inner display (DU3)**: two full-height panels — title, progress, the collections, "Up next" and the Undo row on the left; the account cluster, the card and the decision pill under the thumb on the right. No Done on the Duo.
 
 ## Reading progress and leaving Reading

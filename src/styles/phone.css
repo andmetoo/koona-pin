@@ -1482,35 +1482,43 @@
   height: 38px;
   box-shadow: inset 0 0 0 1px var(--ph-clear-rim);
 }
-/* The thumb zone under the navigation (the reader's drop, DO2): the rail stands 80 higher and
-   compact, its places 44 apart. */
-.phone .ph-vbar-thumb {
-  position: absolute;
-  z-index: 20;
-  left: var(--vbar-x);
-  bottom: calc(var(--safe-bottom) + 4px);
+/* The rail's thumb slot (the reader's drop, DO2): where "+" stands on every other screen, on the
+   same slab, so the rail never moves between screens. "N min left" takes the hairline's 15, the
+   drop the 52 of "+"; its stretch rises out of the slab over the places. */
+.phone .ph-rail-thumb {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
 }
-.phone .ph-vbar-thumb:empty {
+.phone .ph-rail-thumb:empty {
   display: none;
 }
-.phone[data-vbar]:has(.ph-vbar-thumb:not(:empty)) .ph-rail-column {
-  bottom: calc(var(--safe-bottom) + 80px);
-}
-.phone[data-vbar]:has(.ph-vbar-thumb:not(:empty)) .ph-rail-slot {
-  height: 42px;
-  margin: 1px 0;
-}
-.phone[data-vbar]:has(.ph-vbar-thumb:not(:empty)) .ph-rail-rule {
-  margin: 5px 0;
-}
-/* The reader's drop stretches up out of the thumb zone: no "+" over it there. The places keep
-   exactly where they are (the rail stands 63 higher by what it gives up: the rule and "+"), and
-   the space under them is the drop's. */
-.phone[data-vbar]:has(.ph-vbar-thumb .lq-drop) :is(.ph-rail-new, .ph-rail-rule) {
+.phone .ph-rail:has(.ph-rail-thumb:not(:empty)) :is(.ph-rail-new, .ph-rail-rule) {
   display: none;
 }
-.phone[data-vbar]:has(.ph-vbar-thumb .lq-drop) .ph-rail-column {
-  bottom: calc(var(--safe-bottom) + 80px + 63px);
+.phone .ph-rail-thumb .lq-drop {
+  gap: 0;
+}
+.phone .ph-rail-thumb .lq-caption {
+  max-width: 64px;
+  overflow: hidden;
+  height: 15px;
+  font-size: 9.5px;
+  line-height: 15px;
+}
+.phone .ph-rail-thumb .lq-drop-body {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--ph-clear-rim);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.phone .ph-rail-thumb .lq-drop-body::before {
+  content: none;
+}
+.phone .ph-rail-thumb .lq-svg {
+  position: relative;
+  z-index: 1;
 }
 /* The inner display: the list pane between the fold and the column, the detail sheet on the far
    side of the fold (DU1, DU2), 16 from the edges and on the bottom inset. */

@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { DUO_INNER, DUO_OUTER, navPill, openPhone } from "./fixtures";
+import { DUO_INNER, DUO_OUTER, navPill, openPhone, systemBack } from "./fixtures";
 
 // iPhone Duo on iOS 27.1 (frames DU1–DU4): the system's vertical bar is a column on the right
 // edge of both displays, and our rail lives in it where UIKit puts its tab bar; a screen's
@@ -36,9 +36,11 @@ test("outer display (DU4): the rail in the right column instead of the nav pill,
   expect(row.x + row.width).toBeGreaterThan(382 - 40);
 });
 
-test("outer display, the reader (DO2): no pill; actions on a slab, the navigation and the progress drop in the column", async ({ page }) => {
+test("outer display, the reader (DO2): no pill; actions on a slab; the drop in the rail's + slot, the rail where it is on every screen", async ({ page }) => {
   await openOuter(page);
   await rail(page).getByRole("button", { name: "Reading", exact: true }).click();
+  const before = await box(rail(page));
+  const place = await box(rail(page).getByRole("button", { name: "Reading", exact: true }));
   await page.locator("[data-screen]:not([hidden]) [data-bookmark-id]").first().click();
   const reader = page.locator("[data-screen][data-route]:not([hidden])");
   await expect(reader.locator(".rd-actions")).toHaveCount(0);
@@ -47,18 +49,15 @@ test("outer display, the reader (DO2): no pill; actions on a slab, the navigatio
   expect(Math.round(slab.x)).toBe(382);
   expect(Math.round(slab.y)).toBe(174 + 4);
   await expect(page.locator("[data-vbar-actions]").getByRole("button", { name: "Open original" })).toBeVisible();
-  // The navigation stays, higher and compact, above the drop; no "+" over the drop, the places
-  // where they would be with it.
+  // The rail does not move: same box, same places; the drop stands where "+" stands, on the slab.
   await expect(page.locator(".ph-rail-column")).not.toHaveAttribute("data-hidden");
   await expect(rail(page).getByRole("button", { name: "New link", exact: true })).toBeHidden();
-  const reading = await box(rail(page).getByRole("button", { name: "Reading", exact: true }));
-  expect(Math.round(reading.y)).toBe(314 + 5 + 2 * 44 + 1);
-  const nav = await box(rail(page));
-  const drop = await box(page.locator("[data-vbar-thumb] .lq-drop-body"));
-  expect(nav.y + nav.height).toBeLessThanOrEqual(drop.y - 14);
+  expect(await box(rail(page))).toEqual(before);
+  expect(await box(rail(page).getByRole("button", { name: "Reading", exact: true }))).toEqual(place);
+  const drop = await box(rail(page).locator(".lq-drop-body"));
+  expect(drop.y + drop.height).toBeLessThanOrEqual(before.y + before.height);
   expect(Math.round(drop.y + drop.height)).toBeLessThanOrEqual(678 - 34);
-  expect(drop.x).toBeGreaterThanOrEqual(382);
-  await expect(page.locator("[data-vbar-thumb]")).toContainText(/min left/);
+  await expect(rail(page)).toContainText(/min left/);
   // Pulling the drop up finishes the reading.
   const x = drop.x + drop.width / 2;
   const y = drop.y + drop.height / 2;
@@ -67,7 +66,11 @@ test("outer display, the reader (DO2): no pill; actions on a slab, the navigatio
   await page.mouse.move(x, y - 150, { steps: 14 });
   await page.mouse.up();
   await expect(page.locator("[data-snackbar]")).toContainText("Finished · ");
-  await expect(page.locator("[data-vbar-thumb]")).toContainText("Finished");
+  await expect(rail(page)).toContainText("Finished");
+  // Back to the list: still the same rail.
+  expect(await systemBack(page)).toBe(true);
+  await expect(rail(page).getByRole("button", { name: "New link", exact: true })).toBeVisible();
+  expect(await box(rail(page))).toEqual(before);
 });
 
 test("outer display: the rail takes the tabs and opens New link", async ({ page }) => {

@@ -47,8 +47,9 @@ export function ColumnActions({ rank, active = true, children }: { rank: number;
 }
 
 /**
- * The vertical bar's thumb zone, under the navigation (DO2: the reader's progress drop). While
- * something is there the rail stands higher and compact (phone.css). Nothing without a bar.
+ * The rail's "+" slot on iPhone Duo (DO2: the reader's progress drop): while something is there it
+ * takes the place of "+" and the hairline, so the rail keeps its size and place (phone.css).
+ * Nothing without a bar.
  */
 export function ColumnThumb({ active = true, children }: { active?: boolean; children: ReactNode }) {
   const { bar, thumb } = usePhone();
