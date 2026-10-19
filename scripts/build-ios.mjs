@@ -10,7 +10,8 @@
 // Build numbers: CFBundleShortVersionString is the app's version; CFBundleVersion is the number of
 // commits up to HEAD (`git rev-list --count HEAD`), so every commit of main builds a higher number, for
 // iOS and later for Android's versionCode. A second upload of the same commit takes `--build` with a
-// higher number. Upload only builds of main: a branch's count can pass a later commit of main.
+// higher number. --upload takes only a clean commit on origin/main (a branch's count can pass a later commit
+// of main), unless --build names the number.
 //
 // Signing is Xcode's automatic, cloud-managed signing through the App Store Connect API key, with no
 // certificate or profile in the repository: APPLE_STORE_KEY, APPLE_STORE_ISSUER and APPLE_STORE_KEY_PATH (a
@@ -91,9 +92,17 @@ let build = option("--build");
 if (build === undefined) {
   if (git("rev-parse", "--is-shallow-repository") === "true") throw new Error("A shallow clone has no commit count: fetch the history or pass --build");
   build = git("rev-list", "--count", "HEAD");
+  // A branch's count can pass main's: once squash-merged, main counts one more, and App Store Connect
+  // refuses its next builds of the version as not higher than the branch's upload.
+  if (upload && spawnSync("git", ["merge-base", "--is-ancestor", "HEAD", "origin/main"], { cwd: root }).status !== 0) {
+    throw new Error("Upload builds of main only: HEAD is not on origin/main (fetch it, or pass --build)");
+  }
 }
 if (!/^[1-9]\d{0,8}$/.test(build)) throw new Error(`The build number must be a positive whole number, not «${build}»`);
-if (git("status", "--porcelain", "--untracked-files=no")) console.warn("The worktree has changes: this build is not the commit's.");
+if (git("status", "--porcelain", "--untracked-files=no")) {
+  if (upload) throw new Error("The worktree has changes: an upload is built from a commit as it is");
+  console.warn("The worktree has changes: this build is not the commit's.");
+}
 
 requireLlvmTools();
 
@@ -110,12 +119,18 @@ process.on("SIGTERM", interrupted);
 const archive = path.join(appleProject, "build", "koonapin_iOS.xcarchive");
 rmSync(archive, { recursive: true, force: true });
 try {
-  // Not the desktop's Developer ID. With the API key in its environment Tauri archives unsigned
-  // (without it Xcode wants an account and a development profile); the export signs.
-  const tauriEnv = Object.fromEntries(Object.entries(env).filter(([name]) => !/^APPLE_(SIGNING_IDENTITY|CERTIFICATE)/.test(name)));
+  // Not the desktop's Developer ID. With an API key in its environment (Tauri reads the APPLE_API_*
+  // names) Tauri archives unsigned (without it Xcode wants an account and a development profile); the
+  // export signs. The store key, not notarization's, which a build Mac may not have.
+  const tauriEnv = Object.fromEntries(Object.entries(env).filter(([name]) => !/^APPLE_(SIGNING_IDENTITY|CERTIFICATE|API_)/.test(name)));
   const config = JSON.stringify({ bundle: { iOS: { bundleVersion: build } } });
   const result = spawnSync("bun", ["run", "tauri", "ios", "build", "--target", "aarch64", "--archive-only", "--ci", "--config", config], {
-    cwd: root, stdio: "inherit", env: { ...tauriEnv, APPLE_DEVELOPMENT_TEAM: team },
+    cwd: root,
+    stdio: "inherit",
+    env: {
+      ...tauriEnv, APPLE_DEVELOPMENT_TEAM: team, APPLE_API_KEY: env.APPLE_STORE_KEY,
+      APPLE_API_ISSUER: env.APPLE_STORE_ISSUER, APPLE_API_KEY_PATH: path.resolve(env.APPLE_STORE_KEY_PATH),
+    },
   });
   if (result.status !== 0) throw new Error(`tauri ios build failed with status ${result.status}`);
 } finally {
