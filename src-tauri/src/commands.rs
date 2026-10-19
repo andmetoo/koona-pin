@@ -151,7 +151,7 @@ pub async fn bulk_update(
         BulkChange::Reading { reading: false } => (Action::FromReading, Ok(db::Bulk::Reading(false))),
         BulkChange::Read { read: true } => (Action::Read, Ok(db::Bulk::Read(true))),
         BulkChange::Read { read: false } => (Action::Unread, Ok(db::Bulk::Read(false))),
-        BulkChange::Finish => (Action::FromReading, Ok(db::Bulk::Finish)),
+        BulkChange::Finish => (Action::Finished, Ok(db::Bulk::Finish)),
         BulkChange::NewCollection { name } if name.trim().is_empty() => {
             return Err(CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::EmptyCollectionName, "Enter a collection name"))
         }

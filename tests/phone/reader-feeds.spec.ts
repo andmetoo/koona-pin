@@ -151,9 +151,12 @@ test.describe("the reader", () => {
     await reader.getByRole("button", { name: "More" }).click();
     await expect(menu.getByRole("button", { name: "Remove from Reading" })).toBeVisible();
     await expect(readRow).toHaveText(before!);
-    // From the reader, the menu's "Remove from Reading" finishes it too.
+    // From the reader, the menu's "Remove from Reading" is the reader's own finish: the pie shows
+    // it, and a pull right after finishes nothing more.
     await menu.getByRole("button", { name: "Remove from Reading" }).click();
     await expect(page.locator("[data-snackbar]")).toContainText("Finished · ");
+    await expect(reader.locator(".lq[data-finished]")).toHaveCount(1);
+    await expect(reader.getByRole("button", { name: "Mark as finished" })).toHaveCount(0);
   });
 
   test("outside Reading the pie only shows the progress", async ({ page }) => {

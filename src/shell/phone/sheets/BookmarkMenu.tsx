@@ -14,8 +14,11 @@ import { Shelf, ShelfRow } from "../ui/Shelf";
 export type BookmarkMenuProps = {
   bookmarkId: number;
   bookmark?: Bookmark;
-  /** Opened from the reader: "Remove from Reading" finishes it (out of Reading and read, one Undo). */
-  fromReader?: boolean;
+  /**
+   * Opened from the reader: its own "finish" (out of Reading and read, one Undo, once), which
+   * "Remove from Reading" runs, so the reader's state and its guard see it.
+   */
+  onFinish?: () => void;
 };
 
 /**
@@ -48,9 +51,7 @@ export function BookmarkMenu({ props }: { props: BookmarkMenuProps }) {
               icon={BookOpen}
               title={bookmark.reading_at ? t("card.fromReading") : t("card.toReading")}
               onClick={run(
-                props.fromReader && bookmark.reading_at
-                  ? (b) => void app.readingChange(b, { action: "finish" }, t("phone.reader.finished", { title: b.title || b.domain || b.url }))
-                  : actions.reading,
+                props.onFinish && bookmark.reading_at ? props.onFinish : actions.reading,
               )}
             />
             {/* Read or not matters in Reading, and for an article read once (as on the desktop). */}

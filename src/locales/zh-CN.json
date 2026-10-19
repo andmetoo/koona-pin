@@ -824,6 +824,7 @@
     "toReading": "已加入稍后读",
     "fromReading": "已移出稍后读",
     "markedRead": "已标为已读",
+    "finished": "已读完 · {{title}}",
     "markedUnread": "已标为未读",
     "restoredLink": "已从回收站取回，正在收件箱中等待",
     "purged": "已永久删除",
@@ -887,6 +888,7 @@
     "undone": "已撤销：“{{title}}”",
     "undoneTrash": "已从回收站取回：“{{title}}”",
     "undoneRestore": "已放回回收站：“{{title}}”",
+    "undoneFinished": "已回到“阅读”：“{{title}}”",
     "conflict": "未撤销：“{{title}}”之后又有更改",
     "gone": "未撤销：“{{title}}”已被永久删除",
     "no_collection": "未撤销：“{{title}}”所在的合集已不存在",
@@ -1250,6 +1252,7 @@
     "toReading_other": "已将 {{count}} 个书签加入稍后读",
     "fromReading_other": "已将 {{count}} 个书签移出稍后读",
     "markedRead_other": "已将 {{count}} 个书签标为已读",
+    "finished_other": "已将 {{count}} 个书签标为已读完",
     "markedUnread_other": "已将 {{count}} 个书签标为未读",
     "purged_other": "已永久删除 {{count}} 个书签",
     "failed": {
@@ -1263,6 +1266,7 @@
       "toReading_other": "无法将 {{count}} 个书签加入稍后读：{{reason}}。未做任何更改。",
       "fromReading_other": "无法将 {{count}} 个书签移出稍后读：{{reason}}。未做任何更改。",
       "markRead_other": "无法将 {{count}} 个书签标为已读：{{reason}}。未做任何更改。",
+      "finish_other": "无法将 {{count}} 个书签标为已读完：{{reason}}。未做任何更改。",
       "markUnread_other": "无法将 {{count}} 个书签标为未读：{{reason}}。未做任何更改。",
       "restore_other": "无法恢复 {{count}} 个书签：{{reason}}。未做任何更改。"
     }
@@ -1870,7 +1874,6 @@
       "finish": "标记为读完",
       "finishAsk": "标记为读完？",
       "finishText": "它将离开“阅读”。之后可以立即撤销。",
-      "finished": "已读完 · {{title}}",
       "finishedState": "已读完",
       "readValue": "已读 {{percent}}%",
       "readLeft_other": "已读 {{percent}}%，还剩 {{count}} 分钟",

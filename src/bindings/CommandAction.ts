@@ -3,4 +3,4 @@
 /**
  * What a command did, for the words of the undo notice.
  */
-export type CommandAction = "keep" | "edit" | "favorite" | "move" | "tag" | "trash" | "restore" | "merge" | "replace" | "to_reading" | "from_reading" | "read" | "unread";
+export type CommandAction = "keep" | "edit" | "favorite" | "move" | "tag" | "trash" | "restore" | "merge" | "replace" | "to_reading" | "from_reading" | "read" | "unread" | "finished";

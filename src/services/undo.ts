@@ -23,6 +23,8 @@ export function undoNotice(t: TFunction, result: Undo): { text: string; alert: b
       ? t("undo.undoneTrash", { title })
       : result.action === "restore"
         ? t("undo.undoneRestore", { title })
-        : t("undo.undone", { title });
+        : result.action === "finished"
+          ? t("undo.undoneFinished", { title })
+          : t("undo.undone", { title });
   return { text, alert: false };
 }

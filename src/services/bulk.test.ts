@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import i18n from "../i18n";
-import { bulkFailure, bulkNotice } from "./bulk";
+import { bulkFailure, bulkNotice, readingNotice } from "./bulk";
 import { suggestedName } from "./collections";
 import { undoNotice } from "./undo";
 import { Bookmark } from "../types";
@@ -30,6 +30,16 @@ describe("bulk action words (frame 27)", () => {
     expect(undoNotice(t, { outcome: "undone", action: "trash", bookmarks: [b, b, b] }).text).toBe("Возвращены из корзины 3 закладки");
     expect(undoNotice(t, { outcome: "undone", action: "move", bookmarks: [b, b] }).text).toBe("Отменено для 2 закладок");
     expect(undoNotice(t, { outcome: "undone", action: "move", bookmarks: [b] }).text).toBe("Отменено: «Один»");
+  });
+});
+
+describe("finished (the phone's reader): its own words", () => {
+  it("names the bookmark, counts many, says what an undo brought back", () => {
+    const en = i18n.getFixedT("en");
+    expect(readingNotice(en, { action: "finish" }, { title: "Local-first software", url: "https://inkandswitch.com" })).toBe("Finished · Local-first software");
+    expect(bulkNotice(t, { action: "finish" }, 3)).toBe("3 закладки отмечены дочитанными");
+    const b = { title: "Один" } as Bookmark;
+    expect(undoNotice(en, { outcome: "undone", action: "finished", bookmarks: [b] }).text).toBe("Back in Reading: «Один»");
   });
 });
 

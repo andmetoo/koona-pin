@@ -1283,7 +1283,8 @@ pub enum Bulk {
     Reading(bool),
     /// Marked read (progress 1) or unread (from the start).
     Read(bool),
-    /// Finished from the phone's reader: out of Reading and read, in one go.
+    /// Finished from the phone's reader: out of Reading and read, in one go;
+    /// only bookmarks in Reading change.
     Finish,
 }
 
@@ -1390,8 +1391,9 @@ pub(crate) fn bulk_in(conn: &Connection, ids: &[i64], bulk: &Bulk) -> Result<(us
         ),
         Bulk::Reading(false) => ("?2 IS NULL AND reading_at IS NOT NULL", "reading_at=NULL".to_string(), Value::Null),
         Bulk::Read(true) => ("?2 IS NULL AND read_at IS NULL", "read_at=?3, reading_progress=1".to_string(), Value::Null),
+        // Only what is in Reading: finishing is how a read leaves it.
         Bulk::Finish => (
-            "?2 IS NULL AND (reading_at IS NOT NULL OR read_at IS NULL)",
+            "?2 IS NULL AND reading_at IS NOT NULL",
             "reading_at=NULL, read_at=COALESCE(read_at, ?3), reading_progress=1".to_string(),
             Value::Null,
         ),

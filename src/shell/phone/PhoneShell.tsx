@@ -54,10 +54,11 @@ export function PhoneShell() {
   const bar = useVerticalBar();
   const hand = bar ? bar.edge : chosenHand;
   const [column, setColumn] = useState<HTMLElement | null>(null);
-  // The status block's end, kept while a fold or a rotation reports none for a moment; until one
-  // is known, the taller of the two displays' (174).
-  const lastStatus = useRef(174);
-  if (bar?.status) lastStatus.current = bar.status[1] + bar.status[3];
+  // The status block's end on each display (the inner one has the fold), kept while a fold or a
+  // rotation reports none for a moment; until one is known, what the Simulator measures there.
+  const lastStatus = useRef({ outer: 174, inner: 124 });
+  const display = bar?.division ? "inner" : "outer";
+  if (bar?.status) lastStatus.current[display] = bar.status[1] + bar.status[3];
   const [thumb, setThumb] = useState<HTMLElement | null>(null);
   const pillShown = !fold && stack.atRoot && !keyboardUp;
   const [primary, setPrimary] = useState<PrimaryAction | null>(null);
@@ -99,7 +100,7 @@ export function PhoneShell() {
             data-keyboard={keyboardUp || undefined}
             data-glass={flatGlass(system) ? "flat" : undefined}
             data-text-large={largeText(system) || undefined}
-            style={{ "--ph-lift": `${bottomLift}px`, "--ph-text-scale": system.textScale, ...barStyle(bar, lastStatus.current) } as CSSProperties}
+            style={{ "--ph-lift": `${bottomLift}px`, "--ph-text-scale": system.textScale, ...barStyle(bar, lastStatus.current[display]) } as CSSProperties}
           >
             <div className="ph-main">
               <ScreenStack />

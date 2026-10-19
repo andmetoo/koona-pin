@@ -197,12 +197,12 @@ export function useBookmarkActions({
   /**
    * One bookmark's Reading change through the bulk command (into or out of Reading, read or
    * unread, or the phone's "finished": out of Reading and read in one command), its notice with
-   * Undo — `text` instead of the usual words — or the error; true once done.
+   * Undo or the error; true once done.
    */
-  const readingChange = (b: Bookmark, change: BulkChange, text?: string): Promise<boolean> =>
+  const readingChange = (b: Bookmark, change: BulkChange): Promise<boolean> =>
     api.bulkUpdate([b.id], change).then(
       ({ command }) => {
-        say(text ?? readingNotice(t, change), false, undoing(command));
+        say(readingNotice(t, change, b), false, undoing(command));
         return true;
       },
       (err) => {

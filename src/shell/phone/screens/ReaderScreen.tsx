@@ -85,7 +85,7 @@ function Reader({ bookmark: b, hidden }: { bookmark: Bookmark; hidden: boolean }
     if (!b.reading_at || finished || finishing.current) return;
     finishing.current = true;
     setFinished(true);
-    void app.readingChange(b, { action: "finish" }, t("phone.reader.finished", { title: b.title || b.domain || b.url })).then((done) => {
+    void app.readingChange(b, { action: "finish" }).then((done) => {
       finishing.current = false;
       if (!done) setFinished(false);
     });
@@ -138,7 +138,7 @@ function Reader({ bookmark: b, hidden }: { bookmark: Bookmark; hidden: boolean }
                 icon={Ellipsis}
                 size={44}
                 label={t("phone.reader.more")}
-                onClick={() => sheets.open({ kind: "bookmarkMenu", props: { bookmarkId: b.id, fromReader: true } })}
+                onClick={() => sheets.open({ kind: "bookmarkMenu", props: { bookmarkId: b.id, onFinish: finish } })}
               />
             </>
           }
