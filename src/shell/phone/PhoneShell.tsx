@@ -5,6 +5,7 @@ import { useAppState } from "../../app/appState";
 import { useMedia } from "../../app/layout";
 import { useKeyboardUp } from "../../platform/keyboard";
 import { flatGlass, largeText, useSystemSignals } from "../../platform/system";
+import { useVerticalBar, type VerticalBar } from "../../platform/verticalBar";
 import { preference, savePreference } from "../../services/preferences";
 import { usePhoneStack } from "./navigation/usePhoneStack";
 import { type Phone, PhoneContext, type PrimaryAction, usePhone } from "./PhoneContext";
@@ -43,11 +44,22 @@ export function PhoneShell() {
   const system = useSystemSignals();
   const [bottomLift, setBottomLift] = useState(0);
   // The Fold's controls on the right by default; per device, not synced (doc/mobile-design.md).
-  const [hand, setHandState] = useState(() => preference<"right" | "left">("foldHand", ["right", "left"], "right"));
+  const [chosenHand, setHandState] = useState(() => preference<"right" | "left">("foldHand", ["right", "left"], "right"));
   const setHand = useCallback((side: "right" | "left") => {
     setHandState(side);
     savePreference("foldHand", side);
   }, []);
+  // iPhone Duo (iOS 27.1): the rail lives in the system's vertical bar, on the side the system
+  // puts it; the controls do not change sides there (Apple: the bar stays on the device's side).
+  const bar = useVerticalBar();
+  const hand = bar ? bar.edge : chosenHand;
+  const [column, setColumn] = useState<HTMLElement | null>(null);
+  // The status block's end on each display (the inner one has the fold), kept while a fold or a
+  // rotation reports none for a moment; until one is known, what the Simulator measures there.
+  const lastStatus = useRef({ outer: 174, inner: 124 });
+  const display = bar?.division ? "inner" : "outer";
+  if (bar?.status) lastStatus.current[display] = bar.status[1] + bar.status[3];
+  const [thumb, setThumb] = useState<HTMLElement | null>(null);
   const pillShown = !fold && stack.atRoot && !keyboardUp;
   const [primary, setPrimary] = useState<PrimaryAction | null>(null);
   // The row of what the Fold's detail pane shows is marked; a phone marks none.
@@ -57,8 +69,8 @@ export function PhoneShell() {
   const selected = useMemo(() => ({ bookmarkId, postId }), [bookmarkId, postId]);
 
   const phone = useMemo<Phone>(
-    () => ({ app, stack, sheets, fold, hand, setHand, keyboardUp, pillShown, setBottomLift, selected, primary, setPrimary }),
-    [app, stack, sheets, fold, hand, setHand, keyboardUp, pillShown, selected, primary],
+    () => ({ app, stack, sheets, fold, hand, setHand, bar, column, thumb, keyboardUp, pillShown, setBottomLift, selected, primary, setPrimary }),
+    [app, stack, sheets, fold, hand, setHand, bar, column, thumb, keyboardUp, pillShown, selected, primary],
   );
   const account = useMemo(
     () => (
@@ -75,24 +87,34 @@ export function PhoneShell() {
   return (
     <PhoneContext.Provider value={phone}>
       <SheetsContext.Provider value={sheets}>
-        {/* On the Fold the cluster stands above the rail, on the side the person holds: not in the headers. */}
-        <AccountSlot.Provider value={fold ? null : account}>
+        {/* On the Fold the cluster stands above the rail, on the side the person holds: not in the headers.
+            On iPhone Duo it stays in the headers: the rail's column is the system's. */}
+        <AccountSlot.Provider value={fold && !bar ? null : account}>
           <div
             className="phone"
             data-phone
             data-fold={fold || undefined}
             data-hand={hand}
-            data-pill={pillShown || undefined}
+            data-pill={(pillShown && !bar) || undefined}
+            data-vbar={bar?.edge}
             data-keyboard={keyboardUp || undefined}
             data-glass={flatGlass(system) ? "flat" : undefined}
             data-text-large={largeText(system) || undefined}
-            style={{ "--ph-lift": `${bottomLift}px`, "--ph-text-scale": system.textScale } as CSSProperties}
+            style={{ "--ph-lift": `${bottomLift}px`, "--ph-text-scale": system.textScale, ...barStyle(bar, lastStatus.current[display]) } as CSSProperties}
           >
             <div className="ph-main">
               <ScreenStack />
-              {pillShown && <div className="ph-fade-bottom" aria-hidden="true" />}
+              {/* The bottom fade under the nav pill (iPhone Duo's outer display: under the list; triage's
+                  own pill stands at the bottom there and stays clear, DO1). */}
+              {pillShown && !(bar && stack.tab === "inbox") && <div className="ph-fade-bottom" aria-hidden="true" />}
             </div>
-            {fold ? (
+            {bar ? (
+              <>
+                {/* On the outer display the reader keeps the navigation beside its drop (DO2). */}
+                <Rail account={null} hidden={!fold && !pillShown && !(stack.top?.name === "reader" && !keyboardUp)} thumb={setThumb} />
+                <div ref={setColumn} className="ph-vbar-actions" data-vbar-actions />
+              </>
+            ) : fold ? (
               <Rail account={account} />
             ) : (
               <NavPill
@@ -116,6 +138,27 @@ export function PhoneShell() {
       </SheetsContext.Provider>
     </PhoneContext.Provider>
   );
+}
+
+/**
+ * The vertical bar's geometry for phone.css (`data-vbar`): its column's left edge and width, where
+ * its status block ends, and the fold's division on the inner display, in CSS pixels. `status` is
+ * where the block ended last time: a fold or a rotation can report the column a moment before its
+ * status block, and the slab and the actions must not slide under the clock meanwhile.
+ */
+function barStyle(bar: VerticalBar | null, status: number): Record<string, string> {
+  if (!bar) return {};
+  const [x, , width] = bar.column;
+  const style: Record<string, string> = {
+    "--vbar-x": `${x}px`,
+    "--vbar-w": `${width}px`,
+    "--vbar-status": `${status}px`,
+  };
+  if (bar.division) {
+    style["--vbar-fold-start"] = `${bar.division[0]}px`;
+    style["--vbar-fold-end"] = `${bar.division[0] + bar.division[2]}px`;
+  }
+  return style;
 }
 
 /**

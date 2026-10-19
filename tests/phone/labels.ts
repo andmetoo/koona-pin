@@ -42,7 +42,8 @@ export function labelProblems(page: Page) {
     const texts = new Set<HTMLElement>();
     for (const layer of layers)
       for (const el of layer.querySelectorAll<HTMLElement>("*")) {
-        if (el.closest(DATA) || el.closest("[aria-hidden='true']") || !rects(el).length || !visible(el)) continue;
+        // Text for screen readers only (`sr-only`) is not seen.
+        if (el.closest(DATA) || el.closest("[aria-hidden='true'], .sr-only") || !rects(el).length || !visible(el)) continue;
         texts.add(el);
       }
 

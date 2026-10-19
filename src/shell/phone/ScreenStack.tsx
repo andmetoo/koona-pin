@@ -1,3 +1,4 @@
+import { useContext } from "react";
 import { DetailEmpty } from "./fold/DetailEmpty";
 import { paneOf, type Route, type Tab } from "./navigation/stack";
 import { usePhone } from "./PhoneContext";
@@ -9,6 +10,7 @@ import { PostScreen } from "./screens/PostScreen";
 import { ReaderScreen } from "./screens/ReaderScreen";
 import { SearchScreen } from "./screens/SearchScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
+import { AccountSlot } from "./ui/Screen";
 
 /**
  * The tab's root screen and the routes pushed over it, all mounted so going back keeps each one's
@@ -22,6 +24,7 @@ import { SettingsScreen } from "./screens/SettingsScreen";
  */
 export function ScreenStack() {
   const { stack, fold } = usePhone();
+  const account = useContext(AccountSlot);
   const { tab, routes } = stack;
   const all = routes.map((route, i) => ({ route, i, pane: paneOf(route) }));
   const top = routes.length - 1;
@@ -41,9 +44,12 @@ export function ScreenStack() {
       </div>
       <section className="ph-pane-detail" data-pane="detail" data-empty={(fold && topDetail < 0) || undefined}>
         <div className="ph-pane-body">
-          {details.map(({ route, i }) => (
-            <RouteScreen key={`${i}:${route.name}`} route={route} hidden={!shown(i, "detail")} />
-          ))}
+          {/* The account cluster belongs to the list pane's header (iPhone Duo), never to the detail. */}
+          <AccountSlot.Provider value={fold ? null : account}>
+            {details.map(({ route, i }) => (
+              <RouteScreen key={`${i}:${route.name}`} route={route} hidden={!shown(i, "detail")} />
+            ))}
+          </AccountSlot.Provider>
           {fold && topDetail < 0 && <DetailEmpty tab={tab} />}
         </div>
       </section>

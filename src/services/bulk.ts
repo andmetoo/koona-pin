@@ -26,13 +26,19 @@ export function bulkNotice(t: TFunction, change: BulkChange, count: number, name
       return t(change.reading ? "bulk.toReading" : "bulk.fromReading", { count });
     case "read":
       return t(change.read ? "bulk.markedRead" : "bulk.markedUnread", { count });
+    case "finish":
+      return t("bulk.finished", { count });
   }
 }
 
-/** The notice after a Reading action on one bookmark from its menu (NP-121). */
-export function readingNotice(t: TFunction, change: BulkChange): string {
+/**
+ * The notice after a Reading action on one bookmark (NP-121): from its menu, or the phone's
+ * "finished", which names it ("Finished · Local-first software").
+ */
+export function readingNotice(t: TFunction, change: BulkChange, bookmark?: { title: string; url: string; domain?: string | null }): string {
   if (change.action === "reading") return t(change.reading ? "notice.toReading" : "notice.fromReading");
   if (change.action === "read") return t(change.read ? "notice.markedRead" : "notice.markedUnread");
+  if (change.action === "finish") return t("notice.finished", { title: short(bookmark?.title || bookmark?.domain || bookmark?.url || "") });
   return "";
 }
 
@@ -58,5 +64,7 @@ export function bulkFailure(t: TFunction, change: BulkChange, count: number, err
       return t(change.reading ? "bulk.failed.toReading" : "bulk.failed.fromReading", { count, reason });
     case "read":
       return t(change.read ? "bulk.failed.markRead" : "bulk.failed.markUnread", { count, reason });
+    case "finish":
+      return t("bulk.failed.finish", { count, reason });
   }
 }

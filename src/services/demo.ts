@@ -854,6 +854,9 @@ function bulkFields(b: Bookmark, change: BulkChange, collectionId: number | null
     case "read":
       if (change.read) return b.read_at ? null : { read_at: now, reading_progress: 1 };
       return b.read_at || b.reading_progress > 0 ? { read_at: null, reading_progress: 0 } : null;
+    // The phone's "finished": out of Reading and read, one command.
+    case "finish":
+      return b.reading_at ? { reading_at: null, read_at: b.read_at ?? now, reading_progress: 1 } : null;
   }
 }
 /** A JSON copy as the demo reads it: the format, the version, the lists and every address (`restore.rs` checks more). */
@@ -1614,7 +1617,9 @@ export const demo = {
             ? bulk.read
               ? "read"
               : "unread"
-            : bulk.action;
+            : bulk.action === "finish"
+              ? "finished"
+              : bulk.action;
     const command = remember(action, steps);
     emitMany("updated", changed);
     return { count, changed: changed.length, command, collection: created && { ...created, count } };

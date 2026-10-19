@@ -56,6 +56,8 @@ pub enum Action {
     Read,
     /// Marked unread.
     Unread,
+    /// Finished from the phone's reader: out of Reading and read.
+    Finished,
 }
 
 /// What `undo` did.

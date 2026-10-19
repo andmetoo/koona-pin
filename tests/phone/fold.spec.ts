@@ -141,7 +141,7 @@ test("a row's tap selects it into the detail sheet; Read on the rail opens the r
   await expect(primary(page)).toHaveAccessibleName("Read");
 
   await primary(page).click();
-  await expect(detailScreen(page).getByRole("button", { name: "Done" })).toBeVisible();
+  await expect(detailScreen(page).getByRole("progressbar", { name: "Read so far" })).toBeVisible();
   await expect(row).toHaveAttribute("aria-current", "true");
   await expect(primary(page)).toHaveCount(0);
 
@@ -198,10 +198,10 @@ test("folding and unfolding keeps the tab, the open bookmark or post, and an edi
   const first = topScreen(page).locator("[data-bookmark-id]").nth(1);
   const id = await first.getAttribute("data-bookmark-id");
   await first.click();
-  await expect(topScreen(page).getByRole("button", { name: "Done" })).toBeVisible();
+  await expect(topScreen(page).getByRole("progressbar", { name: "Read so far" })).toBeVisible();
   await page.setViewportSize(FOLD);
   await expect(rail(page)).toBeVisible();
-  await expect(detailScreen(page).getByRole("button", { name: "Done" })).toBeVisible();
+  await expect(detailScreen(page).getByRole("progressbar", { name: "Read so far" })).toBeVisible();
   await expect(rows(page).and(page.locator(`[data-bookmark-id="${id}"]`))).toHaveAttribute("aria-current", "true");
 
   // …and a bookmark chosen on the Fold is its reader once folded; Back returns to the list.
@@ -211,7 +211,7 @@ test("folding and unfolding keeps the tab, the open bookmark or post, and an edi
   await expect(detailScreen(page).getByRole("heading", { level: 1 })).toHaveText(label);
   await page.setViewportSize(PHONE);
   await expect(topScreen(page)).toHaveAttribute("aria-label", label);
-  await expect(topScreen(page).getByRole("button", { name: "Done" })).toBeVisible();
+  await expect(topScreen(page).getByRole("progressbar", { name: "Read so far" })).toBeVisible();
   expect(await systemBack(page)).toBe(true);
   await expect(navPill(page)).toBeVisible();
   expect(await systemBack(page)).toBe(false);

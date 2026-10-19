@@ -4,6 +4,7 @@ import { BookOpen, Ellipsis, ExternalLink, Hash, Heart, Pencil } from "lucide-re
 import type { Route } from "../navigation/stack";
 import { usePhone, usePrimaryAction } from "../PhoneContext";
 import { PaneBar } from "../fold/PaneBar";
+import { ColumnActions } from "../ui/ColumnActions";
 import { savedLine } from "../fold/savedLine";
 import { CircleButton } from "../ui/buttons";
 import { Chip } from "../ui/controls";
@@ -33,12 +34,12 @@ export function BookmarkScreen({ route, hidden }: { route: Extract<Route, { name
   );
   return (
     <Screen label={bookmark ? bookmark.title || bookmark.url : t("phone.reader.title")} hidden={hidden} route className="rd-screen fl-detail">
-      {bookmark ? <Detail b={bookmark} /> : <div className="rd-loading" role="status" aria-label={t("reader.loading")} />}
+      {bookmark ? <Detail b={bookmark} shown={fold && !hidden} /> : <div className="rd-loading" role="status" aria-label={t("reader.loading")} />}
     </Screen>
   );
 }
 
-function Detail({ b }: { b: Bookmark }) {
+function Detail({ b, shown }: { b: Bookmark; shown: boolean }) {
   const { app, sheets } = usePhone();
   const { t, i18n } = app;
   const collection = app.library.collections.find((c) => c.id === b.collection_id);
@@ -50,7 +51,8 @@ function Detail({ b }: { b: Bookmark }) {
       <PaneBar
         outer={<CircleButton icon={Ellipsis} kind="clear" size={44} label={t("phone.reader.more")} onClick={() => sheets.open({ kind: "bookmarkMenu", props: { bookmarkId: b.id, bookmark: b } })} />}
         near={
-          <>
+          // On iPhone Duo they move into the vertical bar's slots, unless the list pane holds them (DU1).
+          <ColumnActions rank={2} active={shown}>
             <CircleButton icon={ExternalLink} kind="clear" size={44} label={t("phone.reader.openOriginal")} onClick={() => app.open(b.url)} />
             <CircleButton
               icon={Heart}
@@ -61,7 +63,7 @@ function Detail({ b }: { b: Bookmark }) {
               className={b.is_favorite ? "rd-pressed" : undefined}
               onClick={() => app.actions.favorite(b)}
             />
-          </>
+          </ColumnActions>
         }
       />
       <div className="fl-detail-body">

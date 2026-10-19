@@ -250,6 +250,35 @@ mod tests {
     }
 
     #[test]
+    fn finishing_takes_it_out_of_reading_and_marks_it_read_in_one_command() {
+        let conn = library();
+        let mut journal = Journal::default();
+        let id = add(&conn, "finished");
+        apply_bulk(&conn, &[id], &Bulk::Reading(true)).unwrap();
+        set_progress(&conn, id, 0.4).unwrap();
+        let (done, command) = journal.record(&conn, Action::Finished, &[id], |conn| apply_bulk(conn, &[id], &Bulk::Finish).map(|(_, c)| c)).unwrap();
+        assert!(command.is_some());
+        let b = &done[0];
+        assert_eq!((b.reading_at.is_none(), b.read_at.is_some(), b.reading_progress), (true, true, 1.0));
+        // Finished again: nothing to change, nothing recorded.
+        assert_eq!(apply_bulk(&conn, &[id], &Bulk::Finish).unwrap().1.len(), 0);
+        // Not in Reading: finishing does not touch it, read or not.
+        let outside = add(&conn, "outside");
+        assert_eq!(apply_bulk(&conn, &[outside], &Bulk::Finish).unwrap().1.len(), 0);
+        let untouched = db::get_bookmark_by_id(&conn, outside).unwrap();
+        assert_eq!((untouched.read_at.is_none(), untouched.reading_progress), (true, 0.0));
+        // One undo puts back both: in Reading, unread, where it stopped.
+        match journal.undo(&conn, None).unwrap() {
+            Undo::Undone { action, bookmarks } => {
+                assert_eq!(action, Action::Finished);
+                let b = &bookmarks[0];
+                assert_eq!((b.reading_at.is_some(), b.read_at.is_none(), b.reading_progress), (true, true, 0.4));
+            }
+            other => panic!("expected an undo, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn a_read_one_sent_again_starts_over_and_unread_starts_from_the_top() {
         let conn = library();
         let id = add(&conn, "again");

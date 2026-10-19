@@ -48,7 +48,7 @@ const readerThemeName = (theme: ReaderChoice["theme"], t: TFunction) => (theme =
 
 /** The list: General, Reading, Sync, Data, Help (FL3's rows: an icon, the name, the value, a chevron). */
 export function SettingsList({ go }: { go: (page: SettingsPage) => void }) {
-  const { app, fold, hand } = usePhone();
+  const { app, fold, hand, bar } = usePhone();
   const { t, i18n, theme, readerLook, sync, setSurface, dataVersion } = app;
   const [data] = useDataSummary(dataVersion);
   const card = useSyncCard();
@@ -61,7 +61,8 @@ export function SettingsList({ go }: { go: (page: SettingsPage) => void }) {
       <Shelf label={t("phone.settings.general")} className="st-shelf">
         <ShelfRow icon={SunMoon} title={t("phone.settings.appearance")} detail={themeName(theme, t)} chevron onClick={() => go("appearance")} />
         <ShelfRow icon={Globe} title={t("phone.settings.language")} detail={language} chevron onClick={() => go("language")} />
-        {fold && (
+        {/* The controls cannot change sides beside iPhone Duo's vertical bar. */}
+        {fold && !bar && (
           <ShelfRow
             icon={Hand}
             title={t("phone.settings.layout")}

@@ -3,6 +3,7 @@ import { BookmarkMenu } from "./BookmarkMenu";
 import { CollectionPicker } from "./CollectionPicker";
 import { EditSheet } from "./EditSheet";
 import { FeedMenuSheet } from "./FeedMenuSheet";
+import { FinishSheet } from "./FinishSheet";
 import { NewLinkSheet } from "./NewLinkSheet";
 import { ReaderLookSheet } from "./ReaderLookSheet";
 import { YouSheet } from "./YouSheet";
@@ -28,6 +29,8 @@ export const SHEETS = {
   bookmarkMenu: BookmarkMenu,
   /** "Aa" of the reader and the post view. */
   readerLook: ReaderLookSheet,
+  /** "Mark as finished?": a tap on the reader's progress. */
+  finishReading: FinishSheet,
   /** A feed chip's long-press menu. */
   feedMenu: FeedMenuSheet,
   /** Supporter: the perks, and the purchase where the build sells (`app.surface` "supporter"). */

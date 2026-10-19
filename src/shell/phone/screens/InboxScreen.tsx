@@ -1,16 +1,18 @@
 import "./InboxScreen.css";
-import { useEffect, useLayoutEffect, useRef } from "react";
-import { Check, CircleAlert, Ellipsis, Trash2 } from "lucide-react";
+import { type CSSProperties, useEffect, useLayoutEffect, useRef } from "react";
+import { BookOpen, Check, CircleAlert, Ellipsis, Trash2 } from "lucide-react";
 import { capabilities } from "../../../platform/capabilities";
 import { success } from "../../../platform/haptics";
 import { collectionColor } from "../../../services/collections";
 import { collectionKeys } from "../../../services/triage";
 import { DecisionPill } from "../inbox/DecisionPill";
 import { InboxEmpty, InboxSorted } from "../inbox/InboxStates";
-import { current as currentOf, isDone, minutesSpent, progress, summary, upcoming } from "../inbox/triage";
+import { current as currentOf, isDone, minutesSpent, progress, summary, type TriageState, upcoming } from "../inbox/triage";
+import { shortAge } from "../library/age";
+import { coverOf, siteName } from "../../../services/cover";
 import { TriageCard } from "../inbox/TriageCard";
 import { type Leaving, useTriage } from "../inbox/useTriage";
-import { useSwipe } from "../inbox/useSwipe";
+import { type Toward, useSwipe } from "../inbox/useSwipe";
 import { useBottomLift, usePhone } from "../PhoneContext";
 import { Button } from "../ui/buttons";
 import { Chip } from "../ui/controls";
@@ -35,7 +37,11 @@ const LIFT = 90;
  * waiting here).
  */
 export function InboxScreen({ hidden }: { hidden: boolean }) {
-  const { app, stack, sheets } = usePhone();
+  const { app, stack, sheets, bar, fold } = usePhone();
+  // iPhone Duo's inner display (DU3): two full-height panels, "Up next" and Undo on the left, the
+  // card and the pill under the thumb on the right; no Done there (nor on the outer display, DO1).
+  const duo = !!bar;
+  const spread = duo && fold;
   const { t } = app;
   const triage = useTriage(app);
   const { state } = triage;
@@ -69,9 +75,9 @@ export function InboxScreen({ hidden }: { hidden: boolean }) {
         <Header
           title={title}
           beside={sorting && total > 0 ? <span className="inb-count">{t("phone.kit.progress", { done: number, total })}</span> : undefined}
-          account={sorting ? false : undefined}
+          account={sorting && !spread ? false : undefined}
           actions={
-            sorting ? (
+            sorting && !duo ? (
               <Button kind="clear" compact className="inb-finish" onClick={toLibrary}>
                 {t("phone.inbox.done")}
               </Button>
@@ -146,6 +152,8 @@ export function InboxScreen({ hidden }: { hidden: boolean }) {
                 </div>
               </div>
 
+              {spread && <UpNext state={state} language={app.i18n.language} />}
+
               <div className="inb-decide-slot">
                 <DecisionPill
                   toward={swipe.toward}
@@ -163,14 +171,53 @@ export function InboxScreen({ hidden }: { hidden: boolean }) {
   );
 }
 
-/** "Move to trash" or "Keep" on the dragged card, stronger as it nears the threshold (I2). */
-function SwipeLabel({ toward }: { toward: "trash" | "keep" | null }) {
+/**
+ * DU3's "Up next" in the left panel: the next four waiting, each with its site's tint and initial,
+ * the title and "site · age"; then how many more and the oldest's age.
+ */
+function UpNext({ state, language }: { state: TriageState | null; language: string }) {
+  const { t } = usePhone().app;
+  const rest = upcoming(state, Number.MAX_SAFE_INTEGER);
+  if (!rest.length) return null;
+  const shown = rest.slice(0, 4);
+  const more = rest.slice(4);
+  const oldest = more.reduce<string | null>((at, b) => (!at || b.created_at < at ? b.created_at : at), null);
+  return (
+    <section className="inb-next" aria-label={t("phone.inbox.upNext", { count: rest.length })}>
+      <h2 className="ph-section-label inb-next-label">{t("phone.inbox.upNext", { count: rest.length })}</h2>
+      <ul className="inb-next-list">
+        {shown.map((b) => {
+          const cover = coverOf(b.domain, b.url);
+          return (
+            <li key={b.id} className="inb-next-row">
+              <span
+                className="inb-next-cover"
+                aria-hidden="true"
+                style={{ "--from": cover.from, "--to": cover.to, "--angle": `${cover.angle}deg` } as CSSProperties}
+              >
+                {(siteName(b) || b.domain || "?").slice(0, 1).toUpperCase()}
+              </span>
+              <span className="inb-next-text">
+                <span className="ph-row truncate">{b.title || b.url}</span>
+                <span className="ph-meta truncate">{[b.domain, shortAge(b.created_at, language)].filter(Boolean).join(" · ")}</span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      {more.length > 0 && oldest && <p className="ph-meta inb-next-more">{t("phone.inbox.moreOldest", { count: more.length, age: shortAge(oldest, language) })}</p>}
+    </section>
+  );
+}
+
+/** "Move to trash", "Reading" or "Keep" on the dragged card, stronger as it nears the threshold (I2). */
+function SwipeLabel({ toward }: { toward: Toward }) {
   const { t } = usePhone().app;
   if (!toward) return null;
   return (
     <span className="inb-swipe-label" data-toward={toward} aria-hidden="true">
-      <PhIcon icon={toward === "trash" ? Trash2 : Check} at="field" />
-      {toward === "trash" ? t("phone.inbox.toTrash") : t("phone.inbox.keep")}
+      <PhIcon icon={toward === "trash" ? Trash2 : toward === "reading" ? BookOpen : Check} at="field" />
+      {toward === "trash" ? t("phone.inbox.toTrash") : toward === "reading" ? t("phone.inbox.reading") : t("phone.inbox.keep")}
     </span>
   );
 }
@@ -185,7 +232,8 @@ function LeavingCard({ leaving, onEnd }: { leaving: Leaving; onEnd: (n: number) 
     const el = ref.current;
     if (!el) return;
     const { kind, from } = leaving;
-    const start = `translate3d(${from}px, 0, 0) rotate(${from / 22}deg)`;
+    // An upward swipe (Reading) leaves from where the finger lifted it; sideways from where it leaned.
+    const start = kind === "reading" ? `translate3d(0, ${from}px, 0)` : `translate3d(${from}px, 0, 0) rotate(${from / 22}deg)`;
     const width = el.offsetWidth || 360;
     const end =
       kind === "trash"

@@ -1,6 +1,7 @@
 import { createContext, type Dispatch, type SetStateAction, useContext, useEffect, useRef } from "react";
 import type { LucideIcon } from "lucide-react";
 import type { AppState } from "../../app/appState";
+import type { VerticalBar } from "../../platform/verticalBar";
 import type { PhoneStack } from "./navigation/usePhoneStack";
 import type { Sheets } from "./sheets/useSheets";
 
@@ -31,9 +32,18 @@ export type Phone = {
   /** Which side the Fold's rail and main buttons are on (Settings → Layout, a long press on the rail). */
   hand: "right" | "left";
   setHand: (side: "right" | "left") => void;
+  /**
+   * iOS 27.1's vertical bar (iPhone Duo, src/platform/verticalBar.ts): the rail lives in its column
+   * on both displays and the controls cannot change sides; null everywhere else.
+   */
+  bar: VerticalBar | null;
+  /** The vertical bar's slots for a screen's secondary actions (`ui/ColumnActions.tsx`); null without one. */
+  column: HTMLElement | null;
+  /** The rail's "+" slot on iPhone Duo, for a screen's own control (`ColumnThumb`); null without one. */
+  thumb: HTMLElement | null;
   /** The on-screen keyboard is up. */
   keyboardUp: boolean;
-  /** The nav pill shows: a tab's root, no keyboard, not on the Fold. */
+  /** The nav pill shows (or, on iPhone Duo's outer display, the rail in the column): a tab's root, no keyboard, not on the Fold. */
   pillShown: boolean;
   /** Raises the snackbar above a screen's own floating bar (the decision pill), in px. */
   setBottomLift: (px: number) => void;

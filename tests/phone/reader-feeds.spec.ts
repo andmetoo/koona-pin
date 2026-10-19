@@ -65,19 +65,114 @@ test.describe("the reader", () => {
     await expect(reader).toHaveAttribute("data-route");
   });
 
-  test("Done takes the bookmark out of Reading and goes back, with Undo", async ({ page }) => {
+  /** Pulls the reader's progress up out of the pill by `dy`, in small steps, as a finger. */
+  async function pull(page: Page, dy: number) {
+    const pie = (await page.locator("[data-screen]:not([hidden]) [data-reading-progress]").boundingBox())!;
+    const x = pie.x + pie.width / 2;
+    const y = pie.y + pie.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y - dy, { steps: 12 });
+    await page.mouse.up();
+  }
+
+  test("no Done: the progress is a pie; pulling it up finishes the reading, with Undo; a short pull changes nothing", async ({ page }) => {
     await openPhone(page);
     await navPill(page).getByRole("button", { name: "Reading" }).click();
     await expect(topScreen(page).getByRole("heading", { level: 1 })).toHaveText("Reading");
     const reader = await openFirstBookmark(page);
-    const title = await reader.getAttribute("aria-label");
-    await reader.getByRole("button", { name: "Done" }).click();
-    await expect(topScreen(page)).not.toHaveAttribute("data-route");
+    const title = (await reader.getAttribute("aria-label"))!;
+    await expect(reader.getByRole("button", { name: "Done" })).toHaveCount(0);
+    const progress = reader.getByRole("progressbar", { name: "Read so far" });
+    await expect(progress).toHaveAttribute("aria-valuetext", /% read/);
+    // The screen reader's way: a "Mark as finished" button beside it.
+    await expect(reader.getByRole("button", { name: "Mark as finished" })).toHaveCount(1);
+
+    await pull(page, 40);
+    await expect(page.locator("[data-snackbar]")).toHaveCount(0);
+    await expect(reader.locator(".lq[data-finished]")).toHaveCount(0);
+
+    await pull(page, 120);
     const snackbar = page.locator("[data-snackbar]");
-    await expect(snackbar).toContainText("Removed from Reading");
-    await expect(topScreen(page).locator("[data-bookmark-id]", { hasText: title! })).toHaveCount(0);
+    await expect(snackbar).toContainText(`Finished · ${title}`);
+    // The reader stays, the pie shows the check.
+    await expect(topScreen(page)).toHaveAttribute("aria-label", title);
+    await expect(reader.locator(".lq[data-finished]")).toHaveCount(1);
+    await expect(progress).toHaveAttribute("aria-valuetext", "Finished");
     await snackbar.getByRole("button", { name: "Undo" }).click();
-    await expect(topScreen(page).locator("[data-bookmark-id]", { hasText: title! })).toHaveCount(1);
+    await expect(reader.locator(".lq[data-finished]")).toHaveCount(0);
+    expect(await systemBack(page)).toBe(true);
+    await expect(topScreen(page).locator("[data-bookmark-id]", { hasText: title })).toHaveCount(1);
+  });
+
+  test("a tap on the pie asks first; the article's end offers Remove from Reading", async ({ page }) => {
+    await openPhone(page);
+    await navPill(page).getByRole("button", { name: "Reading" }).click();
+    const reader = await openFirstBookmark(page);
+    await reader.locator("[data-reading-progress]").click();
+    const sheet = page.locator('[data-sheet-kind="finishReading"]');
+    await expect(sheet.getByRole("dialog", { name: "Mark as finished?" })).toBeVisible();
+    await sheet.getByRole("button", { name: "Mark as finished" }).click();
+    await expect(page.locator("[data-snackbar]")).toContainText("Finished · ");
+    await page.locator("[data-snackbar]").getByRole("button", { name: "Undo" }).click();
+    await expect(reader.locator(".lq[data-finished]")).toHaveCount(0);
+
+    const end = reader.locator("[data-reader-end]");
+    await end.scrollIntoViewIfNeeded();
+    await expect(end).toContainText("You reached the end");
+    await end.getByRole("button", { name: "Remove from Reading" }).click();
+    await expect(page.locator("[data-snackbar]")).toContainText("Finished · ");
+    await expect(end).toHaveCount(0);
+  });
+
+  test("finishing also marks it read, once; one Undo puts back both", async ({ page }) => {
+    await openPhone(page);
+    await navPill(page).getByRole("button", { name: "Reading" }).click();
+    const reader = await openFirstBookmark(page);
+    const end = reader.locator("[data-reader-end]");
+    await end.scrollIntoViewIfNeeded();
+    // How it stood before (scrolled to the end, it may be read already): Undo returns to that.
+    const menu = page.locator('[data-sheet-kind="bookmarkMenu"]');
+    const readRow = menu.getByRole("button", { name: /^Mark as (un)?read$/ });
+    await reader.getByRole("button", { name: "More" }).click();
+    const before = await readRow.textContent();
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    // Two quick taps: one finish, one notice.
+    await end.getByRole("button", { name: "Remove from Reading" }).dblclick();
+    await expect(page.locator("[data-snackbar]")).toContainText("Finished · ");
+    await expect(page.locator("[data-snackbar]")).toHaveCount(1);
+    await reader.getByRole("button", { name: "More" }).click();
+    await expect(menu.getByRole("button", { name: "Send to Reading" })).toBeVisible();
+    await expect(menu.getByRole("button", { name: "Mark as unread" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await page.locator("[data-snackbar]").getByRole("button", { name: "Undo" }).click();
+    await reader.getByRole("button", { name: "More" }).click();
+    await expect(menu.getByRole("button", { name: "Remove from Reading" })).toBeVisible();
+    await expect(readRow).toHaveText(before!);
+    // From the reader, the menu's "Remove from Reading" is the reader's own finish: the pie shows
+    // it, and a pull right after finishes nothing more.
+    await menu.getByRole("button", { name: "Remove from Reading" }).click();
+    await expect(page.locator("[data-snackbar]")).toContainText("Finished · ");
+    await expect(reader.locator(".lq[data-finished]")).toHaveCount(1);
+    await expect(reader.getByRole("button", { name: "Mark as finished" })).toHaveCount(0);
+  });
+
+  test("outside Reading the pie only shows the progress", async ({ page }) => {
+    await openPhone(page);
+    const reader = await openFirstBookmark(page);
+    await expect(reader.getByRole("progressbar", { name: "Read so far" })).toBeVisible();
+    // Out of Reading first, through the ⋯ menu's own item.
+    await reader.getByRole("button", { name: "More" }).click();
+    const menu = page.locator('[data-sheet-kind="bookmarkMenu"]');
+    const remove = menu.getByRole("button", { name: "Remove from Reading" });
+    if (await remove.count()) await remove.click();
+    else await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(reader.getByRole("button", { name: "Mark as finished" })).toHaveCount(0);
+    await reader.locator("[data-reading-progress]").click();
+    await expect(page.locator('[data-sheet-kind="finishReading"]')).toHaveCount(0);
   });
 });
 

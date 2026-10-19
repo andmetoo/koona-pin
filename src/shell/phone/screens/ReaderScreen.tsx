@@ -1,12 +1,14 @@
 import "../reader/reader.css";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
-import { ALargeSmall, Check, Ellipsis, ExternalLink, Heart } from "lucide-react";
+import { ALargeSmall, BookCheck, Ellipsis, ExternalLink, Heart } from "lucide-react";
 import type { Route } from "../navigation/stack";
-import { usePhone } from "../PhoneContext";
-import { Button, CircleButton } from "../ui/buttons";
+import { useBottomLift, usePhone } from "../PhoneContext";
+import { CircleButton } from "../ui/buttons";
 import { PhIcon } from "../ui/icons";
 import { Screen } from "../ui/Screen";
 import { ArticleFailure, ReaderBar } from "../reader/parts";
+import { LiquidProgress } from "../reader/LiquidProgress";
+import { ColumnActions, ColumnThumb } from "../ui/ColumnActions";
 import { phoneReaderLook, useScreenLook } from "../reader/look";
 import { ArticleView, type ArticleStatus } from "../../../components/reader/ArticleView";
 import { SiteMark } from "../../../components/library/Bookmarks";
@@ -22,9 +24,13 @@ import type { Bookmark, BookmarkChange } from "../../../types";
  * edge's fade (Back; Aa, the reading look as a sheet; more, the bookmark's menu); the hero picture
  * with the site and a big title; the source line, the title, the authors, a short rule and the
  * page's text in Literata (`ArticleView`, the reader's extraction; no offline copy: the text
- * comes from the page). A floating action pill: favourite, open original, how far it is read, and
- * Done, which takes the bookmark out of Reading and goes back. A page that cannot be read shows
- * why and opens the original. There is no Share: the app has no way to share on a phone yet.
+ * comes from the page). A floating action pill: favourite, open original and how far it is read,
+ * a pie (owner, 19 October: no Done). Pulling the pie up out of the pill finishes the reading (it
+ * leaves Reading and is marked read, one Undo); a tap asks first; at the article's end a quiet row offers the same,
+ * as the ⋯ menu does. On iPhone Duo's outer display the pill gives way to the column (DO2): the
+ * actions on a slab under the status block, the navigation, and the progress as a drop to pull up
+ * in the rail's "+" slot with the time left above it. A page that cannot be read shows why and opens
+ * the original. There is no Share: the app has no way to share on a phone yet.
  */
 export function ReaderScreen({ route, hidden }: { route: Extract<Route, { name: "reader" }>; hidden: boolean }) {
   const { app, stack, sheets } = usePhone();
@@ -44,7 +50,7 @@ export function ReaderScreen({ route, hidden }: { route: Extract<Route, { name: 
 }
 
 function Reader({ bookmark: b, hidden }: { bookmark: Bookmark; hidden: boolean }) {
-  const { app, stack, sheets } = usePhone();
+  const { app, stack, sheets, bar, fold } = usePhone();
   const { t, readerLook } = app;
   const scroller = useRef<HTMLElement | null>(null);
   const [status, setStatus] = useState<ArticleStatus | null>(null);
@@ -66,10 +72,59 @@ function Reader({ bookmark: b, hidden }: { bookmark: Bookmark; hidden: boolean }
       setReady(true);
     });
 
-  const done = () => {
-    if (b.reading_at) app.readingChange(b, { action: "reading", reading: false });
-    stack.back();
+  // Finishing takes the bookmark out of Reading and marks it read, one command with one Undo
+  // (app/actions.ts `readingChange`); the reader stays. Once only: a snap and a tap, or two taps
+  // on the end row, finish it once.
+  const inReading = !!b.reading_at;
+  const [finished, setFinished] = useState(false);
+  const finishing = useRef(false);
+  useEffect(() => {
+    if (inReading) setFinished(false);
+  }, [inReading]);
+  const finish = () => {
+    if (!b.reading_at || finished || finishing.current) return;
+    finishing.current = true;
+    setFinished(true);
+    void app.readingChange(b, { action: "finish" }).then((done) => {
+      finishing.current = false;
+      if (!done) setFinished(false);
+    });
   };
+  const ask = () => sheets.open({ kind: "finishReading", props: { onFinish: finish } });
+  const left = minutes !== null && progress < 1 ? Math.max(1, Math.ceil(minutes * (1 - progress))) : null;
+  const value = finished
+    ? t("phone.reader.finishedState")
+    : left !== null
+      ? t("phone.reader.readLeft", { percent, count: left })
+      : t("phone.reader.readValue", { percent });
+  const outer = !!bar && !fold;
+  // "Finished · Undo" and the other notices sit above the pill, not over it.
+  useBottomLift(72, !hidden && !outer && !fold);
+  const progressProps = {
+    progress,
+    label: t("phone.reader.progress"),
+    value,
+    finishLabel: inReading ? t("phone.reader.finish") : null,
+    finished,
+    onFinish: finish,
+    onAsk: ask,
+  };
+  const favorite = (
+    <button
+      type="button"
+      className="rd-action ph-hit"
+      aria-label={b.is_favorite ? t("card.unfavorite") : t("card.favorite")}
+      aria-pressed={b.is_favorite}
+      onClick={() => app.actions.favorite(b)}
+    >
+      <PhIcon icon={Heart} className={b.is_favorite ? "rd-filled" : undefined} />
+    </button>
+  );
+  const original = (
+    <button type="button" className="rd-action ph-hit" aria-label={t("phone.reader.openOriginal")} onClick={() => app.open(b.url)}>
+      <PhIcon icon={ExternalLink} />
+    </button>
+  );
 
   return (
     <Screen label={b.title || b.url} hidden={hidden} route className="rd-screen" scrollRef={scroller}>
@@ -83,7 +138,7 @@ function Reader({ bookmark: b, hidden }: { bookmark: Bookmark; hidden: boolean }
                 icon={Ellipsis}
                 size={44}
                 label={t("phone.reader.more")}
-                onClick={() => sheets.open({ kind: "bookmarkMenu", props: { bookmarkId: b.id } })}
+                onClick={() => sheets.open({ kind: "bookmarkMenu", props: { bookmarkId: b.id, onFinish: finish } })}
               />
             </>
           }
@@ -116,35 +171,54 @@ function Reader({ bookmark: b, hidden }: { bookmark: Bookmark; hidden: boolean }
               <ArticleFailure failure={failure} onOpen={() => app.open(b.url)} onRetry={() => setAttempt((n) => n + 1)} />
             )}
           />
+          {/* The quiet way out of Reading at the article's end (with the ⋯ menu's "Remove from Reading"). */}
+          {article && inReading && !finished && (
+            <div className="rd-end" data-reader-end>
+              <span className="rd-end-text">
+                <span className="ph-headline">{t("phone.reader.end")}</span>
+                {minutes !== null && <span className="ph-meta">{t("reader.minutes", { count: minutes })}</span>}
+              </span>
+              <button type="button" className="rd-end-action ph-hit" onClick={finish}>
+                <PhIcon icon={BookCheck} at="field" />
+                {t("card.fromReading")}
+              </button>
+            </div>
+          )}
         </div>
       </>
-      <div className="rd-dock">
-        <div className="rd-fade-bottom" aria-hidden="true" />
-        <div role="toolbar" aria-label={t("phone.reader.actions")} className="rd-actions ph-glass">
-          <button
-            type="button"
-            className="rd-action ph-hit"
-            aria-label={b.is_favorite ? t("card.unfavorite") : t("card.favorite")}
-            aria-pressed={b.is_favorite}
-            onClick={() => app.actions.favorite(b)}
-          >
-            <PhIcon icon={Heart} className={b.is_favorite ? "rd-filled" : undefined} />
-          </button>
-          <button type="button" className="rd-action ph-hit" aria-label={t("phone.reader.openOriginal")} onClick={() => app.open(b.url)}>
-            <PhIcon icon={ExternalLink} />
-          </button>
-          <div className="rd-progress" role="progressbar" aria-label={t("phone.reader.progress")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
-            <span className="rd-percent">{t("phone.reader.percent", { percent })}</span>
-            <span className="rd-track" aria-hidden="true">
-              <span className="rd-fill" style={{ "--value": progress } as CSSProperties} />
-            </span>
+      {outer ? (
+        // DO2: the actions on a slab under the status block, the progress as the drop in the rail's "+" slot.
+        <>
+          <div className="rd-dock">
+            <div className="rd-fade-bottom" aria-hidden="true" />
           </div>
-          <span className="rd-divider" aria-hidden="true" />
-          <Button kind="primary" icon={Check} className="rd-done" onClick={done}>
-            {t("phone.reader.done")}
-          </Button>
+          <ColumnActions rank={0} active={!hidden}>
+            <div role="toolbar" aria-label={t("phone.reader.actions")} className="ph-vbar-slab ph-glass">
+              {favorite}
+              {original}
+            </div>
+          </ColumnActions>
+          {/* Nothing to read (loading, a page that cannot be shown): no drop, the navigation stays low. */}
+          <ColumnThumb active={!hidden && !!article}>
+            <LiquidProgress
+              variant="drop"
+              threshold={120}
+              caption={finished ? t("phone.reader.finishedState") : left !== null ? t("phone.reader.minLeft", { count: left }) : undefined}
+              {...progressProps}
+            />
+          </ColumnThumb>
+        </>
+      ) : (
+        <div className="rd-dock">
+          <div className="rd-fade-bottom" aria-hidden="true" />
+          <div role="toolbar" aria-label={t("phone.reader.actions")} className="rd-actions ph-glass">
+            {favorite}
+            {original}
+            <span className="rd-divider" aria-hidden="true" />
+            <LiquidProgress variant="pie" threshold={80} {...progressProps} />
+          </div>
         </div>
-      </div>
+      )}
     </Screen>
   );
 }

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-type Signals = { powerSave?: unknown; lowRam?: unknown; textScale?: unknown };
+type Signals = { powerSave?: unknown; lowRam?: unknown; textScale?: unknown; reduceTransparency?: unknown };
 
 /** A fresh module over a window whose bridge answers `answer` (or has no `system` at all). */
 async function load(answer?: () => Signals | undefined) {
@@ -23,13 +23,13 @@ describe("system signals", () => {
 
   it("are calm without the bridge's answer", async () => {
     const { system } = await load();
-    expect(system.systemSignals()).toEqual({ powerSave: false, lowRam: false, textScale: 1 });
+    expect(system.systemSignals()).toEqual({ powerSave: false, lowRam: false, textScale: 1, reduceTransparency: false });
     expect(system.flatGlass(system.systemSignals())).toBe(false);
   });
 
   it("read the bridge before anything renders", async () => {
     const { system } = await load(() => ({ powerSave: true, lowRam: false, textScale: 1.3 }));
-    expect(system.systemSignals()).toEqual({ powerSave: true, lowRam: false, textScale: 1.3 });
+    expect(system.systemSignals()).toEqual({ powerSave: true, lowRam: false, textScale: 1.3, reduceTransparency: false });
     expect(system.flatGlass(system.systemSignals())).toBe(true);
   });
 
@@ -38,13 +38,19 @@ describe("system signals", () => {
     expect(system.flatGlass(system.systemSignals())).toBe(true);
   });
 
+  it("draw the glass flat under iOS's Reduce Transparency, which WebKit's CSS does not see", async () => {
+    const { system } = await load(() => ({ powerSave: false, lowRam: false, textScale: 1, reduceTransparency: true }));
+    expect(system.systemSignals().reduceTransparency).toBe(true);
+    expect(system.flatGlass(system.systemSignals())).toBe(true);
+  });
+
   it("take nothing odd from the bridge, and survive one that throws", async () => {
-    const odd = await load(() => ({ powerSave: "yes", lowRam: 1, textScale: -2 }));
-    expect(odd.system.systemSignals()).toEqual({ powerSave: false, lowRam: false, textScale: 1 });
+    const odd = await load(() => ({ powerSave: "yes", lowRam: 1, textScale: -2, reduceTransparency: "on" }));
+    expect(odd.system.systemSignals()).toEqual({ powerSave: false, lowRam: false, textScale: 1, reduceTransparency: false });
     const broken = await load(() => {
       throw new Error("gone");
     });
-    expect(broken.system.systemSignals()).toEqual({ powerSave: false, lowRam: false, textScale: 1 });
+    expect(broken.system.systemSignals()).toEqual({ powerSave: false, lowRam: false, textScale: 1, reduceTransparency: false });
   });
 
   it("tell their listeners when the bridge says they changed, and only then (useSystemSignals' store)", async () => {
@@ -60,7 +66,7 @@ describe("system signals", () => {
     now = { powerSave: true, lowRam: false, textScale: 2 };
     change();
     expect(heard).toHaveBeenCalledTimes(1);
-    expect(system.systemSignals()).toEqual({ powerSave: true, lowRam: false, textScale: 2 });
+    expect(system.systemSignals()).toEqual({ powerSave: true, lowRam: false, textScale: 2, reduceTransparency: false });
     stop();
     now = { powerSave: false, lowRam: false, textScale: 2 };
     change();

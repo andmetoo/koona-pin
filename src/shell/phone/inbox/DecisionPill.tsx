@@ -55,11 +55,11 @@ export function DecisionPill({
         <span className="inb-seg-label">{labels[0]}</span>
       </button>
       <span className="inb-seg-rule" aria-hidden="true" />
-      <button type="button" className="inb-seg" disabled={disabled} onClick={onReading}>
+      <button type="button" className="inb-seg" data-pressed={toward === "reading" || undefined} disabled={disabled} onClick={onReading}>
         <PhIcon icon={BookOpen} />
         <span className="inb-seg-label">{labels[1]}</span>
       </button>
-      <button type="button" className="inb-seg inb-keep" data-recede={toward === "trash" || undefined} disabled={disabled} onClick={onKeep}>
+      <button type="button" className="inb-seg inb-keep" data-recede={(toward === "trash" || toward === "reading") || undefined} disabled={disabled} onClick={onKeep}>
         <PhIcon icon={Check} />
         <span className="inb-seg-label">{labels[2]}</span>
       </button>
