@@ -37,6 +37,8 @@ pub mod reader;
 pub mod reading;
 pub mod refresh;
 pub mod restore;
+#[cfg(all(desktop, not(feature = "public-release")))]
+pub mod shot_previews;
 #[cfg(all(unix, desktop, not(feature = "public-release")))]
 pub mod shots;
 pub mod sorting;

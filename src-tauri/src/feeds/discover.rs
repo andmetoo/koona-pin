@@ -33,7 +33,7 @@ pub const KEEP: Duration = Duration::from_secs(10 * 60);
 static PREVIEWS: LazyLock<Mutex<HashMap<String, (Instant, LinkPreview)>>> = LazyLock::new(Mutex::default);
 
 /// The address as the cache knows it: parsed, without its fragment.
-fn key(url: &str) -> Option<String> {
+pub(crate) fn key(url: &str) -> Option<String> {
     let mut url = Url::parse(url.trim()).ok()?;
     url.set_fragment(None);
     Some(url.to_string())
@@ -50,45 +50,11 @@ pub fn remember(asked: &str, preview: &LinkPreview, now: Instant) {
     }
 }
 
-/// Not in a public build: a JSON file of answers, `{ "links": { address: LinkPreview }, "feeds":
-/// { address: FeedPreview } }`, as requests would have given them. The site's screenshots
-/// (scripts/site-screenshots*.mjs) paste a page of the sample library, whose sites do not exist.
-#[cfg(not(feature = "public-release"))]
-pub const SHOTS_ENV: &str = "KOONAPIN_SHOTS_PREVIEWS";
-
-#[cfg(not(feature = "public-release"))]
-#[derive(Default, serde::Deserialize)]
-struct Seeded {
-    #[serde(default)]
-    links: HashMap<String, LinkPreview>,
-    #[serde(default)]
-    feeds: HashMap<String, FeedPreview>,
-}
-
-/// The answers of [`SHOTS_ENV`], by address as [`key`] writes it; none without the variable.
-#[cfg(not(feature = "public-release"))]
-static SEEDED: LazyLock<Seeded> = LazyLock::new(|| {
-    let Some(path) = std::env::var_os(SHOTS_ENV) else { return Seeded::default() };
-    let seeded: Seeded = match std::fs::read(&path).map_err(|e| e.to_string()).and_then(|b| serde_json::from_slice(&b).map_err(|e| e.to_string())) {
-        Ok(seeded) => seeded,
-        Err(error) => {
-            eprintln!("{SHOTS_ENV}: {error}");
-            return Seeded::default();
-        }
-    };
-    fn by_key<T>(map: HashMap<String, T>) -> HashMap<String, T> {
-        map.into_iter().filter_map(|(url, v)| Some((key(&url)?, v))).collect()
-    }
-    Seeded { links: by_key(seeded.links), feeds: by_key(seeded.feeds) }
-});
-
 /// An answer kept for `url` less than 10 minutes ago.
 pub fn recall(url: &str, now: Instant) -> Option<LinkPreview> {
     let key = key(url)?;
-    #[cfg(not(feature = "public-release"))]
-    if let Some(seeded) = SEEDED.links.get(&key) {
-        return Some(seeded.clone());
-    }
+    #[cfg(all(desktop, not(feature = "public-release")))]
+    if let Some(seeded) = crate::shot_previews::link(&key) { return Some(seeded) }
     let previews = PREVIEWS.lock().ok()?;
     let (at, preview) = previews.get(&key)?;
     (now.duration_since(*at) < KEEP).then(|| preview.clone())
@@ -217,10 +183,8 @@ pub fn posts_per_day(dates: &[DateTime<Utc>]) -> Option<f32> {
 
 /// The feed fetched once the «Follow» toggle is on: is it one, how often it posts.
 pub async fn feed(url: &Url, limits: &Limits) -> Result<FeedPreview, Failure> {
-    #[cfg(not(feature = "public-release"))]
-    if let Some(seeded) = key(url.as_str()).and_then(|key| SEEDED.feeds.get(&key)) {
-        return Ok(seeded.clone());
-    }
+    #[cfg(all(desktop, not(feature = "public-release")))]
+    if let Some(seeded) = key(url.as_str()).and_then(|key| crate::shot_previews::feed(&key)) { return Ok(seeded) }
     let fetched = fetch::fetch_feed(url, &Conditional::default(), limits).await;
     let feed = match fetched.outcome {
         Outcome::Fetched { feed, .. } => feed,

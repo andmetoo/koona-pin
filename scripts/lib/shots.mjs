@@ -67,7 +67,7 @@ export function servePreviews(host = "127.0.0.1") {
 /**
  * The page pasted into New link: a site of the sample (earlytrail.org, its day hikes are in
  * library.json) with a feed. The site does not exist: the test app takes the answers of the page
- * and of its feed from a file named by KOONAPIN_SHOTS_PREVIEWS (src-tauri/src/feeds/discover.rs).
+ * and of its feed from a file named by KOONAPIN_SHOTS_PREVIEWS (src-tauri/src/shot_previews.rs).
  */
 export const NEW_LINK = {
   url: "https://earlytrail.org/coastal-walks",

@@ -203,6 +203,7 @@ pub struct FeedCandidate {
 }
 
 /// The one request when a link is pasted into «New link» (plan §4.2).
+// `Deserialize` (with its parts'): the screenshots' answers are read from a file (`shot_previews`, test builds only).
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct LinkPreview {

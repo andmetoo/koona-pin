@@ -75,7 +75,7 @@ The help pages (koona.app/pin/help) also use four views, defined once in `script
 | `new-link` | New link with `https://earlytrail.org/coastal-walks` pasted, its preview, and Follow turned on with the feed's rate |
 | `settings` | Settings at the top, its first section (General) |
 
-The sample's sites do not exist, so the page pasted into New link and its feed answer from a file the scripts write and name in `KOONAPIN_SHOTS_PREVIEWS` (`src-tauri/src/feeds/discover.rs`), read only by builds without `public-release`; its picture is one of `scripts/shots/previews`.
+The sample's sites do not exist, so the page pasted into New link and its feed answer from a file the scripts write and name in `KOONAPIN_SHOTS_PREVIEWS` (`src-tauri/src/shot_previews.rs`), read only by builds without `public-release`; its picture is one of `scripts/shots/previews`.
 
 On Windows, `bun run site:shots` shoots grid, list and the help's views through WebView2, with the same `--view` and `--theme`. The site's shots come from the Mac (its window has the traffic lights), so the Windows ones are for checking the views.
 
