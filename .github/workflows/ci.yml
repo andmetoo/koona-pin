@@ -59,7 +59,7 @@ jobs:
               docs/* | changelog/* | design/* | *.md | LICENSE* | .github/workflows/cla.yml | .github/workflows/release.yml) ;;
               # src-tauri/* includes the Safari extension's Xcode project (src-tauri/macos/safari).
               src/* | src-tauri/* | scripts/build-macos.mjs | scripts/build-extension.mjs | scripts/build-android.mjs | scripts/build-ios-sim.mjs | \
-                scripts/lib/paths.mjs | package.json | bun.lock | .bun-version | rust-toolchain.toml | .cargo/* | \
+                scripts/lib/paths.mjs | scripts/lib/ios.mjs | package.json | bun.lock | .bun-version | rust-toolchain.toml | .cargo/* | \
                 vite.config.ts | tsconfig*.json | index.html | .github/workflows/ci.yml)
                 linux=true native=true ;;
               *) linux=true ;;

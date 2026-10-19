@@ -50,6 +50,7 @@
     "build:macos:test": "bun scripts/build-macos.mjs --test",
     "build:macos:safari": "bun scripts/build-macos.mjs --test --safari",
     "build:android": "bun scripts/build-android.mjs",
+    "build:ios": "bun scripts/build-ios.mjs",
     "build:ios:sim": "bun scripts/build-ios-sim.mjs",
     "build:latest": "bun scripts/build-latest.mjs",
     "build:release-data": "bun scripts/build-release-data.mjs",
