@@ -4,7 +4,10 @@
 //! The answer is kept for 10 minutes by address, and the save path takes the
 //! page's metadata from here ([`metadata_for_save`]) instead of downloading
 //! the page again. No `/feed` or `/rss.xml` is guessed: each guess would be a
-//! request to a page the person did not name.
+//! request to a page the person did not name. One more request goes to the same
+//! site's home page only when the named page names no feed, or is a feed's
+//! address that does not open (`/rss` where the site keeps `/rss.xml`): sites
+//! name their feeds there (owner, 19 October 2026).
 
 use super::{
     fetch::{self, Failure, Outcome},
@@ -124,6 +127,14 @@ pub async fn link(raw: &str, limits: &Limits) -> Result<LinkPreview, FetchError>
     let client = metadata::client(limits).map_err(|_| FetchError::Failed)?;
     let mut page = metadata::fetch_head(&client, &start, limits).await?;
     if !page.is_success() || page.body.is_empty() {
+        // A feed's address that does not open: the feed the site's home page names, followed instead.
+        if feed_like(&start) {
+            if let Some(feed) = home_feeds(&client, &start, limits).await.into_iter().next() {
+                let mut meta = metadata::base_metadata(&feed.url);
+                meta.title = feed.title.clone();
+                return Ok(LinkPreview { url: feed.url.clone(), metadata: meta, feeds: vec![feed], is_feed: true, subscribed_uid: None });
+            }
+        }
         return Err(FetchError::Failed);
     }
     let mut meta = metadata::base_metadata(start.as_str());
@@ -156,8 +167,39 @@ pub async fn link(raw: &str, limits: &Limits) -> Result<LinkPreview, FetchError>
     }
     metadata::read_page(&html, &page.url, &mut meta);
     metadata::guard_pictures(&mut meta).await;
-    let feeds = alternates(&html, &page.url);
+    let mut feeds = alternates(&html, &page.url);
+    if feeds.is_empty() {
+        feeds = home_feeds(&client, &page.url, limits).await;
+    }
     Ok(LinkPreview { url: page.url.to_string(), metadata: meta, feeds, is_feed: false, subscribed_uid: None })
+}
+
+/// The last part of the path names a feed: `/rss`, `/feed/`, `/atom.xml`, `/posts.rss`…
+fn feed_like(url: &Url) -> bool {
+    let last = url.path_segments().and_then(|mut parts| parts.rfind(|p| !p.is_empty())).unwrap_or("").to_ascii_lowercase();
+    matches!(last.as_str(), "rss" | "rss2" | "feed" | "feeds" | "atom")
+        || [".rss", ".atom", ".xml"].iter().any(|end| last.ends_with(end))
+}
+
+/// The site's home page for a page deeper in it; none for the home page itself.
+fn home_of(url: &Url) -> Option<Url> {
+    if url.path() == "/" && url.query().is_none() {
+        return None;
+    }
+    let mut home = url.clone();
+    home.set_path("/");
+    home.set_query(None);
+    home.set_fragment(None);
+    Some(home)
+}
+
+/// The feeds the site's home page names: one request, nothing on any failure.
+async fn home_feeds(client: &reqwest::Client, url: &Url, limits: &Limits) -> Vec<FeedCandidate> {
+    let Some(home) = home_of(url) else { return Vec::new() };
+    match metadata::fetch_head(client, &home, limits).await {
+        Ok(page) if page.is_success() && page.html => alternates(&charset::decode(&page.body, page.content_type.as_deref()).0, &page.url),
+        _ => Vec::new(),
+    }
 }
 
 /// The subscription of the first of `urls` already followed.
@@ -208,7 +250,7 @@ pub async fn feed(url: &Url, limits: &Limits) -> Result<FeedPreview, Failure> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::feeds::fetch::tests::{answer, rss, server, TEST};
+    use crate::feeds::fetch::tests::{answer, rss, server, Seen, TEST};
 
     fn fixture(name: &str) -> String {
         std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/feeds").join(name)).unwrap()
@@ -300,6 +342,40 @@ mod tests {
         assert_eq!(got.feeds[0].url, format!("http://127.0.0.1:{port}/feed"));
         // And refused before asking when local with the app's limits.
         assert!(matches!(link(&format!("http://127.0.0.1:{port}/feed"), &LIMITS).await, Err(FetchError::Refused)));
+    }
+
+    #[test]
+    fn feed_like_addresses_and_the_home_page() {
+        for url in ["https://bun.com/rss", "https://a.example/blog/feed/", "https://a.example/atom.xml", "https://a.example/posts.rss", "https://a.example/FEED"] {
+            assert!(feed_like(&Url::parse(url).unwrap()), "{url}");
+        }
+        for url in ["https://a.example/", "https://a.example/blog/rss-tips", "https://a.example/feeding"] {
+            assert!(!feed_like(&Url::parse(url).unwrap()), "{url}");
+        }
+        assert_eq!(home_of(&Url::parse("https://a.example/blog/feed/?x=1#top").unwrap()).unwrap().as_str(), "https://a.example/");
+        assert!(home_of(&Url::parse("https://a.example/").unwrap()).is_none(), "the home page is not asked twice");
+    }
+
+    /// The test server is not public, so its candidates are dropped: what is checked is that the
+    /// home page is asked only when the named page gives no feed, and once.
+    #[tokio::test]
+    async fn the_home_page_is_asked_only_when_the_page_names_no_feed() {
+        let (port, seen) = server(|request, _| {
+            if request.starts_with("get /rss ") {
+                answer("404 Not Found", "Content-Type: text/html\r\n", b"<html><head><title>Not found</title></head></html>")
+            } else {
+                answer("200 OK", "Content-Type: text/html\r\n", b"<html><head><title>Home</title></head></html>")
+            }
+        });
+        let asked = |seen: &Seen| seen.lock().unwrap().iter().map(|r| r.split_whitespace().nth(1).unwrap_or("").to_string()).collect::<Vec<_>>();
+        assert!(link(&format!("http://127.0.0.1:{port}/rss"), &TEST).await.is_err());
+        assert_eq!(asked(&seen), ["/rss", "/"], "a feed's address that does not open: the home page once");
+        seen.lock().unwrap().clear();
+        assert!(link(&format!("http://127.0.0.1:{port}/blog/missing"), &TEST).await.is_ok());
+        assert_eq!(asked(&seen), ["/blog/missing", "/"], "a page with no feed: the home page once");
+        seen.lock().unwrap().clear();
+        assert!(link(&format!("http://127.0.0.1:{port}/"), &TEST).await.is_ok());
+        assert_eq!(asked(&seen), ["/"], "the home page itself is not asked twice");
     }
 
     #[tokio::test]
