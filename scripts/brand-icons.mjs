@@ -2,13 +2,13 @@
 // one-colour mark (pin-spirit-micro.svg) in cream on an envy-green rounded tile, at every size, on
 // Windows, Linux and macOS. The extension keeps no tile in the browser's toolbar: the mark drawn
 // like the mascot at 16–32 px, the mascot at 48 px and up. Writes src-tauri/icons (via `tauri icon`
-// + a mixed ICO, the macOS ICNS on Apple's grid, the macOS menu bar template), extension/src/icons
-// and app-icon.svg.
+// + a mixed ICO, the macOS ICNS on Apple's grid, the macOS menu bar template), extension/src/icons,
+// app-icon.svg and the phones' icons in src-tauri/gen (see phoneIcons).
 //
-//   bun scripts/brand-icons.mjs [--preview out.png]
+//   bun scripts/brand-icons.mjs [--preview out.png | --phones]
 import { chromium } from "@playwright/test";
 import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, writeFile, copyFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -61,10 +61,23 @@ function toolbarMark(size) {
   );
 }
 
+/** A PNG without an alpha channel, by way of sips (macOS): the JPEG has none to carry over. */
+async function jpegToPng(jpeg) {
+  const dir = await mkdtemp(path.join(tmpdir(), "koonapin-opaque-"));
+  await writeFile(path.join(dir, "in.jpg"), jpeg);
+  execFileSync("sips", ["-s", "format", "png", path.join(dir, "in.jpg"), "--out", path.join(dir, "out.png")], { stdio: "ignore" });
+  const data = await readFile(path.join(dir, "out.png"));
+  await rm(dir, { recursive: true });
+  return data;
+}
+
 const browser = await chromium.launch();
 const page = await browser.newPage();
-/** Renders an SVG centred in a transparent square of `size` pixels, with a margin (a fraction of the side). */
-async function png(svg, size, margin = 0) {
+/**
+ * Renders an SVG centred in a transparent square of `size` pixels, with a margin (a fraction of the
+ * side); `opaque` drops the alpha channel (the App Store refuses an icon with one).
+ */
+async function png(svg, size, margin = 0, opaque = false) {
   const inner = Math.round(size * (1 - 2 * margin));
   await page.setViewportSize({ width: size, height: size });
   await page.setContent(
@@ -72,7 +85,8 @@ async function png(svg, size, margin = 0) {
       `<img style="width:${inner}px;height:${inner}px;object-fit:contain" src="data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}"></body>`,
   );
   await page.locator("img").evaluate((img) => img.decode());
-  return page.screenshot({ omitBackground: true, clip: { x: 0, y: 0, width: size, height: size } });
+  const shot = { clip: { x: 0, y: 0, width: size, height: size } };
+  return opaque ? jpegToPng(await page.screenshot({ ...shot, type: "jpeg", quality: 100 })) : page.screenshot({ ...shot, omitBackground: true });
 }
 
 /** ICO with PNG entries (supported since Windows Vista). */
@@ -112,6 +126,61 @@ if (preview > 0) {
   await browser.close();
   process.exit(0);
 }
+
+/**
+ * The phones get their own icons in the generated projects; Tauri's `icon` output fits neither:
+ * - iOS: one opaque 1024 square, full bleed; the system rounds the corners and makes the other sizes.
+ * - Android: an adaptive icon (the mark on a transparent 108 dp layer over the tile's colour, also the
+ *   monochrome layer of themed icons) and, for Android 7, the tile at 48 dp. The mark fills about
+ *   0.62 of the 72 dp the launcher shows, as on the desktop tile.
+ */
+async function phoneIcons() {
+  const apple = path.join(root, "src-tauri", "gen", "apple", "Assets.xcassets", "AppIcon.appiconset");
+  for (const name of await readdir(apple)) if (name.endsWith(".png")) await rm(path.join(apple, name));
+  const square = tile({ side: 1024, share: 0.62 }).replace(/ rx="[^"]+"/, "");
+  await writeFile(path.join(apple, "AppIcon.png"), await png(square, 1024, 0, true));
+  await writeFile(path.join(apple, "Contents.json"), JSON.stringify({
+    images: [{ filename: "AppIcon.png", idiom: "universal", platform: "ios", size: "1024x1024" }],
+    info: { author: "xcode", version: 1 },
+  }, null, 2) + "\n");
+
+  const res = path.join(root, "src-tauri", "gen", "android", "app", "src", "main", "res");
+  const k = (108 * 0.62 * 72) / 108 / vw;
+  const layer = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108"><path transform="translate(${(54 - (vw * k) / 2 - vx * k).toFixed(3)} ${(54 - (vh * k) / 2 - vy * k).toFixed(3)}) scale(${k.toFixed(5)})" d="${markPath}" fill="${MARK}" fill-rule="evenodd"/></svg>`;
+  const legacy = tile({ side: 1024 * 0.92, share: 0.62 });
+  for (const [density, scale] of Object.entries({ mdpi: 1, hdpi: 1.5, xhdpi: 2, xxhdpi: 3, xxxhdpi: 4 })) {
+    const folder = path.join(res, `mipmap-${density}`);
+    await rm(path.join(folder, "ic_launcher_round.png"), { force: true });
+    await writeFile(path.join(folder, "ic_launcher.png"), await png(legacy, 48 * scale));
+    const mark = await png(layer, 108 * scale);
+    await writeFile(path.join(folder, "ic_launcher_foreground.png"), mark);
+    await writeFile(path.join(folder, "ic_launcher_monochrome.png"), mark);
+  }
+  await mkdir(path.join(res, "mipmap-anydpi-v26"), { recursive: true });
+  await writeFile(path.join(res, "mipmap-anydpi-v26", "ic_launcher.xml"), `<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+  <background android:drawable="@color/ic_launcher_background"/>
+  <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+  <monochrome android:drawable="@mipmap/ic_launcher_monochrome"/>
+</adaptive-icon>
+`);
+  await writeFile(path.join(res, "values", "ic_launcher_background.xml"), `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <color name="ic_launcher_background">${TILE}</color>
+</resources>
+`);
+  // Android Studio's sample icon that `tauri android init` leaves behind.
+  await rm(path.join(res, "drawable", "ic_launcher_background.xml"), { force: true });
+  await rm(path.join(res, "drawable-v24", "ic_launcher_foreground.xml"), { force: true });
+}
+
+if (process.argv.includes("--phones")) {
+  await phoneIcons();
+  await browser.close();
+  console.log("icons written: src-tauri/gen/apple, src-tauri/gen/android");
+  process.exit(0);
+}
+await phoneIcons();
 
 const work = await mkdtemp(path.join(tmpdir(), "koonapin-icons-"));
 const tauri = (master, ...args) =>
