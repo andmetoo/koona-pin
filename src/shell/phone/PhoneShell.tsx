@@ -20,6 +20,7 @@ import { AccountCluster } from "./ui/AccountCluster";
 import { NavPill } from "./ui/NavPill";
 import { AccountSlot } from "./ui/Screen";
 import { Snackbar } from "./ui/Snackbar";
+import { useOverDialogs } from "../../components/ui/overDialogs";
 
 /** From this width the window is "expanded" (Material): the unfolded Fold gets the rail. */
 const FOLD = "(min-width: 840px)";
@@ -170,6 +171,9 @@ function PhoneSnackbar() {
   const { notice, setNotice, t } = app;
   const keys = useRef(new WeakMap<object, number>());
   const next = useRef(1);
+  const slot = useRef<HTMLDivElement>(null);
+  // Readable over an open dialog, such as Sync's: a modal one makes the rest of the screen inert.
+  const { popover, place } = useOverDialogs(slot, !!notice, notice);
   if (!notice) return null;
   if (!keys.current.has(notice)) keys.current.set(notice, next.current++);
   const close = () => setNotice((now) => (now === notice ? null : now));
@@ -188,8 +192,8 @@ function PhoneSnackbar() {
         : notice.alert
           ? { label: t("common.close"), run: () => setNotice(null) }
           : undefined;
-  return (
-    <div className="ph-snackbar-slot">
+  return place(
+    <div ref={slot} popover={popover} className="ph-snackbar-slot">
       <Snackbar
         key={keys.current.get(notice)}
         text={notice.text}
@@ -198,6 +202,6 @@ function PhoneSnackbar() {
         action={action}
         onTimeout={close}
       />
-    </div>
+    </div>,
   );
 }

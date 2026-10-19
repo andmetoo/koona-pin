@@ -2211,6 +2211,23 @@ test("covers: no empty plates; a fresh link shimmers; hover lives; Refresh previ
   await page.reload();
   await expect(cover(1)).toBeVisible();
 });
+test("a help link that can't open says so over the dialog, readable and not inert (NP-092)", async ({ page }) => {
+  await page.getByRole("button", { name: "No browser yet" }).click();
+  const dialog = page.getByRole("dialog", { name: "Connect browser" });
+  await failOnce(page, "openUrl", "internal", "No browser to open the link");
+  await dialog.getByRole("button", { name: "Help ↗" }).click();
+  // The notice is inside the dialog's top layer: in its accessibility tree, and on top where it is drawn.
+  const notice = dialog.getByRole("alert").filter({ hasText: "No browser to open the link" });
+  await expect(notice).toBeVisible();
+  const onTop = await notice.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+  });
+  expect(onTop).toBe(true);
+  await notice.getByRole("button", { name: "Close" }).click();
+  await expect(notice).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+});
 test("connect dialog: steps for each browser, no token and no bookmarklet", async ({ page }) => {
   await page.getByRole("button", { name: "No browser yet" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect browser" });
