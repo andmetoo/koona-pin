@@ -56,6 +56,10 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+        # Export compliance (NP-078): no ITSAppUsesNonExemptEncryption. Sync's ChaCha20-Poly1305 (ring) and
+        # rustls' TLS are standard algorithms outside the system's; YES without an approved
+        # ITSEncryptionExportComplianceCode fails App Store validation (90592), and the only document Apple
+        # asks for them is the French declaration. App Store Connect asks per build (docs/building.md).
         CFBundleShortVersionString: 2.7.0
         CFBundleVersion: "2.5.0"
     entitlements:

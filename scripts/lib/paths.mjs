@@ -6,6 +6,7 @@
 //     linux/<version>/     .deb, .rpm and SHA256SUMS.txt             bun run build:linux (on Debian 13)
 //     macos/<version>/<arch>/  Koona Pin.app in a ZIP, .dmg and SHA256SUMS.txt   bun run build:macos
 //     aur/<version>/       PKGBUILD and .SRCINFO of koonapin-bin     bun run build:aur
+//     ios/<version>/       App Store IPAs, their dSYMs in ZIPs, SHA256SUMS.txt   bun run build:ios
 //     updates/<version>/   packages with .sig, SHA256SUMS.txt, latest.json and release.json; deployed to koona.app   bun run build:latest, build:release-data
 //   release/shots/     screenshots of the app for the site (andmetoo/koona-site)   bun run site:shots
 //     chrome/<version>/    koonapin-chrome.zip, Chrome Web Store    bun run extension:build
@@ -17,6 +18,7 @@
 //     chrome-edge/<version>/  extension with the store id            bun run extension:build (CHROME_STORE_PUBLIC_KEY)
 //     android/<version>/   .aab and arm64 .apk, debug-signed, SHA256SUMS.txt   bun run build:android
 //     ios-simulator/<version>/  Koona Pin.app for the iOS Simulator (arm64)    bun run build:ios:sim
+//     ios/<version>/       App Store IPAs not built from a clean commit of main, never uploaded   bun run build:ios
 //   release/dev/       this machine
 //     chrome/, edge/, firefox/  unpacked, development id («Load unpacked», tests)   bun run extension:build
 //     safari/              the web part of the Safari app extension (NP-119)          bun run extension:build
@@ -34,6 +36,8 @@ export const publish = {
   /** arch is process.arch of the building Mac: arm64 or x64. */
   macos: (version, arch) => path.join(release, "publish", "macos", version, arch),
   aur: (version) => path.join(release, "publish", "aur", version),
+  /** Every build number of the version side by side: KoonaPin-<version>-<build>.ipa (build-ios.mjs). */
+  ios: (version) => path.join(release, "publish", "ios", version),
   /** One folder per version (build-latest.mjs, build-release-data.mjs). */
   updates: path.join(release, "publish", "updates"),
   chrome: (version) => path.join(release, "publish", "chrome", version),
@@ -48,6 +52,8 @@ export const test = {
   chromeEdge: (version) => path.join(release, "test", "chrome-edge", version),
   android: (version) => path.join(release, "test", "android", version),
   iosSimulator: (version) => path.join(release, "test", "ios-simulator", version),
+  /** App Store builds that are not a clean commit of main: never uploaded (build-ios.mjs). */
+  ios: (version) => path.join(release, "test", "ios", version),
 };
 
 export const dev = {

@@ -22,6 +22,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { loadEnv } from "./lib/env.mjs";
 import { publish, root, test } from "./lib/paths.mjs";
 
 if (process.platform !== "darwin") throw new Error("Build this on a Mac or the macOS Actions runner");
@@ -119,16 +120,11 @@ if (testBuild) {
 }
 
 // Cargo (option_env! in feedback.rs) and Tauri's signing inherit these.
-const dotenv = path.join(root, ".env");
-if (existsSync(dotenv)) process.loadEnvFile(dotenv);
-const env = process.env;
+const env = loadEnv();
 if (!env.KOONAPIN_FEEDBACK_URL) {
   console.error("KOONAPIN_FEEDBACK_URL is not set: the release build does not compile without it (supabase/README.md).");
   process.exit(1);
 }
-// An Apple variable set but empty (a workflow passes every secret, configured or not) counts as unset:
-// Tauri would take an empty signing identity or empty notarization credentials for real ones.
-for (const name of Object.keys(env)) if (name.startsWith("APPLE_") && !env[name]) delete env[name];
 const identity = env.APPLE_SIGNING_IDENTITY;
 const notarize = Boolean(identity) && Boolean(
   (env.APPLE_API_ISSUER && env.APPLE_API_KEY && env.APPLE_API_KEY_PATH) || (env.APPLE_ID && env.APPLE_PASSWORD && env.APPLE_TEAM_ID));
