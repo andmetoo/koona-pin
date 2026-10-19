@@ -1951,6 +1951,7 @@
       "toReading": "Auf die Leseliste gesetzt · {{title}}",
       "filed": "In {{name}} abgelegt · {{title}}",
       "fileInto": "In einer Sammlung ablegen",
+      "swipeHint": "Wische die Karte nach rechts zum Behalten, nach links in den Papierkorb – oder nutze die Tasten unten.",
       "more": "Mehr",
       "decisions_one": "{{count, number}} Entscheidung in etwa {{minutes}}",
       "decisions_other": "{{count, number}} Entscheidungen in etwa {{minutes}}",

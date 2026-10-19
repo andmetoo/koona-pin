@@ -2189,6 +2189,7 @@
       "toReading": "Odłożona do przeczytania · {{title}}",
       "filed": "W kolekcji {{name}} · {{title}}",
       "fileInto": "Przenieś do kolekcji",
+      "swipeHint": "Przesuń kartę w prawo, aby ją zachować, w lewo, aby przenieść do kosza — albo użyj przycisków poniżej.",
       "more": "Więcej",
       "decisions_one": "{{count, number}} decyzja w około {{minutes}}",
       "decisions_few": "{{count, number}} decyzje w około {{minutes}}",

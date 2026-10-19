@@ -2070,6 +2070,7 @@
       "toReading": "Ajouté à À lire · {{title}}",
       "filed": "Classé dans {{name}} · {{title}}",
       "fileInto": "Classer dans une collection",
+      "swipeHint": "Glissez la carte à droite pour la garder, à gauche pour la mettre à la corbeille — ou utilisez les boutons ci-dessous.",
       "more": "Plus",
       "decisions_one": "{{count, number}} décision en environ {{minutes}}",
       "decisions_many": "{{count, number}} de décisions en environ {{minutes}}",

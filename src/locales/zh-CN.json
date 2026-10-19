@@ -1832,6 +1832,7 @@
       "toReading": "已加入稍后读 · {{title}}",
       "filed": "已归入 {{name}} · {{title}}",
       "fileInto": "归入合集",
+      "swipeHint": "向右滑动卡片保留，向左滑动移到废纸篓，也可以使用下方的按钮。",
       "more": "更多",
       "decisions_other": "{{count, number}} 个决定，约 {{minutes}}",
       "minutes_other": "{{count, number}} 分钟",

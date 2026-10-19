@@ -1082,6 +1082,14 @@
     transform var(--ph-spring-time) var(--ph-spring),
     opacity 180ms ease-out;
 }
+/* iOS: the pill keeps inside the side insets too — the iPhone Duo's outer display has its time,
+   Wi-Fi and camera in a column at the right edge, and a phone on its side has the Dynamic Island
+   at one. Android's pill stays as it is. */
+:root[data-platform="ios"] .phone .ph-navpill {
+  left: var(--safe-left);
+  right: var(--safe-right);
+  width: min(361px, calc(100% - var(--safe-left) - var(--safe-right) - 2 * var(--ph-side-chrome)));
+}
 .phone .ph-navpill[data-hidden] {
   transform: translateY(calc(100% + var(--ph-pill-bottom)));
   opacity: 0;
@@ -1385,6 +1393,102 @@
 .phone .ph-rail-new {
   box-shadow: 0 4px 12px -6px rgb(0 0 0 / 0.25);
 }
+/* ---------------------------------------------------------------- iPhone Duo: the vertical bar */
+/* iOS 27.1 puts the status bar in a column along one edge of both of iPhone Duo's displays, and
+   its own tab bar and toolbar in it (frames DU1–DU4, `data-vbar` with its geometry from
+   src/platform/verticalBar.ts). Ours does the same: the screen area stops at the column, so the
+   screens' own safe-area padding cannot push into it; the rail stands in the column's lower part,
+   on the line of UIKit's tab bar, its bottom on the bottom inset; a screen's secondary actions take
+   the toolbar's 38 pt slots under the status block (ui/ColumnActions.tsx). On the inner display
+   the two panes keep to either side of the fold. */
+.phone[data-vbar] .ph-main {
+  right: var(--vbar-w);
+  left: 0;
+  --safe-right: 0px;
+}
+.phone[data-vbar="left"] .ph-main,
+.phone[data-fold][data-vbar="left"] .ph-main {
+  right: 0;
+  left: var(--vbar-w);
+  --safe-right: max(env(safe-area-inset-right), var(--kp-inset-right, 0px));
+  --safe-left: 0px;
+}
+.phone[data-vbar] .ph-rail-column,
+.phone[data-hand="left"][data-vbar] .ph-rail-column {
+  right: auto;
+  left: var(--vbar-x);
+  bottom: var(--safe-bottom);
+  gap: 0;
+}
+.phone[data-vbar] .ph-rail {
+  gap: 0;
+  padding: 5px 8px 6px;
+}
+.phone[data-vbar] .ph-rail-slot {
+  height: 48px;
+  margin: 1px 0;
+}
+.phone[data-vbar] .ph-rail-rule {
+  margin: 7px 0;
+}
+.phone[data-vbar] :is(.ph-rail-primary, .ph-rail-new) {
+  width: 52px;
+  height: 52px;
+}
+.phone[data-vbar] .ph-rail-primary + .ph-rail-new {
+  margin-top: 8px;
+}
+.phone .ph-vbar-actions {
+  position: absolute;
+  z-index: 20;
+  top: calc(var(--vbar-status) + 5px);
+  left: calc(var(--vbar-x) + 17px);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.phone .ph-vbar-actions:empty {
+  display: none;
+}
+.phone .ph-vbar-actions .ph-circle {
+  width: 38px;
+  height: 38px;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: inset 0 0 0 1px var(--ph-clear-rim);
+  color: var(--ph-ink);
+}
+.phone .ph-vbar-actions .ph-circle::before {
+  content: none;
+}
+/* The inner display: the list pane between the fold and the column, the detail sheet on the far
+   side of the fold (DU1, DU2), 16 from the edges and on the bottom inset. */
+.phone[data-fold][data-vbar] .ph-pane-list {
+  left: var(--vbar-fold-end, 50%);
+  right: 0;
+  width: auto;
+  --ph-side: 8px;
+}
+.phone[data-fold][data-vbar] .ph-pane-detail {
+  top: calc(var(--safe-top) + 16px);
+  bottom: var(--safe-bottom);
+  left: calc(var(--safe-left) + 16px);
+  right: calc(100% - var(--vbar-fold-start, 50%) + 8px);
+}
+.phone[data-fold][data-vbar="left"] .ph-pane-list {
+  left: 0;
+  right: calc(100% - var(--vbar-fold-start, 50%) + var(--vbar-w));
+}
+.phone[data-fold][data-vbar="left"] .ph-pane-detail {
+  left: calc(var(--vbar-fold-end, 50%) - var(--vbar-w) + 8px);
+  right: calc(var(--safe-right) + 16px);
+}
+.phone[data-fold][data-vbar] .ph-snackbar-slot {
+  left: calc(var(--vbar-fold-end, 50%) + 8px);
+  right: calc(var(--vbar-w) + 8px);
+}
+
 /* FL3's popover: beside the rail, its bottom on the rail's. */
 .phone .ph-rail-scrim {
   position: absolute;

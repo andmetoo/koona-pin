@@ -1951,6 +1951,7 @@
       "toReading": "Added to Reading · {{title}}",
       "filed": "Filed in {{name}} · {{title}}",
       "fileInto": "File into a collection",
+      "swipeHint": "Swipe the card right to keep, left to trash — or use the buttons below.",
       "more": "More",
       "decisions_one": "{{count, number}} decision in about {{minutes}}",
       "decisions_other": "{{count, number}} decisions in about {{minutes}}",

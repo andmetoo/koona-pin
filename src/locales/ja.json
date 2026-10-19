@@ -1832,6 +1832,7 @@
       "toReading": "あとで読むに追加しました · {{title}}",
       "filed": "{{name}} に振り分けました · {{title}}",
       "fileInto": "コレクションに振り分け",
+      "swipeHint": "カードを右にスワイプで残す、左にスワイプでゴミ箱へ。下のボタンでも選べます。",
       "more": "その他",
       "decisions_other": "{{count, number}} 件の判断、約 {{minutes}}",
       "minutes_other": "{{count, number}} 分",

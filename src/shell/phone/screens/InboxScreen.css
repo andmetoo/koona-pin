@@ -687,3 +687,92 @@
     opacity: 0;
   }
 }
+
+/* ---------------------------------------------------------------- iPhone Duo's inner display (DU3) */
+/* The swipe hint shows only there. */
+.phone .inb-hint {
+  display: none;
+}
+/* Triage spans the fold: the title, the progress and the card on the near side of it; the hint,
+   the collections and the decision pill on the far side, beside the rail in the vertical bar. It
+   fits the screen and does not scroll, so nothing fades over the title; no detail sheet and no
+   bottom fade over the pill meanwhile (a tap on the card opens it). */
+.phone[data-fold][data-vbar] .ph-main:has(.inb-screen:not([hidden]) .inb-stack) .ph-pane-list {
+  left: 0;
+  --ph-side: 24px;
+}
+.phone[data-fold][data-vbar] .ph-main:has(.inb-screen:not([hidden]) .inb-stack) :is(.ph-pane-detail, .ph-pane-fade) {
+  display: none;
+}
+.phone[data-fold][data-vbar] .inb-screen:has(.inb-stack) {
+  overflow: hidden;
+}
+.phone[data-fold][data-vbar] .inb-screen:has(.inb-stack) > .ph-fade-top {
+  display: none;
+}
+.phone[data-fold][data-vbar] .inb-column:has(.inb-stack) {
+  display: grid;
+  grid-template-columns: calc(var(--vbar-fold-start, 50%) - 8px) minmax(0, 1fr);
+  grid-template-rows: auto 1fr auto auto;
+  column-gap: calc(var(--vbar-fold-end, 50%) - var(--vbar-fold-start, 50%) + 8px);
+  height: 100%;
+  padding-top: 14px;
+}
+.phone[data-fold][data-vbar] .inb-column:has(.inb-stack) > :is(.ph-header-bar, .ph-header) {
+  grid-area: 1 / 1;
+}
+.phone[data-fold][data-vbar] .inb-stack {
+  --inb-cover: 176px;
+  grid-area: 2 / 1 / 5 / 2;
+  align-self: start;
+  width: min(100% - 2 * var(--ph-side), 353px);
+  height: auto;
+  margin: 38px auto 0;
+  padding-bottom: 22px;
+}
+/* The card as tall as its content, the two behind it as tall as it. */
+.phone[data-fold][data-vbar] .inb-stack > .inb-card {
+  bottom: 22px;
+  height: auto;
+}
+.phone[data-fold][data-vbar] .inb-stack > .inb-card[data-slot="0"] {
+  position: relative;
+  padding-bottom: 18px;
+}
+/* Behind it only their paper peeks out: their own lines would show at the edge. */
+.phone[data-fold][data-vbar] .inb-stack > .inb-card:not([data-slot="0"]) > * {
+  visibility: hidden;
+}
+.phone[data-fold][data-vbar] .inb-hint {
+  display: block;
+  grid-area: 2 / 2;
+  align-self: start;
+  margin: 150px 16px 0;
+  color: var(--ph-meta);
+  font-size: 13px;
+  line-height: 20px;
+  text-align: center;
+}
+.phone[data-fold][data-vbar] .inb-column:has(.inb-stack) > .inb-file {
+  grid-area: 3 / 2;
+  min-width: 0;
+  width: auto;
+  overflow: hidden;
+  /* Room for the Undo snackbar between the chips and the pill, as in the frame. */
+  margin: 0 8px 72px 0;
+  --ph-side: 8px;
+}
+.phone[data-fold][data-vbar] .inb-file-label {
+  padding-left: 12px;
+}
+/* The chips end at the pane's edge, fading out, never under the rail. */
+.phone[data-fold][data-vbar] .inb-file .ph-chips {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+.phone[data-fold][data-vbar] .inb-column:has(.inb-stack) > .inb-decide-slot {
+  grid-area: 4 / 2;
+  min-width: 0;
+  padding-left: 8px;
+  padding-right: 8px;
+}

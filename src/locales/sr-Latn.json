@@ -2084,6 +2084,7 @@
       "toReading": "Ostavljeno za čitanje · {{title}}",
       "filed": "U kolekciji {{name}} · {{title}}",
       "fileInto": "Premesti u kolekciju",
+      "swipeHint": "Prevucite karticu udesno da je zadržite, ulevo da je pošaljete u otpad — ili koristite dugmad ispod.",
       "more": "Još",
       "decisions_one": "{{count, number}} odluka za oko {{minutes}}",
       "decisions_few": "{{count, number}} odluke za oko {{minutes}}",

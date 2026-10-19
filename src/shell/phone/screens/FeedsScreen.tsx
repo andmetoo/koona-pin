@@ -7,6 +7,7 @@ import { rememberPosts, usePosts, withKept } from "../feeds/posts";
 import { Button, CircleButton } from "../ui/buttons";
 import { Chip, Segmented } from "../ui/controls";
 import { PhIcon } from "../ui/icons";
+import { ColumnActions } from "../ui/ColumnActions";
 import { Header, Screen } from "../ui/Screen";
 import { useLongPress } from "../ui/useLongPress";
 import { FeedIcon } from "../../../components/feeds/FeedIcon";
@@ -100,14 +101,17 @@ export function FeedsScreen({ hidden }: { hidden: boolean }) {
         title={t("phone.feeds.title")}
         meta={app.feeds && feeds.length > 0 ? status : undefined}
         actions={
-          <CircleButton
-            icon={RefreshCw}
-            label={t("feeds.refresh")}
-            aria-busy={app.feedsRefreshing || undefined}
-            data-spinning={app.feedsRefreshing || undefined}
-            className="fd-refresh"
-            onClick={refresh}
-          />
+          // On iPhone Duo, in the vertical bar's first slot (DU2).
+          <ColumnActions rank={1} active={!hidden}>
+            <CircleButton
+              icon={RefreshCw}
+              label={t("feeds.refresh")}
+              aria-busy={app.feedsRefreshing || undefined}
+              data-spinning={app.feedsRefreshing || undefined}
+              className="fd-refresh"
+              onClick={refresh}
+            />
+          </ColumnActions>
         }
       />
       {app.feeds && feeds.length === 0 ? (

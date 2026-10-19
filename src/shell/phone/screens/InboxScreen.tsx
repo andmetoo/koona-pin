@@ -117,6 +117,9 @@ export function InboxScreen({ hidden }: { hidden: boolean }) {
                 {triage.leaving && <LeavingCard key={triage.leaving.n} leaving={triage.leaving} onEnd={triage.endLeaving} />}
               </div>
 
+              {/* Shown beside the card only where triage spans iPhone Duo's fold (DU3; InboxScreen.css). */}
+              <p className="inb-hint">{t("phone.inbox.swipeHint")}</p>
+
               <div className="inb-file">
                 <h2 className="ph-section-label inb-file-label">{t("phone.inbox.fileInto")}</h2>
                 <div className="ph-chips" data-collection-chips>

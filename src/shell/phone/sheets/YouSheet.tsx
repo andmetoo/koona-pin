@@ -20,7 +20,7 @@ export type YouSheetProps = Record<string, never>;
  * names the version.
  */
 export function YouSheet(_: { props: YouSheetProps }) {
-  const { app, stack, fold, hand } = usePhone();
+  const { app, stack, fold, hand, bar } = usePhone();
   const { t, theme, dataVersion } = app;
   const close = useCloseSheet();
   const version = useVersion();
@@ -47,7 +47,8 @@ export function YouSheet(_: { props: YouSheetProps }) {
         </button>
         <Shelf className="ys-shelf">
           <ShelfRow icon={SunMoon} title={t("phone.settings.appearance")} detail={themeName(theme, t)} chevron onClick={() => go("appearance")} />
-          {fold && (
+          {/* The controls cannot change sides beside iPhone Duo's vertical bar. */}
+          {fold && !bar && (
             <ShelfRow
               icon={Hand}
               title={t("phone.settings.layout")}

@@ -66,6 +66,8 @@ targets:
         RUST_LOG: info
     settings:
       base:
+        # iPhone only: an iPad opens it in compatibility mode, at a phone's size.
+        TARGETED_DEVICE_FAMILY: 1
         ENABLE_BITCODE: false
         ARCHS: [arm64]
         VALID_ARCHS: arm64 

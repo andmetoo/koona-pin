@@ -2070,6 +2070,7 @@
       "toReading": "Aggiunto a Da leggere · {{title}}",
       "filed": "Archiviato in {{name}} · {{title}}",
       "fileInto": "Archivia in una raccolta",
+      "swipeHint": "Scorri la scheda a destra per tenerla, a sinistra per cestinarla, oppure usa i pulsanti qui sotto.",
       "more": "Altro",
       "decisions_one": "{{count, number}} decisione in circa {{minutes}}",
       "decisions_many": "{{count, number}} di decisioni in circa {{minutes}}",

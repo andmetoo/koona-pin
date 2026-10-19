@@ -5,18 +5,23 @@ import { useSyncExternalStore } from "react";
  * plugin's bridge (`window.__KOONA_MOBILE__.system()`, read by Android before the page's first
  * render, and the `koona-system` event when it changes):
  *
- * - `powerSave`: Android's battery saver is on;
+ * - `powerSave`: Android's battery saver or iOS's Low Power Mode is on;
  * - `lowRam`: the device calls itself a low-RAM one;
  * - `textScale`: how much larger than designed text is drawn: the WebView's text zoom, which
  *   follows the system's font size and scales `font-size` and `line-height` (1 at the normal size,
- *   2 at Android's largest).
+ *   2 at Android's largest);
+ * - `reduceTransparency`: iOS's Reduce Transparency, which WebKit does not offer as
+ *   `prefers-reduced-transparency` (phone.css's own fallback); Android's bridge never sets it.
  *
- * Without the bridge (a desktop, the browser demo, the tests, iOS for now) it is calm: no saver,
- * no low RAM, a scale of 1.
+ * iOS sends its signals as the page loads (`systemChanged`); it has no low-RAM class, and the text
+ * scale stays 1 there (Dynamic Type does not reach a WebView's CSS pixels).
+ *
+ * Without the bridge (a desktop, the browser demo, the tests) it is calm: no saver, no low RAM, a
+ * scale of 1.
  */
-export type SystemSignals = { powerSave: boolean; lowRam: boolean; textScale: number };
+export type SystemSignals = { powerSave: boolean; lowRam: boolean; textScale: number; reduceTransparency: boolean };
 
-const calm: SystemSignals = { powerSave: false, lowRam: false, textScale: 1 };
+const calm: SystemSignals = { powerSave: false, lowRam: false, textScale: 1, reduceTransparency: false };
 
 type Bridge = { system?: () => Partial<SystemSignals> | undefined };
 
@@ -31,6 +36,7 @@ function read(): SystemSignals {
       powerSave: now.powerSave === true,
       lowRam: now.lowRam === true,
       textScale: typeof now.textScale === "number" && now.textScale > 0 ? now.textScale : 1,
+      reduceTransparency: now.reduceTransparency === true,
     };
   } catch {
     return calm;
@@ -51,7 +57,13 @@ const listeners = new Set<() => void>();
 function changed() {
   const next = read();
   const now = systemSignals();
-  if (next.powerSave === now.powerSave && next.lowRam === now.lowRam && next.textScale === now.textScale) return;
+  if (
+    next.powerSave === now.powerSave &&
+    next.lowRam === now.lowRam &&
+    next.textScale === now.textScale &&
+    next.reduceTransparency === now.reduceTransparency
+  )
+    return;
   current = next;
   for (const listener of listeners) listener();
 }
@@ -78,9 +90,10 @@ export function useSystemSignals(): SystemSignals {
 
 /**
  * The glass is drawn as opaque paper (doc/mobile-design.md, "Glass levels" fallback and performance
- * rule 6): battery saver asks the phone to spare its GPU, and a low-RAM device has little to spare.
+ * rule 6): battery saver asks the phone to spare its GPU, and a low-RAM device has little to spare;
+ * on iOS, Reduce Transparency asks for it in so many words.
  */
-export const flatGlass = (signals: SystemSignals) => signals.powerSave || signals.lowRam;
+export const flatGlass = (signals: SystemSignals) => signals.powerSave || signals.lowRam || signals.reduceTransparency;
 
 /**
  * The accessibility text sizes (doc/mobile-design.md, Dynamic Type): from here floating chrome

@@ -9,6 +9,21 @@ import { expect, type Page } from "@playwright/test";
 export const PHONE = { width: 393, height: 852 };
 export const FOLD = { width: 1088, height: 821 };
 
+/**
+ * iPhone Duo in the Simulator (iOS 27.1): the outer display and the inner one in landscape, with
+ * the safe area and the vertical bar the koona-mobile plugin reports there (src/platform/verticalBar.ts).
+ */
+export const DUO_OUTER = {
+  viewport: { width: 466, height: 678 },
+  insets: { top: 0, right: 84, bottom: 34, left: 0 },
+  bar: { edge: "right", column: [382, 0, 84, 678], status: [382, 0, 84, 174], division: null },
+};
+export const DUO_INNER = {
+  viewport: { width: 951, height: 669 },
+  insets: { top: 0, right: 84, bottom: 34, left: 0 },
+  bar: { edge: "right", column: [867, 0, 84, 669], status: [867, 0, 84, 124], division: [455.5, 0, 40, 669] },
+};
+
 /** A phone build's capabilities (src-tauri/src/capabilities.rs). */
 export const phoneCapabilities = {
   file_manager: false,
@@ -140,6 +155,8 @@ export async function openPhone(
     settings = {},
     capabilities = {},
     system = CALM,
+    platform = "android",
+    bar = null,
   }: {
     viewport?: { width: number; height: number };
     theme?: "light" | "dark";
@@ -148,19 +165,24 @@ export async function openPhone(
     /** Over the phone's: `{ purchase: "paddle" }` for the site's APK. */
     capabilities?: Partial<typeof phoneCapabilities>;
     system?: SystemSignals;
+    /** The phone's system: iOS has CSS of its own (`:root[data-platform="ios"]`). */
+    platform?: "android" | "ios";
+    /** iOS 27.1's vertical bar (iPhone Duo), as the bridge's `bar()` answers. */
+    bar?: unknown;
   } = {},
 ) {
   await page.setViewportSize(viewport);
   await page.addInitScript(textZoom, system.textScale);
   await page.addInitScript(
-    ({ capabilities, insets, theme, settings, system }) => {
+    ({ capabilities, insets, theme, settings, system, platform, bar }) => {
       const w = window as unknown as Record<string, unknown>;
-      w.__KOONA__ = { platform: "android", capabilities };
+      w.__KOONA__ = { platform, capabilities };
       let signals = system;
       w.__KOONA_MOBILE__ = {
         back: () => false,
         claim: () => true,
         system: () => ({ ...signals }),
+        bar: () => bar,
         systemChanged: (next: typeof system) => {
           signals = next;
           (w.__textZoom as (scale: number) => void)(next.textScale);
@@ -178,7 +200,7 @@ export async function openPhone(
       localStorage.setItem("koonapin.theme", theme);
       for (const [key, value] of Object.entries(settings)) localStorage.setItem(`koonapin.${key}`, value);
     },
-    { capabilities: { ...phoneCapabilities, ...capabilities }, insets, theme, settings, system },
+    { capabilities: { ...phoneCapabilities, ...capabilities }, insets, theme, settings, system, platform, bar },
   );
   await page.goto("/");
   await expect(page.locator("[data-phone]")).toBeVisible();

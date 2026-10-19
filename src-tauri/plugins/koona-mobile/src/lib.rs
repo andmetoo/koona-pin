@@ -7,14 +7,19 @@
 //!   starts afresh, on the screen if it was there. What was committed is in the library.
 //!   (iOS reloads the page through Tauri's own hook, in the app.)
 //! - **Insets** (Android): the system bars, the cutout and the keyboard as `--kp-inset-*` CSS
-//!   variables, for WebViews whose `env(safe-area-inset-*)` stays zero in an edge-to-edge window.
+//!   variables, for WebViews whose `env(safe-area-inset-*)` stays zero in an edge-to-edge window
+//!   (iOS: the keyboard only).
 //!
 //! - **An old WebView** (Android): the interface needs Chromium 111. With an older one the plugin
 //!   shows a native «Update Android System WebView» screen instead of the page, and
 //!   [`webview_supported`] tells the app so, which then starts nothing behind it.
 //! - **The look's signals** (Android, NP-072b): battery saver and a low-RAM device (the glass drawn
 //!   flat) and the text scale, through the bridge (`system()`, the `koona-system` event), read
-//!   before the page's first render. iOS reports none yet (Low Power Mode is a later task).
+//!   before the page's first render. iOS sends Low Power Mode as battery saver and Reduce
+//!   Transparency as the page loads and when they change.
+//! - **iOS only:** the keyboard's height as the bottom inset (the WebView's own scroll pinned), the
+//!   status bar following the page's theme, and iOS 27.1's vertical bar on iPhone Duo (`barChanged`,
+//!   src/platform/verticalBar.ts).
 //! - **Haptics** (NP-072b): the one command, `haptic`, plays the page's feedback as the system's
 //!   own (Android `performHapticFeedback`, iOS UIKit's generators), which follows the system's
 //!   touch-feedback setting.

@@ -2070,6 +2070,7 @@
       "toReading": "Остављено за читање · {{title}}",
       "filed": "У колекцији {{name}} · {{title}}",
       "fileInto": "Премести у колекцију",
+      "swipeHint": "Превуците картицу удесно да је задржите, улево да је пошаљете у отпад — или користите дугмад испод.",
       "more": "Још",
       "decisions_one": "{{count, number}} одлука за око {{minutes}}",
       "decisions_few": "{{count, number}} одлуке за око {{minutes}}",

@@ -22,7 +22,8 @@ The phone's own interface, "Paper & Glass" (`doc/mobile-design.md` in the notes,
 | `screens/BookmarkScreen.tsx` | FL1: a bookmark in the detail sheet (route `bookmark`, Fold only) | wave 2 |
 | `src/styles/phone.css` | Tokens and the kit's CSS | foundation |
 | `src/platform/haptics.ts`, `keyboard.ts` | Haptics, the on-screen keyboard | foundation |
-| `src/platform/system.ts` | The system's signals: battery saver, low RAM, the text scale | native |
+| `src/platform/system.ts` | The system's signals: battery saver (iOS: Low Power Mode), low RAM, the text scale, iOS's Reduce Transparency | native |
+| `src/platform/verticalBar.ts`, `ui/ColumnActions.tsx` | iPhone Duo's vertical bar (iOS 27.1) and the screens' actions in its slots | native |
 
 Replace a stub in place: keep its file name, its export and its props type (`hidden`, `route`, `{ props }`), and the shell picks it up. A screen's own CSS goes in a file next to it (`screens/LibraryScreen.css`, imported by the screen) with classes under `.phone` and a prefix of its own (`.phone .lib-…`). Strings go to `src/locales/en.json` under the screen's own group (`phone.library.*`, `phone.inbox.*`, …) and into every other locale, as for the desktop (`docs/translating.md`).
 
@@ -61,6 +62,15 @@ A row's tap goes through `stack.openBookmark(id)` / `stack.openPost(feedUid, ite
 
 Folding and unfolding keeps every screen mounted in the same pane containers (on a phone they take no box), the sheets and their drafts: a phone's pushed reader or post shows in the detail sheet; when the Fold closes, a `bookmark` route becomes its reader (`forPhone`).
 
+## iPhone Duo (iOS 27.1)
+
+On both of iPhone Duo's displays the status bar is a vertical column on the right edge (the outer display 466×678 pt, the inner one 951×669 in landscape; 84 pt wide), and UIKit puts its own tab bar and toolbar into it. The koona-mobile plugin reports it through the bridge (`bar()`, the `koona-bar` event; `useVerticalBar()` from `src/platform/verticalBar.ts`): the edge, the column, the status block at its top and the inner display's fold (`UITraitCollection.verticalBarEdge`, the safe area, `UIView.reservedRegions`), again after a fold, a rotation or a trait change. Elsewhere it is null and nothing below applies. With it (`usePhone().bar`, `data-vbar` and `--vbar-*` on the root; frames DU1–DU4):
+
+- **The rail lives in the column** on both displays, its bottom on the bottom inset; on the outer display it replaces the nav pill and hides where the pill would. The screen area stops at the column (`--safe-right: 0` inside it), so a screen's own padding never pushes into it.
+- **A screen's secondary actions** move into UIKit's toolbar slots under the status block, 38 pt circles: wrap them in `<ColumnActions rank active>`; the lowest rank holds the slots (Feeds' refresh, 1, before a bookmark's open-original and favourite, 2), the others stay in place.
+- **The inner display** keeps the Fold's two panes on either side of the fold: the detail sheet beyond it, the list between the fold and the column; triage spans both (DU3).
+- **No handedness**: the bar stays on the device's side (Apple's guidance), so the Layout setting and the rail's popover are left out; the account cluster stays in the list's header.
+
 ## Sheets
 
 ```tsx
@@ -83,7 +93,7 @@ Say it through the app, as the desktop does: `app.say(text)`, `app.say(text, fal
 import { selection, impactLight, impactMedium, success } from "../../platform/haptics";
 ```
 
-`selection()` on a section or tab change (the stack does it for tabs), when pull-to-refresh arms and when a long-press menu opens; `impactLight()` when a triage swipe passes its threshold; `impactMedium()` when a decision lands; `success()` when the inbox is sorted. Without the `haptics` capability (desktop, browser demo) they do nothing; they never throw. The koona-mobile plugin plays them as the system's own feedback (Android `performHapticFeedback` on the WebView, iOS UIKit's generators), so they are silent while the system's touch feedback is off.
+`selection()` on a section or tab change (the stack does it for tabs), when pull-to-refresh arms and when a long-press menu opens; `impactLight()` when a triage swipe passes its threshold; `impactMedium()` when a decision lands; `success()` when the inbox is sorted. Without the `haptics` capability (desktop, browser demo) they do nothing; they never throw. The koona-mobile plugin plays them as the system's own feedback (Android `performHapticFeedback` on the WebView, iOS UIKit's generators), so they are silent while the system's touch feedback is off. A debug iOS build logs each one (`Koona Pin: haptic selection`, `log stream` on the Simulator), which has no Taptic Engine.
 
 ## The kit (`ui/`)
 
@@ -109,7 +119,7 @@ import { selection, impactLight, impactMedium, success } from "../../platform/ha
 
 `src/styles/phone.css`: tokens `--ph-*` (light, and dark under `[data-theme="dark"]`), the type scale (`.ph-display`, `.ph-title1`, `.ph-title2`, `.ph-headline`, `.ph-row`, `.ph-body`, `.ph-callout`, `.ph-subhead`, `.ph-meta`, `.ph-caption`, `.ph-eyebrow`, `.ph-reading` in Literata), radii, spacing, elevation (`--ph-e1`, `--ph-e2`), the glass levels, the mesh background, the edge fades, collection colours (`--ph-coral` … or `collectionColor(id)`) and the season (`--ph-season`). Insets are `--safe-*` only. Glass (backdrop-filter) is for floating chrome, sheets and the snackbar, never for rows, cards or chips; cards are opaque paper with at most two glyphs; animate transform and opacity only; touch targets at least 48 (`.ph-hit`).
 
-The glass falls back to opaque paper under Reduce Transparency, without `backdrop-filter`, and with `data-glass="flat"` on the shell's root, which the shell sets while Android's battery saver is on and on a low-RAM device (`useSystemSignals()` from `src/platform/system.ts`; the koona-mobile bridge reports both before the first render and battery saver again when it changes). iOS Low Power Mode is not reported yet.
+The glass falls back to opaque paper under Reduce Transparency, without `backdrop-filter`, and with `data-glass="flat"` on the shell's root, which the shell sets while Android's battery saver is on and on a low-RAM device (`useSystemSignals()` from `src/platform/system.ts`; the koona-mobile bridge reports both before the first render and battery saver again when it changes). On iOS the plugin sends Low Power Mode as battery saver and Reduce Transparency (which WebKit does not offer as `prefers-reduced-transparency`) as the page loads and when they change; Dynamic Type does not reach a WKWebView's CSS pixels, so the text scale stays 1 there.
 
 The system's font size (Android's font scale, up to 2.0) reaches the page as the WebView's text zoom, which the koona-mobile plugin keeps equal to it while the app runs: every `font-size` and `line-height` grows, boxes with a fixed height do not. The root carries the scale as `--ph-text-scale` (what must keep its size divides by it, as the nav pill's badge does) and `data-text-large` from the first accessibility size (1.6, `largeText()`), where a shelf row's value goes under its name and floating chrome with labels puts them under its icons (the spec: triage's decision pill; it also does so below 1.6 when a label does not fit beside its icon). Large titles and the decision pill's labels grow up to 1.6 and no further; body text grows on. Give text room with `min-height`, not `height`: a fixed box does not grow with its lines. A header's title flows around the buttons on its line (a float as wide as they are) and starts under them when its first word does not fit. Every screen and sheet is checked at 1.3 and 2.0 by `tests/phone/large-text.spec.ts`, and on the emulator with `adb shell settings put system font_scale 2.0`; the list measures the scale with `library/useTextScale.ts`.
 
@@ -119,4 +129,4 @@ From shared code, opened by `app.surface` and the app's state (`PhoneDialogs.tsx
 
 ## Tests
 
-Vitest: `navigation/stack.test.ts`, `fold/savedLine.test.ts`, `ui/accountState.test.ts`, `src/platform/haptics.test.ts`, `src/platform/keyboard.test.ts`, `src/platform/system.test.ts`. Playwright: `tests/phone/` (project `phone` of `playwright.config.ts`) with `tests/phone/fixtures.ts` (`openPhone` with an optional `system` for the signals, its `textScale` played as the WebView's text zoom by scaling the page's font sizes and line heights; `systemBack`, `systemChanged`, 393×852 and the Fold's 1088×821); the Fold's own in `tests/phone/fold.spec.ts`. `tests/phone/labels.ts` finds labels cut or run into each other, for `large-text.spec.ts` (1.3 and 2.0) and `languages.spec.ts` (`@languages`: German, Polish, French, Russian); `a11y.spec.ts` checks names for screen readers.
+Vitest: `navigation/stack.test.ts`, `fold/savedLine.test.ts`, `ui/accountState.test.ts`, `src/platform/haptics.test.ts`, `src/platform/keyboard.test.ts`, `src/platform/system.test.ts`, `src/platform/verticalBar.test.ts`. Playwright: `tests/phone/` (project `phone` of `playwright.config.ts`) with `tests/phone/fixtures.ts` (`openPhone` with an optional `system` for the signals, its `textScale` played as the WebView's text zoom by scaling the page's font sizes and line heights; `systemBack`, `systemChanged`, 393×852 and the Fold's 1088×821); the Fold's own in `tests/phone/fold.spec.ts`, iPhone Duo's (`DUO_OUTER`, `DUO_INNER`: the insets and an injected `bar`, `platform: "ios"`) in `tests/phone/duo.spec.ts`. `tests/phone/labels.ts` finds labels cut or run into each other, for `large-text.spec.ts` (1.3 and 2.0) and `languages.spec.ts` (`@languages`: German, Polish, French, Russian); `a11y.spec.ts` checks names for screen readers.

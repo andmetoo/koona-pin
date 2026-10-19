@@ -21,15 +21,22 @@ import { openSettings } from "./you/settingsRoute";
  * press anywhere on it opens a small popover to move the controls to the other side (FL3). The
  * account cluster stands above it, on the same side (owner, 19 October: at the top of the list it
  * looked out of place), upright to keep the rail's width.
+ *
+ * On iPhone Duo (iOS 27.1) the rail stands in the system's vertical bar instead, where UIKit puts
+ * its tab bar, on both displays (frames DU1–DU4): no account cluster (it stays in the headers) and
+ * no popover, since the controls do not change sides there. On the outer display it shows where
+ * the nav pill would (`hidden`: a pushed screen, the keyboard).
  */
-export function Rail({ account }: { account: ReactNode }) {
-  const { app, stack, sheets, primary, keyboardUp } = usePhone();
+export function Rail({ account, hidden = false }: { account: ReactNode; hidden?: boolean }) {
+  const { app, stack, sheets, primary, keyboardUp, bar } = usePhone();
   const { t } = app;
   const [menu, setMenu] = useState(false);
   const press = useLongPress(() => {
+    if (bar) return;
     void selection();
     setMenu(true);
   });
+  const away = keyboardUp || hidden;
   const inbox = app.counts.inbox;
   const then = (run: () => void) => () => {
     setMenu(false);
@@ -37,14 +44,14 @@ export function Rail({ account }: { account: ReactNode }) {
   };
   return (
     <>
-      <div className="ph-rail-column" data-hidden={keyboardUp || undefined} inert={keyboardUp || undefined} data-open={menu || undefined}>
-      <div className="ph-rail-account">{account}</div>
+      <div className="ph-rail-column" data-hidden={away || undefined} inert={away || undefined} data-open={menu || undefined}>
+      {account && <div className="ph-rail-account">{account}</div>}
       <nav
         aria-label={t("phone.rail.label")}
         data-rail
         data-open={menu || undefined}
-        data-hidden={keyboardUp || undefined}
-        inert={keyboardUp || undefined}
+        data-hidden={away || undefined}
+        inert={away || undefined}
         className={`ph-rail ${glass()}`}
         {...press}
       >

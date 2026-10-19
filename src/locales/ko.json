@@ -1832,6 +1832,7 @@
       "toReading": "읽을거리에 추가함 · {{title}}",
       "filed": "{{name}}(으)로 분류함 · {{title}}",
       "fileInto": "컬렉션으로 분류",
+      "swipeHint": "카드를 오른쪽으로 밀면 보관, 왼쪽으로 밀면 휴지통으로 이동합니다. 아래 버튼을 사용해도 됩니다.",
       "more": "더 보기",
       "decisions_other": "결정 {{count, number}}개, 약 {{minutes}}",
       "minutes_other": "{{count, number}}분",

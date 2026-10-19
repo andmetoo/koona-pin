@@ -2070,6 +2070,7 @@
       "toReading": "Adicionado a Para ler · {{title}}",
       "filed": "Arquivado em {{name}} · {{title}}",
       "fileInto": "Arquivar em uma coleção",
+      "swipeHint": "Deslize o cartão para a direita para manter e para a esquerda para mandar para a lixeira — ou use os botões abaixo.",
       "more": "Mais",
       "decisions_one": "{{count, number}} decisão em cerca de {{minutes}}",
       "decisions_many": "{{count, number}} de decisões em cerca de {{minutes}}",
