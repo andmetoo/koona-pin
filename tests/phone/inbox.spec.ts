@@ -78,6 +78,22 @@ test("a swipe left past the threshold trashes, a short one springs back, one fro
   else await expect(page.locator("[data-inbox-sorted]")).toBeVisible();
 });
 
+test("iOS's WebKit: a child's lost capture as the card takes it over does not end the swipe", async ({ page }) => {
+  await openInbox(page);
+  const first = await card(page).getAttribute("data-triage-card");
+  // WebKit captures a touch on the element under the finger and, when the card captures it,
+  // fires lostpointercapture there; it bubbles to the card. Played here once the drag has begun.
+  await card(page).evaluate((el) => {
+    let moves = 0;
+    el.addEventListener("pointermove", () => {
+      if (++moves === 3) el.querySelector("h2, img, p")?.dispatchEvent(new PointerEvent("lostpointercapture", { bubbles: true, pointerId: 1 }));
+    });
+  });
+  await drag(page, 180);
+  await expect(snackbar(page)).toContainText("Kept · ");
+  await expect(card(page)).not.toHaveAttribute("data-triage-card", first!);
+});
+
 test("dragging toward Trash presses Trash and steps Keep back", async ({ page }) => {
   await openInbox(page);
   const box = (await card(page).boundingBox())!;

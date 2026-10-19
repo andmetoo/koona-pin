@@ -89,8 +89,11 @@ export function useSwipe(onDecide: (kind: "trash" | "keep", from: number) => voi
     },
     onPointerUp: () => end(true),
     onPointerCancel: () => end(false),
-    onLostPointerCapture: () => {
-      if (gesture.current?.drag) end(true);
+    // Only the card's own loss ends the drag. iOS's WebKit captures a touch on the element under
+    // the finger (the picture, the title) and fires `lostpointercapture` there when the card takes
+    // the capture over, which bubbles up here as the drag begins.
+    onLostPointerCapture: (e: PointerEvent<HTMLElement>) => {
+      if (e.target === e.currentTarget && gesture.current?.drag) end(true);
     },
   };
 
