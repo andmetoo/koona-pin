@@ -1273,11 +1273,45 @@
 }
 
 /* ---------------------------------------------------------------- The Fold: rail */
-.phone .ph-rail {
+/* The rail and, above it, the account cluster: one column on the side the person holds. */
+.phone .ph-rail-column {
   position: absolute;
   z-index: 20;
   right: calc(var(--ph-rail-edge) + var(--safe-right));
   bottom: calc(var(--safe-bottom) + 16px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: var(--ph-rail-width);
+  transition:
+    transform var(--ph-spring-time) var(--ph-spring),
+    opacity 180ms ease-out;
+}
+.phone[data-hand="left"] .ph-rail-column {
+  right: auto;
+  left: calc(var(--ph-rail-edge) + var(--safe-left));
+}
+.phone .ph-rail-column[data-hidden] {
+  transform: translateY(24px);
+  opacity: 0;
+  pointer-events: none;
+}
+.phone .ph-rail-column[data-open] {
+  z-index: 22;
+}
+/* A Supporter's heart and sync circle stand upright to keep the rail's width. */
+.phone .ph-rail-account .ph-account:not([data-free]) {
+  flex-direction: column;
+  width: 44px;
+  height: auto;
+  padding: 6px 0;
+}
+.phone .ph-rail-account .ph-account-heart {
+  height: 30px;
+  align-items: center;
+}
+.phone .ph-rail {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1287,22 +1321,9 @@
   border-radius: 999px;
   -webkit-touch-callout: none;
   user-select: none;
-  transition:
-    transform var(--ph-spring-time) var(--ph-spring),
-    opacity 180ms ease-out;
 }
-.phone[data-hand="left"] .ph-rail {
-  right: auto;
-  left: calc(var(--ph-rail-edge) + var(--safe-left));
-}
-.phone .ph-rail[data-hidden] {
-  transform: translateY(24px);
-  opacity: 0;
-  pointer-events: none;
-}
-/* Held for its popover (FL3): above the scrim, with an accent ring. */
+/* Held for its popover (FL3): above the scrim (the column), with an accent ring. */
 .phone .ph-rail[data-open] {
-  z-index: 22;
   outline: 1.5px solid var(--ph-accent);
   outline-offset: 2px;
 }

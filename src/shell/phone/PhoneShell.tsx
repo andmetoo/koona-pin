@@ -75,7 +75,8 @@ export function PhoneShell() {
   return (
     <PhoneContext.Provider value={phone}>
       <SheetsContext.Provider value={sheets}>
-        <AccountSlot.Provider value={account}>
+        {/* On the Fold the cluster stands above the rail, on the side the person holds: not in the headers. */}
+        <AccountSlot.Provider value={fold ? null : account}>
           <div
             className="phone"
             data-phone
@@ -92,7 +93,7 @@ export function PhoneShell() {
               {pillShown && <div className="ph-fade-bottom" aria-hidden="true" />}
             </div>
             {fold ? (
-              <Rail />
+              <Rail account={account} />
             ) : (
               <NavPill
                 tab={stack.tab}

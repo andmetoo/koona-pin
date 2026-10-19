@@ -42,6 +42,11 @@ test("the rail is on the right by default, the list next to it and the detail sh
   await expect(rail(page).getByRole("button", { name: "Inbox: 2 waiting", exact: true })).toBeVisible();
   for (const name of ["All bookmarks", "Reading", "Feeds", "New link"]) await expect(rail(page).getByRole("button", { name, exact: true })).toBeVisible();
   await expect(rail(page).getByRole("button", { name: "All bookmarks" })).toHaveAttribute("aria-current", "page");
+  // The account cluster stands above the rail, centred on it, and not in the list's header.
+  const account = await box(page.locator(".ph-rail-account [data-account]"));
+  expect(account.y + account.height).toBeLessThanOrEqual(r.y);
+  expect(Math.abs(account.x + account.width / 2 - (r.x + r.width / 2))).toBeLessThan(1);
+  await expect(listPane(page).locator("[data-account]")).toHaveCount(0);
   // Nothing selected: no primary action, the calm empty sheet.
   await expect(primary(page)).toHaveCount(0);
   await expect(page.locator("[data-detail-empty]")).toBeVisible();

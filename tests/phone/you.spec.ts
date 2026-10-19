@@ -7,7 +7,8 @@ import { FOLD, openPhone, systemBack, topScreen } from "./fixtures";
 const SUPPORTER = { "demo.supporter": "supporter", "demo.sync": "on" };
 
 const openYou = async (page: Page) => {
-  await topScreen(page).locator("[data-account]").click();
+  // On a phone in the screen's header; on the Fold above the rail.
+  await page.locator("[data-screen]:not([hidden]) [data-account], .ph-rail-account [data-account]").last().click();
   const sheet = page.locator('[data-sheet-kind="you"]').getByRole("dialog", { name: "You & sync" });
   await expect(sheet).toBeVisible();
   return sheet;

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Plus, Settings } from "lucide-react";
 import { selection } from "../../platform/haptics";
 import { useBack } from "../../platform/useBack";
@@ -18,9 +18,11 @@ import { openSettings } from "./you/settingsRoute";
  * four places (Inbox with its count; the open one on an accent-soft pill), a hairline, then the
  * thumb part: the screen's primary action as a flat accent circle (Read on a bookmark, Save on a
  * post; none when the screen offers none) and the ink "+" at the very bottom. No labels; a long
- * press anywhere on it opens a small popover to move the controls to the other side (FL3).
+ * press anywhere on it opens a small popover to move the controls to the other side (FL3). The
+ * account cluster stands above it, on the same side (owner, 19 October: at the top of the list it
+ * looked out of place), upright to keep the rail's width.
  */
-export function Rail() {
+export function Rail({ account }: { account: ReactNode }) {
   const { app, stack, sheets, primary, keyboardUp } = usePhone();
   const { t } = app;
   const [menu, setMenu] = useState(false);
@@ -35,6 +37,8 @@ export function Rail() {
   };
   return (
     <>
+      <div className="ph-rail-column" data-hidden={keyboardUp || undefined} data-open={menu || undefined}>
+      <div className="ph-rail-account">{account}</div>
       <nav
         aria-label={t("phone.rail.label")}
         data-rail
@@ -80,6 +84,7 @@ export function Rail() {
           <PhIcon icon={Plus} at="nav" />
         </CircleButton>
       </nav>
+      </div>
       {menu && <RailMenu onClose={() => setMenu(false)} />}
     </>
   );
