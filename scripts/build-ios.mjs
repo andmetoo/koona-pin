@@ -13,7 +13,7 @@
 // higher number. Upload only builds of main: a branch's count can pass a later commit of main.
 //
 // Signing is Xcode's automatic, cloud-managed signing through the App Store Connect API key, with no
-// certificate or profile in the repository: APPLE_API_KEY, APPLE_API_ISSUER and APPLE_API_KEY_PATH (a
+// certificate or profile in the repository: APPLE_STORE_KEY, APPLE_STORE_ISSUER and APPLE_STORE_KEY_PATH (a
 // key with access to cloud-managed distribution certificates: the Admin role), and APPLE_TEAM_ID (else
 // the team in APPLE_SIGNING_IDENTITY's parentheses). Settings come from the environment or from .env in
 // the repository root; a variable already set in the environment wins. Needs what build-ios-sim.mjs
@@ -51,10 +51,10 @@ if (existsSync(dotenv)) process.loadEnvFile(dotenv);
 const env = process.env;
 // An Apple variable set but empty counts as unset, as in build-macos.mjs.
 for (const name of Object.keys(env)) if (name.startsWith("APPLE_") && !env[name]) delete env[name];
-for (const name of ["APPLE_API_KEY", "APPLE_API_ISSUER", "APPLE_API_KEY_PATH"]) {
+for (const name of ["APPLE_STORE_KEY", "APPLE_STORE_ISSUER", "APPLE_STORE_KEY_PATH"]) {
   if (!env[name]) throw new Error(`${name} is not set: the App Store Connect API key signs and uploads the build (docs/building.md)`);
 }
-if (!existsSync(env.APPLE_API_KEY_PATH)) throw new Error("APPLE_API_KEY_PATH names no file");
+if (!existsSync(env.APPLE_STORE_KEY_PATH)) throw new Error("APPLE_STORE_KEY_PATH names no file");
 const team = env.APPLE_TEAM_ID || env.APPLE_SIGNING_IDENTITY?.match(/\(([A-Z0-9]{10})\)$/)?.[1];
 if (!team) throw new Error("APPLE_TEAM_ID is not set (and APPLE_SIGNING_IDENTITY names no team)");
 
@@ -71,10 +71,10 @@ process.on("exit", () => rmSync(work, { recursive: true, force: true }));
 function altool(command, ipa) {
   const keys = path.join(work, "private_keys");
   mkdirSync(keys, { recursive: true });
-  const link = path.join(keys, `AuthKey_${env.APPLE_API_KEY}.p8`);
-  if (!existsSync(link)) symlinkSync(path.resolve(env.APPLE_API_KEY_PATH), link);
+  const link = path.join(keys, `AuthKey_${env.APPLE_STORE_KEY}.p8`);
+  if (!existsSync(link)) symlinkSync(path.resolve(env.APPLE_STORE_KEY_PATH), link);
   const result = spawnSync("xcrun", ["altool", command, ipa,
-    "--api-key", env.APPLE_API_KEY, "--api-issuer", env.APPLE_API_ISSUER],
+    "--api-key", env.APPLE_STORE_KEY, "--api-issuer", env.APPLE_STORE_ISSUER],
   { stdio: "inherit", env: { ...env, API_PRIVATE_KEYS_DIR: keys } });
   if (result.status !== 0) throw new Error(`altool ${command} failed with status ${result.status}`);
 }
@@ -145,8 +145,8 @@ writeFileSync(exportOptions, `<?xml version="1.0" encoding="UTF-8"?>
 const exported = path.join(work, "export");
 const exportRun = spawnSync("xcodebuild", ["-exportArchive", "-archivePath", archive, "-exportPath", exported,
   "-exportOptionsPlist", exportOptions, "-allowProvisioningUpdates",
-  "-authenticationKeyPath", path.resolve(env.APPLE_API_KEY_PATH),
-  "-authenticationKeyID", env.APPLE_API_KEY, "-authenticationKeyIssuerID", env.APPLE_API_ISSUER],
+  "-authenticationKeyPath", path.resolve(env.APPLE_STORE_KEY_PATH),
+  "-authenticationKeyID", env.APPLE_STORE_KEY, "-authenticationKeyIssuerID", env.APPLE_STORE_ISSUER],
 { stdio: "inherit" });
 if (exportRun.status !== 0) {
   throw new Error(`The export failed with status ${exportRun.status}. «Cloud signing permission error» means the API key `
