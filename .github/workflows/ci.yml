@@ -243,6 +243,12 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_27.1.app
           xcode-select -p
           xcodebuild -version
+      # The Tauri CLI wants the Simulator runtime of the SDK, and the image has iOS 27.0 only.
+      - name: iOS 27.1 Simulator runtime
+        run: |
+          if ! xcrun simctl list runtimes | grep -q 'iOS 27\.1 '; then
+            xcodebuild -downloadPlatform iOS -buildVersion 27.1 -architectureVariant arm64
+          fi
           xcrun simctl list runtimes
       - uses: oven-sh/setup-bun@v2
         with:
