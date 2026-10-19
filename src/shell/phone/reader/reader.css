@@ -83,6 +83,16 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+/* Over a picture the eyebrow sits on a small dark pill: pages' pictures carry words of their own. */
+.phone .rd-hero[data-picture] .ph-eyebrow {
+  align-self: flex-start;
+  max-width: 100%;
+  margin: -3px 0 0 -8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgb(20 20 19 / 0.55);
+  color: #fff;
+}
 .phone .rd-hero-title {
   display: -webkit-box;
   -webkit-box-orient: vertical;

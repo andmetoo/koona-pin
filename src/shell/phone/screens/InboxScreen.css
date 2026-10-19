@@ -166,6 +166,16 @@
 [data-theme="dark"] .phone .inb-cover[data-picture]::after {
   background: linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.1) 50%);
 }
+/* Over a picture the eyebrow sits on a small dark pill: pages' pictures carry words of their own. */
+.phone .inb-cover[data-picture] .inb-eyebrow {
+  right: auto;
+  max-width: calc(100% - 36px);
+  margin: -3px 0 0 -8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgb(20 20 19 / 0.55);
+  color: #fff;
+}
 .phone .inb-cover img {
   position: absolute;
   inset: 0;
