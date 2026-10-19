@@ -18,6 +18,7 @@
 //     chrome-edge/<version>/  extension with the store id            bun run extension:build (CHROME_STORE_PUBLIC_KEY)
 //     android/<version>/   .aab and arm64 .apk, debug-signed, SHA256SUMS.txt   bun run build:android
 //     ios-simulator/<version>/  Koona Pin.app for the iOS Simulator (arm64)    bun run build:ios:sim
+//     ios/<version>/       App Store IPAs not built from a clean commit of main, never uploaded   bun run build:ios
 //   release/dev/       this machine
 //     chrome/, edge/, firefox/  unpacked, development id («Load unpacked», tests)   bun run extension:build
 //     safari/              the web part of the Safari app extension (NP-119)          bun run extension:build
@@ -51,6 +52,8 @@ export const test = {
   chromeEdge: (version) => path.join(release, "test", "chrome-edge", version),
   android: (version) => path.join(release, "test", "android", version),
   iosSimulator: (version) => path.join(release, "test", "ios-simulator", version),
+  /** App Store builds that are not a clean commit of main: never uploaded (build-ios.mjs). */
+  ios: (version) => path.join(release, "test", "ios", version),
 };
 
 export const dev = {

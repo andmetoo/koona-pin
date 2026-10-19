@@ -5,7 +5,8 @@
 //   bun run build:ios -- --build <n>     the build number (CFBundleVersion) instead of the commit count
 //   bun run build:ios -- --validate      then App Store Connect's validation of the IPA (altool)
 //   bun run build:ios -- --upload        then the upload to App Store Connect (altool)
-//   bun scripts/build-ios.mjs --ipa <file> --validate|--upload   the same for an IPA built already
+//   bun scripts/build-ios.mjs --ipa <file> --validate   the validation of an IPA built already
+//   A build that is not a clean commit of origin/main goes to release/test/ios/<version>/ instead.
 //
 // Build numbers: CFBundleShortVersionString is the app's version; CFBundleVersion is the number of
 // commits up to HEAD (`git rev-list --count HEAD`), so every commit of main builds a higher number, for
@@ -30,8 +31,9 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { loadEnv } from "./lib/env.mjs";
 import { app, appleProject, bundleId, requireLlvmTools, version } from "./lib/ios.mjs";
-import { publish, root } from "./lib/paths.mjs";
+import { publish, root, test } from "./lib/paths.mjs";
 
 if (process.platform !== "darwin") throw new Error("Build this on a Mac with Xcode");
 const args = process.argv.slice(2);
@@ -45,13 +47,10 @@ const option = (name) => {
 const validate = args.includes("--validate");
 const upload = args.includes("--upload");
 const given = option("--ipa");
-if (given && !validate && !upload) throw new Error("--ipa is for --validate or --upload");
+// An upload always builds: the checks below on the commit and its number hold only for a fresh build.
+if (given && (upload || !validate)) throw new Error("--ipa is for --validate only; --upload builds the IPA it uploads");
 
-const dotenv = path.join(root, ".env");
-if (existsSync(dotenv)) process.loadEnvFile(dotenv);
-const env = process.env;
-// An Apple variable set but empty counts as unset, as in build-macos.mjs.
-for (const name of Object.keys(env)) if (name.startsWith("APPLE_") && !env[name]) delete env[name];
+const env = loadEnv();
 for (const name of ["APPLE_STORE_KEY", "APPLE_STORE_ISSUER", "APPLE_STORE_KEY_PATH"]) {
   if (!env[name]) throw new Error(`${name} is not set: the App Store Connect API key signs and uploads the build (docs/building.md)`);
 }
@@ -82,8 +81,7 @@ function altool(command, ipa) {
 
 if (given) {
   const ipa = path.resolve(given);
-  if (validate) altool("--validate-app", ipa);
-  if (upload) altool("--upload-package", ipa);
+  altool("--validate-app", ipa);
   process.exit(0);
 }
 
@@ -92,17 +90,19 @@ let build = option("--build");
 if (build === undefined) {
   if (git("rev-parse", "--is-shallow-repository") === "true") throw new Error("A shallow clone has no commit count: fetch the history or pass --build");
   build = git("rev-list", "--count", "HEAD");
-  // A branch's count can pass main's: once squash-merged, main counts one more, and App Store Connect
-  // refuses its next builds of the version as not higher than the branch's upload.
-  if (upload && spawnSync("git", ["merge-base", "--is-ancestor", "HEAD", "origin/main"], { cwd: root }).status !== 0) {
-    throw new Error("Upload builds of main only: HEAD is not on origin/main (fetch it, or pass --build)");
-  }
 }
 if (!/^[1-9]\d{0,8}$/.test(build)) throw new Error(`The build number must be a positive whole number, not «${build}»`);
-if (git("status", "--porcelain", "--untracked-files=no")) {
-  if (upload) throw new Error("The worktree has changes: an upload is built from a commit as it is");
-  console.warn("The worktree has changes: this build is not the commit's.");
+// A branch's count can pass main's: once squash-merged, main counts one more, and App Store Connect
+// refuses its next builds of the version as not higher than the branch's upload. Such builds and those
+// of a worktree with changes are for testing only: release/test/ios, never uploaded.
+const onMain = spawnSync("git", ["merge-base", "--is-ancestor", "HEAD", "origin/main"], { cwd: root }).status === 0;
+const dirty = Boolean(git("status", "--porcelain", "--untracked-files=no"));
+const publishable = !dirty && (onMain || option("--build") !== undefined);
+if (upload && !publishable) {
+  throw new Error(dirty ? "The worktree has changes: an upload is built from a commit as it is"
+    : "Upload builds of main only: HEAD is not on origin/main (fetch it, or pass --build)");
 }
+if (!publishable) console.warn(`Not a clean commit of origin/main: a test build in ${path.relative(root, test.ios(version))}.`);
 
 requireLlvmTools();
 
@@ -111,8 +111,20 @@ const touched = [
   path.join(appleProject, "koonapin.xcodeproj", "project.pbxproj"),
   path.join(appleProject, "koonapin_iOS", "Info.plist"),
 ];
+// The team must never reach a commit (the repository is public). While Tauri's edits are on disk, Git
+// skips the two files, so a `git add` elsewhere stages nothing of them; a build that died before putting
+// them back left DEVELOPMENT_TEAM in the project, and that is refused here instead of saved as clean.
+const skipWorktree = (on) => git("update-index", on ? "--skip-worktree" : "--no-skip-worktree", ...touched);
+skipWorktree(false);
+if (readFileSync(touched[0], "utf8").includes("DEVELOPMENT_TEAM")) {
+  throw new Error(`A build left the team in ${path.relative(root, touched[0])}: git checkout -- src-tauri/gen/apple, then build again`);
+}
+skipWorktree(true);
 const saved = touched.map((file) => [file, readFileSync(file)]);
-const restore = () => { for (const [file, content] of saved) writeFileSync(file, content); };
+const restore = () => {
+  for (const [file, content] of saved) writeFileSync(file, content);
+  skipWorktree(false);
+};
 const interrupted = () => { restore(); process.exit(130); };
 process.on("SIGINT", interrupted);
 process.on("SIGTERM", interrupted);
@@ -207,7 +219,7 @@ console.log(`Checked: ${bundleId} ${version} (${build}), Apple Distribution, the
   + "no export compliance key, the privacy manifest present");
 
 // 4. The IPA, its dSYMs and the checksums of the folder.
-const target = publish.ios(version);
+const target = publishable ? publish.ios(version) : test.ios(version);
 mkdirSync(target, { recursive: true });
 const ipa = path.join(target, `KoonaPin-${version}-${build}.ipa`);
 const symbols = path.join(target, `KoonaPin-${version}-${build}-dSYMs.zip`);

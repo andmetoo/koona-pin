@@ -20,8 +20,7 @@ const PLACES = [
   ["src-tauri/Cargo.lock", /^(\[\[package\]\]\nname = "koonapin"\nversion = ")([^"]+)(")/m],
   ["src-tauri/tauri.conf.json", /^(\s*"version":\s*")([^"]+)(")/m],
   // The iOS project (NP-151) keeps the version as text too. CFBundleVersion, the build number, is
-  // not ours: `tauri ios build` writes it, and an upload of a second build of one version passes
-  // `--build-number`.
+  // not ours: `tauri ios build` writes it, and `build:ios` passes the commit count or `--build`.
   ["src-tauri/gen/apple/koonapin_iOS/Info.plist", /(<key>CFBundleShortVersionString<\/key>\s*<string>)([^<]+)(<\/string>)/],
   ["src-tauri/gen/apple/project.yml", /^(\s*CFBundleShortVersionString:\s*)([^\s]+)()$/m],
 ];
