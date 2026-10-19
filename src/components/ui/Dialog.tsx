@@ -49,8 +49,8 @@ export function Dialog({
   const titleId = useId();
   const closeRef = useRef(onClose);
   closeRef.current = locked ? () => {} : onClose;
-  // A phone's Back closes it as Escape does (NP-151).
-  useBack(() => closeRef.current(), back);
+  // A phone's Back closes it as Escape does (NP-151); a locked one keeps Back, so nothing under it closes.
+  useBack(() => (locked ? false : closeRef.current()), back);
   const [open, setOpen] = useState(false);
   const heading = (
     <h2 id={titleId} className={eyebrow ? "text-2xs font-semibold tracking-[0.06em] text-muted uppercase" : "text-lg font-semibold"}>

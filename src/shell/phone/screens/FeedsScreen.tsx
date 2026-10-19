@@ -34,10 +34,12 @@ const DAY = 50;
  */
 /**
  * Shows every post of the list, not only the unread: a feed just followed has its posts marked
- * read, and on Unread it would look as if nothing had come. New link's «Show» after a follow.
+ * read, and on Unread it would look as if nothing had come. New link's «Show» after a follow. The
+ * person's own choice of Unread or All is kept for next time: this shows All once.
  */
+let allOnce = false;
 export function showAllPosts() {
-  savePreference("feedsScope", "all");
+  allOnce = true;
   window.dispatchEvent(new Event("koona-feeds-all"));
 }
 
@@ -46,13 +48,20 @@ export function FeedsScreen({ hidden }: { hidden: boolean }) {
   const { t, i18n } = app;
   const feeds = useMemo(() => app.feeds ?? [], [app.feeds]);
   const feedUid = app.feedPlace.feed;
-  const [scope, setScopeState] = useState<Scope>(() => preference<Scope>("feedsScope", ["unread", "all"], "unread"));
+  const [scope, setScopeState] = useState<Scope>(() => {
+    const once = allOnce;
+    allOnce = false;
+    return once ? "all" : preference<Scope>("feedsScope", ["unread", "all"], "unread");
+  });
   const setScope = (next: Scope) => {
     setScopeState(next);
     savePreference("feedsScope", next);
   };
   useEffect(() => {
-    const all = () => setScopeState("all");
+    const all = () => {
+      allOnce = false;
+      setScopeState("all");
+    };
     window.addEventListener("koona-feeds-all", all);
     return () => window.removeEventListener("koona-feeds-all", all);
   }, []);

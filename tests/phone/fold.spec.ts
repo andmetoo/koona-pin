@@ -47,6 +47,13 @@ test("the rail is on the right by default, the list next to it and the detail sh
   expect(account.y + account.height).toBeLessThanOrEqual(r.y);
   expect(Math.abs(account.x + account.width / 2 - (r.x + r.width / 2))).toBeLessThan(1);
   await expect(listPane(page).locator("[data-account]")).toHaveCount(0);
+  // With the keyboard up the whole column hides and leaves the focus order, the account too.
+  await page.evaluate(() => document.documentElement.style.setProperty("--kp-inset-bottom", "334px"));
+  await page.evaluate(() => window.dispatchEvent(new Event("resize")));
+  await expect(page.locator(".ph-rail-column")).toHaveAttribute("inert", "");
+  await page.evaluate(() => document.documentElement.style.setProperty("--kp-inset-bottom", `${24}px`));
+  await page.evaluate(() => window.dispatchEvent(new Event("resize")));
+  await expect(page.locator(".ph-rail-column")).not.toHaveAttribute("inert");
   // Nothing selected: no primary action, the calm empty sheet.
   await expect(primary(page)).toHaveCount(0);
   await expect(page.locator("[data-detail-empty]")).toBeVisible();

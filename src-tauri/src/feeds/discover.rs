@@ -168,7 +168,8 @@ pub async fn link(raw: &str, limits: &Limits) -> Result<LinkPreview, FetchError>
     metadata::read_page(&html, &page.url, &mut meta);
     metadata::guard_pictures(&mut meta).await;
     let mut feeds = alternates(&html, &page.url);
-    if feeds.is_empty() {
+    // Not when the named address was the home page already and only redirected (`/` → `/en/`).
+    if feeds.is_empty() && home_of(&start).is_some() {
         feeds = home_feeds(&client, &page.url, limits).await;
     }
     Ok(LinkPreview { url: page.url.to_string(), metadata: meta, feeds, is_feed: false, subscribed_uid: None })
@@ -376,6 +377,42 @@ mod tests {
         seen.lock().unwrap().clear();
         assert!(link(&format!("http://127.0.0.1:{port}/"), &TEST).await.is_ok());
         assert_eq!(asked(&seen), ["/"], "the home page itself is not asked twice");
+    }
+
+    /// `bun.com/rss` (a 404): the feed the home page names, as a feed to follow and not a page to save.
+    #[tokio::test]
+    async fn a_feed_address_that_does_not_open_offers_the_home_page_feed() {
+        let (port, _) = server(|request, _| {
+            if request.starts_with("get / ") {
+                // An absolute, public address: a loopback one would be dropped like any local one.
+                let home = r#"<html><head><title>Home</title><link rel="alternate" type="application/rss+xml" title="The Blog" href="https://blog.example.com/rss.xml"></head></html>"#;
+                answer("200 OK", "Content-Type: text/html\r\n", home.as_bytes())
+            } else {
+                answer("404 Not Found", "Content-Type: text/html\r\n", b"<html><head><title>Not found</title></head></html>")
+            }
+        });
+        let got = link(&format!("http://127.0.0.1:{port}/rss/"), &TEST).await.unwrap();
+        assert!(got.is_feed);
+        assert_eq!(got.url, "https://blog.example.com/rss.xml");
+        assert_eq!(got.metadata.title.as_deref(), Some("The Blog"));
+        assert_eq!(got.feeds.len(), 1);
+        assert_eq!(got.feeds[0].url, "https://blog.example.com/rss.xml");
+        // A page that is not a feed's address and does not open gets nothing guessed.
+        assert!(link(&format!("http://127.0.0.1:{port}/blog/typo"), &TEST).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn the_home_page_reached_by_a_redirect_is_not_asked_again() {
+        let (port, seen) = server(|request, port| {
+            if request.starts_with("get / ") {
+                answer("302 Found", &format!("Location: http://127.0.0.1:{port}/en/\r\n"), b"")
+            } else {
+                answer("200 OK", "Content-Type: text/html\r\n", b"<html><head><title>Home</title></head></html>")
+            }
+        });
+        assert!(link(&format!("http://127.0.0.1:{port}/"), &TEST).await.is_ok());
+        let asked: Vec<String> = seen.lock().unwrap().iter().map(|r| r.split_whitespace().nth(1).unwrap_or("").to_string()).collect();
+        assert_eq!(asked, ["/", "/en/"]);
     }
 
     #[tokio::test]

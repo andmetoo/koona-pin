@@ -37,7 +37,7 @@ export function Rail({ account }: { account: ReactNode }) {
   };
   return (
     <>
-      <div className="ph-rail-column" data-hidden={keyboardUp || undefined} data-open={menu || undefined}>
+      <div className="ph-rail-column" data-hidden={keyboardUp || undefined} inert={keyboardUp || undefined} data-open={menu || undefined}>
       <div className="ph-rail-account">{account}</div>
       <nav
         aria-label={t("phone.rail.label")}

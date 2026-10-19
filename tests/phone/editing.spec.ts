@@ -190,6 +190,8 @@ test("New link: a feed's address is followed, and Show opens its posts on All", 
   await snackbar(page).getByRole("button", { name: "Show" }).click();
   await expect(navPill(page).getByRole("button", { name: "Feeds" })).toHaveAttribute("aria-current", "page");
   await expect(topScreen(page).getByRole("radio", { name: "All" })).toHaveAttribute("aria-checked", "true");
+  // Shown once: the person's own choice (Unread) is what Feeds opens on next time.
+  expect(await page.evaluate(() => localStorage.getItem("koonapin.feedsScope"))).not.toBe("all");
 });
 
 test("New link: not a link says so; a link already saved offers to show it", async ({ page }) => {
