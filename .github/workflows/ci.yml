@@ -231,10 +231,25 @@ jobs:
     name: iOS Simulator / build
     needs: changes
     if: needs.changes.outputs.native == 'true'
-    runs-on: macos-15
+    # The Xcode the release builds with (27.1, Swift 6.4), so the plugin's iPhone Duo and scroll edge code
+    # behind `#if compiler(>=6.4)` / `#if compiler(>=6.2)` is compiled here too. Only the xcode-27 image
+    # (a public preview, actions/runner-images#14404) has it; its default Xcode is 27.0.
+    runs-on: xcode-27
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
+      - name: Xcode 27.1
+        run: |
+          sudo xcode-select -s /Applications/Xcode_27.1.app
+          xcode-select -p
+          xcodebuild -version
+      # The Tauri CLI wants the Simulator runtime of the SDK, and the image has iOS 27.0 only.
+      - name: iOS 27.1 Simulator runtime
+        run: |
+          if ! xcrun simctl list runtimes | grep -q 'iOS 27\.1 '; then
+            xcodebuild -downloadPlatform iOS -buildVersion 27.1 -architectureVariant arm64
+          fi
+          xcrun simctl list runtimes
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
@@ -253,7 +268,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          key: ios-sim
+          # Per Xcode: the swift-rs objects of the plugins are built by its Swift.
+          key: ios-sim-xcode-27.1
           cache-on-failure: true
       - run: bun install --frozen-lockfile
       # Signed to run in the Simulator only: no team, no profile.
