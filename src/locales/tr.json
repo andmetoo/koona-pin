@@ -761,6 +761,10 @@
     "quit": "Çık",
     "hide": "Pencereyi gizle"
   },
+  "help": {
+    "learnMore": "Daha fazla bilgi ↗",
+    "help": "Yardım ↗"
+  },
   "settings": {
     "assistants": "Yapay zekâ asistanları",
     "general": "Genel",
@@ -852,6 +856,9 @@
     "githubHint": "koona-pin içindeki herkese açık bildirimler",
     "licenses": "Lisanslar",
     "licensesHint": "Koona Pin'in yapıldığı yazı tipleri, simgeler ve kitaplıklar",
+    "help": "Yardım",
+    "helpHint": "koona.app'te kılavuzlar ve sık karşılaşılan sorunların yanıtları, İngilizce",
+    "helpButton": "Yardımı aç ↗",
     "offline": "Çevrimdışı kopyalar",
     "offlineStats": "Çevrimdışı kaydedildi — {{articles}} · {{size}}",
     "offlineArticles_one": "{{count}} makale",

@@ -25,6 +25,7 @@ import {
   type SyncBanner,
   type SyncTone,
 } from "./syncText";
+import { HelpLink } from "../ui/HelpLink";
 
 /** A screen the person opened from the overview, over what the status asks for. */
 type Opened = { kind: "details" } | { kind: "remove"; device: SyncDevice } | { kind: "startOver" };
@@ -378,6 +379,7 @@ export function SyncDialog({
             <button type="button" disabled={busy} onClick={() => void run(api.disableSync)} className="text-sm font-medium whitespace-nowrap text-muted hover:text-ink">
               {t("sync.turnOff")}
             </button>
+            <HelpLink topic="sync" label="help" size="sm" className="whitespace-nowrap" />
           </div>
           <div className="flex items-center gap-2">
             {!removed && (
@@ -633,7 +635,9 @@ function SetupDialog({
         </div>
         <div className="mt-4 rounded-lg bg-panel px-3 py-2.5 text-xs leading-4">
           <p className="font-medium">{t("sync.setup.privacyTitle")}</p>
-          <p className="mt-1 text-muted">{t("sync.setup.privacyText")}</p>
+          <p className="mt-1 text-muted">
+            {t("sync.setup.privacyText")} <HelpLink topic="sync" />
+          </p>
         </div>
         <ErrorNote text={error ?? outdated} />
         <Footer>

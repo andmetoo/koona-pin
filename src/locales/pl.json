@@ -883,6 +883,10 @@
     "quit": "Zamknij",
     "hide": "Ukryj okno"
   },
+  "help": {
+    "learnMore": "Dowiedz się więcej ↗",
+    "help": "Pomoc ↗"
+  },
   "settings": {
     "assistants": "Asystenci AI",
     "general": "Ogólne",
@@ -978,6 +982,9 @@
     "githubHint": "Publiczne zgłoszenia w koona-pin",
     "licenses": "Licencje",
     "licensesHint": "Czcionki, ikony i biblioteki, z których zbudowano Koona Pin",
+    "help": "Pomoc",
+    "helpHint": "Poradniki i odpowiedzi na częste problemy na koona.app, po angielsku",
+    "helpButton": "Otwórz pomoc ↗",
     "offline": "Kopie offline",
     "offlineStats": "Zapisane offline — {{articles}} · {{size}}",
     "offlineArticles_one": "{{count}} artykuł",

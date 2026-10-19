@@ -35,6 +35,7 @@ import { ChoiceRow, SettingsCard, useDataSummary, useVersion } from "./parts";
 import { type SettingsPage, themeName } from "./settingsRoute";
 import { SyncCard, useSyncCard, useSyncNow } from "./SyncCard";
 import { sizeName } from "./youText";
+import { helpUrl } from "../../../services/help";
 
 // The phone's Settings (NP-072b): what the desktop's Settings page offers that a phone has, as
 // shelves of rows and a page per topic. Hidden here, by capability or because a phone has no use
@@ -392,6 +393,7 @@ export function AboutPage() {
         <ShelfRow icon={ExternalLink} title={t("phone.settings.licences")} subtitle={t("phone.settings.licencesHint")} chevron onClick={() => open(licensesUrl(i18n.language))} />
       </Shelf>
       <Shelf label={t("phone.settings.help")} className="st-shelf">
+        <ShelfRow icon={ExternalLink} title={t("settings.help")} subtitle={t("settings.helpHint")} chevron onClick={() => open(helpUrl("home"))} />
         <ShelfRow icon={MessageSquare} title={t("settings.feedback")} subtitle={t("settings.feedbackHint")} chevron onClick={() => setSurface("feedback")} />
         <ShelfRow icon={Bug} title={t("settings.github")} subtitle={t("settings.githubHint")} chevron onClick={() => open(GITHUB_ISSUES_URL)} />
       </Shelf>

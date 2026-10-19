@@ -2281,7 +2281,8 @@ test("macOS: Safari first in «Connect browser», turned on in Safari's settings
   await expect(shown).toContainText("Turn on the extension");
   await expect(shown).toContainText("In Safari, open Settings → Extensions and turn on Koona Pin.");
   await expect(shown).toContainText("Allow it on websites");
-  await expect(shown.getByRole("button")).toHaveCount(0);
+  // No store to open; the one button is the help's «Learn more ↗» about a lost connection (NP-092).
+  await expect(shown.getByRole("button")).toHaveText(["Learn more ↗"]);
   await expect(shown).toContainText("it starts in the menu bar and saves the link");
   await expect(shown).toContainText("The extension updates with Koona Pin");
   await dialog.getByRole("radio", { name: "Chrome" }).click();

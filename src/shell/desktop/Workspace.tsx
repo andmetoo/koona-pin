@@ -43,6 +43,7 @@ import { Banner, Toast } from "../../components/ui/Notices";
 import { DropZone } from "../../components/shell/DropZone";
 import { Sidebar } from "../../components/shell/Sidebar";
 import { Toolbar } from "../../components/shell/Toolbar";
+import { HelpLink } from "../../components/ui/HelpLink";
 
 /**
  * Today's library window (NP-072a): the sidebar, the toolbar over the list, the pages, the editor,
@@ -650,7 +651,8 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
                     >
                       {latestCopy
                         ? t("library.damagedLatest", { when: copyTime(latestCopy.created_at, t, i18n.language, true) })
-                        : t("library.damaged")}
+                        : t("library.damaged")}{" "}
+                      <HelpLink topic="libraryMessages" inherit onError={(err) => say(describeError(err), true)} />
                     </Banner>
                   )}
                   {library.error && (

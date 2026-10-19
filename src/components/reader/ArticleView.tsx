@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Article, openArticle, ReadFailure, readingMinutes } from "../../services/reader";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
+import { HelpLink } from "../ui/HelpLink";
 
 type State = { url: string } & (
   | { kind: "loading" }
@@ -200,6 +201,7 @@ export function ArticleView({
             <Icon icon={ArrowUpRight} size={14} />
           </Button>
         </div>
+        <HelpLink topic="readingMode" onOpen={onOpen} />
       </div>
     );
 

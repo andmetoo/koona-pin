@@ -7,6 +7,8 @@ import { savePreference, storedValue } from "../../services/preferences";
 import { Icon } from "../icons";
 import { Preview } from "../library/Bookmarks";
 import { recentTime } from "../../services/relativeTime";
+import { HelpLink } from "../ui/HelpLink";
+import type { HelpTopic } from "../../services/help";
 
 /**
  * One thing the app wants to tell (2026-10-16, banner variant D): the inbox waiting, the
@@ -32,6 +34,8 @@ export interface AppNotification {
   action?: { label: string; run: () => void; stay?: boolean };
   /** A second, quieter action: «Unfollow» next to «Show» of a feed that isn't updating (NP-133). */
   secondary?: { label: string; run: () => void };
+  /** «Learn more ↗» to the help's section on the problem (NP-092). */
+  help?: HelpTopic;
   /** The ×; none for what can't be dismissed, such as a problem. */
   dismiss?: { label: string; run: () => void };
   /** A task under way: its share done, 0 to 1, as a thin bar. */
@@ -331,6 +335,7 @@ export function NotificationCenter({
                             {n.secondary.label}
                           </button>
                         )}
+                        {n.help && <HelpLink topic={n.help} className="px-1" />}
                       </div>
                       )}
                       {n.dismiss && (

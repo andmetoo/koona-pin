@@ -16,6 +16,7 @@ import { ReaderChoice, ReaderLook, readerStyle } from "../../services/readerLook
 import { AaButton } from "./AaPanel";
 import { ArticleStatus, ArticleView, failureText, OfflineBanner } from "./ArticleView";
 import { OfflineButton, useOfflineCopies } from "./OfflineButton";
+import { HelpLink } from "../ui/HelpLink";
 
 /** What the queue reads: Reading (the default) or the section the library shows. */
 export type ReadingSource = "reading" | "section";
@@ -417,6 +418,7 @@ export function ReadingMode({
                       ? t("readingMode.offlineText", { site: current.domain })
                       : `${failureText(failure, t)} ${t("readingMode.failedTail")}`
                   }
+                  help={offline ? undefined : <HelpLink topic="readingMode" inherit onOpen={onOpen} />}
                   offline={offline}
                 >
                   {offline ? (
@@ -610,7 +612,7 @@ const IconsOnly = createContext(false);
  * in one row (#319): where the words do not fit, the quiet ones become icons
  * named by their hints, measured again when the card changes width.
  */
-function Card({ title, text, offline, children }: { title: string; text: string; offline: boolean; children: ReactNode }) {
+function Card({ title, text, help, offline, children }: { title: string; text: string; help?: ReactNode; offline: boolean; children: ReactNode }) {
   const row = useRef<HTMLDivElement>(null);
   const [icons, setIcons] = useState(false);
   useEffect(() => setIcons(false), [title, text]);
@@ -637,7 +639,10 @@ function Card({ title, text, offline, children }: { title: string; text: string;
       className="mx-auto mt-[136px] max-w-[560px] rounded-[14px] border border-read-border bg-read-card px-8 pt-7 pb-8"
     >
       <h2 className="read-serif text-[22px] leading-[28px] font-semibold text-read-ink">{title}</h2>
-      <p className="mt-2 text-sm leading-[21px] text-read-text/80">{text}</p>
+      <p className="mt-2 text-sm leading-[21px] text-read-text/80">
+        {text}
+        {help && <> {help}</>}
+      </p>
       <div ref={row} data-reader-actions className={`flex items-center gap-2.5 ${offline ? "mt-5" : "mt-8"}`}>
         <IconsOnly.Provider value={icons}>{children}</IconsOnly.Provider>
       </div>

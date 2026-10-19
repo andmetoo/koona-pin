@@ -8,6 +8,7 @@ import { Icon } from "../icons";
 import { Button } from "../ui/Button";
 import { Dot, Segmented, TabPanels } from "../ui/Controls";
 import { Dialog } from "../ui/Dialog";
+import { HelpLink } from "../ui/HelpLink";
 
 type Client = "desktop" | "code" | "chatgpt" | "custom";
 const CLIENTS: readonly Client[] = ["desktop", "code", "chatgpt", "custom"];
@@ -140,7 +141,9 @@ export function AssistantDialog({
             </>
           )}
         </TabPanels>
-        <p className="border-t border-divider pt-4 text-xs leading-4 text-muted">{t("assistant.note")}</p>
+        <p className="border-t border-divider pt-4 text-xs leading-4 text-muted">
+          {t("assistant.note")} <HelpLink topic="aiAssistants" onError={(err) => onNotice(describeError(err), true)} />
+        </p>
       </div>
     </Dialog>
   );

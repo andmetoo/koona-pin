@@ -883,6 +883,10 @@
     "quit": "Вийти",
     "hide": "Сховати вікно"
   },
+  "help": {
+    "learnMore": "Докладніше ↗",
+    "help": "Довідка ↗"
+  },
   "settings": {
     "assistants": "ШІ-асистенти",
     "general": "Загальні",
@@ -978,6 +982,9 @@
     "githubHint": "Публічні звернення в koona-pin",
     "licenses": "Ліцензії",
     "licensesHint": "Шрифти, значки й бібліотеки, з яких зроблено Koona Pin",
+    "help": "Довідка",
+    "helpHint": "Як користуватися Koona Pin і що робити, якщо щось не так, — на koona.app, англійською",
+    "helpButton": "Відкрити довідку ↗",
     "offline": "Офлайн-копії",
     "offlineStats": "Збережено для офлайну — {{articles}} · {{size}}",
     "offlineArticles_one": "{{count}} стаття",

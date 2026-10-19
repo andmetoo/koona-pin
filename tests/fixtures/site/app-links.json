@@ -1,0 +1,16 @@
+{
+  "comment": "The help addresses the Koona Pin app links to (koona-pin src/services/help.ts keeps a copy of this file in its tests). Installed copies of the app keep these addresses for years: never remove a line, and never let its page or anchor disappear. Renaming a heading changes its anchor: keep the old one alive with the page's `aliases` (README, «Справка»). scripts/build.mjs fails the build when a page or anchor here is missing.",
+  "links": [
+    "",
+    "getting-started/",
+    "getting-started/#add-the-browser-extension",
+    "troubleshooting/#saving-from-the-browser-fails",
+    "troubleshooting/#the-library-wont-open",
+    "troubleshooting/#messages-while-you-work",
+    "troubleshooting/#a-page-wont-open-in-reading-mode",
+    "troubleshooting/#feeds-dont-update",
+    "troubleshooting/#updates-fail",
+    "sync/",
+    "ai-assistants/"
+  ]
+}
