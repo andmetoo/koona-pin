@@ -12,7 +12,7 @@
 // commits up to HEAD (`git rev-list --count HEAD`), so every commit of main builds a higher number, for
 // iOS and later for Android's versionCode. A second upload of the same commit takes `--build` with a
 // higher number. --upload takes only a clean commit on origin/main (a branch's count can pass a later commit
-// of main), unless --build names the number.
+// of main), with or without --build; the script fetches origin/main first.
 //
 // Signing is Xcode's automatic, cloud-managed signing through the App Store Connect API key, with no
 // certificate or profile in the repository: APPLE_STORE_KEY, APPLE_STORE_ISSUER and APPLE_STORE_KEY_PATH (a
@@ -50,6 +50,26 @@ const given = option("--ipa");
 // An upload always builds: the checks below on the commit and its number hold only for a fresh build.
 if (given && (upload || !validate)) throw new Error("--ipa is for --validate only; --upload builds the IPA it uploads");
 
+const git = (...parts) => execFileSync("git", parts, { cwd: root, encoding: "utf8" }).trim();
+const plist = (file, key) => {
+  const result = spawnSync("/usr/libexec/PlistBuddy", ["-c", `Print :${key}`, file], { encoding: "utf8" });
+  return result.status === 0 ? result.stdout.trim() : undefined;
+};
+
+// The two files Tauri's archive edits. While its edits are on disk, Git skips them (below); a build that
+// was killed (SIGKILL, a closed terminal) could not put them back, and Git still skips them, hiding them
+// from `git status`. That is undone first, whatever this run does next.
+const touched = [
+  path.join(appleProject, "koonapin.xcodeproj", "project.pbxproj"),
+  path.join(appleProject, "koonapin_iOS", "Info.plist"),
+];
+const skipWorktree = (on) => git("update-index", on ? "--skip-worktree" : "--no-skip-worktree", ...touched);
+const skipped = git("ls-files", "-v", "--", ...touched).split("\n").filter((line) => /^[Ss] /.test(line));
+if (skipped.length > 0) {
+  console.warn(`A build that was killed left Git skipping ${skipped.map((line) => path.basename(line.slice(2))).join(" and ")}; it no longer does.`);
+}
+skipWorktree(false);
+
 const env = loadEnv();
 for (const name of ["APPLE_STORE_KEY", "APPLE_STORE_ISSUER", "APPLE_STORE_KEY_PATH"]) {
   if (!env[name]) throw new Error(`${name} is not set: the App Store Connect API key signs and uploads the build (docs/building.md)`);
@@ -59,11 +79,6 @@ const team = env.APPLE_TEAM_ID || env.APPLE_SIGNING_IDENTITY?.match(/\(([A-Z0-9]
 if (!team) throw new Error("APPLE_TEAM_ID is not set (and APPLE_SIGNING_IDENTITY names no team)");
 
 const sha256 = (file) => createHash("sha256").update(readFileSync(file)).digest("hex");
-const git = (...parts) => execFileSync("git", parts, { cwd: root, encoding: "utf8" }).trim();
-const plist = (file, key) => {
-  const result = spawnSync("/usr/libexec/PlistBuddy", ["-c", `Print :${key}`, file], { encoding: "utf8" });
-  return result.status === 0 ? result.stdout.trim() : undefined;
-};
 const work = mkdtempSync(path.join(os.tmpdir(), "koonapin-ios-"));
 process.on("exit", () => rmSync(work, { recursive: true, force: true }));
 
@@ -85,6 +100,31 @@ if (given) {
   process.exit(0);
 }
 
+// A killed build also left Tauri's lines in the two files: the team (which must never reach a commit, the
+// repository is public) and a build number, which the restore below would save as the original. Both
+// are refused until the files are checked out.
+const [project, infoPlist] = touched;
+const teamLines = (text) => text.split("\n").filter((line) => line.includes("DEVELOPMENT_TEAM")).join("\n");
+const headOf = (file) => git("show", `HEAD:${path.relative(root, file).split(path.sep).join("/")}`);
+const headInfo = path.join(work, "Info-HEAD.plist");
+writeFileSync(headInfo, headOf(infoPlist));
+const leftovers = [
+  teamLines(readFileSync(project, "utf8")) !== teamLines(headOf(project)) && `DEVELOPMENT_TEAM in ${path.relative(root, project)}`,
+  plist(infoPlist, "CFBundleVersion") !== plist(headInfo, "CFBundleVersion") && `CFBundleVersion in ${path.relative(root, infoPlist)}`,
+].filter(Boolean);
+if (leftovers.length > 0) {
+  throw new Error(`A build left ${leftovers.join(" and ")}, not as committed: git checkout -- src-tauri/gen/apple, then build again`);
+}
+
+// HEAD must be on origin/main as it is now, not as last fetched: else a commit of main reads as a branch's.
+const fetched = spawnSync("git", ["fetch", "--quiet", "origin", "main"], {
+  cwd: root, stdio: ["ignore", "ignore", "pipe"], encoding: "utf8", timeout: 60_000, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+});
+if (fetched.status !== 0) {
+  console.warn(`Could not fetch origin/main (${fetched.error?.message ?? fetched.stderr.trim().split("\n")[0]}): `
+    + "the check below uses the local origin/main, which may be out of date.");
+}
+
 // The build number: --build, else the commit count of HEAD.
 let build = option("--build");
 if (build === undefined) {
@@ -94,31 +134,22 @@ if (build === undefined) {
 if (!/^[1-9]\d{0,8}$/.test(build)) throw new Error(`The build number must be a positive whole number, not «${build}»`);
 // A branch's count can pass main's: once squash-merged, main counts one more, and App Store Connect
 // refuses its next builds of the version as not higher than the branch's upload. Such builds and those
-// of a worktree with changes are for testing only: release/test/ios, never uploaded.
+// of a worktree with changes are for testing only: release/test/ios, never uploaded. A new file that
+// Git does not ignore is a change too: the build has it, the commit does not. --build does not make a
+// branch's build publishable: it is for a second upload of the same commit of main.
 const onMain = spawnSync("git", ["merge-base", "--is-ancestor", "HEAD", "origin/main"], { cwd: root }).status === 0;
-const dirty = Boolean(git("status", "--porcelain", "--untracked-files=no"));
-const publishable = !dirty && (onMain || option("--build") !== undefined);
+const dirty = Boolean(git("status", "--porcelain", "--untracked-files=normal"));
+const publishable = !dirty && onMain;
 if (upload && !publishable) {
-  throw new Error(dirty ? "The worktree has changes: an upload is built from a commit as it is"
-    : "Upload builds of main only: HEAD is not on origin/main (fetch it, or pass --build)");
+  throw new Error(dirty ? "The worktree has changes or new files: an upload is built from a commit as it is"
+    : "Upload builds of main only: HEAD is not on origin/main (--build is for a second upload of a commit of main)");
 }
 if (!publishable) console.warn(`Not a clean commit of origin/main: a test build in ${path.relative(root, test.ios(version))}.`);
 
 requireLlvmTools();
 
-// 1. The archive, by Tauri's CLI, with the two files it edits put back afterwards.
-const touched = [
-  path.join(appleProject, "koonapin.xcodeproj", "project.pbxproj"),
-  path.join(appleProject, "koonapin_iOS", "Info.plist"),
-];
-// The team must never reach a commit (the repository is public). While Tauri's edits are on disk, Git
-// skips the two files, so a `git add` elsewhere stages nothing of them; a build that died before putting
-// them back left DEVELOPMENT_TEAM in the project, and that is refused here instead of saved as clean.
-const skipWorktree = (on) => git("update-index", on ? "--skip-worktree" : "--no-skip-worktree", ...touched);
-skipWorktree(false);
-if (readFileSync(touched[0], "utf8").includes("DEVELOPMENT_TEAM")) {
-  throw new Error(`A build left the team in ${path.relative(root, touched[0])}: git checkout -- src-tauri/gen/apple, then build again`);
-}
+// 1. The archive, by Tauri's CLI, with the two files it edits put back afterwards. While Tauri's edits
+// are on disk, Git skips the two files, so a `git add` elsewhere stages nothing of them.
 skipWorktree(true);
 const saved = touched.map((file) => [file, readFileSync(file)]);
 const restore = () => {
