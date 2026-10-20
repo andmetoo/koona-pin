@@ -1957,7 +1957,7 @@
         "readingHint": "Long-press a bookmark and choose Send to Reading. Read ones leave after a week.",
         "collectionHint": "Long-press a bookmark and choose Move to collection, or save a new link here.",
         "read": "Nothing finished yet",
-        "readHint": "Read an article to the end, or pull its progress up, and it moves here."
+        "readHint": "Finish an article in the reader — pull its progress up — and it moves here."
       }
     },
     "inbox": {

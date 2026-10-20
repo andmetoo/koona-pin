@@ -2078,7 +2078,7 @@
         "readingHint": "Appuyez longuement sur un signet et choisissez « Ajouter à À lire ». Les signets lus partent au bout d’une semaine.",
         "collectionHint": "Appuyez longuement sur un signet et choisissez « Déplacer vers une collection », ou enregistrez ici un nouveau lien.",
         "read": "Rien de terminé pour l’instant",
-        "readHint": "Lisez un article jusqu’au bout ou tirez sa progression vers le haut, et il arrive ici."
+        "readHint": "Terminez un article dans le lecteur — tirez sa progression vers le haut — et il arrive ici."
       }
     },
     "inbox": {

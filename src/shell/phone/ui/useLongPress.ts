@@ -46,6 +46,8 @@ export function useLongPress(onLongPress: () => void, onEnd?: () => void) {
       cancel();
       if (fired.current) callbacks.current.onEnd?.();
     },
+    // Something else took the pointer (a swipe between filters): no press any more.
+    onLostPointerCapture: () => cancel(),
     onContextMenu: (e: { preventDefault: () => void }) => e.preventDefault(),
     onClickCapture: (e: { preventDefault: () => void; stopPropagation: () => void }) => {
       if (!fired.current) return;

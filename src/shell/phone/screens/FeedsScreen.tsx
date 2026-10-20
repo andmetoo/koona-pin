@@ -92,16 +92,20 @@ export function FeedsScreen({ hidden }: { hidden: boolean }) {
     stack.openPost(feedUid, item.id);
   };
 
+  // A feed chosen by its chip or by a swipe, with the tick of a section change.
+  const chooseFeed = (uid: string | null) => {
+    if (uid === feedUid) return;
+    void selection();
+    app.openFeeds(uid);
+  };
   // The feed chips in their order, All feeds first: a swipe walks them.
   const order = useMemo(() => [null, ...feeds.map((f) => f.uid)], [feeds]);
   const at = order.indexOf(feedUid);
   const swipe = useFilterSwipe({
     index: at,
     count: order.length,
-    onChange: (i) => {
-      void selection();
-      app.openFeeds(order[i]);
-    },
+    onChange: (i) => chooseFeed(order[i]),
+    content: loaded ? items : null,
     enabled: !hidden && at >= 0 && feeds.length > 0,
   });
   const chipRow = useRef<HTMLDivElement>(null);
@@ -146,12 +150,12 @@ export function FeedsScreen({ hidden }: { hidden: boolean }) {
       ) : (
         <>
           <div ref={chipRow} className="ph-chips fd-chips" role="toolbar" aria-label={t("phone.feeds.chips")}>
-            <Chip active={feedUid === null} onClick={() => feedUid !== null && app.openFeeds(null)}>
+            <Chip active={feedUid === null} onClick={() => chooseFeed(null)}>
               {t("feeds.all")}
               {total > 0 && <span className="fd-count">{total}</span>}
             </Chip>
             {feeds.map((feed) => (
-              <FeedChip key={feed.uid} feed={feed} active={feed.uid === feedUid} />
+              <FeedChip key={feed.uid} feed={feed} active={feed.uid === feedUid} onChoose={chooseFeed} />
             ))}
           </div>
           <div className="fd-dayrow">
@@ -358,12 +362,12 @@ function PostPicture({ item, feed, name }: { item: FeedItem; feed: Feed | undefi
 }
 
 /** A feed's chip: its avatar, name and unread count; a tap shows it, a long press opens its menu. */
-function FeedChip({ feed, active }: { feed: Feed; active: boolean }) {
-  const { app, sheets } = usePhone();
+function FeedChip({ feed, active, onChoose }: { feed: Feed; active: boolean; onChoose: (uid: string) => void }) {
+  const { sheets } = usePhone();
   // The sheet gives the long-press tick (sheets/useSheets.ts).
   const press = useLongPress(() => sheets.open({ kind: "feedMenu", props: { feedUid: feed.uid } }));
   return (
-    <Chip active={active} className="fd-chip" data-feed-uid={feed.uid} onClick={() => !active && app.openFeeds(feed.uid)} {...press}>
+    <Chip active={active} className="fd-chip" data-feed-uid={feed.uid} onClick={() => onChoose(feed.uid)} {...press}>
       <FeedIcon feed={feed} size={22} round />
       {feedName(feed)}
       {feed.unread > 0 && <span className="fd-count">{feed.unread}</span>}

@@ -1957,7 +1957,7 @@
         "readingHint": "Bir yer işaretine basılı tutun ve “Okuma listesine ekle”yi seçin. Okunanlar bir hafta sonra çıkar.",
         "collectionHint": "Bir yer işaretine basılı tutun ve “Koleksiyona taşı”yı seçin ya da buraya yeni bir bağlantı kaydedin.",
         "read": "Henüz bitirilen yok",
-        "readHint": "Bir makaleyi sonuna kadar okuyun ya da ilerlemesini yukarı çekin, buraya taşınır."
+        "readHint": "Okuyucuda bir makaleyi bitirin (ilerlemesini yukarı çekin), buraya taşınır."
       }
     },
     "inbox": {

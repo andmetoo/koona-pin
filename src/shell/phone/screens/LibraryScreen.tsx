@@ -87,10 +87,12 @@ export function LibraryScreen({ section, hidden }: { section: "all" | "reading";
     navigate({ onlyReading: true, read: value === "read" });
   };
   const chipIndex = chipValues.indexOf(chip);
+  // The list once loaded: a new one lets the swiped-to filter slide in.
+  const content = library.loading ? null : library.bookmarks;
   const swipe = useFilterSwipe(
     reading
-      ? { index: page === "read" ? 1 : 0, count: 2, onChange: (i) => turn(i === 1 ? "read" : "unread"), enabled: !hidden }
-      : { index: chipIndex, count: chipValues.length, onChange: (i) => choose(chipValues[i]), enabled: !hidden && chipIndex >= 0 },
+      ? { index: page === "read" ? 1 : 0, count: 2, onChange: (i) => turn(i === 1 ? "read" : "unread"), content, enabled: !hidden }
+      : { index: chipIndex, count: chipValues.length, onChange: (i) => choose(chipValues[i]), content, enabled: !hidden && chipIndex >= 0 },
   );
   const chipRow = useRef<HTMLDivElement>(null);
   useChipInView(chipRow, chip);

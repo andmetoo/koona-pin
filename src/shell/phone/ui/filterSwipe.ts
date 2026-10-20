@@ -6,8 +6,11 @@
 
 /** Touches starting this close to the screen's left or right edge belong to the system's Back. */
 export const EDGE = 24;
-/** Movement before a touch is a swipe (sideways) or a scroll (anything else). */
-export const SLOP = 10;
+/**
+ * Movement before a touch is a swipe (sideways) or a scroll (anything else): past a row's long-press
+ * slop (`useLongPress`, 10), so the row has let go of its press by the time the swipe takes over.
+ */
+export const SLOP = 12;
 /** Sideways must win by this much to be a swipe: a diagonal drag is the list's scroll. */
 const SIDEWAYS = 1.2;
 /** A drag this share of the width moves to the neighbour when let go… */
@@ -17,13 +20,33 @@ const FLICK = 0.5;
 const FLICK_MIN = 24;
 /** A finger that rests this long (ms) before it lifts has no flick left. */
 const REST = 80;
+/** A flick's speed is measured over this much of the drag's end (ms), not one noisy event pair… */
+const WINDOW = 100;
+/** …and needs at least this much of it (ms) to count. */
+const MIN_SPAN = 16;
 /** Past the first or the last filter the page follows the finger this much, at most {@link BAND_MAX}. */
 const BAND = 0.25;
 const BAND_MAX = 64;
 
-/** The drag's velocity when the finger lifts: none after it rested since its last move. */
-export function liftVelocity(velocity: number, sinceMove: number): number {
-  return sinceMove > REST ? 0 : velocity;
+/** Where the finger was (sideways, px) and when (ms). */
+export type Sample = { x: number; t: number };
+
+/**
+ * The drag's velocity (px per ms) when the finger lifts at `now`: over the last {@link WINDOW} of
+ * its samples, oldest first; none after it rested since its last move, or over too short a span.
+ */
+export function liftVelocity(samples: readonly Sample[], now: number): number {
+  const last = samples[samples.length - 1];
+  if (!last || now - last.t > REST) return 0;
+  let first = last;
+  for (let i = samples.length - 1; i >= 0 && last.t - samples[i].t <= WINDOW; i--) first = samples[i];
+  const span = last.t - first.t;
+  return span < MIN_SPAN ? 0 : (last.x - first.x) / span;
+}
+
+/** The samples worth keeping after `sample`: those still inside the flick's window. */
+export function keepSamples(samples: readonly Sample[], sample: Sample): Sample[] {
+  return [...samples.filter((s) => sample.t - s.t <= WINDOW), sample];
 }
 
 /** Whether a touch at `x` starts in the system's back-gesture strips of a screen `width` wide. */
