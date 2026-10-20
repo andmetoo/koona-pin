@@ -16,7 +16,8 @@
 //! `title` is the sharing app's subject, empty when it gave none. The files in `queue-fixtures` are
 //! the format's examples, read by the app crate's tests and written by the Kotlin side's.
 //!
-//! This crate only tells the app where the queue is: [`queue_folder`].
+//! This crate only tells the app where the queue is ([`queue_folder`]) and when a share lands in
+//! it while the app runs ([`on_queued`]).
 
 use std::path::PathBuf;
 use tauri::{
@@ -27,10 +28,37 @@ use tauri::{
 /// The queue folder, asked of the Kotlin side once at start.
 struct QueueFolder(Option<PathBuf>);
 
+/// The Kotlin side, for its events.
+#[cfg(target_os = "android")]
+struct Kotlin<R: Runtime>(tauri::plugin::PluginHandle<R>);
+
 /// The folder the share sheet writes to; none where this build has no share sheet (iOS until its
 /// extension exists) or the Kotlin side could not say.
 pub fn queue_folder<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
     app.try_state::<QueueFolder>().and_then(|folder| folder.0.clone())
+}
+
+/// Calls `handler` whenever the share sheet queues a link while the app's process lives, also
+/// with the app on the screen beside the app that shares (split screen, a pop-up window), which
+/// brings no resume. Nothing where there is no share sheet.
+pub fn on_queued<R: Runtime>(app: &AppHandle<R>, handler: impl Fn() + Send + Sync + 'static) {
+    #[cfg(target_os = "android")]
+    if let Some(kotlin) = app.try_state::<Kotlin<R>>() {
+        #[derive(serde::Serialize)]
+        struct Listener {
+            event: &'static str,
+            handler: tauri::ipc::Channel,
+        }
+        let channel = tauri::ipc::Channel::new(move |_| {
+            handler();
+            Ok(())
+        });
+        if let Err(error) = kotlin.0.run_mobile_plugin::<()>("registerListener", Listener { event: "queued", handler: channel }) {
+            eprintln!("Koona Pin: no word of new shares while the app runs: {error}");
+        }
+    }
+    #[cfg(not(target_os = "android"))]
+    let _ = (app, handler);
 }
 
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
@@ -45,6 +73,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
                 let handle = _api.register_android_plugin("app.koona.pin.share", "KoonaSharePlugin")?;
                 let folder = handle.run_mobile_plugin::<Answer>("queueFolder", ()).ok().map(|answer| PathBuf::from(answer.path));
                 app.manage(QueueFolder(folder));
+                app.manage(Kotlin(handle));
             }
             #[cfg(not(target_os = "android"))]
             app.manage(QueueFolder(None));

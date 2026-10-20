@@ -40,9 +40,13 @@ pub fn library_paths(app: &tauri::App) -> tauri::Result<library::Paths> {
 
 /// Before the shared starts: an Android WebView too old for the interface gets the plugin's update
 /// screen; nothing starts behind it: the library stays closed and the loops wait for good (NP-151).
-/// The share sheet's queue is known before the library opens, which takes it in (NP-071).
+/// The share sheet's queue is known before the library opens, which takes it in (NP-071); a share
+/// made while the app runs is taken in at once, also when the app stays on the screen beside the
+/// app that shares (split screen, a pop-up window), which brings no resume.
 pub fn prepare(app: &tauri::App) {
     crate::share_queue::manage(app, tauri_plugin_koona_share::queue_folder(app.handle()));
+    let handle = app.handle().clone();
+    tauri_plugin_koona_share::on_queued(app.handle(), move || crate::share_queue::ingest(&handle));
     #[cfg(target_os = "android")]
     if !tauri_plugin_koona_mobile::webview_supported(app.handle()) {
         lifecycle::hold(app.handle());
@@ -59,7 +63,7 @@ pub fn setup(app: &tauri::App, _channel_state: Arc<crate::capture_channel::Chann
 
 /// A phone put the app behind the screen or brought it back (NP-151): the loops wait meanwhile,
 /// and the interface reads its counts and list again on the way back (`tauri://resumed`). Links
-/// shared meanwhile are taken in then (NP-071).
+/// shared meanwhile are taken in then, and when the window gets the focus back (NP-071).
 pub fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
     match event {
         tauri::WindowEvent::Suspended => lifecycle::set(window.app_handle(), false),
@@ -67,6 +71,7 @@ pub fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
             lifecycle::set(window.app_handle(), true);
             crate::share_queue::ingest(window.app_handle());
         }
+        tauri::WindowEvent::Focused(true) => crate::share_queue::ingest(window.app_handle()),
         _ => {}
     }
 }
