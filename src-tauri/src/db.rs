@@ -440,6 +440,10 @@ pub struct BookmarkQuery {
     /// first, then the read ones, newest read first. Ignores `sort`.
     #[serde(default)]
     pub only_reading: bool,
+    /// Only the read ones (true) or only the unread (false): the phone's two
+    /// pages of Reading; none for both.
+    #[ts(optional)]
+    pub read: Option<bool>,
     /// Only bookmarks with an offline copy (NP-126), in the order chosen.
     #[serde(default)]
     pub only_offline: bool,
@@ -822,6 +826,11 @@ fn query_filter(query: &BookmarkQuery) -> (String, &'static str, Vec<rusqlite::t
     }
     if query.only_inbox {
         filter.push_str(" AND b.triaged_at IS NULL");
+    }
+    match query.read {
+        Some(true) => filter.push_str(" AND b.read_at IS NOT NULL"),
+        Some(false) => filter.push_str(" AND b.read_at IS NULL"),
+        None => {}
     }
     if query.only_offline {
         // The few copies first, not a lookup on every row.
@@ -1283,7 +1292,8 @@ pub enum Bulk {
     Reading(bool),
     /// Marked read (progress 1) or unread (from the start).
     Read(bool),
-    /// Finished from the phone's reader: out of Reading and read, in one go;
+    /// Finished from the phone's reader: read to the end, so it moves to
+    /// Reading's Read page and stays in Reading (owner, 20 October 2026);
     /// only bookmarks in Reading change.
     Finish,
 }
@@ -1391,10 +1401,10 @@ pub(crate) fn bulk_in(conn: &Connection, ids: &[i64], bulk: &Bulk) -> Result<(us
         ),
         Bulk::Reading(false) => ("?2 IS NULL AND reading_at IS NOT NULL", "reading_at=NULL".to_string(), Value::Null),
         Bulk::Read(true) => ("?2 IS NULL AND read_at IS NULL", "read_at=?3, reading_progress=1".to_string(), Value::Null),
-        // Only what is in Reading: finishing is how a read leaves it.
+        // Only what is in Reading and not read to the end yet; it stays there, on the Read page.
         Bulk::Finish => (
-            "?2 IS NULL AND reading_at IS NOT NULL",
-            "reading_at=NULL, read_at=COALESCE(read_at, ?3), reading_progress=1".to_string(),
+            "?2 IS NULL AND reading_at IS NOT NULL AND (read_at IS NULL OR reading_progress < 1)",
+            "read_at=COALESCE(read_at, ?3), reading_progress=1".to_string(),
             Value::Null,
         ),
         Bulk::Read(false) => (

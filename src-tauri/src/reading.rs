@@ -160,6 +160,13 @@ mod tests {
             }
         }
         assert_eq!(seen, all);
+        // The phone's two pages: the unread, and the read ones, each in the list's order.
+        assert_eq!(titles(&conn, &BookmarkQuery { read: Some(false), ..reading() }), ["e", "b", "a"]);
+        let read = BookmarkQuery { read: Some(true), limit: Some(1), ..reading() };
+        let first = get_bookmarks(&conn, &read).unwrap();
+        assert_eq!(first.items[0].title, "d");
+        let rest = BookmarkQuery { after: first.next, ..read };
+        assert_eq!(titles(&conn, &rest), ["c"]);
         // The trash leaves it.
         db::trash_bookmark(&conn, ids[0]).unwrap();
         assert_eq!(unread(&conn).unwrap(), 2);
@@ -250,7 +257,7 @@ mod tests {
     }
 
     #[test]
-    fn finishing_takes_it_out_of_reading_and_marks_it_read_in_one_command() {
+    fn finishing_marks_it_read_and_keeps_it_on_readings_read_page_in_one_command() {
         let conn = library();
         let mut journal = Journal::default();
         let id = add(&conn, "finished");
@@ -259,7 +266,8 @@ mod tests {
         let (done, command) = journal.record(&conn, Action::Finished, &[id], |conn| apply_bulk(conn, &[id], &Bulk::Finish).map(|(_, c)| c)).unwrap();
         assert!(command.is_some());
         let b = &done[0];
-        assert_eq!((b.reading_at.is_none(), b.read_at.is_some(), b.reading_progress), (true, true, 1.0));
+        assert_eq!((b.reading_at.is_some(), b.read_at.is_some(), b.reading_progress), (true, true, 1.0));
+        assert_eq!(titles(&conn, &BookmarkQuery { read: Some(true), ..reading() }), ["finished"]);
         // Finished again: nothing to change, nothing recorded.
         assert_eq!(apply_bulk(&conn, &[id], &Bulk::Finish).unwrap().1.len(), 0);
         // Not in Reading: finishing does not touch it, read or not.

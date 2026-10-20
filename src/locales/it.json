@@ -2065,17 +2065,20 @@
       "filters": "Filtri",
       "all": "Tutti",
       "favorite": "Preferito",
-      "unread": "Non letti",
-      "read": "Letti",
       "newLinks_one": "{{count, number}} nuovo link",
       "newLinks_many": "{{count, number}} di nuovi link",
       "newLinks_other": "{{count, number}} nuovi link",
       "refreshing": "Aggiornamento",
+      "pages": "Da leggere e Letti",
+      "toRead": "Da leggere {{count, number}}",
+      "readPage": "Letti {{count, number}}",
       "empty": {
         "libraryHint": "Tocca + per salvare un link: aspetta qui con il suo titolo e l’immagine.",
         "favoritesHint": "Tieni premuto un segnalibro e scegli «Aggiungi ai preferiti»: apparirà qui.",
         "readingHint": "Tieni premuto un segnalibro e scegli «Aggiungi a Da leggere». Quelli letti escono dopo una settimana.",
-        "collectionHint": "Tieni premuto un segnalibro e scegli «Sposta in una raccolta», oppure salva qui un nuovo link."
+        "collectionHint": "Tieni premuto un segnalibro e scegli «Sposta in una raccolta», oppure salva qui un nuovo link.",
+        "read": "Ancora niente di finito",
+        "readHint": "Leggi un articolo fino in fondo o trascina in alto il suo avanzamento, e arriva qui."
       }
     },
     "inbox": {
@@ -2136,7 +2139,7 @@
       "openOriginal": "Apri l’originale",
       "finish": "Segna come finito",
       "finishAsk": "Segnare come finito?",
-      "finishText": "Esce da Da leggere. Puoi annullare subito dopo.",
+      "finishText": "Passa in Letti. Puoi annullare subito dopo.",
       "finishedState": "Finito",
       "readValue": "{{percent}} % letto",
       "readLeft_one": "{{percent}} % letto, manca {{count}} minuto",
@@ -2145,7 +2148,6 @@
       "minLeft_one": "manca {{count}} min",
       "minLeft_many": "mancano {{count}} min",
       "minLeft_other": "mancano {{count}} min",
-      "end": "Sei arrivato alla fine",
       "progress": "Letto finora",
       "smaller": "Testo più piccolo",
       "larger": "Testo più grande",

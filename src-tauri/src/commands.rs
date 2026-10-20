@@ -108,8 +108,8 @@ pub enum BulkChange {
     Reading { reading: bool },
     /// Marked read, or unread.
     Read { read: bool },
-    /// Finished from the phone's reader: out of Reading and marked read, one
-    /// command undone whole.
+    /// Finished from the phone's reader: marked read to the end, staying in
+    /// Reading on its Read page; one command undone whole.
     Finish,
     /// «Новая коллекция из выбранного»: created and filled in one go.
     NewCollection { name: String },

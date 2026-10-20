@@ -1825,15 +1825,18 @@
       "filters": "필터",
       "all": "전체",
       "favorite": "즐겨찾기",
-      "unread": "읽지 않음",
-      "read": "읽음",
       "newLinks_other": "새 링크 {{count, number}}개",
       "refreshing": "새로 고치는 중",
+      "pages": "읽을 글과 읽은 글",
+      "toRead": "읽을 글 {{count, number}}",
+      "readPage": "읽은 글 {{count, number}}",
       "empty": {
         "libraryHint": "+를 탭해 링크를 저장하세요. 제목과 사진과 함께 여기에서 기다립니다.",
         "favoritesHint": "북마크를 길게 누르고 ‘즐겨찾기에 추가’를 고르면 여기에 나타납니다.",
         "readingHint": "북마크를 길게 누르고 ‘읽을거리에 추가’를 고르세요. 읽은 항목은 일주일 뒤에 빠집니다.",
-        "collectionHint": "북마크를 길게 누르고 ‘컬렉션으로 이동’을 고르거나, 여기에 새 링크를 저장하세요."
+        "collectionHint": "북마크를 길게 누르고 ‘컬렉션으로 이동’을 고르거나, 여기에 새 링크를 저장하세요.",
+        "read": "아직 다 읽은 글이 없습니다",
+        "readHint": "글을 끝까지 읽거나 진행률을 위로 끌어 올리면 여기로 옮겨집니다."
       }
     },
     "inbox": {
@@ -1886,12 +1889,11 @@
       "openOriginal": "원문 열기",
       "finish": "다 읽음으로 표시",
       "finishAsk": "다 읽음으로 표시할까요?",
-      "finishText": "읽기 목록에서 빠집니다. 바로 실행 취소할 수 있습니다.",
+      "finishText": "읽은 글로 옮겨집니다. 바로 실행 취소할 수 있습니다.",
       "finishedState": "다 읽음",
       "readValue": "{{percent}}% 읽음",
       "readLeft_other": "{{percent}}% 읽음, {{count}}분 남음",
       "minLeft_other": "{{count}}분 남음",
-      "end": "끝까지 읽었습니다",
       "progress": "읽은 정도",
       "smaller": "글자 작게",
       "larger": "글자 크게",

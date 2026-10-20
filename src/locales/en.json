@@ -1945,16 +1945,19 @@
       "filters": "Filters",
       "all": "All",
       "favorite": "Favorite",
-      "unread": "Unread",
-      "read": "Read",
       "newLinks_one": "{{count, number}} new link",
       "newLinks_other": "{{count, number}} new links",
       "refreshing": "Refreshing",
+      "pages": "To read and Read",
+      "toRead": "To read {{count, number}}",
+      "readPage": "Read {{count, number}}",
       "empty": {
         "libraryHint": "Tap + to save a link: it waits here with its title and picture.",
         "favoritesHint": "Long-press a bookmark and choose Add to favorites — it will appear here.",
         "readingHint": "Long-press a bookmark and choose Send to Reading. Read ones leave after a week.",
-        "collectionHint": "Long-press a bookmark and choose Move to collection, or save a new link here."
+        "collectionHint": "Long-press a bookmark and choose Move to collection, or save a new link here.",
+        "read": "Nothing finished yet",
+        "readHint": "Read an article to the end, or pull its progress up, and it moves here."
       }
     },
     "inbox": {
@@ -2011,14 +2014,13 @@
       "openOriginal": "Open original",
       "finish": "Mark as finished",
       "finishAsk": "Mark as finished?",
-      "finishText": "It leaves Reading. You can undo it right after.",
+      "finishText": "It moves to Read. You can undo it right after.",
       "finishedState": "Finished",
       "readValue": "{{percent}} % read",
       "readLeft_one": "{{percent}} % read, {{count}} minute left",
       "readLeft_other": "{{percent}} % read, {{count}} minutes left",
       "minLeft_one": "{{count}} min left",
       "minLeft_other": "{{count}} min left",
-      "end": "You reached the end",
       "progress": "Read so far",
       "smaller": "Smaller text",
       "larger": "Larger text",

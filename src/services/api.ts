@@ -119,6 +119,7 @@ const toQuery = (
   only_inbox: filters.onlyInbox ?? false,
   only_trash: filters.onlyTrash ?? false,
   only_reading: filters.onlyReading ?? false,
+  read: filters.read ?? undefined,
   only_offline: filters.onlyOffline ?? false,
   ...page,
 });

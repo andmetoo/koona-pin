@@ -1,5 +1,5 @@
 import { type CSSProperties, type MutableRefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, Heart, LayoutGrid, List, Plus, RefreshCw, Search, TriangleAlert } from "lucide-react";
+import { BookCheck, BookOpen, Heart, LayoutGrid, List, Plus, RefreshCw, Search, TriangleAlert } from "lucide-react";
 import { selection } from "../../../platform/haptics";
 import { collectionColor } from "../../../services/collections";
 import { groupOf } from "../../../services/dateGroups";
@@ -17,6 +17,7 @@ import { Button } from "../ui/buttons";
 import { Chip, Segmented } from "../ui/controls";
 import { PhIcon } from "../ui/icons";
 import { Screen, Header } from "../ui/Screen";
+import { useChipInView, useFilterSwipe } from "../ui/useFilterSwipe";
 
 /** Grid cards: at least this wide (two columns on a phone and in the Fold's list pane, more where wider), 12 apart. */
 const CARD_MIN = 160;
@@ -26,25 +27,26 @@ const PICTURE_RATIO = 109 / 166.5;
 /** A pull refreshes the previews of this many rows at the top that have no picture yet. */
 const PREVIEW_ROWS = 30;
 
-/** The sections' labels: the desktop's date groups, and Reading's unread and read. */
+/** The sections' labels: the desktop's date groups. */
 const LABELS = {
   today: "groups.today",
   yesterday: "groups.yesterday",
   week: "groups.week",
   earlier: "groups.earlier",
-  unread: "phone.library.unread",
-  read: "phone.library.read",
 } as const;
 
 type ChipValue = "all" | "favorites" | number;
+/** Reading's two pages (owner, 20 October 2026): what is still to read, and what was finished. */
+type Page = "unread" | "read";
 
 /**
  * L1/L2 Library (NP-072b): All bookmarks, and the Reading tab with `section="reading"`. The header
  * with the count and the account cluster; the search field, which opens Search; the list/grid
  * switch (the desktop's view preference: its compact grid shows as the list here); filter chips —
  * All, Favorites, the collections — narrowing the tab's section; the bookmarks on shelves by day
- * (the desktop's date groups), Reading's by unread and read. Virtualized and paged as on the
- * desktop; pull to refresh at the top.
+ * (the desktop's date groups). Reading has no chips: its two pages, To read and Read, on a switch.
+ * A swipe on the list moves to the neighbouring chip or page (SW1, SW3–SW4). Virtualized and paged
+ * as on the desktop; pull to refresh at the top.
  */
 export function LibraryScreen({ section, hidden }: { section: "all" | "reading"; hidden: boolean }) {
   const { app, stack, sheets, selected } = usePhone();
@@ -76,22 +78,32 @@ export function LibraryScreen({ section, hidden }: { section: "all" | "reading";
     void selection();
     navigate({ ...base, onlyFavorites: value === "favorites", collectionId: typeof value === "number" ? value : null });
   };
+  const chipValues = useMemo<ChipValue[]>(() => ["all", "favorites", ...library.collections.map((c) => c.id)], [library.collections]);
+  const page: Page = filters.read ? "read" : "unread";
+  const turn = (value: Page) => {
+    if (value === page) return;
+    void selection();
+    navigate({ onlyReading: true, read: value === "read" });
+  };
+  const chipIndex = chipValues.indexOf(chip);
+  const swipe = useFilterSwipe(
+    reading
+      ? { index: page === "read" ? 1 : 0, count: 2, onChange: (i) => turn(i === 1 ? "read" : "unread"), enabled: !hidden }
+      : { index: chipIndex, count: chipValues.length, onChange: (i) => choose(chipValues[i]), enabled: !hidden && chipIndex >= 0 },
+  );
+  const chipRow = useRef<HTMLDivElement>(null);
+  useChipInView(chipRow, chip);
 
   const grid = view === "grid";
   const columns = Math.max(2, Math.floor((width - 32 + CARD_GAP) / (CARD_MIN + CARD_GAP)));
   const cardWidth = (width - 32 - CARD_GAP * (columns - 1)) / columns;
   const cardHeight = Math.round((cardWidth - 8) * PICTURE_RATIO) + sizes.cardText;
   const { starts } = library.dateGroups;
-  const grouping = reading ? "reading" : byTime(sort) ? "time" : "none";
+  const grouping = !reading && byTime(sort) ? "time" : "none";
   const entries = useMemo(
     () =>
       shelfEntries(library.bookmarks, {
-        groupOf:
-          grouping === "time"
-            ? (b) => groupOf(listTime(b), starts)
-            : grouping === "reading"
-              ? (b) => (b.read_at ? "read" : "unread")
-              : () => null,
+        groupOf: grouping === "time" ? (b) => groupOf(listTime(b), starts) : () => null,
         keyOf: (b) => b.id,
         columns: grid ? columns : null,
         cardHeight,
@@ -151,19 +163,34 @@ export function LibraryScreen({ section, hidden }: { section: "all" | "reading";
           onChange={setView}
         />
       </div>
-      <div className="ph-chips lib-chips" role="group" aria-label={t("phone.library.filters")}>
-        <Chip active={chip === "all"} onClick={() => choose("all")}>
-          {t("phone.library.all")}
-        </Chip>
-        <Chip active={chip === "favorites"} icon={Heart} onClick={() => choose("favorites")}>
-          {t("nav.favorites")}
-        </Chip>
-        {library.collections.map((c) => (
-          <Chip key={c.id} active={chip === c.id} dot={collectionColor(c.id)} onClick={() => choose(c.id)}>
-            {c.name}
+      {reading ? (
+        <div className="lib-pages">
+          <Segmented<Page>
+            className="lib-segmented lib-pages-switch"
+            label={t("phone.library.pages")}
+            value={page}
+            options={[
+              { value: "unread", label: t("phone.library.toRead", { count: counts.reading_unread }) },
+              { value: "read", label: t("phone.library.readPage", { count: Math.max(0, counts.reading - counts.reading_unread) }) },
+            ]}
+            onChange={turn}
+          />
+        </div>
+      ) : (
+        <div ref={chipRow} className="ph-chips lib-chips" role="group" aria-label={t("phone.library.filters")}>
+          <Chip active={chip === "all"} onClick={() => choose("all")}>
+            {t("phone.library.all")}
           </Chip>
-        ))}
-      </div>
+          <Chip active={chip === "favorites"} icon={Heart} onClick={() => choose("favorites")}>
+            {t("nav.favorites")}
+          </Chip>
+          {library.collections.map((c) => (
+            <Chip key={c.id} active={chip === c.id} dot={collectionColor(c.id)} onClick={() => choose(c.id)}>
+              {c.name}
+            </Chip>
+          ))}
+        </div>
+      )}
       {library.pendingCount > 0 && (
         <div className="lib-new">
           <button type="button" className="lib-new-pill" onClick={library.reveal}>
@@ -171,59 +198,63 @@ export function LibraryScreen({ section, hidden }: { section: "all" | "reading";
           </button>
         </div>
       )}
-      {empty ? (
-        library.error ? (
-          <Empty icon={TriangleAlert} title={library.error}>
-            <Button kind="clear" icon={RefreshCw} onClick={() => void library.refresh()}>
-              {t("common.retry")}
-            </Button>
-          </Empty>
-        ) : (
-          <EmptySection reading={reading} chip={chip} collection={typeof chip === "number" ? collections.get(chip) : undefined} />
-        )
-      ) : library.bookmarks.length === 0 ? (
-        app.slowLoading && <Skeleton label={t("library.loading")} />
-      ) : (
-        <ShelfList
-          entries={entries}
-          scrollElement={scroller}
-          hasMore={library.hasMore}
-          loadingMore={library.loadingMore}
-          onMore={library.loadMore}
-          renderLabel={(group) => <h2 className="lib-label">{t(LABELS[group as keyof typeof LABELS])}</h2>}
-          renderRow={(b, entry) => (
-            <BookmarkRow
-              bookmark={b}
-              dot={dotOf(b)}
-              language={i18n.language}
-              favorite={favorite}
-              onOpen={onOpen}
-              onMenu={onMenu}
-              first={entry.first}
-              selected={b.id === selected.bookmarkId}
-              last={entry.last}
+      <div className="ph-swipe" {...swipe.bind}>
+        <div ref={swipe.page} className="ph-swipe-page">
+          {empty ? (
+            library.error ? (
+              <Empty icon={TriangleAlert} title={library.error}>
+                <Button kind="clear" icon={RefreshCw} onClick={() => void library.refresh()}>
+                  {t("common.retry")}
+                </Button>
+              </Empty>
+            ) : (
+              <EmptySection reading={reading} page={page} chip={chip} collection={typeof chip === "number" ? collections.get(chip) : undefined} />
+            )
+          ) : library.bookmarks.length === 0 ? (
+            app.slowLoading && <Skeleton label={t("library.loading")} />
+          ) : (
+            <ShelfList
+              entries={entries}
+              scrollElement={scroller}
+              hasMore={library.hasMore}
+              loadingMore={library.loadingMore}
+              onMore={library.loadMore}
+              renderLabel={(group) => <h2 className="lib-label">{t(LABELS[group as keyof typeof LABELS])}</h2>}
+              renderRow={(b, entry) => (
+                <BookmarkRow
+                  bookmark={b}
+                  dot={dotOf(b)}
+                  language={i18n.language}
+                  favorite={favorite}
+                  onOpen={onOpen}
+                  onMenu={onMenu}
+                  first={entry.first}
+                  selected={b.id === selected.bookmarkId}
+                  last={entry.last}
+                />
+              )}
+              renderCards={(entry) => (
+                <div className="lib-cards" style={{ "--columns": columns, "--lib-scale": scale, height: cardHeight } as CSSProperties}>
+                  {entry.items.map((b) => (
+                    <BookmarkCard key={b.id} bookmark={b} dot={dotOf(b)} language={i18n.language} favorite={favorite} onOpen={onOpen} onMenu={onMenu} selected={b.id === selected.bookmarkId} />
+                  ))}
+                </div>
+              )}
+              footer={
+                <p className="lib-more ph-meta" role="status">
+                  {library.loadingMore ? t("library.loadingMore") : ""}
+                </p>
+              }
             />
           )}
-          renderCards={(entry) => (
-            <div className="lib-cards" style={{ "--columns": columns, "--lib-scale": scale, height: cardHeight } as CSSProperties}>
-              {entry.items.map((b) => (
-                <BookmarkCard key={b.id} bookmark={b} dot={dotOf(b)} language={i18n.language} favorite={favorite} onOpen={onOpen} onMenu={onMenu} selected={b.id === selected.bookmarkId} />
-              ))}
-            </div>
-          )}
-          footer={
-            <p className="lib-more ph-meta" role="status">
-              {library.loadingMore ? t("library.loadingMore") : ""}
-            </p>
-          }
-        />
-      )}
+        </div>
+      </div>
     </Screen>
   );
 }
 
 /** What the tab shows with nothing in it: the section's own words, and a way to add a link. */
-function EmptySection({ reading, chip, collection }: { reading: boolean; chip: ChipValue; collection: Collection | undefined }) {
+function EmptySection({ reading, page, chip, collection }: { reading: boolean; page: Page; chip: ChipValue; collection: Collection | undefined }) {
   const { app, sheets } = usePhone();
   const { t } = app;
   const add = (
@@ -233,6 +264,7 @@ function EmptySection({ reading, chip, collection }: { reading: boolean; chip: C
   );
   if (collection) return <Empty title={t("empty.emptyCollection", { name: collection.name })} text={t("phone.library.empty.collectionHint")} />;
   if (chip === "favorites") return <Empty icon={Heart} title={t("empty.noFavorites")} text={t("phone.library.empty.favoritesHint")} />;
+  if (reading && page === "read") return <Empty icon={BookCheck} title={t("phone.library.empty.read")} text={t("phone.library.empty.readHint")} />;
   if (reading) return <Empty icon={BookOpen} title={t("empty.reading")} text={t("phone.library.empty.readingHint")} />;
   return (
     <Empty title={t("empty.library")} text={t("phone.library.empty.libraryHint")}>

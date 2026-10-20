@@ -21,6 +21,11 @@ only_trash: boolean,
  */
 only_reading: boolean, 
 /**
+ * Only the read ones (true) or only the unread (false): the phone's two
+ * pages of Reading; none for both.
+ */
+read?: boolean, 
+/**
  * Only bookmarks with an offline copy (NP-126), in the order chosen.
  */
 only_offline: boolean, 

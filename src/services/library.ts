@@ -42,6 +42,7 @@ export function matchesFilters(
     (filters.onlyInbox && b.triaged_at !== null) ||
     (filters.onlyFavorites && !b.is_favorite) ||
     (filters.onlyReading && !b.reading_at) ||
+    (filters.read != null && (b.read_at !== null) !== filters.read) ||
     (filters.onlyOffline && !b.offline_at) ||
     (filters.collectionId != null &&
       b.collection_id !== filters.collectionId) ||

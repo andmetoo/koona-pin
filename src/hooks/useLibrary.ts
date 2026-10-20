@@ -309,6 +309,7 @@ export function useLibrary(
       filters.onlyInbox,
       filters.onlyTrash,
       filters.onlyReading,
+      filters.read,
       filters.onlyOffline,
       sort,
     ]);
@@ -332,6 +333,7 @@ export function useLibrary(
     filters.onlyInbox,
     filters.onlyTrash,
     filters.onlyReading,
+    filters.read,
     filters.onlyOffline,
     sort,
     refresh,

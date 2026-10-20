@@ -2,10 +2,10 @@ import type { TFunction } from "i18next";
 import type { Collection, FilterState, LibraryCounts } from "../types";
 
 /** One section of the library: All, Inbox, Favorites, Reading, Offline, Trash or a collection. */
-export type Section = Partial<Pick<FilterState, "collectionId" | "onlyFavorites" | "onlyInbox" | "onlyTrash" | "onlyReading" | "onlyOffline">>;
+export type Section = Partial<Pick<FilterState, "collectionId" | "onlyFavorites" | "onlyInbox" | "onlyTrash" | "onlyReading" | "read" | "onlyOffline">>;
 
 /** Every section off: what `navigate` starts from. */
-export const noSection = { collectionId: null, onlyFavorites: false, onlyInbox: false, onlyTrash: false, onlyReading: false, onlyOffline: false };
+export const noSection = { collectionId: null, onlyFavorites: false, onlyInbox: false, onlyTrash: false, onlyReading: false, read: null, onlyOffline: false };
 
 export const initialFilters: FilterState = {
   search: "",

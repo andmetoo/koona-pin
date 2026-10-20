@@ -1825,15 +1825,18 @@
       "filters": "筛选",
       "all": "全部",
       "favorite": "星标",
-      "unread": "未读",
-      "read": "已读",
       "newLinks_other": "{{count, number}} 个新链接",
       "refreshing": "正在刷新",
+      "pages": "待读和已读",
+      "toRead": "待读 {{count, number}}",
+      "readPage": "已读 {{count, number}}",
       "empty": {
         "libraryHint": "点按 + 保存链接：它会带着标题和图片在这里等你。",
         "favoritesHint": "长按书签并选择“加星标”，它就会显示在这里。",
         "readingHint": "长按书签并选择“加入稍后读”。已读的会在一周后移出。",
-        "collectionHint": "长按书签并选择“移到合集”，或在这里保存新链接。"
+        "collectionHint": "长按书签并选择“移到合集”，或在这里保存新链接。",
+        "read": "还没有读完的文章",
+        "readHint": "把文章读到最后,或把进度向上拉,它就会移到这里。"
       }
     },
     "inbox": {
@@ -1886,12 +1889,11 @@
       "openOriginal": "打开原文",
       "finish": "标记为读完",
       "finishAsk": "标记为读完？",
-      "finishText": "它将离开“阅读”。之后可以立即撤销。",
+      "finishText": "它将移到“已读”。之后可以立即撤销。",
       "finishedState": "已读完",
       "readValue": "已读 {{percent}}%",
       "readLeft_other": "已读 {{percent}}%，还剩 {{count}} 分钟",
       "minLeft_other": "还剩 {{count}} 分钟",
-      "end": "已读到结尾",
       "progress": "已读进度",
       "smaller": "缩小文字",
       "larger": "放大文字",

@@ -63,6 +63,7 @@ const filters: FilterState = {
   onlyInbox: false,
   onlyTrash: false,
   onlyReading: false,
+  read: null,
   onlyOffline: false,
 };
 

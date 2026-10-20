@@ -91,18 +91,23 @@ test("chips narrow the tab's section: Favorites, a collection, All", async ({ pa
   expect(name.length).toBeGreaterThan(0);
 });
 
-test("the Reading tab keeps Reading under its chips and shelves it by unread and read", async ({ page }) => {
+test("the Reading tab has no chips: To read and Read on a switch, with their counts", async ({ page }) => {
   await openPhone(page);
   await navPill(page).getByRole("button", { name: "Reading" }).click();
   const screen = topScreen(page);
   await expect(screen.getByRole("heading", { level: 1 })).toHaveText("Reading");
-  await expect(screen.locator(".lib-label").first()).toHaveText(/Unread|Read/);
-  const reading = await rows(page).count();
-  await screen.getByRole("button", { name: "Favorites" }).click();
-  await expect(screen.getByRole("button", { name: "Favorites" })).toHaveAttribute("aria-pressed", "true");
-  // Favourites within Reading, not all of them.
-  await expect.poll(() => rows(page).count()).toBeLessThanOrEqual(reading);
+  await expect(screen.locator(".lib-chips")).toHaveCount(0);
+  const pages = screen.getByRole("radiogroup", { name: "To read and Read" });
+  const toRead = pages.getByRole("radio", { name: /^To read \d+$/ });
+  const read = pages.getByRole("radio", { name: /^Read \d+$/ });
+  await expect(toRead).toHaveAttribute("aria-checked", "true");
+  await expect(rows(page).first()).toBeVisible();
+  await read.click();
+  await expect(read).toHaveAttribute("aria-checked", "true");
   await expect(screen.getByRole("heading", { level: 1 })).toHaveText("Reading");
+  const done = Number((await read.textContent())!.match(/\d+/)![0]);
+  if (done === 0) await expect(screen.getByText("Nothing finished yet")).toBeVisible();
+  else await expect(rows(page).first()).toBeVisible();
 });
 
 test("a tap opens the reader; a long press opens the menu with the bookmark's title and site", async ({ page }) => {

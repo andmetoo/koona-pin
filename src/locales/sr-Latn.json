@@ -2079,17 +2079,20 @@
       "filters": "Filteri",
       "all": "Sve",
       "favorite": "Omiljeno",
-      "unread": "Nepročitano",
-      "read": "Pročitano",
       "newLinks_one": "{{count, number}} novi link",
       "newLinks_few": "{{count, number}} nova linka",
       "newLinks_other": "{{count, number}} novih linkova",
       "refreshing": "Osvežavanje",
+      "pages": "Za čitanje i Pročitano",
+      "toRead": "Za čitanje {{count, number}}",
+      "readPage": "Pročitano {{count, number}}",
       "empty": {
         "libraryHint": "Dodirnite + da sačuvate link: čeka ovde sa naslovom i slikom.",
         "favoritesHint": "Zadržite prst na obeleživaču i izaberite „Dodaj u omiljeno“ — pojaviće se ovde.",
         "readingHint": "Zadržite prst na obeleživaču i izaberite „Ostavi za čitanje“. Pročitani odlaze posle nedelju dana.",
-        "collectionHint": "Zadržite prst na obeleživaču i izaberite „Premesti u kolekciju“ ili ovde sačuvajte novi link."
+        "collectionHint": "Zadržite prst na obeleživaču i izaberite „Premesti u kolekciju“ ili ovde sačuvajte novi link.",
+        "read": "Još ništa nije dočitano",
+        "readHint": "Pročitajte članak do kraja ili povucite napredak nagore i on prelazi ovde."
       }
     },
     "inbox": {
@@ -2150,7 +2153,7 @@
       "openOriginal": "Otvori original",
       "finish": "Označi kao pročitano",
       "finishAsk": "Označiti kao pročitano?",
-      "finishText": "Veza izlazi iz Čitanja. Odmah posle toga možete da poništite.",
+      "finishText": "Veza prelazi u Pročitano. Odmah posle toga možete da poništite.",
       "finishedState": "Pročitano",
       "readValue": "Pročitano {{percent}} %",
       "readLeft_one": "Pročitano {{percent}} %, ostao je {{count}} minut",
@@ -2159,7 +2162,6 @@
       "minLeft_one": "ostao {{count}} min",
       "minLeft_few": "ostala {{count}} min",
       "minLeft_other": "ostalo {{count}} min",
-      "end": "Stigli ste do kraja",
       "progress": "Pročitano do sada",
       "smaller": "Manji tekst",
       "larger": "Veći tekst",

@@ -2185,18 +2185,21 @@
       "filters": "Filtry",
       "all": "Wszystkie",
       "favorite": "Ulubione",
-      "unread": "Nieprzeczytane",
-      "read": "Przeczytane",
       "newLinks_one": "{{count, number}} nowy link",
       "newLinks_few": "{{count, number}} nowe linki",
       "newLinks_many": "{{count, number}} nowych linków",
       "newLinks_other": "{{count, number}} nowego linku",
       "refreshing": "Odświeżanie",
+      "pages": "Do przeczytania i Przeczytane",
+      "toRead": "Do przeczytania {{count, number}}",
+      "readPage": "Przeczytane {{count, number}}",
       "empty": {
         "libraryHint": "Stuknij +, aby zapisać link: poczeka tutaj z tytułem i obrazkiem.",
         "favoritesHint": "Przytrzymaj zakładkę i wybierz „Dodaj do ulubionych” — pojawi się tutaj.",
         "readingHint": "Przytrzymaj zakładkę i wybierz „Odłóż do przeczytania”. Przeczytane znikają po tygodniu.",
-        "collectionHint": "Przytrzymaj zakładkę i wybierz „Przenieś do kolekcji” albo zapisz tu nowy link."
+        "collectionHint": "Przytrzymaj zakładkę i wybierz „Przenieś do kolekcji” albo zapisz tu nowy link.",
+        "read": "Nic jeszcze nie skończone",
+        "readHint": "Przeczytaj artykuł do końca albo pociągnij jego postęp w górę, a trafi tutaj."
       }
     },
     "inbox": {
@@ -2261,7 +2264,7 @@
       "openOriginal": "Otwórz oryginał",
       "finish": "Oznacz jako przeczytane",
       "finishAsk": "Oznaczyć jako przeczytane?",
-      "finishText": "Link zniknie z listy Do czytania. Zaraz potem możesz to cofnąć.",
+      "finishText": "Link przejdzie do Przeczytanych. Zaraz potem możesz to cofnąć.",
       "finishedState": "Przeczytane",
       "readValue": "Przeczytano {{percent}} %",
       "readLeft_one": "Przeczytano {{percent}} %, została {{count}} minuta",
@@ -2272,7 +2275,6 @@
       "minLeft_few": "zostały {{count}} min",
       "minLeft_many": "zostało {{count}} min",
       "minLeft_other": "zostało {{count}} min",
-      "end": "Doczytano do końca",
       "progress": "Przeczytano",
       "smaller": "Mniejszy tekst",
       "larger": "Większy tekst",

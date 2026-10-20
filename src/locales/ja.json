@@ -1825,15 +1825,18 @@
       "filters": "絞り込み",
       "all": "すべて",
       "favorite": "お気に入り",
-      "unread": "未読",
-      "read": "既読",
       "newLinks_other": "新しいリンク {{count, number}} 件",
       "refreshing": "更新中",
+      "pages": "未読と既読",
+      "toRead": "未読 {{count, number}}",
+      "readPage": "既読 {{count, number}}",
       "empty": {
         "libraryHint": "+ をタップしてリンクを保存すると、タイトルと画像付きでここに表示されます。",
         "favoritesHint": "ブックマークを長押しして「お気に入りに追加」を選ぶと、ここに表示されます。",
         "readingHint": "ブックマークを長押しして「あとで読むに追加」を選びます。既読のものは 1 週間後に外れます。",
-        "collectionHint": "ブックマークを長押しして「コレクションに移動」を選ぶか、ここに新しいリンクを保存します。"
+        "collectionHint": "ブックマークを長押しして「コレクションに移動」を選ぶか、ここに新しいリンクを保存します。",
+        "read": "読み終えた記事はまだありません",
+        "readHint": "記事を最後まで読むか、進み具合を上へ引くと、ここに移ります。"
       }
     },
     "inbox": {
@@ -1886,12 +1889,11 @@
       "openOriginal": "元のページを開く",
       "finish": "読み終わりにする",
       "finishAsk": "読み終わりにしますか？",
-      "finishText": "「あとで読む」から外れます。直後なら取り消せます。",
+      "finishText": "「既読」に移ります。直後なら取り消せます。",
       "finishedState": "読み終わり",
       "readValue": "{{percent}}% 読了",
       "readLeft_other": "{{percent}}% 読了、残り {{count}} 分",
       "minLeft_other": "残り {{count}} 分",
-      "end": "最後まで読みました",
       "progress": "読んだ割合",
       "smaller": "文字を小さく",
       "larger": "文字を大きく",
