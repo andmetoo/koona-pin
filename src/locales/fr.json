@@ -995,6 +995,7 @@
     "onDate": "le {{date}}",
     "savedFrom": "enregistré {{when}} depuis {{browser}}",
     "savedFromBrowser": "enregistré {{when}} depuis le navigateur",
+    "sharedFromApp": "partagé {{when}} depuis une autre app",
     "addedByHand": "ajouté à la main {{when}}",
     "imported": "importé {{when}}",
     "fromList": "importé {{when}} de la liste « {{name}} »",

@@ -927,6 +927,7 @@
     "onDate": "on {{date}}",
     "savedFrom": "saved {{when}} from {{browser}}",
     "savedFromBrowser": "saved {{when}} from the browser",
+    "sharedFromApp": "shared {{when}} from another app",
     "addedByHand": "added by hand {{when}}",
     "imported": "imported {{when}}",
     "fromList": "imported {{when}} from list «{{name}}»",

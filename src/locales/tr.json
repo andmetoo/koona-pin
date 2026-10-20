@@ -927,6 +927,7 @@
     "onDate": "{{date}}",
     "savedFrom": "{{when}} {{browser}} üzerinden kaydedildi",
     "savedFromBrowser": "{{when}} tarayıcıdan kaydedildi",
+    "sharedFromApp": "{{when}} başka bir uygulamadan paylaşıldı",
     "addedByHand": "{{when}} elle eklendi",
     "imported": "{{when}} içe aktarıldı",
     "fromList": "{{when}} “{{name}}” listesinden içe aktarıldı",

@@ -1063,6 +1063,7 @@
     "onDate": "{{date}}",
     "savedFrom": "zapisana {{when}} z {{browser}}",
     "savedFromBrowser": "zapisana {{when}} z przeglądarki",
+    "sharedFromApp": "udostępniona {{when}} z innej aplikacji",
     "addedByHand": "dodana ręcznie {{when}}",
     "imported": "zaimportowana {{when}}",
     "fromList": "zaimportowana {{when}} z listy „{{name}}”",

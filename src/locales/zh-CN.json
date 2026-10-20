@@ -859,6 +859,7 @@
     "onDate": "{{date}}",
     "savedFrom": "{{when}} 从 {{browser}} 保存",
     "savedFromBrowser": "{{when}} 从浏览器保存",
+    "sharedFromApp": "{{when}} 从其他应用分享",
     "addedByHand": "{{when}} 手动添加",
     "imported": "{{when}} 导入",
     "fromList": "{{when}}从列表“{{name}}”导入",

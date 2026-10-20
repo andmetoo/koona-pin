@@ -469,6 +469,8 @@ export function Triage({
     // A link of a shared `.kpin` list (NP-138): the list's title.
     if (b.source === "list") return b.source_name ? t("triage.fromList", { when, name: b.source_name }) : t("triage.imported", { when });
     if (b.source === "extension") return t("triage.savedFromBrowser", { when });
+    // Share → Koona Pin on a phone (NP-071); synced to a computer, it says so there too.
+    if (b.source === "share") return t("triage.sharedFromApp", { when });
     // An AI assistant over MCP (NP-091): «from Claude Code», as «from Chrome».
     if (b.source === "mcp")
       return b.source_name ? t("triage.savedFrom", { when, browser: b.source_name }) : t("triage.savedByAssistant", { when });

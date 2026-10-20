@@ -997,6 +997,7 @@
     "onDate": "{{date}}",
     "savedFrom": "sačuvano {{when}} iz {{browser}}",
     "savedFromBrowser": "sačuvano {{when}} iz pregledača",
+    "sharedFromApp": "podeljeno {{when}} iz druge aplikacije",
     "addedByHand": "dodato ručno {{when}}",
     "imported": "uvezeno {{when}}",
     "fromList": "uvezeno {{when}} iz liste „{{name}}“",

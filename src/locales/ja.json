@@ -859,6 +859,7 @@
     "onDate": "{{date}}",
     "savedFrom": "{{when}}に {{browser}} から保存",
     "savedFromBrowser": "{{when}}にブラウザーから保存",
+    "sharedFromApp": "{{when}}に別のアプリから共有",
     "addedByHand": "{{when}}に手動で追加",
     "imported": "{{when}}にインポート",
     "fromList": "{{when}}にリスト「{{name}}」からインポート",

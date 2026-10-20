@@ -1063,6 +1063,7 @@
     "onDate": "{{date}}",
     "savedFrom": "сохранено {{when}} из {{browser}}",
     "savedFromBrowser": "сохранено {{when}} из браузера",
+    "sharedFromApp": "отправлено {{when}} из другого приложения",
     "addedByHand": "добавлено вручную {{when}}",
     "imported": "импортировано {{when}}",
     "fromList": "импортировано {{when}} из списка «{{name}}»",
