@@ -1,4 +1,4 @@
-import { test, expect, type FileChooser, type Page } from "@playwright/test";
+import { test, expect, type FileChooser, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,6 +14,13 @@ const fixture = path.join(here, "..", "fixtures", "bookmarks", "chrome.html");
 const copyFile = (format?: string) =>
   jsonCopy({ format, bookmarks: [copyBookmark("b1", "https://restored.example/one", "b1"), copyBookmark("b2", "https://restored.example/two", "b2")] });
 
+/**
+ * Once its appearance has played out (`app-dialog-in`, 260 ms of a spring from 8 px up): a fixed wait
+ * fell short on a busy runner, where the animation starts frames late and the first box caught it a
+ * pixel or a few off. Its own animations only: a spinner inside never finishes.
+ */
+const settled = (element: Locator) => element.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)).then(() => {}));
+
 /** The open dialog's box, which must not change from opening to closing. */
 function tracker(page: Page) {
   const dialog = page.locator("dialog[open]");
@@ -27,10 +34,9 @@ function tracker(page: Page) {
   return {
     dialog,
     heights,
-    /** After the 200 ms appearance, which moves it by 5 px. */
     async open(dialogName: string) {
       await expect(dialog).toBeVisible();
-      await page.waitForTimeout(300);
+      await settled(dialog);
       name = dialogName;
       first = await box();
       heights[name] = first.height;
@@ -69,6 +75,9 @@ for (const code of ["en", "de", "ru"]) {
         const chooser = page.waitForEvent("filechooser");
         await page.locator("[data-import-file]").click();
         await (await chooser).setFiles(file);
+        // The file is read first: then the dialog for any file takes the import's states, or the
+        // restore dialog opens in its place and plays its own appearance.
+        await expect(dialog.getByRole("heading", { level: 2 })).not.toHaveText(t("import.titleAny"));
       };
       const settings = () => page.getByRole("button", { name: t("nav.settings") }).first().click();
 
@@ -314,7 +323,8 @@ for (const [width, height] of [[1200, 800], [800, 550]]) {
     await page.getByRole("button", { name: "More", exact: true }).click();
     await page.getByRole("menuitem", { name: /^Share as list…/ }).click();
     await expect(panel.locator("[data-bundle-empty]")).toBeVisible();
-    await page.waitForTimeout(300);
+    // Its `animate-appear` rises 5 px, as a dialog's does.
+    await settled(panel);
     const first = await box();
     // The main area and the toolbar over it, as the window lays them out.
     const room = await page.evaluate(() => {
