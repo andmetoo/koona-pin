@@ -3,6 +3,7 @@
 //   bun run build:android   the App Bundle (.aab) and a universal APK of arm64 only →
 //                           release/test/android/<version>/ with SHA256SUMS.txt
 //   bun scripts/build-android.mjs --check <apk>   only the 16 KB checks below, of an APK built already (CI)
+//   bun run build:android -- --play   the Google Play build: Supporter through Play Billing (feature store-play)
 // Needs the Android SDK with platform 37 and an NDK of r28 or newer (16 KB pages by default):
 // ANDROID_HOME and NDK_HOME, as ~/.zshrc sets them on the build Mac (doc: docs/building.md), and the
 // Rust target aarch64-linux-android. Settings for the Rust side come from .env as for the desktop.
@@ -94,7 +95,9 @@ if (checkOnly >= 0) {
 rmSync(apk, { force: true });
 rmSync(aab, { force: true });
 checkWryClient();
-run("bun", ["run", "tauri", "android", "build", "--target", "aarch64", "--apk", "--aab"]);
+// The Play build sells through Play Billing (NP-154); without the flag the APK has no billing library.
+const play = process.argv.includes("--play") ? ["--features", "store-play"] : [];
+run("bun", ["run", "tauri", "android", "build", "--target", "aarch64", "--apk", "--aab", ...play]);
 for (const file of [apk, aab]) if (!existsSync(file)) throw new Error(`The build left no ${path.relative(root, file)}`);
 check16k();
 
