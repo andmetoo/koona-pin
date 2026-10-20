@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { openPhone, systemBack, topScreen } from "./fixtures";
+import { failOnce } from "../fixtures/app";
 
 // Supporter on a phone (NP-072b): the phone's own sheets for Supporter, the sign-in and the plan.
 // The Play build sells nothing until NP-154 (`purchase: "none"`, the fixture's default); the site's
@@ -121,6 +122,56 @@ test("where nothing is sold, sync's banner for a plan that ends has no Renew", a
   const banner = sharedDialog(page).locator('[data-sync-banner="plan_ends"]');
   await expect(banner).toContainText("Sync stops on");
   await expect(banner.getByRole("button")).toHaveCount(0);
+});
+
+test("a help link that can't open in Sync: the snackbar over the dialog, as it looks at home, and back when it closes (NP-092)", async ({ page }) => {
+  await openPhone(page, { settings: { "demo.supporter": "canceling", "demo.sync": "on" } });
+  const you = await openYou(page);
+  await you.locator('[data-supporter="plan"]').click();
+  await sheet(page, "plan").getByRole("button", { name: /Sync/ }).click();
+  const dialog = sharedDialog(page);
+  await failOnce(page, "openUrl", "internal", "No browser to open the link");
+  await dialog.getByRole("button", { name: "Help ↗" }).click();
+  const snackbar = dialog.locator(".ph-snackbar").filter({ hasText: "No browser to open the link" });
+  await expect(snackbar).toBeVisible();
+  // The phone's pill, not a bare box: its styles come with it into the dialog.
+  expect(await snackbar.evaluate((el) => getComputedStyle(el).borderRadius)).toBe("999px");
+  const onTop = await snackbar.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+  });
+  expect(onTop).toBe(true);
+  // An alert stays until closed: with the dialog gone, it is back in the phone, the same one.
+  await snackbar.evaluate((el) => el.setAttribute("data-same", ""));
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator("[data-phone] .ph-snackbar[data-same]")).toBeVisible();
+});
+
+test("the snackbar over a dialog follows the phone as it changes, and leaves nothing of the phone there once closed (NP-092)", async ({ page }) => {
+  await openPhone(page, { settings: { "demo.supporter": "canceling", "demo.sync": "on" } });
+  const you = await openYou(page);
+  await you.locator('[data-supporter="plan"]').click();
+  await sheet(page, "plan").getByRole("button", { name: /Sync/ }).click();
+  const dialog = sharedDialog(page);
+  await failOnce(page, "openUrl", "internal", "No browser to open the link");
+  await dialog.getByRole("button", { name: "Help ↗" }).click();
+  const snackbar = dialog.locator(".ph-snackbar");
+  await expect(snackbar).toBeVisible();
+  // The keyboard comes up: the root lifts and says so; the snackbar in the dialog lifts with it.
+  await page.evaluate(() => {
+    const root = document.querySelector<HTMLElement>("[data-phone]")!;
+    root.style.setProperty("--ph-lift", "240px");
+    root.setAttribute("data-keyboard", "");
+  });
+  const box = dialog.locator(".phone");
+  await expect(box).toHaveAttribute("data-keyboard", "");
+  expect(await box.evaluate((el) => el.style.getPropertyValue("--ph-lift"))).toBe("240px");
+  // Closed while the dialog stays: no second «phone» is left in it.
+  await snackbar.getByRole("button", { name: "Close" }).click();
+  await expect(snackbar).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator(".phone, [data-fold], [data-pill], [data-keyboard]")).toHaveCount(0);
 });
 
 test("a build that sells through Paddle keeps Renew in sync's banner and Manage in the plan", async ({ page }) => {

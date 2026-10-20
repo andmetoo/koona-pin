@@ -700,6 +700,10 @@
     "quit": "終了",
     "hide": "ウィンドウを隠す"
   },
+  "help": {
+    "learnMore": "詳しく見る ↗",
+    "help": "ヘルプ ↗"
+  },
   "settings": {
     "assistants": "AI アシスタント",
     "general": "全般",
@@ -789,6 +793,9 @@
     "githubHint": "koona-pin の公開レポート",
     "licenses": "ライセンス",
     "licensesHint": "Koona Pin に使われているフォント、アイコン、ライブラリ",
+    "help": "ヘルプ",
+    "helpHint": "使い方とよくある問題の解決方法（koona.app、英語）",
+    "helpButton": "ヘルプを開く ↗",
     "offline": "オフラインコピー",
     "offlineStats": "オフライン用に保存 — {{articles}} · {{size}}",
     "offlineArticles_other": "{{count}} 件の記事",

@@ -7,6 +7,8 @@ import { savePreference, storedValue } from "../../services/preferences";
 import { Icon } from "../icons";
 import { Preview } from "../library/Bookmarks";
 import { recentTime } from "../../services/relativeTime";
+import { HelpLink } from "../ui/HelpLink";
+import type { HelpTopic } from "../../services/help";
 
 /**
  * One thing the app wants to tell (2026-10-16, banner variant D): the inbox waiting, the
@@ -32,6 +34,8 @@ export interface AppNotification {
   action?: { label: string; run: () => void; stay?: boolean };
   /** A second, quieter action: «Unfollow» next to «Show» of a feed that isn't updating (NP-133). */
   secondary?: { label: string; run: () => void };
+  /** «Learn more ↗» to the help's section on the problem (NP-092). */
+  help?: HelpTopic;
   /** The ×; none for what can't be dismissed, such as a problem. */
   dismiss?: { label: string; run: () => void };
   /** A task under way: its share done, 0 to 1, as a thin bar. */
@@ -62,10 +66,13 @@ export function NotificationCenter({
   items,
   place,
   onClearAll,
+  onOpen,
 }: {
   items: AppNotification[];
   place: "below" | "right";
   onClearAll: () => void;
+  /** Opens a notification's help in the browser, and says when it can't. */
+  onOpen: (url: string) => void;
 }) {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -295,7 +302,7 @@ export function NotificationCenter({
                           <span style={{ width: `${Math.min(100, Math.max(0, n.progress * 100))}%` }} />
                         </span>
                       )}
-                      {(n.action || !!n.thumbs?.length) && (
+                      {(n.action || n.secondary || n.help || !!n.thumbs?.length) && (
                       <div className="nt-actions">
                         {!!n.thumbs?.length && (
                           <span className="nt-thumbs" aria-hidden>
@@ -330,6 +337,16 @@ export function NotificationCenter({
                           >
                             {n.secondary.label}
                           </button>
+                        )}
+                        {n.help && (
+                          <HelpLink
+                            topic={n.help}
+                            onOpen={(url) => {
+                              close(false);
+                              onOpen(url);
+                            }}
+                            className="px-1"
+                          />
                         )}
                       </div>
                       )}

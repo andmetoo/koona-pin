@@ -822,6 +822,10 @@
     "quit": "Quitter",
     "hide": "Masquer la fenêtre"
   },
+  "help": {
+    "learnMore": "En savoir plus ↗",
+    "help": "Aide ↗"
+  },
   "settings": {
     "assistants": "Assistants IA",
     "general": "Général",
@@ -915,6 +919,9 @@
     "githubHint": "Signalements publics dans koona-pin",
     "licenses": "Licences",
     "licensesHint": "Polices, icônes et bibliothèques qui composent Koona Pin",
+    "help": "Aide",
+    "helpHint": "Guides et réponses aux problèmes courants sur koona.app, en anglais",
+    "helpButton": "Ouvrir l’aide ↗",
     "offline": "Copies hors ligne",
     "offlineStats": "Enregistré hors ligne — {{articles}} · {{size}}",
     "offlineArticles_one": "{{count}} article",

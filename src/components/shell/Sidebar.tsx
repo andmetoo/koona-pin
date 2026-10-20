@@ -80,6 +80,8 @@ export interface SidebarProps {
   /** The notification centre's bell (2026-10-16): right of the wordmark, under the spirit in the strip. */
   notifications: AppNotification[];
   onClearNotifications: () => void;
+  /** Opens a link in the browser: the help of a notification (NP-092). */
+  onOpenUrl: (url: string) => void;
   /** The subscriptions (NP-132): the Feeds section above Collections; null until known. */
   feeds: Feed[] | null;
   /** The Feeds page is open, on `feedUid` (null: All feeds). */
@@ -298,7 +300,7 @@ export function Sidebar(props: SidebarProps) {
           </button>
         </div>
         <div className="mb-2">
-          <NotificationCenter items={props.notifications} place="right" onClearAll={props.onClearNotifications} />
+          <NotificationCenter items={props.notifications} place="right" onClearAll={props.onClearNotifications} onOpen={props.onOpenUrl} />
         </div>
         <div className="mb-2">
           <Hint label={t("sidebar.newLink")} keys={shortcut("N")} side="right">
@@ -432,7 +434,7 @@ export function Sidebar(props: SidebarProps) {
           <span className="truncate text-lg font-semibold">koona pin</span>
         </button>
         <span className="flex-1 self-stretch" data-tauri-drag-region />
-        <NotificationCenter items={props.notifications} place="below" onClearAll={props.onClearNotifications} />
+        <NotificationCenter items={props.notifications} place="below" onClearAll={props.onClearNotifications} onOpen={props.onOpenUrl} />
       </div>
       <button
         type="button"

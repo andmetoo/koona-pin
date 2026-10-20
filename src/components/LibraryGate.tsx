@@ -8,6 +8,8 @@ import { LibraryStatus, OpenFailure } from "../types";
 import { Icon } from "./icons";
 import { BackupRestoreDialog } from "./BackupRestoreDialog";
 import { Button } from "./ui/Button";
+import { HelpLink } from "./ui/HelpLink";
+import { opener } from "../services/opener";
 
 const ready: LibraryStatus = { state: "ready", damaged: false, moved_aside: null };
 
@@ -175,11 +177,14 @@ function LibraryFailure({ failure, onRetry, onRestore }: { failure: OpenFailure;
           </Button>
         )}
       </div>
-      {replaceable.includes(failure.code) && (
-        <button type="button" onClick={onRestore} className="mt-1 text-xs font-medium text-accent hover:underline">
-          {t("gate.restore")}
-        </button>
-      )}
+      <div className="mt-1 flex flex-wrap justify-center gap-x-4 gap-y-1">
+        {replaceable.includes(failure.code) && (
+          <button type="button" onClick={onRestore} className="text-xs font-medium text-accent hover:underline">
+            {t("gate.restore")}
+          </button>
+        )}
+        <HelpLink topic="libraryWontOpen" onOpen={opener(setNote)} />
+      </div>
       {note && (
         <p role="status" className="text-xs">
           {note}

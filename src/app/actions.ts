@@ -23,6 +23,7 @@ import type { Navigation } from "./navigation";
 import type { Notices } from "./notices";
 import type { Reading } from "./reading";
 import type { Surfaces } from "./surfaces";
+import { opener } from "../services/opener";
 
 type Selection = ReturnType<typeof useSelection>;
 type Previews = ReturnType<typeof usePreviewRefresh>;
@@ -37,7 +38,7 @@ export function linkActions(t: TFunction, { say }: Pick<Notices, "say">) {
       say(t("notice.copyFailed"), true);
     }
   };
-  const open = (url: string) => void api.openUrl(url).catch((err) => say(describeError(err), true));
+  const open = opener(say);
   return { copy, open };
 }
 

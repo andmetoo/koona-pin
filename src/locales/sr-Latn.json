@@ -824,6 +824,10 @@
     "quit": "Izađi",
     "hide": "Sakrij prozor"
   },
+  "help": {
+    "learnMore": "Saznaj više ↗",
+    "help": "Pomoć ↗"
+  },
   "settings": {
     "assistants": "AI asistenti",
     "general": "Opšte",
@@ -917,6 +921,9 @@
     "githubHint": "Javne prijave u koona-pin",
     "licenses": "Licence",
     "licensesHint": "Fontovi, ikone i biblioteke od kojih je napravljen Koona Pin",
+    "help": "Pomoć",
+    "helpHint": "Uputstva i odgovori na česte probleme na koona.app, na engleskom",
+    "helpButton": "Otvori pomoć ↗",
     "offline": "Kopije van mreže",
     "offlineStats": "Sačuvano van mreže — {{articles}} · {{size}}",
     "offlineArticles_one": "{{count}} članak",

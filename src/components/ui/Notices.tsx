@@ -1,6 +1,7 @@
-import { ReactNode } from "react";
+import { ReactNode, useRef } from "react";
 import { Check, CircleAlert } from "lucide-react";
 import { Icon } from "../icons";
+import { useOverDialogs } from "./overDialogs";
 
 /** Dark notice 44 px at the bottom centre (frame «12 · Ошибки»). */
 export function Toast({
@@ -9,6 +10,7 @@ export function Toast({
   tone = "status",
   docked = false,
   glass = false,
+  raise,
 }: {
   children: ReactNode;
   action?: ReactNode;
@@ -17,17 +19,23 @@ export function Toast({
   docked?: boolean;
   /** Glass with a check (2026-10-16): «Saved to Design · Undo» after a link is added. */
   glass?: boolean;
+  /** What makes it a new notice (the notice itself): a new one is raised over an open dialog. */
+  raise: unknown;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  // At the bottom of the window it stays readable over an open dialog; docked, it sits in the column.
+  const place = useOverDialogs(ref, { on: !docked, raise });
   if (glass)
-    return (
-      <div role={tone} data-glass-toast data-docked={docked || undefined} className={`glass-toast ${docked ? "max-w-full" : "fixed"}`}>
+    return place(
+      <div ref={ref} role={tone} data-glass-toast data-docked={docked || undefined} className={`glass-toast ${docked ? "max-w-full" : "fixed"}`}>
         <Icon icon={Check} size={15} strokeWidth={2.25} className="shrink-0 text-accent" />
         <span className="min-w-0">{children}</span>
         {action}
-      </div>
+      </div>,
     );
-  return (
+  return place(
     <div
+      ref={ref}
       role={tone}
       data-toast
       data-docked={docked || undefined}
@@ -36,7 +44,7 @@ export function Toast({
       {tone === "alert" && <Icon icon={CircleAlert} className="shrink-0 text-[#e99797]" />}
       <span>{children}</span>
       {action}
-    </div>
+    </div>,
   );
 }
 

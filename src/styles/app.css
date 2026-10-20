@@ -2652,6 +2652,15 @@
       inset 0 0 0 1px var(--np-glass-line);
     animation: glass-toast-in 300ms var(--spring);
   }
+  /* A toast in the top layer over an open dialog (ui/overDialogs.ts): none of a popover's own box;
+     its place comes from its classes. */
+  [data-toast][popover],
+  .glass-toast[popover] {
+    inset: auto;
+    margin: 0;
+    border: 0;
+    overflow: visible;
+  }
   .glass-toast:not([data-docked]) {
     position: fixed;
     bottom: 24px;

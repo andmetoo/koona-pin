@@ -28,6 +28,7 @@ import { Dot, Segmented, Switch } from "../ui/Controls";
 import { Kbd } from "../ui/Hint";
 import { ConfirmDialog } from "../library/Dialogs";
 import { Menu } from "../ui/Menu";
+import { helpUrl } from "../../services/help";
 
 /** Settings in the main area (frame «14 · Настройки»), column 680 px. */
 export function SettingsPage({
@@ -461,6 +462,9 @@ export function SettingsPage({
       <p className="-mt-2.5 px-3 text-xs leading-[17px] text-muted">{t("settings.backupNote")}</p>
 
       <Section title={t("settings.support")}>
+        <Row title={t("settings.help")} description={t("settings.helpHint")}>
+          <Button onClick={() => void attempt("help", () => api.openUrl(helpUrl("home")))}>{t("settings.helpButton")}</Button>
+        </Row>
         <Row title={t("settings.feedback")} description={t("settings.feedbackHint")}>
           <Button onClick={onFeedback}>{t("settings.feedbackButton")}</Button>
         </Row>

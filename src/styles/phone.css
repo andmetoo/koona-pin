@@ -999,6 +999,18 @@
   pointer-events: none;
   transition: transform var(--ph-spring-time) var(--ph-spring);
 }
+/* In the top layer over an open dialog (ui/overDialogs.ts): none of a popover's own box. */
+.phone .ph-snackbar-slot[popover] {
+  top: auto;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: visible;
+  color: inherit;
+  background: none;
+}
 .phone[data-pill] .ph-snackbar-slot {
   bottom: calc(var(--ph-pill-bottom) + var(--ph-pill-height) + 12px + var(--ph-lift, 0px));
 }

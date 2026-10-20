@@ -298,7 +298,8 @@ test("an open list dialog refuses another list in every state, aloud; an import 
   await page.keyboard.press("Escape");
   await page.waitForTimeout(200);
   await expect(d.getByRole("status")).toHaveText("Importing the list…");
-  await expect(d.getByRole("button", { name: "Close" })).toBeDisabled();
+  // The dialog's own «×»: a notice over the dialog has a Close of its own.
+  await expect(d.locator("header").getByRole("button", { name: "Close" })).toBeDisabled();
   // Another list meanwhile is refused, and a dropped one is refused aloud.
   expect(await push(page, { kind: "kpin-url", url: "https://example.com/other.kpin" })).toBe(false);
   await dropList(page);

@@ -25,6 +25,7 @@ import {
   type SyncBanner,
   type SyncTone,
 } from "./syncText";
+import { HelpLink } from "../ui/HelpLink";
 
 /** A screen the person opened from the overview, over what the status asks for. */
 type Opened = { kind: "details" } | { kind: "remove"; device: SyncDevice } | { kind: "startOver" };
@@ -49,6 +50,7 @@ export function SyncDialog({
   onStatus,
   onClose,
   onCopy,
+  onOpen,
   onUpdate,
   onRenew,
   onSignIn,
@@ -60,6 +62,8 @@ export function SyncDialog({
   onStatus: (status: SyncStatus) => void;
   onClose: () => void;
   onCopy: (text: string) => void;
+  /** Opens the help on sync (NP-092) in the browser, and says when it can't, outside the dialog. */
+  onOpen: (url: string) => void;
   /** «Update»: the app's update dialog. */
   onUpdate: () => void;
   /** «Renew…»: the Supporter dialog. */
@@ -179,7 +183,7 @@ export function SyncDialog({
       />
     );
 
-  if (view === "setup") return <SetupDialog key="setup" status={status} busy={busy} error={error} onClose={onClose} onTurnOn={(name) => void run(() => api.enableSync(name))} />;
+  if (view === "setup") return <SetupDialog key="setup" status={status} busy={busy} error={error} onClose={onClose} onOpen={onOpen} onTurnOn={(name) => void run(() => api.enableSync(name))} />;
 
   if (view === "pairHub" && status.pairing?.code) {
     const pairing = status.pairing;
@@ -378,6 +382,7 @@ export function SyncDialog({
             <button type="button" disabled={busy} onClick={() => void run(api.disableSync)} className="text-sm font-medium whitespace-nowrap text-muted hover:text-ink">
               {t("sync.turnOff")}
             </button>
+            <HelpLink topic="sync" label="help" look="sm" onOpen={onOpen} className="whitespace-nowrap" />
           </div>
           <div className="flex items-center gap-2">
             {!removed && (
@@ -556,12 +561,14 @@ function SetupDialog({
   busy,
   error,
   onClose,
+  onOpen,
   onTurnOn,
 }: {
   status: SyncStatus;
   busy: boolean;
   error: string | null;
   onClose: () => void;
+  onOpen: (url: string) => void;
   onTurnOn: (name: string) => void;
 }) {
   const { t } = useTranslation();
@@ -633,7 +640,9 @@ function SetupDialog({
         </div>
         <div className="mt-4 rounded-lg bg-panel px-3 py-2.5 text-xs leading-4">
           <p className="font-medium">{t("sync.setup.privacyTitle")}</p>
-          <p className="mt-1 text-muted">{t("sync.setup.privacyText")}</p>
+          <p className="mt-1 text-muted">
+            {t("sync.setup.privacyText")} <HelpLink topic="sync" onOpen={onOpen} />
+          </p>
         </div>
         <ErrorNote text={error ?? outdated} />
         <Footer>

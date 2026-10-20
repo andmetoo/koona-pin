@@ -77,6 +77,7 @@ export function notificationsOf(
       title: t("browser.failing"),
       text: problemBanner(capture, t),
       action: { label: t("browser.details"), run: on.browserDetails },
+      help: "savingFails",
     });
   if (counts.inbox > 0 && !inboxHidden)
     notifications.push({

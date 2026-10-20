@@ -43,6 +43,7 @@ import { Banner, Toast } from "../../components/ui/Notices";
 import { DropZone } from "../../components/shell/DropZone";
 import { Sidebar } from "../../components/shell/Sidebar";
 import { Toolbar } from "../../components/shell/Toolbar";
+import { HelpLink } from "../../components/ui/HelpLink";
 
 /**
  * Today's library window (NP-072a): the sidebar, the toolbar over the list, the pages, the editor,
@@ -332,6 +333,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     <Toast
       glass
       docked={selecting}
+      raise={notice}
       action={
         notice.undo ? (
           <button type="button" onClick={notice.undo}>
@@ -351,6 +353,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
   ) : notice ? (
     <Toast
       docked={selecting}
+      raise={notice}
       tone={notice.alert ? "alert" : "status"}
       action={
         notice.undo ? (
@@ -390,6 +393,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
   ) : movedAside ? (
     <Toast
       docked={selecting}
+      raise={movedAside}
       action={
         <button type="button" onClick={() => setMovedAside("")} className="font-semibold text-[#8fd0ae]">
           {t("common.ok")}
@@ -484,6 +488,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
         onAddToBundle={addRowToBundle}
         notifications={notifications}
         onClearNotifications={clearNotifications}
+        onOpenUrl={actions.open}
         feeds={feeds}
         feedsOpen={page === "feeds"}
         feedUid={feedPlace.feed}
@@ -650,7 +655,8 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
                     >
                       {latestCopy
                         ? t("library.damagedLatest", { when: copyTime(latestCopy.created_at, t, i18n.language, true) })
-                        : t("library.damaged")}
+                        : t("library.damaged")}{" "}
+                      <HelpLink topic="libraryMessages" look="inherit" onOpen={actions.open} />
                     </Banner>
                   )}
                   {library.error && (
@@ -884,7 +890,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
             setTriage(null);
             setPage("settings");
           }}
-          onOpen={(url) => void api.openUrl(url).catch((err) => say(describeError(err), true))}
+          onOpen={actions.open}
         />
       )}
       {surface === "restore" && (
@@ -986,6 +992,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
           onStatus={setSync}
           onClose={() => setSurface(null)}
           onCopy={(text) => void copy(text)}
+          onOpen={actions.open}
           onUpdate={() => {
             // No version on offer yet: Settings → Updates, where it is checked for.
             if (offer(update)) return setSurface("update");

@@ -20,6 +20,7 @@ import { AccountCluster } from "./ui/AccountCluster";
 import { NavPill } from "./ui/NavPill";
 import { AccountSlot } from "./ui/Screen";
 import { Snackbar } from "./ui/Snackbar";
+import { useOverDialogs } from "../../components/ui/overDialogs";
 
 /** From this width the window is "expanded" (Material): the unfolded Fold gets the rail. */
 const FOLD = "(min-width: 840px)";
@@ -161,6 +162,33 @@ function barStyle(bar: VerticalBar | null, status: number): Record<string, strin
   return style;
 }
 
+/** The phone root each dressed box follows while its snackbar is in a dialog. */
+const following = new WeakMap<HTMLElement, MutationObserver>();
+
+/**
+ * The shared dialogs stand outside the phone's root, and the snackbar is styled under it (`.phone`,
+ * its data and variables). In a dialog its box takes them from the root and follows the root's changes
+ * (the keyboard's lift, a Fold unfolded, the hand) for as long as it is there; at home, or once the
+ * notice is gone, the box is bare again.
+ */
+function dressAsPhone(box: HTMLElement, inDialog: boolean) {
+  following.get(box)?.disconnect();
+  following.delete(box);
+  const root = document.querySelector<HTMLElement>("[data-phone]");
+  const copy = () => {
+    for (const name of box.getAttributeNames()) if (name !== "style") box.removeAttribute(name);
+    box.style.cssText = "display: contents";
+    if (!inDialog || !root) return;
+    for (const name of root.getAttributeNames()) if (name !== "style" && name !== "data-phone") box.setAttribute(name, root.getAttribute(name)!);
+    box.style.cssText = `${root.style.cssText}; display: contents`;
+  };
+  copy();
+  if (!inDialog || !root) return;
+  const observer = new MutationObserver(copy);
+  observer.observe(root, { attributes: true });
+  following.set(box, observer);
+}
+
 /**
  * The app's notice as the snackbar: Undo, Show or Try again as its action; an alert stays until
  * closed. A new notice is a new snackbar with its own 5 s.
@@ -170,6 +198,9 @@ function PhoneSnackbar() {
   const { notice, setNotice, t } = app;
   const keys = useRef(new WeakMap<object, number>());
   const next = useRef(1);
+  const slot = useRef<HTMLDivElement>(null);
+  // Readable over an open dialog, such as Sync's: a modal one makes the rest of the screen inert.
+  const place = useOverDialogs(slot, { on: !!notice, raise: notice, dress: dressAsPhone });
   if (!notice) return null;
   if (!keys.current.has(notice)) keys.current.set(notice, next.current++);
   const close = () => setNotice((now) => (now === notice ? null : now));
@@ -188,8 +219,8 @@ function PhoneSnackbar() {
         : notice.alert
           ? { label: t("common.close"), run: () => setNotice(null) }
           : undefined;
-  return (
-    <div className="ph-snackbar-slot">
+  return place(
+    <div ref={slot} className="ph-snackbar-slot">
       <Snackbar
         key={keys.current.get(notice)}
         text={notice.text}
@@ -198,6 +229,6 @@ function PhoneSnackbar() {
         action={action}
         onTimeout={close}
       />
-    </div>
+    </div>,
   );
 }

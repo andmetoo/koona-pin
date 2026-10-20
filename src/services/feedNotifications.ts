@@ -86,6 +86,7 @@ export function feedNotifications(
       text: t("notifications.feedsFailingText"),
       action: { label: t("notifications.feedsShow"), run: () => actions.onShow(feed.uid) },
       secondary: { label: t("notifications.feedsUnfollow"), run: () => actions.onUnfollow(feed.uid) },
+      help: "feedsDontUpdate",
     });
   }
   return out;

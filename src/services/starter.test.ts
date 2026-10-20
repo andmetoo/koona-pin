@@ -7,7 +7,7 @@ describe("starter links (NP-117)", () => {
     const links = starterLinks(i18n.getFixedT("en"));
     expect(links.map((l) => l.url)).toEqual([
       "https://koona.app/",
-      "https://koona.app/pin/#how",
+      "https://koona.app/pin/help/getting-started/",
       "https://www.firefox.com/",
       "https://bun.com/",
       "https://www.lunacyapp.com/",

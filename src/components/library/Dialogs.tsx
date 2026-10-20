@@ -28,6 +28,7 @@ import { Icon } from "../icons";
 import { Button, buttonClass } from "../ui/Button";
 import { Dot, Field, Segmented, StatePanels, TabPanels } from "../ui/Controls";
 import { Dialog } from "../ui/Dialog";
+import { HelpLink } from "../ui/HelpLink";
 
 /** Runs an action, keeps the dialog and its input on failure. */
 function useAction() {
@@ -934,6 +935,7 @@ export function ConnectDialog({
           <div>
             <div className="font-medium">{t("connect.lostTitle")}</div>
             <p className="mt-0.5 leading-[18px] text-muted">{t(`connect.lost_${browser}`)}</p>
+            <HelpLink topic="savingFails" onOpen={onOpen} className="mt-1" />
           </div>
           <div>
             <div className="font-medium">{t("connect.updateTitle")}</div>
@@ -963,6 +965,13 @@ export function ConnectDialog({
               {status}
             </p>
           </div>
+          {/* Connected or not yet: how to add the extension; a connection in trouble: what to do about it. */}
+          <HelpLink
+            topic={capture && capture.state !== "connected" && capture.state !== "none" ? "savingFails" : "addExtension"}
+            label="help"
+            onOpen={onOpen}
+            className="ml-auto self-start"
+          />
         </div>
         <Segmented<ConnectTab>
           label={t("connect.browsers")}

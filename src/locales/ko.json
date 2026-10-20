@@ -700,6 +700,10 @@
     "quit": "종료",
     "hide": "창 숨기기"
   },
+  "help": {
+    "learnMore": "자세히 알아보기 ↗",
+    "help": "도움말 ↗"
+  },
   "settings": {
     "assistants": "AI 어시스턴트",
     "general": "일반",
@@ -789,6 +793,9 @@
     "githubHint": "koona-pin의 공개 보고",
     "licenses": "라이선스",
     "licensesHint": "Koona Pin에 쓰인 글꼴, 아이콘, 라이브러리",
+    "help": "도움말",
+    "helpHint": "koona.app의 사용 안내와 자주 겪는 문제의 해결 방법(영어)",
+    "helpButton": "도움말 열기 ↗",
     "offline": "오프라인 사본",
     "offlineStats": "오프라인용으로 저장됨 — {{articles}} · {{size}}",
     "offlineArticles_other": "글 {{count}}개",

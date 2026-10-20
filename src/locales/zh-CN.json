@@ -700,6 +700,10 @@
     "quit": "退出",
     "hide": "隐藏窗口"
   },
+  "help": {
+    "learnMore": "了解更多 ↗",
+    "help": "帮助 ↗"
+  },
   "settings": {
     "assistants": "AI 助手",
     "general": "常规",
@@ -789,6 +793,9 @@
     "githubHint": "koona-pin 中的公开报告",
     "licenses": "许可证",
     "licensesHint": "Koona Pin 使用的字体、图标和库",
+    "help": "帮助",
+    "helpHint": "koona.app 上的使用指南和常见问题解答（英文）",
+    "helpButton": "打开帮助 ↗",
     "offline": "离线副本",
     "offlineStats": "已离线保存 — {{articles}} · {{size}}",
     "offlineArticles_other": "{{count}} 篇文章",

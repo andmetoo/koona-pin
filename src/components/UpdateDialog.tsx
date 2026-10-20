@@ -7,6 +7,7 @@ import { Icon } from "./icons";
 import { Button } from "./ui/Button";
 import { StatePanels } from "./ui/Controls";
 import { Dialog } from "./ui/Dialog";
+import { HelpLink } from "./ui/HelpLink";
 
 /**
  * The update of the app (NP-038, NP-102, sheet 42), opened from the row in the sidebar or «Update…»
@@ -95,7 +96,8 @@ export function UpdateDialog({
           )}
         </span>
       </div>
-      <footer className="mt-auto flex justify-end gap-2 pt-5">
+      <footer className="mt-auto flex items-center justify-end gap-2 pt-5">
+        <HelpLink topic="updatesFail" onOpen={onOpen} className="mr-auto" />
         <Button variant="outline" size="lg" onClick={onClose}>
           {t("common.close")}
         </Button>

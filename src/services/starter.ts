@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
 import type { StarterLink } from "../types";
+import { helpUrl } from "./help";
 
 /**
  * The starter set of a new library (NP-117, sheet 43), newest first: Koona's apps, how Koona Pin works,
@@ -10,7 +11,7 @@ import type { StarterLink } from "../types";
 export function starterLinks(t: TFunction): StarterLink[] {
   return [
     { url: "https://koona.app/", title: t("starter.links.koona.title"), description: t("starter.links.koona.description") },
-    { url: "https://koona.app/pin/#how", title: t("starter.links.start.title"), description: t("starter.links.start.description") },
+    { url: helpUrl("gettingStarted"), title: t("starter.links.start.title"), description: t("starter.links.start.description") },
     { url: "https://www.firefox.com/", title: "Firefox", description: t("starter.links.firefox.description") },
     { url: "https://bun.com/", title: "Bun", description: t("starter.links.bun.description") },
     { url: "https://www.lunacyapp.com/", title: "Lunacy", description: t("starter.links.lunacy.description") },
