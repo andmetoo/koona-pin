@@ -70,16 +70,17 @@ export function LibraryScreen({ section, hidden }: { section: "all" | "reading";
     };
   }, [scroller, hidden, scrollRef]);
 
-  // The tab's section with a chip's narrowing on top: All, Favorites or a collection.
-  const base = reading ? { onlyReading: true } : {};
+  // All bookmarks with a chip's narrowing on top: All, Favorites or a collection.
   const chip: ChipValue = filters.onlyFavorites ? "favorites" : (filters.collectionId ?? "all");
   const choose = (value: ChipValue) => {
     if (value === chip) return;
     void selection();
-    navigate({ ...base, onlyFavorites: value === "favorites", collectionId: typeof value === "number" ? value : null });
+    navigate({ onlyFavorites: value === "favorites", collectionId: typeof value === "number" ? value : null });
   };
   const chipValues = useMemo<ChipValue[]>(() => ["all", "favorites", ...library.collections.map((c) => c.id)], [library.collections]);
   const page: Page = filters.read ? "read" : "unread";
+  const unread = counts.reading_unread;
+  const done = Math.max(0, counts.reading - unread);
   const turn = (value: Page) => {
     if (value === page) return;
     void selection();
@@ -146,7 +147,8 @@ export function LibraryScreen({ section, hidden }: { section: "all" | "reading";
       <span ref={probe} className="ph-meta lib-probe" aria-hidden="true">
         Ag
       </span>
-      <Header title={title} meta={t("phone.library.count", { count: app.sectionCount })} />
+      {/* Reading counts the page it shows, as its switch does. */}
+      <Header title={title} meta={t("phone.library.count", { count: reading ? (page === "read" ? done : unread) : app.sectionCount })} />
       <div className="lib-tools">
         <button type="button" className="ph-search ph-hit lib-search" onClick={() => stack.push({ name: "search" })}>
           <PhIcon icon={Search} at="field" />
@@ -170,8 +172,8 @@ export function LibraryScreen({ section, hidden }: { section: "all" | "reading";
             label={t("phone.library.pages")}
             value={page}
             options={[
-              { value: "unread", label: t("phone.library.toRead", { count: counts.reading_unread }) },
-              { value: "read", label: t("phone.library.readPage", { count: Math.max(0, counts.reading - counts.reading_unread) }) },
+              { value: "unread", label: t("phone.library.toRead", { count: unread }) },
+              { value: "read", label: t("phone.library.readPage", { count: done }) },
             ]}
             onChange={turn}
           />

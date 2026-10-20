@@ -882,7 +882,7 @@ function bulkFields(b: Bookmark, change: BulkChange, collectionId: number | null
       return b.read_at || b.reading_progress > 0 ? { read_at: null, reading_progress: 0 } : null;
     // The phone's "finished": read to the end, it stays in Reading on the Read page; one command.
     case "finish":
-      return b.reading_at && (!b.read_at || b.reading_progress < 1) ? { read_at: b.read_at ?? now, reading_progress: 1 } : null;
+      return b.reading_at && !b.read_at ? { read_at: now, reading_progress: 1 } : null;
   }
 }
 /** A JSON copy as the demo reads it: the format, the version, the lists and every address (`restore.rs` checks more). */

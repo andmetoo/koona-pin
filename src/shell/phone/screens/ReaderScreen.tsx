@@ -75,7 +75,7 @@ function Reader({ bookmark: b, hidden }: { bookmark: Bookmark; hidden: boolean }
 
   // Finishing marks the bookmark read to the end, so it moves to Reading's Read page; one command
   // with one Undo (app/actions.ts `readingChange`); the reader stays. Once only: a snap and a tap,
-  // or two taps on the end row, finish it once. A read one in Reading (read to the end, or marked
+  // or the pie and the menu's "Mark as read", finish it once. A read one in Reading (read to the end, or marked
   // read) is finished already: it is on the Read page. Undone (unread again), it can be finished anew.
   const inReading = !!b.reading_at;
   const read = !!b.read_at;

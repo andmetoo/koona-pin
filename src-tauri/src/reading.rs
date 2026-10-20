@@ -268,7 +268,7 @@ mod tests {
         let b = &done[0];
         assert_eq!((b.reading_at.is_some(), b.read_at.is_some(), b.reading_progress), (true, true, 1.0));
         assert_eq!(titles(&conn, &BookmarkQuery { read: Some(true), ..reading() }), ["finished"]);
-        // Finished again: nothing to change, nothing recorded.
+        // Finished again, or read already: nothing to change, nothing recorded.
         assert_eq!(apply_bulk(&conn, &[id], &Bulk::Finish).unwrap().1.len(), 0);
         // Not in Reading: finishing does not touch it, read or not.
         let outside = add(&conn, "outside");

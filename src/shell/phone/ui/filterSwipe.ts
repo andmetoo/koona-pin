@@ -15,9 +15,16 @@ const SHARE = 1 / 3;
 /** …or a flick this fast (px per ms) that has gone at least {@link FLICK_MIN}. */
 const FLICK = 0.5;
 const FLICK_MIN = 24;
+/** A finger that rests this long (ms) before it lifts has no flick left. */
+const REST = 80;
 /** Past the first or the last filter the page follows the finger this much, at most {@link BAND_MAX}. */
 const BAND = 0.25;
 const BAND_MAX = 64;
+
+/** The drag's velocity when the finger lifts: none after it rested since its last move. */
+export function liftVelocity(velocity: number, sinceMove: number): number {
+  return sinceMove > REST ? 0 : velocity;
+}
 
 /** Whether a touch at `x` starts in the system's back-gesture strips of a screen `width` wide. */
 export function atEdge(x: number, width: number): boolean {

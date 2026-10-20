@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { atEdge, axisOf, landOn, neighbour, offsetOf } from "./filterSwipe";
+import { atEdge, axisOf, landOn, liftVelocity, neighbour, offsetOf } from "./filterSwipe";
 
 describe("the swipe between filters", () => {
   it("leaves the screen's side edges to the system's Back", () => {
@@ -29,6 +29,12 @@ describe("the swipe between filters", () => {
     expect(offsetOf(-120, 0, 3)).toBe(-120);
     expect(offsetOf(120, 0, 3)).toBe(30);
     expect(offsetOf(-1000, 2, 3)).toBe(-64);
+  });
+
+  it("forgets the flick when the finger rests before it lifts", () => {
+    expect(liftVelocity(-0.9, 16)).toBe(-0.9);
+    expect(liftVelocity(-0.9, 400)).toBe(0);
+    expect(landOn(-40, liftVelocity(-0.9, 400), 393, 0, 3)).toBe(0);
   });
 
   it("lands on the neighbour past a third of the width or after a flick its way", () => {

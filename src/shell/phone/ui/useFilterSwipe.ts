@@ -1,8 +1,10 @@
 import { type DragEvent, type MouseEvent, type PointerEvent, type RefObject, useEffect, useRef } from "react";
-import { atEdge, axisOf, landOn, offsetOf } from "./filterSwipe";
+import { atEdge, axisOf, landOn, liftVelocity, offsetOf } from "./filterSwipe";
 
 /** Room kept beside the active chip when the row scrolls to it. */
 const CHIP_ROOM = 16;
+/** A click this soon (ms) after a swipe lifts is the swipe's own; a later one is a tap. */
+const SWIPE_CLICK = 400;
 
 /**
  * Keeps the active chip (`aria-pressed`) of a scrolling chip row in view when `active` changes, as
@@ -33,24 +35,28 @@ export function useChipInView(row: RefObject<HTMLElement | null>, active: unknow
  * included) and slides the new filter in from that side with the decision spring; short of it, or
  * past the first and the last filter (a rubber band), it springs back. Touches starting at the
  * screen's side edges are the system's Back; the chips, sheets and other screens are outside the
- * area. A row's long press cancels itself once the finger moves, and the click after a swipe is
- * swallowed. Reduce Motion: a cross-fade.
+ * area. A row's long press cancels itself once the finger moves, and the click that follows a swipe
+ * right away is swallowed (a later one, a screen reader's say, is a tap). Only the finger that began
+ * the swipe moves or ends it. Reduce Motion: a cross-fade.
  */
 export function useFilterSwipe({ index, count, onChange, enabled = true }: { index: number; count: number; onChange: (index: number) => void; enabled?: boolean }) {
   const page = useRef<HTMLDivElement>(null);
   const gesture = useRef<{ x: number; y: number; id: number; sideways: boolean; dx: number; t: number; velocity: number } | null>(null);
-  const swiped = useRef(false);
+  /** When the last swipe lifted (the event's timeStamp), for the click that follows it. */
+  const swipedAt = useRef<number | null>(null);
   const latest = useRef({ index, count, onChange });
   latest.current = { index, count, onChange };
 
-  const end = (land: boolean) => {
+  const end = (e: PointerEvent<HTMLElement>, land: boolean) => {
     const g = gesture.current;
+    if (!g || e.pointerId !== g.id) return;
     gesture.current = null;
     const el = page.current;
-    if (!g?.sideways || !el) return;
+    if (!g.sideways || !el) return;
+    swipedAt.current = e.timeStamp;
     const { dx } = g;
     const { index, count, onChange } = latest.current;
-    const to = land ? landOn(dx, g.velocity, el.offsetWidth, index, count) : index;
+    const to = land ? landOn(dx, liftVelocity(g.velocity, e.timeStamp - g.t), el.offsetWidth, index, count) : index;
     delete el.dataset.swiping;
     if (to === index) {
       el.style.transition = "transform var(--ph-spring-time) var(--ph-spring)";
@@ -71,7 +77,6 @@ export function useFilterSwipe({ index, count, onChange, enabled = true }: { ind
 
   const bind = {
     onPointerDown: (e: PointerEvent<HTMLElement>) => {
-      swiped.current = false;
       if (!enabled || latest.current.count < 2 || !e.isPrimary) return;
       if (e.pointerType === "mouse" && e.button !== 0) return;
       // The system's back gesture starts at the edges: not a swipe of ours.
@@ -91,7 +96,6 @@ export function useFilterSwipe({ index, count, onChange, enabled = true }: { ind
           return;
         }
         g.sideways = true;
-        swiped.current = true;
         el.style.transition = "none";
         el.style.opacity = "";
         el.dataset.swiping = "";
@@ -102,14 +106,15 @@ export function useFilterSwipe({ index, count, onChange, enabled = true }: { ind
       g.t = e.timeStamp;
       el.style.transform = `translate3d(${offsetOf(dx, latest.current.index, latest.current.count)}px, 0, 0)`;
     },
-    onPointerUp: () => end(true),
+    onPointerUp: (e: PointerEvent<HTMLElement>) => end(e, true),
     // The browser took the touch for its scroll, or the system took it.
-    onPointerCancel: () => end(false),
+    onPointerCancel: (e: PointerEvent<HTMLElement>) => end(e, false),
     // A picture or a link would start the browser's own drag, which cancels the pointer.
     onDragStart: (e: DragEvent<HTMLElement>) => e.preventDefault(),
     onClickCapture: (e: MouseEvent<HTMLElement>) => {
-      if (!swiped.current) return;
-      swiped.current = false;
+      const at = swipedAt.current;
+      if (at === null || e.timeStamp - at > SWIPE_CLICK) return;
+      swipedAt.current = null;
       e.preventDefault();
       e.stopPropagation();
     },

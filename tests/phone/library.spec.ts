@@ -102,10 +102,15 @@ test("the Reading tab has no chips: To read and Read on a switch, with their cou
   const read = pages.getByRole("radio", { name: /^Read \d+$/ });
   await expect(toRead).toHaveAttribute("aria-checked", "true");
   await expect(rows(page).first()).toBeVisible();
+  // The header counts the page shown, as the switch does.
+  const count = async (radio: typeof read) => Number((await radio.textContent())!.match(/\d+/)![0]);
+  const meta = screen.locator(".ph-header .ph-meta");
+  await expect(meta).toHaveText(new RegExp(`^${await count(toRead)} links?$`));
   await read.click();
   await expect(read).toHaveAttribute("aria-checked", "true");
   await expect(screen.getByRole("heading", { level: 1 })).toHaveText("Reading");
-  const done = Number((await read.textContent())!.match(/\d+/)![0]);
+  const done = await count(read);
+  await expect(meta).toHaveText(new RegExp(`^${done} links?$`));
   if (done === 0) await expect(screen.getByText("Nothing finished yet")).toBeVisible();
   else await expect(rows(page).first()).toBeVisible();
 });

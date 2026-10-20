@@ -1401,10 +1401,10 @@ pub(crate) fn bulk_in(conn: &Connection, ids: &[i64], bulk: &Bulk) -> Result<(us
         ),
         Bulk::Reading(false) => ("?2 IS NULL AND reading_at IS NOT NULL", "reading_at=NULL".to_string(), Value::Null),
         Bulk::Read(true) => ("?2 IS NULL AND read_at IS NULL", "read_at=?3, reading_progress=1".to_string(), Value::Null),
-        // Only what is in Reading and not read to the end yet; it stays there, on the Read page.
+        // Only what is in Reading and unread; it stays there, on the Read page.
         Bulk::Finish => (
-            "?2 IS NULL AND reading_at IS NOT NULL AND (read_at IS NULL OR reading_progress < 1)",
-            "read_at=COALESCE(read_at, ?3), reading_progress=1".to_string(),
+            "?2 IS NULL AND reading_at IS NOT NULL AND read_at IS NULL",
+            "read_at=?3, reading_progress=1".to_string(),
             Value::Null,
         ),
         Bulk::Read(false) => (
