@@ -237,6 +237,8 @@ let demoPolls = 0;
 /**
  * The Play build's purchase (NP-154): `koonapin.demo.play` is the server's verdict on the next
  * purchase (a `PlayState`); without it a signed-in preview is `paid` and a signed-out one `email`.
+ * `koonapin.demo.playSuspended` "on": this Google account's subscription is on hold, as Play says
+ * when the sheet opens.
  */
 const DEMO_PLAY_KEY = "koonapin.demo.play";
 const demoPlayPrice = (price: string, micros: number, period: string | null) => ({ price, currency: "EUR", micros, period });
@@ -2561,6 +2563,7 @@ export const demo = {
       month: demoPlayPrice("€2.00", 2_000_000, "P1M"),
       year: demoPlayPrice("€20.00", 20_000_000, "P1Y"),
       five_years: demoPlayPrice("€50.00", 50_000_000, null),
+      suspended: demoSwitch("koonapin.demo.playSuspended") === "on",
     };
   },
   async startPlayPurchase(interval: PlanInterval): Promise<PlayState> {

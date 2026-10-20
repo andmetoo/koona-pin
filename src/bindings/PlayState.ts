@@ -3,4 +3,4 @@
 /**
  * Where a Play purchase stands, or what it came to.
  */
-export type PlayState = "paid" | "email" | "sign_in" | "pending" | "already_supporter" | "other_account" | "canceled" | "invalid" | "unavailable" | "error";
+export type PlayState = "paid" | "email" | "sign_in" | "owned" | "suspended" | "pending" | "already_supporter" | "other_account" | "canceled" | "invalid" | "unavailable" | "error";

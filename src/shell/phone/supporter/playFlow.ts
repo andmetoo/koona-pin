@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { failureText, useResendWait } from "../../../components/supporterFlow";
+import { failureText, PLAY_SUBSCRIPTIONS_URL, useResendWait } from "../../../components/supporterFlow";
 import { api } from "../../../services/api";
 import { toCommandError } from "../../../services/errors";
 import type { PlanInterval, PlayOffer, PlayPrice, PlayProgress, PlayState, SupporterStatus } from "../../../types";
@@ -15,26 +15,31 @@ import type { PlanInterval, PlayOffer, PlayPrice, PlayProgress, PlayState, Suppo
  * The sheet's steps: the plans; the email and the code that claim a purchase; a slow payment;
  * thanks; a Supporter buying again (Play refunds it); a purchase of this Google account that
  * belongs to an account to sign in to (`otherAccount` while signed in to another one, `owner`
- * signed out).
+ * signed out); the account's own subscription on hold or paused (`suspended`: the plans give way to
+ * «Fix payment in Google Play»).
  */
-export type PlayStep = "plans" | "email" | "code" | "pending" | "paid" | "alreadySupporter" | "otherAccount" | "owner";
+export type PlayStep = "plans" | "email" | "code" | "pending" | "paid" | "alreadySupporter" | "otherAccount" | "owner" | "suspended";
 /** Why the plans are back with a line under them. */
 export type PlayFailure = "failed" | "invalid" | "unavailable";
 
 /**
- * Where a verdict leads. `sign_in` is the code step once an email took the code (`email` known);
- * without one it is a purchase already bound to an account, or owned by this Google account for one,
- * with nobody signed in here: the sheet asks to sign in to it. Cancelled goes back to the plans
- * without a word.
+ * Where a verdict leads. `sign_in`: a code went to the email given, the code step. `owned`: a
+ * purchase bound to an account, or owned by this Google account for one, with nobody signed in
+ * here — the sheet asks to sign in to it; no code was sent. `suspended`: the payment is fixed in
+ * Google Play. Cancelled goes back to the plans without a word.
  */
-export function playStep(state: PlayState, email: string | null = null): { step: PlayStep; failure: PlayFailure | null } {
+export function playStep(state: PlayState): { step: PlayStep; failure: PlayFailure | null } {
   switch (state) {
     case "paid":
       return { step: "paid", failure: null };
     case "email":
       return { step: "email", failure: null };
     case "sign_in":
-      return { step: email ? "code" : "owner", failure: null };
+      return { step: "code", failure: null };
+    case "owned":
+      return { step: "owner", failure: null };
+    case "suspended":
+      return { step: "suspended", failure: null };
     case "pending":
       return { step: "pending", failure: null };
     case "already_supporter":
@@ -59,7 +64,7 @@ export function playStep(state: PlayState, email: string | null = null): { step:
 export function resumedStep(play: PlayProgress | null | undefined): PlayStep {
   if (!play) return "plans";
   const waiting = play.state === "email" || play.state === "pending" || (play.state === "sign_in" && !!play.email);
-  return waiting ? playStep(play.state, play.email).step : "plans";
+  return waiting ? playStep(play.state).step : "plans";
 }
 
 const PLAY_PLANS: readonly PlanInterval[] = ["year", "month", "five_years"];
@@ -127,8 +132,8 @@ export function usePlayPurchase(supporter: SupporterStatus | null) {
   }, [asked]);
   const askOffer = () => setAsked((n) => n + 1);
 
-  const show = (state: PlayState, known: string | null) => {
-    const next = playStep(state, known);
+  const show = (state: PlayState) => {
+    const next = playStep(state);
     setStep(next.step);
     setError(next.failure ? failureLine(next.failure, t) : null);
   };
@@ -141,7 +146,7 @@ export function usePlayPurchase(supporter: SupporterStatus | null) {
     seen.current = now;
     if (!play) return;
     if (play.email) setEmail(play.email);
-    show(play.state, play.email);
+    show(play.state);
   }, [play?.state, play?.email]);
 
   const run = async (action: () => Promise<void>, purchase = false) => {
@@ -160,7 +165,7 @@ export function usePlayPurchase(supporter: SupporterStatus | null) {
   /** «Subscribe» or «Buy» on a plan: Google Play's sheet, then the verdict. */
   const buy = (interval: PlanInterval) => {
     setLast(interval);
-    return run(async () => show(await api.startPlayPurchase(interval), null), true);
+    return run(async () => show(await api.startPlayPurchase(interval)), true);
   };
   /** The email step: the code goes there. */
   const claim = () =>
@@ -170,13 +175,13 @@ export function usePlayPurchase(supporter: SupporterStatus | null) {
         setCode("");
         countdown();
       }
-      show(state, email.trim());
+      show(state);
     });
   /** The code: it signs in, and the purchase waiting for it is bound to the account. */
   const verify = () =>
     run(async () => {
       const status = await api.verifySignInCode(email, code);
-      show(status.play?.state ?? (status.plan ? "paid" : "error"), status.play?.email ?? email.trim());
+      show(status.play?.state ?? (status.plan ? "paid" : "error"));
     });
   const resend = () =>
     run(async () => {
@@ -190,5 +195,13 @@ export function usePlayPurchase(supporter: SupporterStatus | null) {
   };
   const codeReady = code.replace(/\D/g, "").length >= 6;
 
-  return { step, setStep, error, busy, offer, offerFailed, askOffer, last, buy, email, setEmail, claim, code, setCode, verify, resend, wait, anotherEmail, codeReady };
+  /**
+   * The account's subscription through Google Play is on hold or paused: Play said so of what this
+   * Google account owns when the sheet opened, or the server of a purchase. Its payment is fixed on
+   * Google Play's page, not bought again.
+   */
+  const suspended = step === "suspended" || (step === "plans" && !!offer?.suspended);
+  const fixPayment = () => run(() => api.openUrl(PLAY_SUBSCRIPTIONS_URL));
+
+  return { step, setStep, error, busy, offer, offerFailed, askOffer, last, buy, email, setEmail, claim, code, setCode, verify, resend, wait, anotherEmail, codeReady, suspended, fixPayment };
 }

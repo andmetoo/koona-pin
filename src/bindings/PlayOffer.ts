@@ -8,4 +8,9 @@ export type PlayOffer = {
 /**
  * False when this phone cannot buy through Google Play: no Play Store, a blocked one.
  */
-available: boolean, month: PlayPrice | null, year: PlayPrice | null, five_years: PlayPrice | null, };
+available: boolean, month: PlayPrice | null, year: PlayPrice | null, five_years: PlayPrice | null, 
+/**
+ * This Google account's Supporter subscription is on hold or paused: the sheet offers to fix
+ * the payment in Google Play instead of the plans.
+ */
+suspended: boolean, };

@@ -400,6 +400,35 @@ test("the Play build: a Supporter buying again is refunded; another account's pu
   await expect(sheet(page, "signIn").getByRole("dialog", { name: "Sign in as a Supporter" })).toBeVisible();
 });
 
+test("the Play build: signed out, a Supporter this Google account owns asks to sign in to its account; no code was sent", async ({ page }) => {
+  const { supporter } = await openPlay(page, { ...FREE, "demo.play": "owned" });
+  await supporter.getByRole("button", { name: "Subscribe · Yearly" }).click();
+  await expect(supporter.getByRole("dialog", { name: "Sign in to use it" })).toBeVisible();
+  await expect(supporter).toContainText("belongs to a Koona Pin account. Sign in with that account's email");
+  await expect(supporter.getByLabel("Code")).toHaveCount(0);
+  await supporter.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(sheet(page, "signIn").getByRole("dialog", { name: "Sign in as a Supporter" })).toBeVisible();
+});
+
+test("the Play build: a subscription on hold or paused is fixed in Google Play, never bought again", async ({ page }) => {
+  // Play says so of what this Google account owns as the sheet opens: no plans to buy.
+  const { supporter } = await openPlay(page, { ...FREE, "demo.playSuspended": "on" });
+  await expect(supporter).toContainText("Your Supporter subscription is on hold or paused in Google Play.");
+  await expect(supporter.getByRole("button", { name: /Subscribe|Buy/ })).toHaveCount(0);
+  await recordLinks(page);
+  await supporter.getByRole("button", { name: "Fix payment in Google Play" }).click();
+  expect(await opened(page)).toEqual([PLAY_PAGE]);
+  for (const text of ELSEWHERE) await expect(supporter).not.toContainText(text);
+});
+
+test("the Play build: the server finds the account's own subscription on hold after a purchase", async ({ page }) => {
+  const { supporter } = await openPlay(page, { ...FREE, "demo.play": "suspended" });
+  await supporter.getByRole("button", { name: "Subscribe · Monthly" }).click();
+  await expect(supporter.getByRole("button", { name: "Fix payment in Google Play" })).toBeVisible();
+  await expect(supporter).toContainText("Fix the payment or resume it there");
+  await expect(supporter.getByRole("button", { name: /Subscribe|Buy/ })).toHaveCount(0);
+});
+
 test("the Play build: a cancelled purchase is back on the plans quietly; a failure says so with Try again", async ({ page }) => {
   const { supporter } = await openPlay(page, { ...FREE, "demo.play": "canceled" });
   await supporter.getByRole("button", { name: "Subscribe · Yearly" }).click();

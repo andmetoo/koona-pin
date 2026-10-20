@@ -11,6 +11,7 @@ const offer = (more: Partial<PlayOffer> = {}): PlayOffer => ({
   month: price("€2.00", 2_000_000, "P1M"),
   year: price("€20.00", 20_000_000, "P1Y"),
   five_years: price("€50.00", 50_000_000, null),
+  suspended: false,
   ...more,
 });
 
@@ -20,6 +21,8 @@ describe("the Play purchase's steps", () => {
       paid: { step: "paid", failure: null },
       email: { step: "email", failure: null },
       sign_in: { step: "code", failure: null },
+      owned: { step: "owner", failure: null },
+      suspended: { step: "suspended", failure: null },
       pending: { step: "pending", failure: null },
       already_supporter: { step: "alreadySupporter", failure: null },
       other_account: { step: "otherAccount", failure: null },
@@ -28,13 +31,14 @@ describe("the Play purchase's steps", () => {
       unavailable: { step: "plans", failure: "unavailable" },
       error: { step: "plans", failure: "failed" },
     };
-    for (const [state, expected] of Object.entries(steps)) expect(playStep(state as PlayState, "anna@example.com"), state).toEqual(expected);
+    for (const [state, expected] of Object.entries(steps)) expect(playStep(state as PlayState), state).toEqual(expected);
   });
 
-  it("asks to sign in to the account that owns the purchase when no email took a code", () => {
-    // Bound already, or owned by this Google account, with nobody signed in here (billing/play.rs).
-    expect(playStep("sign_in")).toEqual({ step: "owner", failure: null });
-    expect(playStep("sign_in", "anna@example.com").step).toBe("code");
+  it("asks for the code only when one was sent, and to sign in to the account that owns the purchase otherwise", () => {
+    // `sign_in`: a code went to the email given; `owned`: bound already, or owned by this Google
+    // account, with nobody signed in here and no code sent (billing/play.rs).
+    expect(playStep("sign_in").step).toBe("code");
+    expect(playStep("owned").step).toBe("owner");
   });
 
   it("resume a purchase still waiting when the sheet opens, and nothing that finished", () => {
@@ -42,7 +46,7 @@ describe("the Play purchase's steps", () => {
     expect(resumedStep({ state: "email", email: null })).toBe("email");
     expect(resumedStep({ state: "sign_in", email: "anna@example.com" })).toBe("code");
     expect(resumedStep({ state: "pending", email: null })).toBe("pending");
-    for (const state of ["paid", "already_supporter", "other_account", "canceled", "invalid", "unavailable", "error"] as const)
+    for (const state of ["paid", "already_supporter", "other_account", "owned", "suspended", "canceled", "invalid", "unavailable", "error"] as const)
       expect(resumedStep({ state, email: null }), state).toBe("plans");
     expect(resumedStep({ state: "sign_in", email: null })).toBe("plans");
   });

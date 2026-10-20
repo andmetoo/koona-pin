@@ -2198,7 +2198,8 @@
         "otherTitle": "Bought for another account",
         "otherText": "This Google account's purchase belongs to another Koona Pin account. Sign in with that account's email to use it here.",
         "ownerTitle": "Sign in to use it",
-        "ownerText": "This Google account's Supporter belongs to a Koona Pin account. Sign in with that account's email to use it here."
+        "ownerText": "This Google account's Supporter belongs to a Koona Pin account. Sign in with that account's email to use it here.",
+        "suspended": "Your Supporter subscription is on hold or paused in Google Play. Fix the payment or resume it there — no need to buy it again."
       },
       "managed": "Your plan is managed where you started it.",
       "pastDue": "The last payment didn't go through · Supporter until {{date}}",

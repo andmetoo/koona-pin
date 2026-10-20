@@ -223,7 +223,7 @@ function PlaySheet() {
   const close = useCloseSheet();
   const formId = useId();
   const purchase = usePlayPurchase(supporter);
-  const { step, error, busy, offer, offerFailed, askOffer, last, buy, email, setEmail, claim, code, setCode, verify, resend, wait, anotherEmail, codeReady } = purchase;
+  const { step, error, busy, offer, offerFailed, askOffer, last, buy, email, setEmail, claim, code, setCode, verify, resend, wait, anotherEmail, codeReady, suspended, fixPayment } = purchase;
   const signIn = () => setSurface("signIn");
 
   if (step === "email" || step === "code") {
@@ -292,7 +292,7 @@ function PlaySheet() {
       </Sheet>
     );
 
-  if (step !== "plans") {
+  if (step !== "plans" && step !== "suspended") {
     // How the purchase ended: thanks, a Supporter already (Play refunds it), or an account to sign in to.
     const ended = {
       paid: { title: t("supporter.thanksTitle"), text: t("phone.supporter.play.thanksText", { email: supporter?.email ?? email.trim() }) },
@@ -339,7 +339,17 @@ function PlaySheet() {
       <Perks hero={false} />
       <section className="ys-section">
         <h3 className="ys-label">{t("phone.supporter.planLabel")}</h3>
-        {offer && !offer.available ? (
+        {suspended ? (
+          // The account's subscription is on hold or paused: its payment is fixed in Google Play,
+          // where Google sends such a subscriber, never bought again.
+          <div className="sp-play-failure" data-play-step="suspended">
+            <Note tone="amber">{t("phone.supporter.play.suspended")}</Note>
+            <Button kind="primary" icon={ExternalLink} disabled={busy} onClick={() => void fixPayment()}>
+              {t("plan.fixInPlay")}
+            </Button>
+            {error && <Note tone="danger">{error}</Note>}
+          </div>
+        ) : offer && !offer.available ? (
           <Note tone="amber">{t("phone.supporter.play.notAvailable")}</Note>
         ) : offerFailed && !offer ? (
           <div className="sp-play-failure">

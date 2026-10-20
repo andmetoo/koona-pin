@@ -2066,7 +2066,8 @@
         "otherTitle": "다른 계정용 구매",
         "otherText": "이 Google 계정의 구매는 다른 Koona Pin 계정에 속합니다. 여기서 사용하려면 그 계정의 이메일로 로그인하세요.",
         "ownerTitle": "로그인하여 사용",
-        "ownerText": "이 Google 계정의 Supporter는 Koona Pin 계정에 속합니다. 여기서 사용하려면 그 계정의 이메일로 로그인하세요."
+        "ownerText": "이 Google 계정의 Supporter는 Koona Pin 계정에 속합니다. 여기서 사용하려면 그 계정의 이메일로 로그인하세요.",
+        "suspended": "Supporter 구독이 Google Play에서 보류 또는 일시중지되었습니다. Google Play에서 결제를 수정하거나 다시 시작하세요. 다시 구매할 필요는 없습니다."
       },
       "managed": "요금제는 시작한 곳에서 관리됩니다.",
       "pastDue": "지난 결제가 처리되지 않았습니다 · {{date}}까지 Supporter",

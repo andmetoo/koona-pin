@@ -2330,7 +2330,8 @@
         "otherTitle": "Comprado para outra conta",
         "otherText": "A compra desta conta Google pertence a outra conta do Koona Pin. Entre com o e-mail dessa conta para usá-la aqui.",
         "ownerTitle": "Entre para usar",
-        "ownerText": "O Supporter desta conta Google pertence a uma conta do Koona Pin. Entre com o e-mail dessa conta para usá-lo aqui."
+        "ownerText": "O Supporter desta conta Google pertence a uma conta do Koona Pin. Entre com o e-mail dessa conta para usá-lo aqui.",
+        "suspended": "Sua assinatura Supporter está suspensa ou pausada no Google Play. Corrija o pagamento ou retome-a lá — não é preciso comprar de novo."
       },
       "managed": "Seu plano é gerenciado onde você o iniciou.",
       "pastDue": "O último pagamento não foi aprovado · Supporter até {{date}}",

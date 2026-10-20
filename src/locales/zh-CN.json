@@ -2066,7 +2066,8 @@
         "otherTitle": "已为其他账号购买",
         "otherText": "这个 Google 账号的购买属于另一个 Koona Pin 账号。请用那个账号的邮箱登录，才能在这里使用。",
         "ownerTitle": "登录后使用",
-        "ownerText": "这个 Google 账号的 Supporter 属于一个 Koona Pin 账号。请用那个账号的邮箱登录，才能在这里使用。"
+        "ownerText": "这个 Google 账号的 Supporter 属于一个 Koona Pin 账号。请用那个账号的邮箱登录，才能在这里使用。",
+        "suspended": "你的 Supporter 订阅在 Google Play 中处于保留或暂停状态。请在 Google Play 中修正付款或恢复订阅，无需再次购买。"
       },
       "managed": "你的方案在开通它的地方管理。",
       "pastDue": "上次付款未成功 · Supporter 至 {{date}}",

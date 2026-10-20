@@ -54,9 +54,15 @@ pub enum PlayState {
     Paid,
     /// Paid and verified, no account yet: the sheet asks for an email (`play_claim_email`).
     Email,
-    /// Bound to an account, or waiting for the code sent to the email given: the code signs in
-    /// (`send_sign_in_code`, `verify_sign_in_code`); the email is in [`PlayProgress`] when known.
+    /// A code was sent to the email given for the purchase (`play_claim_email`), which is in
+    /// [`PlayProgress`]: the code signs in (`verify_sign_in_code`) and binds the purchase.
     SignIn,
+    /// The purchase, or what this Google account owns, belongs to a Koona Pin account and nobody
+    /// is signed in here: signing in to that account (any email; no code was sent) shows the plan.
+    Owned,
+    /// The account's own subscription through Google Play is on hold or paused: the payment is
+    /// fixed in Google Play, not bought again.
+    Suspended,
     /// Google Play waits for a slow payment; nothing is bound or charged yet.
     Pending,
     /// The account has Supporter already: Google Play refunds this purchase.
@@ -76,7 +82,7 @@ pub enum PlayState {
 impl PlayState {
     /// Still waiting for the person or for Play: kept with its purchase and shown by the sheet.
     fn waiting(self) -> bool {
-        matches!(self, PlayState::Email | PlayState::SignIn | PlayState::Pending)
+        matches!(self, PlayState::Email | PlayState::SignIn | PlayState::Owned | PlayState::Pending)
     }
 }
 
@@ -111,6 +117,9 @@ pub struct PlayOffer {
     pub month: Option<PlayPrice>,
     pub year: Option<PlayPrice>,
     pub five_years: Option<PlayPrice>,
+    /// This Google account's Supporter subscription is on hold or paused: the sheet offers to fix
+    /// the payment in Google Play instead of the plans.
+    pub suspended: bool,
 }
 
 /// A purchase started here through Google Play (`account.json`).
@@ -150,13 +159,17 @@ pub(super) fn account_id(secret: &str) -> String {
 /// What `play_verify` said.
 pub(super) struct Verdict {
     state: PlayState,
-    /// The plan of `paid` and `already_supporter`.
+    /// The plan of `paid`, `already_supporter` and `suspended`.
     answer: Option<Answer>,
 }
 
 /// The server's answer to `play_verify`; an error for one that says nothing about the purchase
 /// (a server error, a refusal other than the claim's, a body that is not the function's).
 pub(super) fn verdict(status: reqwest::StatusCode, value: &Value) -> Result<Verdict, CommandError> {
+    // The server does not sell through Google Play (not set up): the purchase stays, unclaimed.
+    if status == reqwest::StatusCode::NOT_FOUND && value["error"] == "play" {
+        return Ok(Verdict { state: PlayState::Unavailable, answer: None });
+    }
     // The claim does not match the purchase, or the server has no such purchase: not this app's.
     if (status == reqwest::StatusCode::FORBIDDEN || status == reqwest::StatusCode::NOT_FOUND) && value["error"] == "claim" {
         return Ok(Verdict { state: PlayState::Invalid, answer: None });
@@ -168,13 +181,15 @@ pub(super) fn verdict(status: reqwest::StatusCode, value: &Value) -> Result<Verd
         Some("paid") => PlayState::Paid,
         Some("already_supporter") => PlayState::AlreadySupporter,
         Some("email") => PlayState::Email,
-        Some("sign_in") => PlayState::SignIn,
+        // Bound to an account, asked without a session: sign in to it.
+        Some("sign_in") => PlayState::Owned,
+        Some("suspended") => PlayState::Suspended,
         Some("pending") => PlayState::Pending,
         Some("other_account") => PlayState::OtherAccount,
         Some("invalid") => PlayState::Invalid,
         _ => return Err(refused("billing play_verify", status)),
     };
-    let answer = matches!(state, PlayState::Paid | PlayState::AlreadySupporter).then(|| Answer::of(value));
+    let answer = matches!(state, PlayState::Paid | PlayState::AlreadySupporter | PlayState::Suspended).then(|| Answer::of(value));
     Ok(Verdict { state, answer })
 }
 
@@ -230,6 +245,10 @@ impl Stored {
             checkout.state = Some(state);
             return Some(state);
         }
+        // The server cannot verify Play purchases now: this one stays as it was, asked again later.
+        if state == PlayState::Unavailable {
+            return Some(state);
+        }
         if let (Some(answer), Some(email)) = (verdict.answer, asked_for) {
             if self.same_account(email) {
                 self.take_answer(answer, key, at);
@@ -254,9 +273,16 @@ impl Stored {
     }
 }
 
-/// The prices the sheet shows, from Play's products.
+/// Whether this Google account's Supporter subscription is on hold or paused, by what it owns.
 #[cfg(any(test, play))]
-pub(super) fn offer_of(products: &[native::Product]) -> PlayOffer {
+pub(super) fn suspended_of(purchases: &[native::Purchase]) -> bool {
+    purchases.iter().any(|p| p.suspended && p.products.iter().any(|id| id == SUBSCRIPTION))
+}
+
+/// The prices the sheet shows, from Play's products, and whether the subscription Google Play has
+/// is suspended.
+#[cfg(any(test, play))]
+pub(super) fn offer_of(products: &[native::Product], suspended: bool) -> PlayOffer {
     let price = |product: &str, base_plan: Option<&str>| {
         products.iter().find(|p| p.product == product && p.base_plan.as_deref() == base_plan).map(|p| PlayPrice {
             price: p.price.clone(),
@@ -270,6 +296,7 @@ pub(super) fn offer_of(products: &[native::Product]) -> PlayOffer {
         month: price(SUBSCRIPTION, Some(MONTHLY)),
         year: price(SUBSCRIPTION, Some(YEARLY)),
         five_years: price(FIVE_YEARS, None),
+        suspended,
     }
 }
 
@@ -303,12 +330,15 @@ pub(super) fn after_buy(bought: &native::Bought, id: &str) -> AfterBuy {
 }
 
 /// Owned already, and not by a purchase made here: the Google account bought Supporter for a
-/// Koona Pin account. Signed in, it is another one; signed out, signing in shows the plan.
-pub(super) fn owned_elsewhere(signed_in: bool) -> PlayState {
-    if signed_in {
+/// Koona Pin account. A suspended subscription is fixed in Google Play; otherwise, signed in, it is
+/// another account's; signed out, signing in to its account shows the plan.
+pub(super) fn owned_elsewhere(signed_in: bool, suspended: bool) -> PlayState {
+    if suspended {
+        PlayState::Suspended
+    } else if signed_in {
         PlayState::OtherAccount
     } else {
-        PlayState::SignIn
+        PlayState::Owned
     }
 }
 
@@ -355,6 +385,30 @@ fn invalid_email() -> CommandError {
     CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::InvalidEmail, "The email address does not look right")
 }
 
+/// What `play_email` said.
+#[derive(Debug, PartialEq)]
+pub(super) enum EmailAnswer {
+    /// The email is kept for the purchase; the app sends the code.
+    Code,
+    /// The purchase is not there, or not this app's (404 `claim`).
+    Gone,
+    /// The server does not sell through Google Play now (404 `play`).
+    Unavailable,
+}
+
+/// The server's answer to `play_email`: 400 `email` a bad address, 429 `email_changes` more than
+/// five emails for one purchase, 404 `claim` or `play`.
+pub(super) fn email_answer(status: reqwest::StatusCode, value: &Value) -> Result<EmailAnswer, CommandError> {
+    match status.as_u16() {
+        404 if value["error"] == "play" => Ok(EmailAnswer::Unavailable),
+        404 => Ok(EmailAnswer::Gone),
+        429 => Err(CommandError::detailed(ErrorCode::Network, ErrorDetail::TooManyMessages, "Too many emails for this purchase")),
+        400 | 422 => Err(invalid_email()),
+        _ if status.is_success() && value["status"] == "code" => Ok(EmailAnswer::Code),
+        _ => Err(refused("billing play_email", status)),
+    }
+}
+
 /// «Continue» on the email step: the purchase waiting for an email gets this one, an account is
 /// made for it if none has it, and the code is sent there. `sign_in` then: the sheet asks for the
 /// code and `verify_sign_in_code` binds the purchase. `invalid` when the purchase is gone.
@@ -373,16 +427,13 @@ pub async fn play_claim_email(app: AppHandle, email: String) -> Result<PlayState
     };
     let body = json!({ "action": "play_email", "token": checkout.token, "claim": checkout.secret, "email": email });
     let (status, value) = call(&app, body, None).await?;
-    match status.as_u16() {
-        404 => {
+    match email_answer(status, &value)? {
+        EmailAnswer::Gone => {
             billing.update(&app, |s| s.finish_play(&checkout.secret, PlayState::Invalid))?;
             return Ok(PlayState::Invalid);
         }
-        // More than five emails for one purchase.
-        429 => return Err(CommandError::detailed(ErrorCode::Network, ErrorDetail::TooManyMessages, "Too many emails for this purchase")),
-        400 | 422 => return Err(invalid_email()),
-        _ if !status.is_success() || value["status"] != "code" => return Err(refused("billing play_email", status)),
-        _ => {}
+        EmailAnswer::Unavailable => return Ok(PlayState::Unavailable),
+        EmailAnswer::Code => {}
     }
     billing.update(&app, |s| {
         if let Some(kept) = s.play.iter_mut().find(|c| c.secret == checkout.secret) {
@@ -432,17 +483,21 @@ mod commands {
 
     /// The prices for the sheet, from Google Play.
     #[tauri::command]
+    /// With it, whether this Google account's subscription is suspended (what Play says it owns;
+    /// unknown reads as not), so the sheet opens on «Fix payment in Google Play».
     pub async fn get_play_offer(app: AppHandle) -> Result<PlayOffer, CommandError> {
-        match plugin(&app)?.products(&[SUBSCRIPTION], &[FIVE_YEARS]).await {
-            Ok(products) => Ok(offer_of(&products)),
+        let play = plugin(&app)?;
+        match play.products(&[SUBSCRIPTION], &[FIVE_YEARS]).await {
+            Ok(products) => Ok(offer_of(&products, play.purchases().await.is_ok_and(|owned| suspended_of(&owned)))),
             Err(native::Error::Unavailable(_)) => Ok(PlayOffer::default()),
             Err(error) => Err(failed(error)),
         }
     }
 
     /// «Subscribe» or «Buy»: Play's sheet for this plan, then the server's verdict on the purchase.
-    /// `paid` signed in; `email` signed out (the sheet asks for one); `sign_in` when the purchase
-    /// is bound already, or Google Play owns Supporter for an account and nobody is signed in here.
+    /// `paid` signed in; `email` signed out (the sheet asks for one); `owned` when Google Play owns
+    /// Supporter for an account and nobody is signed in here; `suspended` when that subscription is
+    /// on hold or paused.
     #[tauri::command]
     pub async fn start_play_purchase(app: AppHandle, interval: PlanInterval) -> Result<PlayState, CommandError> {
         need_service()?;
@@ -485,7 +540,7 @@ mod commands {
                 if let Some(earlier) = found.last() {
                     return Ok(verify(&app, earlier).await?.unwrap_or(PlayState::Error));
                 }
-                let state = owned_elsewhere(billing.get().session.is_some());
+                let state = owned_elsewhere(billing.get().session.is_some(), suspended_of(&bought.purchases));
                 billing.update(&app, |s| s.play_outcome = Some(state))?;
                 Ok(state)
             }
@@ -640,7 +695,9 @@ mod tests {
             ("paid", PlayState::Paid),
             ("already_supporter", PlayState::AlreadySupporter),
             ("email", PlayState::Email),
-            ("sign_in", PlayState::SignIn),
+            // Bound to an account, asked without a session: never the code step, no code was sent.
+            ("sign_in", PlayState::Owned),
+            ("suspended", PlayState::Suspended),
             ("pending", PlayState::Pending),
             ("other_account", PlayState::OtherAccount),
             ("invalid", PlayState::Invalid),
@@ -648,6 +705,9 @@ mod tests {
             assert_eq!(state(name).state, expected, "{name}");
         }
         assert!(state("paid").answer.is_some() && state("already_supporter").answer.is_some(), "both carry the plan");
+        assert!(state("suspended").answer.is_some(), "so does a suspended one, often none");
+        // The server does not sell through Google Play: unavailable, not invalid.
+        assert_eq!(verdict_of(404, json!({ "error": "play" })).unwrap().state, PlayState::Unavailable);
         assert!(state("email").answer.is_none());
         // The claim refused: the purchase is not this app's.
         assert_eq!(verdict_of(403, json!({ "error": "claim" })).unwrap().state, PlayState::Invalid);
@@ -669,8 +729,13 @@ mod tests {
             assert!(stored.take_play_answer("s1", state(waiting), None, &key, now).is_some());
             assert_eq!(stored.play.len(), 1, "{waiting}: kept");
         }
-        assert_eq!(stored.play_progress(), Some(PlayProgress { state: PlayState::SignIn, email: None }));
-        for done in ["invalid", "other_account"] {
+        assert_eq!(stored.play_progress(), Some(PlayProgress { state: PlayState::Owned, email: None }));
+        // The server cannot verify Play purchases now: kept as it was, asked again later.
+        let unset = verdict_of(404, json!({ "error": "play" })).unwrap();
+        assert_eq!(stored.take_play_answer("s1", unset, None, &key, now), Some(PlayState::Unavailable));
+        assert_eq!(stored.play.len(), 1);
+        assert_eq!(stored.play_progress().map(|p| p.state), Some(PlayState::Owned));
+        for done in ["invalid", "other_account", "suspended"] {
             let mut finished = stored.clone();
             assert_eq!(finished.take_play_answer("s1", state(done), None, &key, now), Some(state(done).state));
             assert!(finished.play.is_empty(), "{done}: forgotten");
@@ -789,19 +854,23 @@ mod tests {
             micros,
             period: period.map(Into::into),
         };
-        let offer = offer_of(&[
+        let offer = offer_of(
+            &[
             product("supporter", Some("yearly"), "€20.00", 20_000_000, Some("P1Y")),
             product("supporter", Some("monthly"), "€2.00", 2_000_000, Some("P1M")),
             product("supporter", Some("weekly"), "€1.00", 1_000_000, Some("P1W")),
             product("supporter_5_years", None, "€50.00", 50_000_000, None),
-        ]);
-        assert!(offer.available);
+            ],
+            false,
+        );
+        assert!(offer.available && !offer.suspended);
         assert_eq!(offer.month.as_ref().map(|p| (p.price.as_str(), p.period.as_deref())), Some(("€2.00", Some("P1M"))));
         assert_eq!(offer.year.as_ref().map(|p| p.micros), Some(20_000_000));
         assert_eq!(offer.five_years.as_ref().map(|p| p.period.clone()), Some(None));
         // A plan Play does not sell is none; no Play at all, nothing.
-        assert_eq!(offer_of(&[product("supporter", Some("monthly"), "€2.00", 2_000_000, Some("P1M"))]).year, None);
-        assert!(!PlayOffer::default().available);
+        assert_eq!(offer_of(&[product("supporter", Some("monthly"), "€2.00", 2_000_000, Some("P1M"))], false).year, None);
+        assert!(!PlayOffer::default().available && !PlayOffer::default().suspended);
+        assert!(offer_of(&[], true).suspended);
     }
 
     #[test]
@@ -827,7 +896,27 @@ mod tests {
         assert_eq!(after_buy(&bought(Outcome::Unavailable, vec![]), &id), AfterBuy::Forget(PlayState::Unavailable));
         assert_eq!(after_buy(&bought(Outcome::AlreadyOwned, vec![]), &id), AfterBuy::Owned);
         assert_eq!(after_buy(&bought(Outcome::Error, vec![]), &id), AfterBuy::Keep(PlayState::Error));
-        assert_eq!(owned_elsewhere(true), PlayState::OtherAccount);
-        assert_eq!(owned_elsewhere(false), PlayState::SignIn);
+        assert_eq!(owned_elsewhere(true, false), PlayState::OtherAccount);
+        assert_eq!(owned_elsewhere(false, false), PlayState::Owned);
+        assert_eq!(owned_elsewhere(false, true), PlayState::Suspended);
+        assert_eq!(owned_elsewhere(true, true), PlayState::Suspended);
+        // Suspended: the subscription, on hold or paused; never five years paid once.
+        let held = |products: &[&str], suspended| Purchase { products: products.iter().map(|p| p.to_string()).collect(), suspended, ..purchase("t", None, PurchaseState::Purchased) };
+        assert!(suspended_of(&[held(&["supporter"], false), held(&["supporter"], true)]));
+        assert!(!suspended_of(&[held(&["supporter"], false)]));
+        assert!(!suspended_of(&[held(&["supporter_5_years"], true)]));
+        assert!(!suspended_of(&[]));
+    }
+
+    #[test]
+    fn the_email_steps_answers() {
+        let answer = |status: u16, value: Value| email_answer(reqwest::StatusCode::from_u16(status).unwrap(), &value);
+        assert_eq!(answer(200, json!({ "status": "code" })).unwrap(), EmailAnswer::Code);
+        assert_eq!(answer(404, json!({ "error": "claim" })).unwrap(), EmailAnswer::Gone);
+        assert_eq!(answer(404, json!({ "error": "play" })).unwrap(), EmailAnswer::Unavailable);
+        assert_eq!(answer(400, json!({ "error": "email" })).unwrap_err().detail, Some(ErrorDetail::InvalidEmail));
+        assert_eq!(answer(429, json!({ "error": "email_changes" })).unwrap_err().detail, Some(ErrorDetail::TooManyMessages));
+        assert!(answer(200, json!({ "status": "something_new" })).is_err());
+        assert!(answer(502, json!(null)).is_err());
     }
 }
