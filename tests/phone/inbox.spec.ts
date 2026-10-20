@@ -225,8 +225,9 @@ test("the inbox sorted: summary, undo of the last decision, then the library; em
   await expect(empty.getByRole("heading", { name: "All sorted" })).toBeVisible();
   await expect(topScreen(page).getByRole("heading", { level: 1 })).toHaveText("Inbox");
   await expect(topScreen(page).locator("[data-account]")).toBeVisible();
-  // The fixture's phone has no share intake: the tip is "+".
-  await expect(empty).toContainText("Add a link with +");
+  // An Android phone takes links shared from other apps: the tip is the share sheet.
+  await expect(empty).toContainText("Links you save from other apps land here.");
+  await expect(empty).toContainText("Share → Koona Pin");
   await empty.getByRole("button", { name: "New link" }).click();
   await expect(page.locator('[data-sheet-kind="newLink"]').getByRole("dialog")).toBeVisible();
 });
