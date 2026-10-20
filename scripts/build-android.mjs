@@ -40,7 +40,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { checkBilling } from "./check-apk-billing.mjs";
-import { args, buildNumber, cleanMain, option, writeChecksums } from "./lib/store-build.mjs";
+import { args, buildNumber, cleanMain, option, unzip, writeChecksums } from "./lib/store-build.mjs";
 import { loadEnv } from "./lib/env.mjs";
 import { publish, root, test } from "./lib/paths.mjs";
 
@@ -86,9 +86,7 @@ function checkLoadAlignment() {
   const work = path.join(root, "src-tauri", "target", "android-check");
   rmSync(work, { recursive: true, force: true });
   mkdirSync(work, { recursive: true });
-  // Windows has no unzip; its tar (bsdtar) reads ZIP files.
-  if (process.platform === "win32") execFileSync("tar", ["-xf", apk, "-C", work, "lib"]);
-  else execFileSync("unzip", ["-q", "-o", apk, "lib/*", "-d", work]);
+  unzip(apk, "lib/*", work);
   const libraries = readdirSync(path.join(work, "lib"), { recursive: true }).filter((name) => name.endsWith(".so"));
   if (libraries.length === 0) throw new Error("The APK has no native libraries");
   for (const library of libraries) {

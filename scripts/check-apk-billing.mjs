@@ -6,6 +6,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { unzip } from "./lib/store-build.mjs";
 
 const PERMISSION = "com.android.vending.BILLING";
 const CLASSES = "Lcom/android/billingclient/";
@@ -27,7 +28,7 @@ export function billingIn(apk) {
   rmSync(work, { recursive: true, force: true });
   mkdirSync(work, { recursive: true });
   try {
-    execFileSync("unzip", ["-q", "-o", apk, "classes*.dex", "-d", work]);
+    unzip(apk, "classes*.dex", work);
     const dex = readdirSync(work).filter((name) => name.endsWith(".dex"));
     if (dex.length === 0) throw new Error(`${apk} has no dex files`);
     return {
