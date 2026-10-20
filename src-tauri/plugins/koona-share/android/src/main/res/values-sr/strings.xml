@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Written from src/locales/sr.json (phone.share) by `bun run locales:android`; do not edit. -->
+<resources>
+    <string name="koona_share_saved">Сачувано у Koona Pin</string>
+    <string name="koona_share_in_inbox">У пријемном сандучету · %1$s</string>
+    <string name="koona_share_done">Готово</string>
+    <string name="koona_share_no_link">Нема линка за чување</string>
+    <string name="koona_share_failed">Линк није сачуван</string>
+</resources>

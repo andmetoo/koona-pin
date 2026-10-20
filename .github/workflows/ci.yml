@@ -223,6 +223,10 @@ jobs:
       - name: Plugin unit tests
         working-directory: src-tauri/gen/android
         run: ./gradlew :tauri-plugin-koona-mobile:testDebugUnitTest
+      # The share sheet's queue files against the fixtures the Rust tests read too, its link finding.
+      - name: Share plugin unit tests
+        working-directory: src-tauri/gen/android
+        run: ./gradlew :tauri-plugin-koona-share:testDebugUnitTest
       # Android's 16 KB pages: zipalign and the ELF LOAD alignment, as build:android checks its release APK.
       - name: 16 KB alignment of the APK
         run: bun scripts/build-android.mjs --check src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk

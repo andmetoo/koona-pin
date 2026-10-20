@@ -10,6 +10,7 @@ Koona Pin's interface, its browser extension and the landing page of its site ar
 | Extension | `extension/src/_locales/<code>/messages.json` | Chrome's codes (`pt_BR`, `zh_CN`); no separate Serbian Latin. Follows the browser's language. |
 | Site | `pin/src/locales/<code>.mjs` in the site's repository (`andmetoo/koona-site`) | Only the landing pages are translated; downloads, changelog and other pages are English. |
 | Windows installer | `src-tauri/nsis/<Language>.nsh` | Listed in `src-tauri/tauri.conf.json`. |
+| Android share sheet | `src-tauri/plugins/koona-share/android/src/main/res/values*/strings.xml` | Written from `phone.share` of `src/locales` by `bun run locales:android`; never edit them by hand. |
 
 Rust holds no user-facing text. Errors reach the interface as codes and are worded in `src/locales` under `errors.code.*`, `errors.detail.*` and `errors.reason.*`. The tray menu gets its labels from the interface.
 
@@ -22,7 +23,8 @@ Every file in `src/locales` is a language; the code is the file name. Nothing el
 1. Add the key to `src/locales/en.json`, then to every other file in `src/locales` except `sr-Latn.json`.
 2. If you changed `sr.json`, regenerate the Latin file: `bun run locales:sr-latn`. Never edit `sr-Latn.json` by hand.
 3. Extension strings go into every `extension/src/_locales/*/messages.json`.
-4. Run `bun run test`. It reports a missing or extra key, a missing plural form, a lost placeholder, an empty string, Latin and Cyrillic letters mixed in one word, and an `sr-Latn.json` that does not match `sr.json` (`src/i18n/locales.test.ts`, `extension/src/locales.test.js`).
+4. If you changed `phone.share` (the Android share sheet, which is native and never loads the page's catalogs), regenerate its resources: `bun run locales:android`. A new language gets its `values-<language>` folder the same way.
+5. Run `bun run test`. It reports a missing or extra key, a missing plural form, a lost placeholder, an empty string, Latin and Cyrillic letters mixed in one word, an `sr-Latn.json` that does not match `sr.json`, and Android strings that do not match `src/locales` (`src/i18n/locales.test.ts`, `src/i18n/androidStrings.test.ts`, `extension/src/locales.test.js`).
 
 Plurals use i18next suffixes (`_one`, `_few`, `_many`, `_other`, …). Each file must have exactly the forms `Intl.PluralRules` gives for its language. Where `one` also covers numbers like 21 or 0, every `_one` string must show the number (`{{count}}`), not just say "one".
 

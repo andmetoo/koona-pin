@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Written from src/locales/zh-CN.json (phone.share) by `bun run locales:android`; do not edit. -->
+<resources>
+    <string name="koona_share_saved">已保存到 Koona Pin</string>
+    <string name="koona_share_in_inbox">在收件箱中 · %1$s</string>
+    <string name="koona_share_done">完成</string>
+    <string name="koona_share_no_link">没有可保存的链接</string>
+    <string name="koona_share_failed">无法保存链接</string>
+</resources>

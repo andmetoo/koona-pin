@@ -859,6 +859,7 @@
     "onDate": "{{date}}",
     "savedFrom": "{{when}} {{browser}}에서 저장함",
     "savedFromBrowser": "{{when}} 브라우저에서 저장함",
+    "sharedFromApp": "{{when}} 다른 앱에서 공유함",
     "addedByHand": "{{when}} 직접 추가함",
     "imported": "{{when}} 가져옴",
     "fromList": "{{when}} ‘{{name}}’ 목록에서 가져옴",
@@ -1872,6 +1873,13 @@
       "tipAdd": "+로 링크 추가",
       "tipAddHow": "주소를 붙여넣으면 여기에서 기다립니다",
       "openLibrary": "라이브러리 열기"
+    },
+    "share": {
+      "saved": "Koona Pin에 저장됨",
+      "inInbox": "받은함에 있음 · {{host}}",
+      "done": "완료",
+      "noLink": "저장할 링크가 없습니다",
+      "failed": "링크를 저장할 수 없습니다"
     },
     "feeds": {
       "title": "피드",

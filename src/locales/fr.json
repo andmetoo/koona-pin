@@ -995,6 +995,7 @@
     "onDate": "le {{date}}",
     "savedFrom": "enregistré {{when}} depuis {{browser}}",
     "savedFromBrowser": "enregistré {{when}} depuis le navigateur",
+    "sharedFromApp": "partagé {{when}} depuis une autre app",
     "addedByHand": "ajouté à la main {{when}}",
     "imported": "importé {{when}}",
     "fromList": "importé {{when}} de la liste « {{name}} »",
@@ -2122,6 +2123,13 @@
       "tipAdd": "Ajoutez un lien avec +",
       "tipAddHow": "Collez une adresse, elle attend ici",
       "openLibrary": "Ouvrir la bibliothèque"
+    },
+    "share": {
+      "saved": "Enregistré dans Koona Pin",
+      "inInbox": "Dans la boîte de réception · {{host}}",
+      "done": "Terminé",
+      "noLink": "Aucun lien à enregistrer",
+      "failed": "Impossible d’enregistrer le lien"
     },
     "feeds": {
       "title": "Flux",

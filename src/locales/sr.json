@@ -995,6 +995,7 @@
     "onDate": "{{date}}",
     "savedFrom": "сачувано {{when}} из {{browser}}",
     "savedFromBrowser": "сачувано {{when}} из прегледача",
+    "sharedFromApp": "подељено {{when}} из друге апликације",
     "addedByHand": "додато ручно {{when}}",
     "imported": "увезено {{when}}",
     "fromList": "увезено {{when}} из листе „{{name}}“",
@@ -2122,6 +2123,13 @@
       "tipAdd": "Додајте линк дугметом +",
       "tipAddHow": "Налепите адресу, чека овде",
       "openLibrary": "Отвори библиотеку"
+    },
+    "share": {
+      "saved": "Сачувано у Koona Pin",
+      "inInbox": "У пријемном сандучету · {{host}}",
+      "done": "Готово",
+      "noLink": "Нема линка за чување",
+      "failed": "Линк није сачуван"
     },
     "feeds": {
       "title": "Фидови",

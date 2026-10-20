@@ -12,9 +12,12 @@ pub fn hand_over(_context: &tauri::Context<tauri::Wry>) -> bool {
 }
 
 /// System Back, the iOS edge swipe, renderer loss and the insets (NP-151); the signals of the
-/// phone's look and haptic feedback (NP-072b, src/platform/system.ts and haptics.ts).
+/// phone's look and haptic feedback (NP-072b, src/platform/system.ts and haptics.ts); the share
+/// sheet (NP-071).
 pub fn plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
     let builder = builder.plugin(tauri_plugin_koona_mobile::init());
+    // Links shared from other apps (NP-071): the share sheet's queue folder, taken in by share_queue.rs.
+    let builder = builder.plugin(tauri_plugin_koona_share::init());
     // The Play build's purchases (NP-154, billing/play.rs): Play Billing, under the commercial license.
     #[cfg(play)]
     let builder = builder.plugin(tauri_plugin_koona_play::init());
@@ -37,7 +40,13 @@ pub fn library_paths(app: &tauri::App) -> tauri::Result<library::Paths> {
 
 /// Before the shared starts: an Android WebView too old for the interface gets the plugin's update
 /// screen; nothing starts behind it: the library stays closed and the loops wait for good (NP-151).
+/// The share sheet's queue is known before the library opens, which takes it in (NP-071); a share
+/// made while the app runs is taken in at once, also when the app stays on the screen beside the
+/// app that shares (split screen, a pop-up window), which brings no resume.
 pub fn prepare(app: &tauri::App) {
+    crate::share_queue::manage(app, tauri_plugin_koona_share::queue_folder(app.handle()));
+    let handle = app.handle().clone();
+    tauri_plugin_koona_share::on_queued(app.handle(), move || crate::share_queue::ingest(&handle));
     #[cfg(target_os = "android")]
     if !tauri_plugin_koona_mobile::webview_supported(app.handle()) {
         lifecycle::hold(app.handle());
@@ -53,11 +62,16 @@ pub fn setup(app: &tauri::App, _channel_state: Arc<crate::capture_channel::Chann
 }
 
 /// A phone put the app behind the screen or brought it back (NP-151): the loops wait meanwhile,
-/// and the interface reads its counts and list again on the way back (`tauri://resumed`).
+/// and the interface reads its counts and list again on the way back (`tauri://resumed`). Links
+/// shared meanwhile are taken in then, and when the window gets the focus back (NP-071).
 pub fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
     match event {
         tauri::WindowEvent::Suspended => lifecycle::set(window.app_handle(), false),
-        tauri::WindowEvent::Resumed => lifecycle::set(window.app_handle(), true),
+        tauri::WindowEvent::Resumed => {
+            lifecycle::set(window.app_handle(), true);
+            crate::share_queue::ingest(window.app_handle());
+        }
+        tauri::WindowEvent::Focused(true) => crate::share_queue::ingest(window.app_handle()),
         _ => {}
     }
 }

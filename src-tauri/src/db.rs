@@ -167,6 +167,8 @@ pub enum Source {
     /// A link of a shared `.kpin` list (NP-137); `source_name` is the list's title.
     /// It counts as imported in the Inbox banner, as a bookmarks file does.
     List,
+    /// A link shared from another app on a phone (NP-071, share_queue.rs).
+    Share,
 }
 
 impl Source {
@@ -182,6 +184,7 @@ impl Source {
             Source::Safari => "safari",
             Source::Feed => "feed",
             Source::List => "list",
+            Source::Share => "share",
         }
     }
 }

@@ -997,6 +997,7 @@
     "onDate": "{{date}}",
     "savedFrom": "sačuvano {{when}} iz {{browser}}",
     "savedFromBrowser": "sačuvano {{when}} iz pregledača",
+    "sharedFromApp": "podeljeno {{when}} iz druge aplikacije",
     "addedByHand": "dodato ručno {{when}}",
     "imported": "uvezeno {{when}}",
     "fromList": "uvezeno {{when}} iz liste „{{name}}“",
@@ -2136,6 +2137,13 @@
       "tipAdd": "Dodajte link dugmetom +",
       "tipAddHow": "Nalepite adresu, čeka ovde",
       "openLibrary": "Otvori biblioteku"
+    },
+    "share": {
+      "saved": "Sačuvano u Koona Pin",
+      "inInbox": "U prijemnom sandučetu · {{host}}",
+      "done": "Gotovo",
+      "noLink": "Nema linka za čuvanje",
+      "failed": "Link nije sačuvan"
     },
     "feeds": {
       "title": "Fidovi",

@@ -121,6 +121,8 @@ pub fn start(app: AppHandle) {
                         moved_aside: moved_aside.clone(),
                     },
                 );
+                // Links shared from other apps while the app was closed (NP-071, phones only).
+                crate::share_queue::ingest(&app);
                 maintain(&app, &library, &db, moved_aside);
             }
             Err(failure) => {

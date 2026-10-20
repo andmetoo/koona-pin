@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Written from src/locales/tr.json (phone.share) by `bun run locales:android`; do not edit. -->
+<resources>
+    <string name="koona_share_saved">Koona Pin\'e kaydedildi</string>
+    <string name="koona_share_in_inbox">Gelen kutusunda · %1$s</string>
+    <string name="koona_share_done">Tamam</string>
+    <string name="koona_share_no_link">Kaydedilecek bağlantı yok</string>
+    <string name="koona_share_failed">Bağlantı kaydedilemedi</string>
+</resources>
