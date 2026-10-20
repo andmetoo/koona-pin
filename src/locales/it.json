@@ -1548,12 +1548,14 @@
     "endsOn": "Non si rinnova · Supporter fino al {{date}}",
     "paidUntil": "Pagato una volta · Supporter fino al {{date}}",
     "alsoRenews": "Il tuo abbonamento si rinnova ancora: annullalo in Gestisci",
+    "alsoRenewsPlay": "Il tuo abbonamento si rinnova ancora: annullalo in Google Play",
     "upgradeTitle": "Passa a 5 anni",
     "upgradeTextYearly": "Paga {{price}} una volta sola invece di rinnovare. Il piano annuale resta fino al {{date}} e poi non si rinnova più; i cinque anni iniziano quel giorno.",
     "upgradeTextMonthly": "Paga {{price}} una volta sola invece di rinnovare. Il piano mensile resta fino al {{date}} e poi non si rinnova più; i cinque anni iniziano quel giorno.",
     "upgradeHint": "Il pagamento si apre nel browser. Paddle lo gestisce, con le tasse, come nostro rivenditore. Supporter durerà fino al {{date}}.",
     "fiveYearsNotSold": "I cinque anni con un unico pagamento ora non sono in vendita. Il tuo abbonamento continua come prima.",
     "pastDue": "Il rinnovo non è andato a buon fine — aggiorna la carta",
+    "pastDuePlay": "Il rinnovo non è andato a buon fine — sistema il pagamento in Google Play",
     "unchecked": "Impossibile verificare il piano — resta attivo fino al {{date}}",
     "perk": {
       "reading": "Temi di lettura",
@@ -1584,6 +1586,8 @@
     "monthly": "Supporter · mensile",
     "fiveYears": "Supporter · 5 anni",
     "switchToFiveYears": "Passa a 5 anni",
+    "manageInPlay": "Gestisci in Google Play",
+    "fixInPlay": "Sistema il pagamento in Google Play",
     "updateCard": "Aggiorna carta",
     "manage": "Gestisci",
     "signOut": "Esci"

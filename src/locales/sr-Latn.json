@@ -1562,12 +1562,14 @@
     "endsOn": "Ne obnavlja se · Supporter do {{date}}",
     "paidUntil": "Plaćeno jednom · Supporter do {{date}}",
     "alsoRenews": "Pretplata se i dalje obnavlja — otkažite je u „Upravljaj“",
+    "alsoRenewsPlay": "Pretplata se i dalje obnavlja — otkažite je u Google Play-u",
     "upgradeTitle": "Prelazak na 5 godina",
     "upgradeTextYearly": "Platite {{price}} jednom umesto obnavljanja. Godišnji plan traje do {{date}} i posle toga se ne obnavlja; pet godina počinje tog dana.",
     "upgradeTextMonthly": "Platite {{price}} jednom umesto obnavljanja. Mesečni plan traje do {{date}} i posle toga se ne obnavlja; pet godina počinje tog dana.",
     "upgradeHint": "Plaćanje se otvara u pregledaču. Njega i poreze vodi Paddle, naš preprodavac. Supporter će trajati do {{date}}.",
     "fiveYearsNotSold": "Pet godina jednom uplatom trenutno se ne prodaje. Pretplata se nastavlja kao i do sada.",
     "pastDue": "Obnova nije prošla — ažurirajte karticu",
+    "pastDuePlay": "Obnova nije prošla — ispravite plaćanje u Google Play-u",
     "unchecked": "Plan nije proveren — važi do {{date}}",
     "perk": {
       "reading": "Teme za čitanje",
@@ -1598,6 +1600,8 @@
     "monthly": "Supporter · mesečno",
     "fiveYears": "Supporter · 5 godina",
     "switchToFiveYears": "Pređi na 5 godina",
+    "manageInPlay": "Upravljaj u Google Play-u",
+    "fixInPlay": "Ispravi plaćanje u Google Play-u",
     "updateCard": "Ažuriraj karticu",
     "manage": "Upravljaj",
     "signOut": "Odjavi se"

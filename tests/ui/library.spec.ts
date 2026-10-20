@@ -2487,6 +2487,32 @@ test("Supporter: the dialog of the plan says when it does not renew, a payment f
   await expect(page.locator("[data-plan-dialog]")).toHaveAttribute("data-plan-dialog", "active");
 });
 
+test("Supporter: a plan paid through Google Play is managed in Google Play, never in Paddle's portal, with no switch to five years (NP-154)", async ({ page }) => {
+  const playPage = "https://play.google.com/store/account/subscriptions?sku=supporter&package=app.koona.pin";
+  for (const [kind, text, button] of [
+    ["supporter", "Renews on", "Manage in Google Play ↗"],
+    ["past_due", "The renewal didn't go through — fix the payment in Google Play", "Fix payment in Google Play ↗"],
+  ] as const) {
+    await page.evaluate((k) => {
+      localStorage.setItem("koonapin.demo.supporter", k);
+      localStorage.setItem("koonapin.demo.store", "play");
+    }, kind);
+    await page.reload();
+    await page.locator("[data-plan-row]").click();
+    const plan = page.getByRole("dialog", { name: "Supporter" });
+    await expect(plan).toContainText(text);
+    await page.evaluate(() => {
+      const w = window as unknown as { opened: string[] };
+      w.opened = [];
+      window.open = ((url: string) => void w.opened.push(url)) as typeof window.open;
+    });
+    await plan.getByRole("button", { name: button }).click();
+    expect(await page.evaluate(() => (window as unknown as { opened: string[] }).opened)).toEqual([playPage]);
+    for (const name of ["Manage ↗", "Update card ↗", "Switch to 5 years"]) await expect(plan.getByRole("button", { name, exact: true })).toHaveCount(0);
+    await expect(plan).not.toContainText(/card/i);
+  }
+});
+
 test("Supporter: a subscription switches to five years from the end of its paid period; a server that does not sell five years offers neither (NP-066, sheet 45)", async ({ page }) => {
   await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "supporter"));
   await page.reload();

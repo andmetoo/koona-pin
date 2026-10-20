@@ -1651,12 +1651,14 @@
     "endsOn": "Nie odnawia się · Supporter do {{date}}",
     "paidUntil": "Opłacone jednorazowo · Supporter do {{date}}",
     "alsoRenews": "Twoja subskrypcja nadal się odnawia — anuluj ją w Zarządzaj",
+    "alsoRenewsPlay": "Twoja subskrypcja nadal się odnawia — anuluj ją w Google Play",
     "upgradeTitle": "Przejście na 5 lat",
     "upgradeTextYearly": "Zapłać jednorazowo {{price}} zamiast odnawiać. Plan roczny trwa do {{date}} i potem się nie odnowi; pięć lat zacznie się tego dnia.",
     "upgradeTextMonthly": "Zapłać jednorazowo {{price}} zamiast odnawiać. Plan miesięczny trwa do {{date}} i potem się nie odnowi; pięć lat zacznie się tego dnia.",
     "upgradeHint": "Płatność otworzy się w przeglądarce. Obsługuje ją, wraz z podatkami, Paddle, nasz sprzedawca. Supporter będzie trwał do {{date}}.",
     "fiveYearsNotSold": "Pięć lat w jednej płatności nie jest teraz w sprzedaży. Subskrypcja trwa jak dotąd.",
     "pastDue": "Odnowienie nie przeszło — zaktualizuj kartę",
+    "pastDuePlay": "Odnowienie nie przeszło — popraw płatność w Google Play",
     "unchecked": "Nie udało się sprawdzić planu — działa do {{date}}",
     "perk": {
       "reading": "Motywy czytania",
@@ -1687,6 +1689,8 @@
     "monthly": "Supporter · miesięcznie",
     "fiveYears": "Supporter · 5 lat",
     "switchToFiveYears": "Przejdź na 5 lat",
+    "manageInPlay": "Zarządzaj w Google Play",
+    "fixInPlay": "Popraw płatność w Google Play",
     "updateCard": "Zaktualizuj kartę",
     "manage": "Zarządzaj",
     "signOut": "Wyloguj"

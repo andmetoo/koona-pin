@@ -193,7 +193,15 @@ function demoSwitch(key: string): string | null {
 const storedSupporter = () => demoSwitch(DEMO_SUPPORTER_KEY);
 const supporterListeners = new Set<(status: SupporterStatus) => void>();
 const inDays = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
+/**
+ * A plan of the preview; `koonapin.demo.store` «play» makes it one paid through Google Play
+ * (NP-154), which is managed there.
+ */
 function demoPlan(kind: string | null): SupporterStatus["plan"] {
+  const plan = demoPlanOf(kind);
+  return plan && demoSwitch("koonapin.demo.store") === "play" ? { ...plan, store: "play" } : plan;
+}
+function demoPlanOf(kind: string | null): SupporterStatus["plan"] {
   // `offline_until` as the server signs it: 30 days ahead, never past the period and a week.
   const plan = { also_renews: false };
   if (kind === "supporter") return { ...plan, status: "active", interval: "year", valid_until: inDays(365), renews_at: inDays(365), offline_until: inDays(30) };

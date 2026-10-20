@@ -1445,12 +1445,14 @@
     "endsOn": "Yenilenmez · {{date}} tarihine kadar Supporter",
     "paidUntil": "Tek seferde ödendi · {{date}} tarihine kadar Supporter",
     "alsoRenews": "Aboneliğiniz hâlâ yenileniyor — Yönet bölümünden iptal edin",
+    "alsoRenewsPlay": "Aboneliğiniz hâlâ yenileniyor — Google Play’den iptal edin",
     "upgradeTitle": "5 yıla geç",
     "upgradeTextYearly": "Yenilemek yerine bir kez {{price}} ödeyin. Yıllık planınız {{date}} tarihine kadar sürer, sonra yenilenmez; beş yıl o gün başlar.",
     "upgradeTextMonthly": "Yenilemek yerine bir kez {{price}} ödeyin. Aylık planınız {{date}} tarihine kadar sürer, sonra yenilenmez; beş yıl o gün başlar.",
     "upgradeHint": "Ödeme tarayıcınızda açılır. Bayimiz Paddle ödemeyi ve vergileri yürütür. Supporter {{date}} tarihine kadar sürer.",
     "fiveYearsNotSold": "Tek ödemeyle beş yıl şu anda satılmıyor. Aboneliğiniz eskisi gibi devam ediyor.",
     "pastDue": "Yenileme alınamadı — kartınızı güncelleyin",
+    "pastDuePlay": "Yenileme alınamadı — ödemeyi Google Play’de düzeltin",
     "unchecked": "Plan kontrol edilemedi — {{date}} tarihine kadar geçerli",
     "perk": {
       "reading": "Okuma temaları",
@@ -1481,6 +1483,8 @@
     "monthly": "Supporter · aylık",
     "fiveYears": "Supporter · 5 yıl",
     "switchToFiveYears": "5 yıla geç",
+    "manageInPlay": "Google Play’de yönet",
+    "fixInPlay": "Ödemeyi Google Play’de düzelt",
     "updateCard": "Kartı güncelle",
     "manage": "Yönet",
     "signOut": "Çıkış yap"

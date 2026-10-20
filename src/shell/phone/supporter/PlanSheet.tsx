@@ -2,7 +2,7 @@ import "../you/you.css";
 import "./supporter.css";
 import { useEffect, useRef } from "react";
 import { BookOpen, ExternalLink, Heart, RefreshCw } from "lucide-react";
-import { longDate, usePlan } from "../../../components/supporterFlow";
+import { longDate, planLink, usePlan } from "../../../components/supporterFlow";
 import { capabilities } from "../../../platform/capabilities";
 import { savePreference } from "../../../services/preferences";
 import { usePhone } from "../PhoneContext";
@@ -21,9 +21,11 @@ export type PlanSheetProps = Record<string, never>;
  * reading themes, the heart with its switch — and sign out. Its action is the shared plan's
  * (components/supporterFlow.ts): Manage or Update card in Paddle's portal for a Paddle subscription,
  * Try again when the plan could not be checked, nothing for five years paid once; "Switch to 5
- * years". Where the build sells nothing (the store build until NP-154) the sheet links to no way to
- * pay at all: no portal, no switch, and the plan's lines name none — a neutral line says the plan is
- * managed where it was started. It closes when the plan goes.
+ * years". Where the build does not sell through Paddle (the Play build) the sheet links to no
+ * Paddle page at all: no portal, no switch, and a Paddle plan's lines name none — a neutral line
+ * says the plan is managed where it was started. A plan paid through Google Play (`store` "play",
+ * NP-154) has "Manage in Google Play", or "Fix payment in Google Play" when a renewal failed: Google
+ * Play's subscriptions page, which its policy asks for here. It closes when the plan goes.
  */
 export function PlanSheet(_: { props: PlanSheetProps }) {
   const { app } = usePhone();
@@ -56,11 +58,12 @@ function PlanBody({ supporter }: { supporter: NonNullable<ReturnType<typeof useP
     },
   });
   const sync = useSyncCard();
-  // Paddle's portal (Manage, Update card) only where the build sells; elsewhere the plan's lines
-  // say what is so without sending anyone to pay.
-  const portal = action === "manage" || action === "updateCard";
+  // Paddle's portal (Manage, Update card) only where the build sells through Paddle; elsewhere the
+  // plan's lines say what is so without sending anyone to pay. A plan paid through Google Play
+  // (NP-154) is managed on Google Play's page, in any build: the plan's own lines name it.
+  const portal = planLink(action) === "portal";
   const shownStatus =
-    sells || supporter.check_failed
+    sells || supporter.check_failed || plan.store === "play"
       ? status
       : plan.status === "past_due"
         ? t("phone.supporter.pastDue", { date: longDate(plan.valid_until, i18n.language) })
@@ -72,6 +75,14 @@ function PlanBody({ supporter }: { supporter: NonNullable<ReturnType<typeof useP
     action === "retry" ? (
       <Button kind="primary" disabled={busy} onClick={() => act(action)}>
         {t("common.retry")}
+      </Button>
+    ) : action === "fixInPlay" ? (
+      <Button kind="primary" icon={ExternalLink} disabled={busy} onClick={() => act(action)}>
+        {t("plan.fixInPlay")}
+      </Button>
+    ) : action === "manageInPlay" ? (
+      <Button kind="clear" icon={ExternalLink} disabled={busy} onClick={() => act(action)}>
+        {t("plan.manageInPlay")}
       </Button>
     ) : !sells ? null : action === "updateCard" ? (
       <Button kind="primary" icon={ExternalLink} disabled={busy} onClick={() => act(action)}>

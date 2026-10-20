@@ -297,27 +297,47 @@ export function useSignIn({ onClose }: { onClose: () => void }) {
   return { step, setStep, email, setEmail, code, setCode, error, busy, wait, send, verify, retry, signOut, anotherEmail, unknown, codeReady };
 }
 
-/** What the plan's own action is: Manage in Paddle's portal, Try again, Update card, or nothing to do but close. */
-export type PlanAction = "manage" | "retry" | "updateCard" | "close";
+/**
+ * Google Play's page of this app's subscription (NP-154): where a plan bought through Play is
+ * managed, cancelled or its payment fixed. Google requires the link where the plan is shown.
+ */
+export const PLAY_SUBSCRIPTIONS_URL = "https://play.google.com/store/account/subscriptions?sku=supporter&package=app.koona.pin";
+
+/**
+ * What the plan's own action is: Manage in Paddle's portal, Try again, Update card, or nothing to
+ * do but close; for a plan paid through Google Play (`store` "play"), Manage or Fix payment on
+ * Google Play's page instead, never Paddle's portal.
+ */
+export type PlanAction = "manage" | "retry" | "updateCard" | "close" | "manageInPlay" | "fixInPlay";
+
+/** The page an action opens: Paddle's portal, Google Play's subscriptions, or none. */
+export const planLink = (action: PlanAction): "portal" | "play" | null =>
+  action === "manage" || action === "updateCard" ? "portal" : action === "manageInPlay" || action === "fixInPlay" ? "play" : null;
 
 /**
  * The plan's state on its one line and the action beside it (sheet 45): a renewal, no renewal, a
- * failed payment, a plan that could not be checked, five years paid once.
+ * failed payment, a plan that could not be checked, five years paid once. A plan paid through
+ * Google Play is managed there.
  */
 export function planState(supporter: SupporterStatus, t: TFunction, language: string): { status: string; tone: "muted" | "danger" | "amber"; action: PlanAction } {
   const plan = supporter.plan;
   const date = (iso: string) => longDate(iso, language);
   if (!plan) return { status: "", tone: "muted", action: "manage" };
+  const play = plan.store === "play";
+  const manage = play ? "manageInPlay" : "manage";
   // Until when the signed plan is kept without the server (billing.rs, `offline_until`).
   if (supporter.check_failed) return { status: t("supporter.unchecked", { date: date(plan.offline_until) }), tone: "amber", action: "retry" };
-  if (plan.status === "past_due") return { status: t("supporter.pastDue"), tone: "danger", action: "updateCard" };
+  if (plan.status === "past_due")
+    return play
+      ? { status: t("supporter.pastDuePlay"), tone: "danger", action: "fixInPlay" }
+      : { status: t("supporter.pastDue"), tone: "danger", action: "updateCard" };
   if (plan.interval === "five_years") {
-    // Paid once: nothing to manage in Paddle's portal unless a subscription still renews too.
-    if (plan.also_renews) return { status: t("supporter.alsoRenews"), tone: "amber", action: "manage" };
+    // Paid once: nothing to manage unless a subscription still renews too.
+    if (plan.also_renews) return { status: t(play ? "supporter.alsoRenewsPlay" : "supporter.alsoRenews"), tone: "amber", action: manage };
     return { status: t("supporter.paidUntil", { date: date(plan.valid_until) }), tone: "muted", action: "close" };
   }
-  if (plan.status === "canceling") return { status: t("supporter.endsOn", { date: date(plan.valid_until) }), tone: "muted", action: "manage" };
-  return { status: plan.renews_at ? t("supporter.renewsOn", { date: date(plan.renews_at) }) : "", tone: "muted", action: "manage" };
+  if (plan.status === "canceling") return { status: t("supporter.endsOn", { date: date(plan.valid_until) }), tone: "muted", action: manage };
+  return { status: plan.renews_at ? t("supporter.renewsOn", { date: date(plan.renews_at) }) : "", tone: "muted", action: manage };
 }
 
 /**
@@ -330,11 +350,13 @@ export function usePlan({ supporter, onClose, onUpgrade }: { supporter: Supporte
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const plan = supporter.plan;
-  // «Switch to 5 years» only for a renewing subscription, only where the build sells (a phone's
-  // store build does not, NP-154), and only while the server sells them: the prices remembered
-  // this week say so, Paddle is asked only without them, and never for a plan that cannot switch
-  // (five years, canceling, past due).
-  const renewing = !!(plan?.renews_at && plan.status === "active" && plan.interval !== "five_years") && capabilities.purchase === "paddle";
+  // «Switch to 5 years» only for a renewing subscription, only where the build sells through
+  // Paddle (a phone's store build does not), never for a plan paid through Google Play (the switch
+  // is Paddle's), and only while the server sells them: the prices remembered this week say so,
+  // Paddle is asked only without them, and never for a plan that cannot switch (five years,
+  // canceling, past due).
+  const renewing =
+    !!(plan?.renews_at && plan.status === "active" && plan.interval !== "five_years" && plan.store !== "play") && capabilities.purchase === "paddle";
   const { prices } = useSupporterPrices(renewing ? "if_unknown" : "never");
   const offerSwitch = renewing && prices?.five_years ? onUpgrade : undefined;
 
@@ -364,9 +386,11 @@ export function usePlan({ supporter, onClose, onUpgrade }: { supporter: Supporte
 
   const state = planState(supporter, t, i18n.language);
   const act = (action: PlanAction) => {
+    const link = planLink(action);
     if (action === "retry") void run(() => api.refreshSupporter());
-    else if (action === "close") onClose();
-    else void run(api.openSupporterPortal);
+    else if (link === "play") void run(() => api.openUrl(PLAY_SUBSCRIPTIONS_URL));
+    else if (link === "portal") void run(api.openSupporterPortal);
+    else onClose();
   };
   const signOut = () => void run(api.signOutSupporter, true);
   return { ...state, busy, error, setError, offerSwitch, act, signOut };

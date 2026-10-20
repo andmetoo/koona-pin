@@ -1342,12 +1342,14 @@
     "endsOn": "更新されません · {{date}} まで Supporter",
     "paidUntil": "1 回払い済み · {{date}} まで Supporter",
     "alsoRenews": "サブスクリプションはまだ更新されます。「管理」から解約してください",
+    "alsoRenewsPlay": "サブスクリプションはまだ更新されます。Google Play で解約してください",
     "upgradeTitle": "5 年に切り替え",
     "upgradeTextYearly": "更新の代わりに {{price}} を 1 回だけ支払います。年額プランは {{date}} まで続き、その後は更新されません。5 年間はその日から始まります。",
     "upgradeTextMonthly": "更新の代わりに {{price}} を 1 回だけ支払います。月額プランは {{date}} まで続き、その後は更新されません。5 年間はその日から始まります。",
     "upgradeHint": "支払いはブラウザーで開きます。販売代理店の Paddle が税金も含めて処理します。Supporter は {{date}} まで続きます。",
     "fiveYearsNotSold": "5 年分の一括払いは現在販売していません。サブスクリプションはこれまでどおり続きます。",
     "pastDue": "更新に失敗しました — カードを更新してください",
+    "pastDuePlay": "更新に失敗しました — Google Play で支払いを修正してください",
     "unchecked": "プランを確認できませんでした — {{date}} まで有効です",
     "perk": {
       "reading": "読書テーマ",
@@ -1378,6 +1380,8 @@
     "monthly": "Supporter · 月額",
     "fiveYears": "Supporter · 5 年",
     "switchToFiveYears": "5 年に切り替え",
+    "manageInPlay": "Google Play で管理",
+    "fixInPlay": "Google Play で支払いを修正",
     "updateCard": "カードを更新",
     "manage": "管理",
     "signOut": "サインアウト"

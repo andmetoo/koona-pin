@@ -627,6 +627,15 @@ export function PlanDialog({
       <Button variant="primary" size="lg" disabled={busy} onClick={() => act(kind)}>
         {t("plan.updateCard")} ↗
       </Button>
+    ) : kind === "fixInPlay" ? (
+      // A plan paid through Google Play (NP-154): its payment and its management are Google Play's.
+      <Button variant="primary" size="lg" disabled={busy} onClick={() => act(kind)}>
+        {t("plan.fixInPlay")} ↗
+      </Button>
+    ) : kind === "manageInPlay" ? (
+      <Button variant="outline" size="lg" disabled={busy} onClick={() => act(kind)}>
+        {t("plan.manageInPlay")} ↗
+      </Button>
     ) : kind === "close" ? (
       <Button variant="outline" size="lg" onClick={onClose}>
         {t("common.close")}

@@ -1445,12 +1445,14 @@
     "endsOn": "Doesn't renew · Supporter until {{date}}",
     "paidUntil": "Paid once · Supporter until {{date}}",
     "alsoRenews": "Your subscription still renews — cancel it in Manage",
+    "alsoRenewsPlay": "Your subscription still renews — cancel it in Google Play",
     "upgradeTitle": "Switch to 5 years",
     "upgradeTextYearly": "Pay {{price}} once instead of renewing. Your yearly plan stays until {{date}} and then stops renewing; the five years start that day.",
     "upgradeTextMonthly": "Pay {{price}} once instead of renewing. Your monthly plan stays until {{date}} and then stops renewing; the five years start that day.",
     "upgradeHint": "Payment opens in your browser. Paddle handles it and the taxes as our reseller. Supporter then lasts until {{date}}.",
     "fiveYearsNotSold": "Five years paid once aren't on sale right now. Your subscription goes on as before.",
     "pastDue": "The renewal didn't go through — update the card",
+    "pastDuePlay": "The renewal didn't go through — fix the payment in Google Play",
     "unchecked": "Couldn't check the plan — it stays on until {{date}}",
     "perk": {
       "reading": "Reading themes",
@@ -1481,6 +1483,8 @@
     "monthly": "Supporter · monthly",
     "fiveYears": "Supporter · 5 years",
     "switchToFiveYears": "Switch to 5 years",
+    "manageInPlay": "Manage in Google Play",
+    "fixInPlay": "Fix payment in Google Play",
     "updateCard": "Update card",
     "manage": "Manage",
     "signOut": "Sign out"
