@@ -3,7 +3,8 @@
 //   bun run build:android   the App Bundle (.aab) and a universal APK of arm64 only →
 //                           release/test/android/<version>/ with SHA256SUMS.txt
 //   bun scripts/build-android.mjs --check <apk>   only the 16 KB checks below, of an APK built already (CI)
-//   bun run build:android -- --play   the Google Play build: Supporter through Play Billing (feature store-play)
+//   bun run build:android -- --play   the Google Play build: Supporter through Play Billing (feature store-play),
+//                           as koona-pin-<version>-play-arm64.apk and koona-pin-<version>-play.aab beside the site's
 // Needs the Android SDK with platform 37 and an NDK of r28 or newer (16 KB pages by default):
 // ANDROID_HOME and NDK_HOME, as ~/.zshrc sets them on the build Mac (doc: docs/building.md), and the
 // Rust target aarch64-linux-android. Settings for the Rust side come from .env as for the desktop.
@@ -13,6 +14,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { checkBilling } from "./check-apk-billing.mjs";
 import { root, test } from "./lib/paths.mjs";
 
 const sdk = process.env.ANDROID_HOME;
@@ -95,19 +97,24 @@ if (checkOnly >= 0) {
 rmSync(apk, { force: true });
 rmSync(aab, { force: true });
 checkWryClient();
-// The Play build sells through Play Billing (NP-154); without the flag the APK has no billing library.
-const play = process.argv.includes("--play") ? ["--features", "store-play"] : [];
-run("bun", ["run", "tauri", "android", "build", "--target", "aarch64", "--apk", "--aab", ...play]);
+// The Play build sells through Play Billing (NP-154); without the flag the APK has no billing library
+// and no BILLING permission, which is checked.
+const play = process.argv.includes("--play");
+run("bun", ["run", "tauri", "android", "build", "--target", "aarch64", "--apk", "--aab", ...(play ? ["--features", "store-play"] : [])]);
 for (const file of [apk, aab]) if (!existsSync(file)) throw new Error(`The build left no ${path.relative(root, file)}`);
 check16k();
+checkBilling(apk, play ? "present" : "absent");
 
+// The two builds keep their own names side by side, so the one uploaded is never the other.
 const target = test.android(version);
-rmSync(target, { recursive: true, force: true });
+const suffix = play ? "-play" : "";
+const names = { [apk]: `koona-pin-${version}${suffix}-arm64.apk`, [aab]: `koona-pin-${version}${suffix}.aab` };
+const sums = `SHA256SUMS${suffix}.txt`;
 mkdirSync(target, { recursive: true });
-const names = { [apk]: `koona-pin-${version}-arm64.apk`, [aab]: `koona-pin-${version}.aab` };
+for (const name of [...Object.values(names), sums]) rmSync(path.join(target, name), { force: true });
 for (const [file, name] of Object.entries(names)) copyFileSync(file, path.join(target, name));
 writeFileSync(
-  path.join(target, "SHA256SUMS.txt"),
+  path.join(target, sums),
   Object.values(names).map((name) => `${sha256(path.join(target, name))}  ${name}\n`).join(""),
 );
-console.log(`Android ${version} (debug-signed, arm64): ${path.relative(root, target)}`);
+console.log(`Android ${version}${play ? " for Google Play" : ""} (debug-signed, arm64): ${path.relative(root, target)}`);
