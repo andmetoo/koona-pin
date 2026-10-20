@@ -9,22 +9,32 @@
 //! again, because the app ended between the commit and the delete or the sheet queued the same
 //! share twice, is answered from its receipt: one share stays one bookmark. A file that cannot be
 //! a share (not JSON, no link, not http or https) goes to `rejected/` beside the queue and never
-//! holds up the rest; a library that cannot take writes leaves the queue for the next time.
+//! holds up the rest (the newest 50 are kept there); a library that cannot take writes leaves
+//! the queue for the next time, and a share that fails by itself waits while the rest go on. A
+//! `.tmp` an hour old is a share whose sheet ended before its rename, and is deleted.
 //!
 //! Compiled everywhere, so a desktop tests it; only a phone with a share sheet has a queue.
 
-use crate::capture::{self, CaptureRequest, CaptureResult};
+use crate::capture::{self, CaptureError, CaptureRequest, CaptureResult};
 use crate::db::{DbState, Source};
+use crate::error::ErrorCode;
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 use serde::Deserialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, SystemTime};
 use tauri::{AppHandle, Manager};
 
 /// Where the shares wait, beside it the files that could not be taken.
 const REJECTED: &str = "rejected";
+
+/// How many files `rejected/` keeps, the newest: enough to see what went wrong.
+const REJECTED_KEPT: usize = 50;
+
+/// A `.tmp` older than this is a share whose sheet ended before its rename: it never comes.
+const ABANDONED: Duration = Duration::from_secs(60 * 60);
 
 /// The queue of a phone that has a share sheet; managed before the library opens.
 pub struct Queue {
@@ -50,6 +60,12 @@ impl Queue {
         let mut waiting = Vec::new();
         for path in entries.flatten().map(|entry| entry.path()) {
             // `<id>.json.tmp` is a share still being written; `rejected` is a folder.
+            if path.extension().is_some_and(|extension| extension == "tmp") {
+                if age(&path).is_some_and(|age| age > ABANDONED) {
+                    let _ = fs::remove_file(&path);
+                }
+                continue;
+            }
             if path.extension().is_none_or(|extension| extension != "json") || !path.is_file() {
                 continue;
             }
@@ -87,11 +103,17 @@ impl Queue {
                 Err(error) if matches!(error.code, "invalid_request" | "request_id_conflict") => {
                     drained.rejected += usize::from(self.reject(&path, &error.message));
                 }
-                // The library cannot take it now (damaged, read-only, busy): the queue waits.
-                Err(error) => {
+                // The library cannot take writes now (busy, read-only after damage, a full disk):
+                // the whole queue waits for the next time.
+                Err(error) if transient(&error) => {
                     eprintln!("Koona Pin: the shared links wait: {}", error.message);
                     drained.left += total - done;
                     break;
+                }
+                // This one failed by itself: it stays for the next time, the others go on.
+                Err(error) => {
+                    eprintln!("Koona Pin: the shared link {} waits: {}", path.display(), error.message);
+                    drained.left += 1;
                 }
             }
         }
@@ -108,12 +130,43 @@ impl Queue {
         let target = folder.join(name);
         let _ = fs::remove_file(&target);
         match fs::create_dir_all(&folder).and_then(|()| fs::rename(path, &target)) {
-            Ok(()) => true,
+            Ok(()) => {
+                prune(&folder);
+                true
+            }
             Err(error) => {
                 eprintln!("Koona Pin: cannot put the shared link aside: {error}");
                 false
             }
         }
+    }
+}
+
+/// Whether the library as a whole cannot take a write now, rather than this share.
+fn transient(error: &CaptureError) -> bool {
+    matches!(error.ipc, ErrorCode::DatabaseBusy | ErrorCode::ReadOnly | ErrorCode::DiskFull)
+}
+
+/// How long ago a file was last written; none when the system cannot say.
+fn age(path: &Path) -> Option<Duration> {
+    SystemTime::now().duration_since(fs::metadata(path).and_then(|meta| meta.modified()).ok()?).ok()
+}
+
+/// Keeps the newest [`REJECTED_KEPT`] files of `rejected/`.
+fn prune(folder: &Path) {
+    let Ok(entries) = fs::read_dir(folder) else {
+        return;
+    };
+    let mut files: Vec<(SystemTime, PathBuf)> = entries
+        .flatten()
+        .filter_map(|entry| Some((entry.metadata().ok()?.modified().ok()?, entry.path())))
+        .collect();
+    if files.len() <= REJECTED_KEPT {
+        return;
+    }
+    files.sort_by(|a, b| b.cmp(a));
+    for (_, path) in &files[REJECTED_KEPT..] {
+        let _ = fs::remove_file(path);
     }
 }
 
@@ -314,12 +367,67 @@ mod tests {
     }
 
     #[test]
-    fn a_share_still_being_written_waits() {
+    fn a_share_still_being_written_waits_and_an_abandoned_one_goes() {
         let (conn, folder) = (library(), folder("tmp"));
         share(&folder, &format!("{ID}.json.tmp"), ID, "https://example.com/a", "2026-10-20T09:41:00Z");
+        let old = share(&folder, "abandoned.json.tmp", ID, "https://example.com/b", "2026-10-20T09:41:00Z");
+        fs::File::options().write(true).open(&old).unwrap().set_modified(SystemTime::now() - ABANDONED * 2).unwrap();
         assert_eq!(Queue::new(folder.clone()).drain(&conn, |_| {}), Drained::default());
         assert!(bookmarks(&conn).is_empty());
         assert_eq!(names(&folder), [format!("{ID}.json.tmp")]);
+    }
+
+    #[test]
+    fn a_share_that_fails_by_itself_waits_and_the_rest_go_on() {
+        let (conn, folder) = (library(), folder("one-fails"));
+        conn.lock()
+            .unwrap()
+            .execute_batch("CREATE TEMP TRIGGER refuse BEFORE INSERT ON bookmarks WHEN NEW.url LIKE '%refused%' BEGIN SELECT RAISE(ABORT, 'refused'); END;")
+            .unwrap();
+        share(&folder, "a.json", ID, "https://example.com/refused", "2026-10-20T09:41:00Z");
+        share(&folder, "b.json", "0b5e7c1d-2f4a-4e6b-8c9d-0e1f2a3b4c5d", "https://example.com/b", "2026-10-20T09:42:00Z");
+        assert_eq!(Queue::new(folder.clone()).drain(&conn, |_| {}), Drained { saved: 1, rejected: 0, left: 1 });
+        assert_eq!(bookmarks(&conn).len(), 1);
+        assert_eq!(names(&folder), ["a.json"]);
+    }
+
+    #[test]
+    fn the_files_put_aside_are_the_newest_fifty() {
+        let (conn, folder) = (library(), folder("rejected-cap"));
+        let rejected = folder.join(REJECTED);
+        fs::create_dir_all(&rejected).unwrap();
+        for i in 0..REJECTED_KEPT + 5 {
+            let path = rejected.join(format!("old-{i:02}.json"));
+            fs::write(&path, "{").unwrap();
+            let when = SystemTime::now() - Duration::from_secs(3600 + (REJECTED_KEPT + 5 - i) as u64);
+            fs::File::options().write(true).open(&path).unwrap().set_modified(when).unwrap();
+        }
+        fs::write(folder.join("broken.json"), "{").unwrap();
+        assert_eq!(Queue::new(folder.clone()).drain(&conn, |_| {}).rejected, 1);
+        let kept = names(&rejected);
+        assert_eq!(kept.len(), REJECTED_KEPT);
+        assert!(kept.contains(&"broken.json".to_owned()));
+        assert!(!kept.contains(&"old-00.json".to_owned()) && kept.contains(&"old-54.json".to_owned()));
+    }
+
+    /// The links the share sheet takes and refuses (queue-fixtures/links, read by its Kotlin tests
+    /// too): what it calls saved, the app takes.
+    #[test]
+    fn the_sheet_and_the_app_agree_on_links() {
+        let links = Path::new(env!("CARGO_MANIFEST_DIR")).join("plugins/koona-share/queue-fixtures/links");
+        let read = |name: &str| {
+            let text = fs::read_to_string(links.join(name)).unwrap();
+            text.lines().map(str::trim).filter(|line| !line.is_empty()).map(String::from).collect::<Vec<_>>()
+        };
+        for url in read("accepted.txt") {
+            assert!(capture::validate_url(&url).is_ok(), "{url}");
+        }
+        for url in read("refused.txt") {
+            assert!(capture::validate_url(&url).is_err(), "{url}");
+        }
+        let longest = format!("https://example.com/{}", "a".repeat(8192 - 20));
+        assert!(capture::validate_url(&longest).is_ok());
+        assert!(capture::validate_url(&format!("{longest}a")).is_err());
     }
 
     #[test]
