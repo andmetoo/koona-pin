@@ -10,6 +10,8 @@ import { PhIcon } from "../ui/icons";
 import { ColumnActions } from "../ui/ColumnActions";
 import { Header, Screen } from "../ui/Screen";
 import { useLongPress } from "../ui/useLongPress";
+import { useChipInView, useFilterSwipe } from "../ui/useFilterSwipe";
+import { selection } from "../../../platform/haptics";
 import { FeedIcon } from "../../../components/feeds/FeedIcon";
 import { useFeedItems } from "../../../components/feeds/useFeeds";
 import { usePicture } from "../../../hooks/usePicture";
@@ -31,7 +33,8 @@ const DAY = 50;
  * refresh circle beside the account cluster; feed chips with round avatars and unread counts
  * ("All feeds" first, ink when on; a long press opens the feed's menu as a sheet); the day and an
  * Unread | All switch; the posts by day, each day on a shelf, virtualised and paged as the
- * desktop's list. A tap pushes the post view. The feed shown is the app's `feedPlace`.
+ * desktop's list. A tap pushes the post view. The feed shown is the app's `feedPlace`; a swipe on
+ * the posts moves to the neighbouring feed chip (SW2).
  */
 /**
  * Shows every post of the list, not only the unread: a feed just followed has its posts marked
@@ -89,6 +92,25 @@ export function FeedsScreen({ hidden }: { hidden: boolean }) {
     stack.openPost(feedUid, item.id);
   };
 
+  // A feed chosen by its chip or by a swipe, with the tick of a section change.
+  const chooseFeed = (uid: string | null) => {
+    if (uid === feedUid) return;
+    void selection();
+    app.openFeeds(uid);
+  };
+  // The feed chips in their order, All feeds first: a swipe walks them.
+  const order = useMemo(() => [null, ...feeds.map((f) => f.uid)], [feeds]);
+  const at = order.indexOf(feedUid);
+  const swipe = useFilterSwipe({
+    index: at,
+    count: order.length,
+    onChange: (i) => chooseFeed(order[i]),
+    content: loaded ? items : null,
+    enabled: !hidden && at >= 0 && feeds.length > 0,
+  });
+  const chipRow = useRef<HTMLDivElement>(null);
+  useChipInView(chipRow, feedUid);
+
   const entries = useMemo(() => dayGroups(shown), [shown]);
   const first = entries[0]?.kind === "day" ? entries[0] : null;
   const rows = useMemo(() => (entries[0]?.kind === "day" ? entries.slice(1) : entries), [entries]);
@@ -127,13 +149,13 @@ export function FeedsScreen({ hidden }: { hidden: boolean }) {
         </div>
       ) : (
         <>
-          <div className="ph-chips fd-chips" role="toolbar" aria-label={t("phone.feeds.chips")}>
-            <Chip active={feedUid === null} onClick={() => feedUid !== null && app.openFeeds(null)}>
+          <div ref={chipRow} className="ph-chips fd-chips" role="toolbar" aria-label={t("phone.feeds.chips")}>
+            <Chip active={feedUid === null} onClick={() => chooseFeed(null)}>
               {t("feeds.all")}
               {total > 0 && <span className="fd-count">{total}</span>}
             </Chip>
             {feeds.map((feed) => (
-              <FeedChip key={feed.uid} feed={feed} active={feed.uid === feedUid} />
+              <FeedChip key={feed.uid} feed={feed} active={feed.uid === feedUid} onChoose={chooseFeed} />
             ))}
           </div>
           <div className="fd-dayrow">
@@ -149,18 +171,22 @@ export function FeedsScreen({ hidden }: { hidden: boolean }) {
               onChange={setScope}
             />
           </div>
-          {loaded && shown.length === 0 ? (
-            <div className="fd-none">
-              <p className="ph-subhead">{scope === "unread" ? t("phone.feeds.noUnread") : t("feeds.empty")}</p>
-              {scope === "unread" && (
-                <Button kind="clear" compact onClick={() => setScope("all")}>
-                  {t("phone.feeds.showAll")}
-                </Button>
+          <div className="ph-swipe" {...swipe.bind}>
+            <div ref={swipe.page} className="ph-swipe-page">
+              {loaded && shown.length === 0 ? (
+                <div className="fd-none">
+                  <p className="ph-subhead">{scope === "unread" ? t("phone.feeds.noUnread") : t("feeds.empty")}</p>
+                  {scope === "unread" && (
+                    <Button kind="clear" compact onClick={() => setScope("all")}>
+                      {t("phone.feeds.showAll")}
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <PostList rows={rows} byUid={byUid} hasMore={hasMore} onMore={loadMore} onOpen={openPost} scroller={scroller} label={t("phone.feeds.title")} />
               )}
             </div>
-          ) : (
-            <PostList rows={rows} byUid={byUid} hasMore={hasMore} onMore={loadMore} onOpen={openPost} scroller={scroller} label={t("phone.feeds.title")} />
-          )}
+          </div>
         </>
       )}
     </Screen>
@@ -336,12 +362,12 @@ function PostPicture({ item, feed, name }: { item: FeedItem; feed: Feed | undefi
 }
 
 /** A feed's chip: its avatar, name and unread count; a tap shows it, a long press opens its menu. */
-function FeedChip({ feed, active }: { feed: Feed; active: boolean }) {
-  const { app, sheets } = usePhone();
+function FeedChip({ feed, active, onChoose }: { feed: Feed; active: boolean; onChoose: (uid: string) => void }) {
+  const { sheets } = usePhone();
   // The sheet gives the long-press tick (sheets/useSheets.ts).
   const press = useLongPress(() => sheets.open({ kind: "feedMenu", props: { feedUid: feed.uid } }));
   return (
-    <Chip active={active} className="fd-chip" data-feed-uid={feed.uid} onClick={() => !active && app.openFeeds(feed.uid)} {...press}>
+    <Chip active={active} className="fd-chip" data-feed-uid={feed.uid} onClick={() => onChoose(feed.uid)} {...press}>
       <FeedIcon feed={feed} size={22} round />
       {feedName(feed)}
       {feed.unread > 0 && <span className="fd-count">{feed.unread}</span>}

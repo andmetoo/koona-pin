@@ -2066,17 +2066,20 @@
       "filters": "Filtres",
       "all": "Tous",
       "favorite": "Favori",
-      "unread": "Non lus",
-      "read": "Lus",
       "newLinks_one": "{{count, number}} nouveau lien",
       "newLinks_many": "{{count, number}} de nouveaux liens",
       "newLinks_other": "{{count, number}} nouveaux liens",
       "refreshing": "Actualisation",
+      "pages": "À lire et Lus",
+      "toRead": "À lire {{count, number}}",
+      "readPage": "Lus {{count, number}}",
       "empty": {
         "libraryHint": "Touchez + pour enregistrer un lien : il attend ici avec son titre et son image.",
         "favoritesHint": "Appuyez longuement sur un signet et choisissez « Ajouter aux favoris » — il apparaîtra ici.",
         "readingHint": "Appuyez longuement sur un signet et choisissez « Ajouter à À lire ». Les signets lus partent au bout d’une semaine.",
-        "collectionHint": "Appuyez longuement sur un signet et choisissez « Déplacer vers une collection », ou enregistrez ici un nouveau lien."
+        "collectionHint": "Appuyez longuement sur un signet et choisissez « Déplacer vers une collection », ou enregistrez ici un nouveau lien.",
+        "read": "Rien de terminé pour l’instant",
+        "readHint": "Terminez un article dans le lecteur — tirez sa progression vers le haut — et il arrive ici."
       }
     },
     "inbox": {
@@ -2144,7 +2147,7 @@
       "openOriginal": "Ouvrir l’original",
       "finish": "Marquer comme terminé",
       "finishAsk": "Marquer comme terminé ?",
-      "finishText": "Le lien quitte À lire. Vous pourrez annuler juste après.",
+      "finishText": "Le lien passe dans Lus. Vous pourrez annuler juste après.",
       "finishedState": "Terminé",
       "readValue": "{{percent}} % lu",
       "readLeft_one": "{{percent}} % lu, encore {{count}} minute",
@@ -2153,7 +2156,6 @@
       "minLeft_one": "encore {{count}} min",
       "minLeft_many": "encore {{count}} min",
       "minLeft_other": "encore {{count}} min",
-      "end": "Vous êtes arrivé à la fin",
       "progress": "Lu jusqu’ici",
       "smaller": "Texte plus petit",
       "larger": "Texte plus grand",

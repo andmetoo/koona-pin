@@ -4,10 +4,10 @@ import { onBack } from "../../../platform/back";
 import { selection } from "../../../platform/haptics";
 import { atRoot, back, detailOf, forPhone, initialStack, leave, push, replaceTop, type Route, type RouteName, select, selectTab, type Stack, type Tab, topRoute } from "./stack";
 
-/** What a tab shows of the app: its section of the library, or Feeds on the feed last open. */
+/** What a tab shows of the app: its section of the library (Reading on its To read page), or Feeds on the feed last open. */
 export function enterTab(app: Pick<AppState, "navigate" | "openFeeds" | "feedPlace">, tab: Tab) {
   if (tab === "inbox") app.navigate({ onlyInbox: true });
-  else if (tab === "reading") app.navigate({ onlyReading: true });
+  else if (tab === "reading") app.navigate({ onlyReading: true, read: false });
   else if (tab === "feeds") app.openFeeds(app.feedPlace.feed);
   else app.navigate();
 }

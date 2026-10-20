@@ -15,8 +15,8 @@ export type BookmarkMenuProps = {
   bookmarkId: number;
   bookmark?: Bookmark;
   /**
-   * Opened from the reader: its own "finish" (out of Reading and read, one Undo, once), which
-   * "Remove from Reading" runs, so the reader's state and its guard see it.
+   * Opened from the reader: its own "finish" (read, onto Reading's Read page, one Undo, once),
+   * which "Mark as read" runs there, so the reader's state and its guard see it.
    */
   onFinish?: () => void;
 };
@@ -50,13 +50,15 @@ export function BookmarkMenu({ props }: { props: BookmarkMenuProps }) {
             <ShelfRow
               icon={BookOpen}
               title={bookmark.reading_at ? t("card.fromReading") : t("card.toReading")}
-              onClick={run(
-                props.onFinish && bookmark.reading_at ? props.onFinish : actions.reading,
-              )}
+              onClick={run(actions.reading)}
             />
             {/* Read or not matters in Reading, and for an article read once (as on the desktop). */}
             {(bookmark.reading_at || bookmark.read_at) && (
-              <ShelfRow icon={BookCheck} title={bookmark.read_at ? t("card.markUnread") : t("card.markRead")} onClick={run(actions.read)} />
+              <ShelfRow
+                icon={BookCheck}
+                title={bookmark.read_at ? t("card.markUnread") : t("card.markRead")}
+                onClick={run(props.onFinish && bookmark.reading_at && !bookmark.read_at ? props.onFinish : actions.read)}
+              />
             )}
             <ShelfRow
               icon={FolderInput}

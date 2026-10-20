@@ -56,7 +56,7 @@ pub enum Action {
     Read,
     /// Marked unread.
     Unread,
-    /// Finished from the phone's reader: out of Reading and read.
+    /// Finished from the phone's reader: read to the end, on Reading's Read page.
     Finished,
 }
 

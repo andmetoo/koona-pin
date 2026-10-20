@@ -641,6 +641,19 @@
   padding: 4px 12px;
 }
 
+/* ---------------------------------------------------------------- Swipes between filters */
+/* The area under a screen's chips (ui/useFilterSwipe.ts): the browser keeps the vertical scroll
+   and pull to refresh, the sideways drags are the swipe's. It fills the screen's height, so a
+   short list still takes a swipe below its last row, and stays put; the page in it moves, by
+   transform only. */
+.phone .ph-swipe {
+  flex: 1 0 auto;
+  touch-action: pan-y;
+}
+.phone .ph-swipe-page[data-swiping] {
+  will-change: transform;
+}
+
 /* ---------------------------------------------------------------- Chips */
 .phone .ph-chips {
   display: flex;

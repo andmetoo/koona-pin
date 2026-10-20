@@ -147,6 +147,8 @@ export interface FilterState {
   onlyTrash: boolean;
   /** The «Reading» section (NP-121) in its own order: unread newest first, then the read ones. */
   onlyReading: boolean;
+  /** Within Reading, only the read ones (true) or the unread (false): the phone's two pages; null for both. */
+  read: boolean | null;
   /** The «Offline» section (NP-126): bookmarks with an offline copy on this computer. */
   onlyOffline: boolean;
 }

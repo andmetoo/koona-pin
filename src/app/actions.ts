@@ -197,7 +197,7 @@ export function useBookmarkActions({
   };
   /**
    * One bookmark's Reading change through the bulk command (into or out of Reading, read or
-   * unread, or the phone's "finished": out of Reading and read in one command), its notice with
+   * unread, or the phone's "finished": read to the end, onto Reading's Read page, in one command), its notice with
    * Undo or the error; true once done.
    */
   const readingChange = (b: Bookmark, change: BulkChange): Promise<boolean> =>

@@ -55,6 +55,16 @@
 .phone .lib-chips {
   margin-top: 14px;
 }
+/* SW3–SW4: Reading's To read and Read in the chips' place, the whole width, 40 tall. */
+.phone .lib-pages {
+  margin-top: 14px;
+  padding: 0 var(--ph-side);
+}
+.phone .lib-pages-switch {
+  display: grid;
+  width: 100%;
+  min-height: 40px;
+}
 
 /* ---------------------------------------------------------------- The list */
 .phone .lib-list {

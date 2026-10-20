@@ -1,6 +1,6 @@
 import "../reader/reader.css";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
-import { ALargeSmall, BookCheck, Ellipsis, ExternalLink, Heart } from "lucide-react";
+import { ALargeSmall, Ellipsis, ExternalLink, Heart } from "lucide-react";
 import type { Route } from "../navigation/stack";
 import { useBottomLift, usePhone } from "../PhoneContext";
 import { CircleButton } from "../ui/buttons";
@@ -26,8 +26,9 @@ import type { Bookmark, BookmarkChange } from "../../../types";
  * page's text in Literata (`ArticleView`, the reader's extraction; no offline copy: the text
  * comes from the page). A floating action pill: favourite, open original and how far it is read,
  * a pie (owner, 19 October: no Done). Pulling the pie up out of the pill finishes the reading (it
- * leaves Reading and is marked read, one Undo); a tap asks first; at the article's end a quiet row offers the same,
- * as the ⋯ menu does. On iPhone Duo's outer display the pill gives way to the column (DO2): the
+ * is marked read and moves to Reading's Read page, one Undo); a tap asks first, and the ⋯ menu's
+ * "Mark as read" does the same. Reaching the article's end marks it read by itself (owner, 20
+ * October 2026: no button there). On iPhone Duo's outer display the pill gives way to the column (DO2): the
  * actions on a slab under the status block, the navigation, and the progress as a drop to pull up
  * in the rail's "+" slot with the time left above it. A page that cannot be read shows why and opens
  * the original. There is no Share: the app has no way to share on a phone yet.
@@ -72,15 +73,18 @@ function Reader({ bookmark: b, hidden }: { bookmark: Bookmark; hidden: boolean }
       setReady(true);
     });
 
-  // Finishing takes the bookmark out of Reading and marks it read, one command with one Undo
-  // (app/actions.ts `readingChange`); the reader stays. Once only: a snap and a tap, or two taps
-  // on the end row, finish it once.
+  // Finishing marks the bookmark read to the end, so it moves to Reading's Read page; one command
+  // with one Undo (app/actions.ts `readingChange`); the reader stays. Once only: a snap and a tap,
+  // or the pie and the menu's "Mark as read", finish it once. A read one in Reading (read to the end, or marked
+  // read) is finished already: it is on the Read page. Undone (unread again), it can be finished anew.
   const inReading = !!b.reading_at;
-  const [finished, setFinished] = useState(false);
+  const read = !!b.read_at;
+  const [finishedNow, setFinished] = useState(false);
   const finishing = useRef(false);
   useEffect(() => {
-    if (inReading) setFinished(false);
-  }, [inReading]);
+    if (!read) setFinished(false);
+  }, [read]);
+  const finished = finishedNow || (inReading && read);
   const finish = () => {
     if (!b.reading_at || finished || finishing.current) return;
     finishing.current = true;
@@ -171,19 +175,6 @@ function Reader({ bookmark: b, hidden }: { bookmark: Bookmark; hidden: boolean }
               <ArticleFailure failure={failure} onOpen={() => app.open(b.url)} onRetry={() => setAttempt((n) => n + 1)} />
             )}
           />
-          {/* The quiet way out of Reading at the article's end (with the ⋯ menu's "Remove from Reading"). */}
-          {article && inReading && !finished && (
-            <div className="rd-end" data-reader-end>
-              <span className="rd-end-text">
-                <span className="ph-headline">{t("phone.reader.end")}</span>
-                {minutes !== null && <span className="ph-meta">{t("reader.minutes", { count: minutes })}</span>}
-              </span>
-              <button type="button" className="rd-end-action ph-hit" onClick={finish}>
-                <PhIcon icon={BookCheck} at="field" />
-                {t("card.fromReading")}
-              </button>
-            </div>
-          )}
         </div>
       </>
       {outer ? (

@@ -1946,16 +1946,19 @@
       "filters": "Filter",
       "all": "Alle",
       "favorite": "Favorit",
-      "unread": "Ungelesen",
-      "read": "Gelesen",
       "newLinks_one": "{{count, number}} neuer Link",
       "newLinks_other": "{{count, number}} neue Links",
       "refreshing": "Wird aktualisiert",
+      "pages": "Zu lesen und Gelesen",
+      "toRead": "Zu lesen {{count, number}}",
+      "readPage": "Gelesen {{count, number}}",
       "empty": {
         "libraryHint": "Tippen Sie auf +, um einen Link zu speichern: Er wartet hier mit Titel und Bild.",
         "favoritesHint": "Halten Sie ein Lesezeichen gedrückt und wählen Sie „Zu Favoriten hinzufügen“ — es erscheint dann hier.",
         "readingHint": "Halten Sie ein Lesezeichen gedrückt und wählen Sie „Auf die Leseliste“. Gelesene verlassen die Liste nach einer Woche.",
-        "collectionHint": "Halten Sie ein Lesezeichen gedrückt und wählen Sie „In Sammlung verschieben“, oder speichern Sie hier einen neuen Link."
+        "collectionHint": "Halten Sie ein Lesezeichen gedrückt und wählen Sie „In Sammlung verschieben“, oder speichern Sie hier einen neuen Link.",
+        "read": "Noch nichts zu Ende gelesen",
+        "readHint": "Lies einen Artikel zu Ende – zieh im Leser den Fortschritt nach oben –, dann landet er hier."
       }
     },
     "inbox": {
@@ -2019,14 +2022,13 @@
       "openOriginal": "Original öffnen",
       "finish": "Als gelesen abschließen",
       "finishAsk": "Als gelesen abschließen?",
-      "finishText": "Der Link verlässt „Lesen“. Du kannst es gleich danach rückgängig machen.",
+      "finishText": "Der Link wandert zu „Gelesen“. Du kannst es gleich danach rückgängig machen.",
       "finishedState": "Abgeschlossen",
       "readValue": "{{percent}} % gelesen",
       "readLeft_one": "{{percent}} % gelesen, noch {{count}} Minute",
       "readLeft_other": "{{percent}} % gelesen, noch {{count}} Minuten",
       "minLeft_one": "noch {{count}} Min.",
       "minLeft_other": "noch {{count}} Min.",
-      "end": "Du bist am Ende angekommen",
       "progress": "Bisher gelesen",
       "smaller": "Kleinere Schrift",
       "larger": "Größere Schrift",

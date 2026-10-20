@@ -46,7 +46,7 @@ describe("a tab shows its section of the app", () => {
     enterTab(app, "reading");
     enterTab(app, "all");
     enterTab(app, "feeds");
-    expect(app.navigate.mock.calls).toEqual([[{ onlyInbox: true }], [{ onlyReading: true }], []]);
+    expect(app.navigate.mock.calls).toEqual([[{ onlyInbox: true }], [{ onlyReading: true, read: false }], []]);
     expect(app.openFeeds.mock.calls).toEqual([["f1"]]);
   });
 });
