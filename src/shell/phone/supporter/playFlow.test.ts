@@ -29,6 +29,7 @@ describe("the Play purchase's steps", () => {
       canceled: { step: "plans", failure: null },
       invalid: { step: "plans", failure: "invalid" },
       unavailable: { step: "plans", failure: "unavailable" },
+      kept: { step: "plans", failure: "kept" },
       error: { step: "plans", failure: "failed" },
     };
     for (const [state, expected] of Object.entries(steps)) expect(playStep(state as PlayState), state).toEqual(expected);
@@ -46,7 +47,7 @@ describe("the Play purchase's steps", () => {
     expect(resumedStep({ state: "email", email: null })).toBe("email");
     expect(resumedStep({ state: "sign_in", email: "anna@example.com" })).toBe("code");
     expect(resumedStep({ state: "pending", email: null })).toBe("pending");
-    for (const state of ["paid", "already_supporter", "other_account", "owned", "suspended", "canceled", "invalid", "unavailable", "error"] as const)
+    for (const state of ["paid", "already_supporter", "other_account", "owned", "suspended", "kept", "canceled", "invalid", "unavailable", "error"] as const)
       expect(resumedStep({ state, email: null }), state).toBe("plans");
     expect(resumedStep({ state: "sign_in", email: null })).toBe("plans");
   });
@@ -55,6 +56,9 @@ describe("the Play purchase's steps", () => {
     expect(failureLine("failed", t)).toBe(t("phone.supporter.play.failed"));
     expect(failureLine("invalid", t)).toBe(t("phone.supporter.play.invalid"));
     expect(failureLine("unavailable", t)).toBe(t("phone.supporter.play.unavailable"));
+    // Paid but not confirmed now is not «Play can't sell here».
+    expect(failureLine("kept", t)).toBe(t("phone.supporter.play.kept"));
+    expect(failureLine("kept", t)).not.toBe(failureLine("unavailable", t));
   });
 });
 

@@ -78,6 +78,8 @@ pub enum ErrorDetail {
     SignedOut,
     /// The sync service needs a newer Koona Pin (its 426, close 4004).
     UpdateNeeded,
+    /// Google Play purchases paid here still wait to be claimed: no room for another (NP-154).
+    PurchasesWaiting,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]

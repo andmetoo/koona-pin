@@ -2,7 +2,7 @@
 import type { PlayState } from "./PlayState";
 
 /**
- * A Play purchase the sheet shows: one waiting here, else how the last one in this run finished.
+ * A Play purchase the sheet shows: the one it follows, waiting here or finished in this run.
  */
 export type PlayProgress = { state: PlayState, 
 /**

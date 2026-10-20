@@ -1340,7 +1340,8 @@
       "not_supporter": "nenhum Supporter tem este e-mail",
       "wrong_code": "o código não funcionou",
       "signed_out": "sua sessão foi encerrada",
-      "update_needed": "a sincronização precisa de uma versão mais recente do Koona Pin"
+      "update_needed": "a sincronização precisa de uma versão mais recente do Koona Pin",
+      "purchases_waiting": "há compras pagas do Google Play ainda aguardando aqui"
     },
     "code": {
       "not_found": "Não existe mais — talvez tenha sido excluído nesse meio-tempo.",
@@ -1372,7 +1373,8 @@
       "not_supporter": "Nenhum Supporter tem este e-mail. Use o e-mail do pagamento.",
       "wrong_code": "O código não funcionou. Confira ou peça um novo.",
       "signed_out": "Sua sessão foi encerrada. Abra “Apoiar” e escolha “Já sou Supporter” para entrar de novo.",
-      "update_needed": "A sincronização precisa de uma versão mais recente do Koona Pin. Atualize o aplicativo e tente de novo."
+      "update_needed": "A sincronização precisa de uma versão mais recente do Koona Pin. Atualize o aplicativo e tente de novo.",
+      "purchases_waiting": "Há compras pagas do Google Play ainda aguardando confirmação neste telefone. Conclua-as primeiro, ou espere o Google Play reembolsá-las, antes de comprar de novo."
     }
   },
   "tray": {
@@ -2331,7 +2333,8 @@
         "otherText": "A compra desta conta Google pertence a outra conta do Koona Pin. Entre com o e-mail dessa conta para usá-la aqui.",
         "ownerTitle": "Entre para usar",
         "ownerText": "O Supporter desta conta Google pertence a uma conta do Koona Pin. Entre com o e-mail dessa conta para usá-lo aqui.",
-        "suspended": "Sua assinatura Supporter está suspensa ou pausada no Google Play. Corrija o pagamento ou retome-a lá — não é preciso comprar de novo."
+        "suspended": "Sua assinatura Supporter está suspensa ou pausada no Google Play. Corrija o pagamento ou retome-a lá — não é preciso comprar de novo.",
+        "kept": "O Koona Pin ainda não conseguiu confirmar sua compra com o Google Play. Se você pagou, ela fica guardada e é verificada de novo quando você voltar ao app — não é preciso comprar de novo."
       },
       "managed": "Seu plano é gerenciado onde você o iniciou.",
       "pastDue": "O último pagamento não foi aprovado · Supporter até {{date}}",

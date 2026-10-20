@@ -1354,7 +1354,8 @@
       "not_supporter": "nema Supporter-a sa ovom adresom",
       "wrong_code": "kod nije prošao",
       "signed_out": "odjavljeni ste",
-      "update_needed": "za sinhronizaciju je potrebna novija verzija Koona Pin"
+      "update_needed": "za sinhronizaciju je potrebna novija verzija Koona Pin",
+      "purchases_waiting": "plaćene kupovine u Google Play-u još čekaju ovde"
     },
     "code": {
       "not_found": "Više ne postoji — možda je u međuvremenu obrisano.",
@@ -1386,7 +1387,8 @@
       "not_supporter": "Nema Supporter-a sa ovom adresom. Unesite adresu iz plaćanja.",
       "wrong_code": "Kod nije prošao. Proverite ga ili zatražite novi.",
       "signed_out": "Odjavljeni ste. Otvorite „Podrži“ i izaberite „Već sam Supporter“ da biste se ponovo prijavili.",
-      "update_needed": "Za sinhronizaciju je potrebna novija verzija Koona Pin. Ažurirajte aplikaciju i pokušajte ponovo."
+      "update_needed": "Za sinhronizaciju je potrebna novija verzija Koona Pin. Ažurirajte aplikaciju i pokušajte ponovo.",
+      "purchases_waiting": "Plaćene kupovine u Google Play-u na ovom telefonu još čekaju potvrdu. Prvo ih završite ili sačekajte da ih Google Play refundira pre nego što ponovo kupite."
     }
   },
   "tray": {
@@ -2345,7 +2347,8 @@
         "otherText": "Kupovina ovog Google naloga pripada drugom Koona Pin nalogu. Prijavite se e-poštom tog naloga da biste je koristili ovde.",
         "ownerTitle": "Prijavite se da biste ga koristili",
         "ownerText": "Supporter ovog Google naloga pripada Koona Pin nalogu. Prijavite se e-poštom tog naloga da biste ga koristili ovde.",
-        "suspended": "Vaša Supporter pretplata je na čekanju ili pauzirana u Google Play-u. Ispravite plaćanje ili je nastavite tamo — ne morate ponovo da je kupujete."
+        "suspended": "Vaša Supporter pretplata je na čekanju ili pauzirana u Google Play-u. Ispravite plaćanje ili je nastavite tamo — ne morate ponovo da je kupujete.",
+        "kept": "Koona Pin još nije mogao da potvrdi vašu kupovinu u Google Play-u. Ako ste platili, kupovina je sačuvana i biće ponovo proverena kada se vratite u aplikaciju — ne morate ponovo da je kupujete."
       },
       "managed": "Planom se upravlja tamo gde ste ga započeli.",
       "pastDue": "Poslednja uplata nije prošla · Supporter do {{date}}",

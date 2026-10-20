@@ -70,14 +70,22 @@ pub struct Service {
 
 /// The account service of this build, if it sells anything.
 pub fn service() -> Option<Service> {
-    let (url, key) = (URL?, KEY?);
-    let sandbox = match ENVIRONMENT? {
-        "sandbox" => true,
-        "production" => false,
+    service_of(URL, KEY, ENVIRONMENT, cfg!(play), cfg!(debug_assertions))
+}
+
+/// The account service from the build's settings. Paddle's environment says whether it is the
+/// sandbox; the Google Play build (`play`, NP-154) sells nothing through Paddle, so it needs only the
+/// accounts project, and without the setting it is production. A sandbox never reaches a build
+/// people install (`debug` false).
+fn service_of(url: Option<&'static str>, key: Option<&'static str>, environment: Option<&str>, play: bool, debug: bool) -> Option<Service> {
+    let (url, key) = (url?, key?);
+    let sandbox = match environment {
+        Some("sandbox") => true,
+        Some("production") => false,
+        None if play => false,
         _ => return None,
     };
-    // Test payments never reach a build people install.
-    if sandbox && !cfg!(debug_assertions) {
+    if sandbox && !debug {
         return None;
     }
     Some(Service { url: url.trim_end_matches('/'), key, sandbox })
@@ -258,9 +266,12 @@ struct Stored {
     /// (NP-154). Kept over Sign out: a paid purchase's secret is its only claim.
     #[serde(default)]
     play: Vec<play::PlayCheckout>,
-    /// What the last Play purchase finished as in this run, once it left `play`.
+    /// What the last Play purchase finished as in this run, once it left `play`: its secret and state.
     #[serde(skip)]
-    play_outcome: Option<play::PlayState>,
+    play_outcome: Option<(String, play::PlayState)>,
+    /// The Play purchase the sheet follows in this run: the one bought last, or claimed by an email.
+    #[serde(skip)]
+    play_followed: Option<String>,
 }
 
 /// A purchase started here: the secret the server knows by its hash, and the payment page.

@@ -19,8 +19,12 @@ import type { PlanInterval, PlayOffer, PlayPrice, PlayProgress, PlayState, Suppo
  * «Fix payment in Google Play»).
  */
 export type PlayStep = "plans" | "email" | "code" | "pending" | "paid" | "alreadySupporter" | "otherAccount" | "owner" | "suspended";
-/** Why the plans are back with a line under them. */
-export type PlayFailure = "failed" | "invalid" | "unavailable";
+/**
+ * Why the plans are back with a line under them. `unavailable`: Google Play cannot sell here, before
+ * any payment. `kept`: after one, the purchase could not be confirmed now; it is kept, and «Try
+ * again» asks the server, never Play's sheet.
+ */
+export type PlayFailure = "failed" | "invalid" | "unavailable" | "kept";
 
 /**
  * Where a verdict leads. `sign_in`: a code went to the email given, the code step. `owned`: a
@@ -52,6 +56,8 @@ export function playStep(state: PlayState): { step: PlayStep; failure: PlayFailu
       return { step: "plans", failure: "invalid" };
     case "unavailable":
       return { step: "plans", failure: "unavailable" };
+    case "kept":
+      return { step: "plans", failure: "kept" };
     case "error":
       return { step: "plans", failure: "failed" };
   }
@@ -101,7 +107,13 @@ export function playBadge(value: PlanInterval, offer: PlayOffer | null, t: TFunc
 
 /** The words of a failure under the plans. */
 export function failureLine(failure: PlayFailure, t: TFunction): string {
-  return t(failure === "invalid" ? "phone.supporter.play.invalid" : failure === "unavailable" ? "phone.supporter.play.unavailable" : "phone.supporter.play.failed");
+  const keys = {
+    invalid: "phone.supporter.play.invalid",
+    unavailable: "phone.supporter.play.unavailable",
+    kept: "phone.supporter.play.kept",
+    failed: "phone.supporter.play.failed",
+  } as const;
+  return t(keys[failure]);
 }
 
 /**
@@ -142,6 +154,7 @@ export function usePlayPurchase(supporter: SupporterStatus | null) {
     const next = playStep(state);
     setStep(next.step);
     setError(next.failure ? failureLine(next.failure, t) : null);
+    setKept(next.failure === "kept");
   };
 
   // What the app saw by itself moves the sheet on; the state it opened with is already shown.

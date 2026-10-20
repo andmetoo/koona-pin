@@ -1184,7 +1184,8 @@
       "not_supporter": "このメールの Supporter はいません",
       "wrong_code": "コードが正しくありません",
       "signed_out": "サインアウトされました",
-      "update_needed": "同期には新しいバージョンの Koona Pin が必要です"
+      "update_needed": "同期には新しいバージョンの Koona Pin が必要です",
+      "purchases_waiting": "支払い済みの Google Play 購入がまだ待機中です"
     },
     "code": {
       "not_found": "もう存在しません。その間に削除された可能性があります。",
@@ -1216,7 +1217,8 @@
       "not_supporter": "このメールの Supporter はいません。支払いのメールを使ってください。",
       "wrong_code": "コードが正しくありません。確認するか、新しいコードを送ってください。",
       "signed_out": "サインアウトされました。「応援する」を開き、「すでに Supporter です」を選んでもう一度サインインしてください。",
-      "update_needed": "同期には新しいバージョンの Koona Pin が必要です。アプリを更新してから、もう一度お試しください。"
+      "update_needed": "同期には新しいバージョンの Koona Pin が必要です。アプリを更新してから、もう一度お試しください。",
+      "purchases_waiting": "この端末には、確認を待っている支払い済みの Google Play 購入があります。もう一度購入する前に、それらを完了するか、Google Play による返金をお待ちください。"
     }
   },
   "tray": {
@@ -2067,7 +2069,8 @@
         "otherText": "この Google アカウントの購入は、別の Koona Pin アカウントのものです。ここで使うには、そのアカウントのメールアドレスでサインインしてください。",
         "ownerTitle": "サインインして使う",
         "ownerText": "この Google アカウントの Supporter は Koona Pin アカウントに属しています。ここで使うには、そのアカウントのメールアドレスでサインインしてください。",
-        "suspended": "Supporter のサブスクリプションは Google Play で保留中または一時停止中です。Google Play で支払いを修正するか再開してください。もう一度購入する必要はありません。"
+        "suspended": "Supporter のサブスクリプションは Google Play で保留中または一時停止中です。Google Play で支払いを修正するか再開してください。もう一度購入する必要はありません。",
+        "kept": "Koona Pin はまだ Google Play で購入を確認できていません。お支払い済みの場合、購入は保持され、アプリに戻ったときに再確認されます。もう一度購入する必要はありません。"
       },
       "managed": "プランは開始した場所で管理されます。",
       "pastDue": "前回の支払いが完了しませんでした · {{date}} まで Supporter",

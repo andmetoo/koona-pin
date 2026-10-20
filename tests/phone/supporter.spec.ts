@@ -470,6 +470,19 @@ test("the Play build: signed in by the code but the purchase not bound yet, the 
   await expect(supporter.getByRole("dialog", { name: "Thank you for supporting Koona Pin" })).toBeVisible();
 });
 
+test("the Play build: paid but not confirmed now is kept, and Try again asks the server, not Play", async ({ page }) => {
+  const { supporter } = await openPlay(page, { ...FREE, "demo.play": "kept" });
+  await supporter.getByRole("button", { name: "Subscribe · Yearly" }).click();
+  await expect(supporter.getByRole("alert")).toHaveText(
+    "Koona Pin couldn't confirm your purchase with Google Play yet. If you paid, it's kept and checked again when you come back to the app — no need to buy it again.",
+  );
+  // Try again asks the server about the kept purchase; Play's sheet would fail here.
+  await failOnce(page, "startPlayPurchase", "network", "offline");
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.play", "email"));
+  await supporter.getByRole("button", { name: "Try again" }).click();
+  await expect(supporter.getByRole("dialog", { name: "Where should we send your code?" })).toBeVisible();
+});
+
 test("the Play build: Google Play selling no plan says so instead of an empty list", async ({ page }) => {
   const { supporter } = await openPlay(page, { ...FREE, "demo.playProducts": "none" });
   await expect(supporter).toContainText("Google Play can't sell Supporter on this phone right now.");

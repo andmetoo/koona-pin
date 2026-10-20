@@ -1262,7 +1262,8 @@
       "not_supporter": "bu e-postaya sahip bir Supporter yok",
       "wrong_code": "kod işe yaramadı",
       "signed_out": "oturumunuz kapandı",
-      "update_needed": "eşitleme için Koona Pin'in daha yeni bir sürümü gerekiyor"
+      "update_needed": "eşitleme için Koona Pin'in daha yeni bir sürümü gerekiyor",
+      "purchases_waiting": "ödenmiş Google Play satın almaları burada hâlâ bekliyor"
     },
     "code": {
       "not_found": "Artık yok — bu arada silinmiş olabilir.",
@@ -1294,7 +1295,8 @@
       "not_supporter": "Bu e-postaya sahip bir Supporter yok. Ödemedeki e-postayı kullanın.",
       "wrong_code": "Kod işe yaramadı. Kontrol edin ya da yenisini isteyin.",
       "signed_out": "Oturumunuz kapandı. Yeniden giriş yapmak için \"Destekleyin\"i açıp \"Zaten Supporter'ım\"ı seçin.",
-      "update_needed": "Eşitleme için Koona Pin'in daha yeni bir sürümü gerekiyor. Uygulamayı güncelleyip yeniden deneyin."
+      "update_needed": "Eşitleme için Koona Pin'in daha yeni bir sürümü gerekiyor. Uygulamayı güncelleyip yeniden deneyin.",
+      "purchases_waiting": "Bu telefonda ödenmiş Google Play satın almaları hâlâ onay bekliyor. Yeniden satın almadan önce bunları tamamlayın ya da Google Play'in iade etmesini bekleyin."
     }
   },
   "tray": {
@@ -2199,7 +2201,8 @@
         "otherText": "Bu Google hesabının satın alması başka bir Koona Pin hesabına ait. Burada kullanmak için o hesabın e-postasıyla oturum açın.",
         "ownerTitle": "Kullanmak için oturum açın",
         "ownerText": "Bu Google hesabının Supporter’ı bir Koona Pin hesabına ait. Burada kullanmak için o hesabın e-postasıyla oturum açın.",
-        "suspended": "Supporter aboneliğiniz Google Play’de beklemede veya duraklatılmış. Ödemeyi orada düzeltin ya da aboneliği sürdürün; yeniden satın almanız gerekmez."
+        "suspended": "Supporter aboneliğiniz Google Play’de beklemede veya duraklatılmış. Ödemeyi orada düzeltin ya da aboneliği sürdürün; yeniden satın almanız gerekmez.",
+        "kept": "Koona Pin satın alma işleminizi henüz Google Play ile doğrulayamadı. Ödeme yaptıysanız satın alma saklanır ve uygulamaya döndüğünüzde yeniden denetlenir; yeniden satın almanız gerekmez."
       },
       "managed": "Planınız, başlattığınız yerden yönetilir.",
       "pastDue": "Son ödeme gerçekleşmedi · {{date}} tarihine kadar Supporter",

@@ -1184,7 +1184,8 @@
       "not_supporter": "没有使用此邮箱的 Supporter",
       "wrong_code": "验证码无效",
       "signed_out": "你已退出登录",
-      "update_needed": "同步需要更新版本的 Koona Pin"
+      "update_needed": "同步需要更新版本的 Koona Pin",
+      "purchases_waiting": "已付款的 Google Play 购买仍在等待中"
     },
     "code": {
       "not_found": "它已不存在 — 可能在此期间被删除了。",
@@ -1216,7 +1217,8 @@
       "not_supporter": "没有使用此邮箱的 Supporter。请使用付款时的邮箱。",
       "wrong_code": "验证码无效。请检查或重新获取。",
       "signed_out": "你已退出登录。请打开“支持”并选择“我已是 Supporter”重新登录。",
-      "update_needed": "同步需要更新版本的 Koona Pin。请更新应用后重试。"
+      "update_needed": "同步需要更新版本的 Koona Pin。请更新应用后重试。",
+      "purchases_waiting": "这部手机上仍有已付款的 Google Play 购买在等待确认。请先完成它们，或等待 Google Play 退款，然后再购买。"
     }
   },
   "tray": {
@@ -2067,7 +2069,8 @@
         "otherText": "这个 Google 账号的购买属于另一个 Koona Pin 账号。请用那个账号的邮箱登录，才能在这里使用。",
         "ownerTitle": "登录后使用",
         "ownerText": "这个 Google 账号的 Supporter 属于一个 Koona Pin 账号。请用那个账号的邮箱登录，才能在这里使用。",
-        "suspended": "你的 Supporter 订阅在 Google Play 中处于保留或暂停状态。请在 Google Play 中修正付款或恢复订阅，无需再次购买。"
+        "suspended": "你的 Supporter 订阅在 Google Play 中处于保留或暂停状态。请在 Google Play 中修正付款或恢复订阅，无需再次购买。",
+        "kept": "Koona Pin 暂时无法通过 Google Play 确认你的购买。如果你已付款，购买会被保留，并在你回到应用时再次确认，无需再次购买。"
       },
       "managed": "你的方案在开通它的地方管理。",
       "pastDue": "上次付款未成功 · Supporter 至 {{date}}",

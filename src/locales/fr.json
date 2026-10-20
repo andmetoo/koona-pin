@@ -1340,7 +1340,8 @@
       "not_supporter": "aucun Supporter n’a cette adresse",
       "wrong_code": "le code n’a pas fonctionné",
       "signed_out": "vous avez été déconnecté",
-      "update_needed": "la synchronisation nécessite une version plus récente de Koona Pin"
+      "update_needed": "la synchronisation nécessite une version plus récente de Koona Pin",
+      "purchases_waiting": "des achats Google Play payés attendent encore ici"
     },
     "code": {
       "not_found": "Cela n’existe plus — peut-être supprimé entre-temps.",
@@ -1372,7 +1373,8 @@
       "not_supporter": "Aucun Supporter n’a cette adresse. Utilisez celle de votre paiement.",
       "wrong_code": "Ce code n’a pas fonctionné. Vérifiez-le ou demandez-en un nouveau.",
       "signed_out": "Vous avez été déconnecté. Ouvrez « Soutenir » et choisissez « Je suis déjà Supporter » pour vous reconnecter.",
-      "update_needed": "La synchronisation nécessite une version plus récente de Koona Pin. Mettez l’application à jour, puis réessayez."
+      "update_needed": "La synchronisation nécessite une version plus récente de Koona Pin. Mettez l’application à jour, puis réessayez.",
+      "purchases_waiting": "Des achats Google Play payés attendent encore d’être confirmés sur ce téléphone. Terminez-les d’abord, ou attendez que Google Play les rembourse, avant d’acheter à nouveau."
     }
   },
   "tray": {
@@ -2331,7 +2333,8 @@
         "otherText": "L’achat de ce compte Google appartient à un autre compte Koona Pin. Connectez-vous avec l’e-mail de ce compte pour l’utiliser ici.",
         "ownerTitle": "Connectez-vous pour l’utiliser",
         "ownerText": "Le Supporter de ce compte Google appartient à un compte Koona Pin. Connectez-vous avec l’e-mail de ce compte pour l’utiliser ici.",
-        "suspended": "Votre abonnement Supporter est suspendu ou en pause dans Google Play. Corrigez le paiement ou réactivez-le là-bas : inutile de l’acheter à nouveau."
+        "suspended": "Votre abonnement Supporter est suspendu ou en pause dans Google Play. Corrigez le paiement ou réactivez-le là-bas : inutile de l’acheter à nouveau.",
+        "kept": "Koona Pin n’a pas encore pu confirmer votre achat auprès de Google Play. Si vous avez payé, il est conservé et vérifié à nouveau à votre retour dans l’app : inutile de l’acheter à nouveau."
       },
       "managed": "Votre formule se gère là où vous l’avez souscrite.",
       "pastDue": "Le dernier paiement n’est pas passé · Supporter jusqu’au {{date}}",

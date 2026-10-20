@@ -1262,7 +1262,8 @@
       "not_supporter": "no Supporter has this email",
       "wrong_code": "the code didn't work",
       "signed_out": "you were signed out",
-      "update_needed": "sync needs a newer Koona Pin"
+      "update_needed": "sync needs a newer Koona Pin",
+      "purchases_waiting": "paid Google Play purchases are still waiting here"
     },
     "code": {
       "not_found": "It no longer exists — it may have been deleted meanwhile.",
@@ -1294,7 +1295,8 @@
       "not_supporter": "No Supporter has this email. Use the email from your payment.",
       "wrong_code": "This code didn't work. Check it or send a new one.",
       "signed_out": "You were signed out. Open Support and choose «I'm already a Supporter» to sign in again.",
-      "update_needed": "Sync needs a newer Koona Pin. Update the app, then try again."
+      "update_needed": "Sync needs a newer Koona Pin. Update the app, then try again.",
+      "purchases_waiting": "Paid Google Play purchases are still waiting to be confirmed on this phone. Finish them first, or wait until Google Play refunds them, before buying again."
     }
   },
   "tray": {
@@ -2199,7 +2201,8 @@
         "otherText": "This Google account's purchase belongs to another Koona Pin account. Sign in with that account's email to use it here.",
         "ownerTitle": "Sign in to use it",
         "ownerText": "This Google account's Supporter belongs to a Koona Pin account. Sign in with that account's email to use it here.",
-        "suspended": "Your Supporter subscription is on hold or paused in Google Play. Fix the payment or resume it there — no need to buy it again."
+        "suspended": "Your Supporter subscription is on hold or paused in Google Play. Fix the payment or resume it there — no need to buy it again.",
+        "kept": "Koona Pin couldn't confirm your purchase with Google Play yet. If you paid, it's kept and checked again when you come back to the app — no need to buy it again."
       },
       "managed": "Your plan is managed where you started it.",
       "pastDue": "The last payment didn't go through · Supporter until {{date}}",

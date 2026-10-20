@@ -1184,7 +1184,8 @@
       "not_supporter": "이 이메일을 쓰는 Supporter가 없습니다",
       "wrong_code": "코드가 맞지 않습니다",
       "signed_out": "로그아웃되었습니다",
-      "update_needed": "동기화하려면 최신 버전의 Koona Pin이 필요합니다"
+      "update_needed": "동기화하려면 최신 버전의 Koona Pin이 필요합니다",
+      "purchases_waiting": "결제된 Google Play 구매가 아직 대기 중입니다"
     },
     "code": {
       "not_found": "더 이상 존재하지 않습니다. 그사이 삭제되었을 수 있습니다.",
@@ -1216,7 +1217,8 @@
       "not_supporter": "이 이메일을 쓰는 Supporter가 없습니다. 결제한 이메일을 사용하세요.",
       "wrong_code": "코드가 맞지 않습니다. 확인하거나 새 코드를 받으세요.",
       "signed_out": "로그아웃되었습니다. '후원하기'를 열고 '이미 Supporter입니다'를 선택해 다시 로그인하세요.",
-      "update_needed": "동기화하려면 최신 버전의 Koona Pin이 필요합니다. 앱을 업데이트한 다음 다시 시도하세요."
+      "update_needed": "동기화하려면 최신 버전의 Koona Pin이 필요합니다. 앱을 업데이트한 다음 다시 시도하세요.",
+      "purchases_waiting": "이 휴대폰에 아직 확인을 기다리는 결제된 Google Play 구매가 있습니다. 다시 구매하기 전에 먼저 완료하거나 Google Play가 환불할 때까지 기다리세요."
     }
   },
   "tray": {
@@ -2067,7 +2069,8 @@
         "otherText": "이 Google 계정의 구매는 다른 Koona Pin 계정에 속합니다. 여기서 사용하려면 그 계정의 이메일로 로그인하세요.",
         "ownerTitle": "로그인하여 사용",
         "ownerText": "이 Google 계정의 Supporter는 Koona Pin 계정에 속합니다. 여기서 사용하려면 그 계정의 이메일로 로그인하세요.",
-        "suspended": "Supporter 구독이 Google Play에서 보류 또는 일시중지되었습니다. Google Play에서 결제를 수정하거나 다시 시작하세요. 다시 구매할 필요는 없습니다."
+        "suspended": "Supporter 구독이 Google Play에서 보류 또는 일시중지되었습니다. Google Play에서 결제를 수정하거나 다시 시작하세요. 다시 구매할 필요는 없습니다.",
+        "kept": "Koona Pin이 아직 Google Play에서 구매를 확인하지 못했습니다. 결제하셨다면 구매는 보관되며 앱으로 돌아오면 다시 확인합니다. 다시 구매할 필요는 없습니다."
       },
       "managed": "요금제는 시작한 곳에서 관리됩니다.",
       "pastDue": "지난 결제가 처리되지 않았습니다 · {{date}}까지 Supporter",

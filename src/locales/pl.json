@@ -1418,7 +1418,8 @@
       "not_supporter": "żaden Supporter nie ma tego adresu",
       "wrong_code": "kod nie zadziałał",
       "signed_out": "wylogowano cię",
-      "update_needed": "synchronizacja wymaga nowszej wersji Koona Pin"
+      "update_needed": "synchronizacja wymaga nowszej wersji Koona Pin",
+      "purchases_waiting": "opłacone zakupy w Google Play wciąż tu czekają"
     },
     "code": {
       "not_found": "To już nie istnieje — mogło zostać usunięte w międzyczasie.",
@@ -1450,7 +1451,8 @@
       "not_supporter": "Żaden Supporter nie ma tego adresu. Użyj adresu z płatności.",
       "wrong_code": "Kod nie zadziałał. Sprawdź go albo poproś o nowy.",
       "signed_out": "Wylogowano cię. Otwórz „Wesprzyj” i wybierz „Już jestem Supporterem”, aby zalogować się ponownie.",
-      "update_needed": "Synchronizacja wymaga nowszej wersji Koona Pin. Zaktualizuj aplikację i spróbuj ponownie."
+      "update_needed": "Synchronizacja wymaga nowszej wersji Koona Pin. Zaktualizuj aplikację i spróbuj ponownie.",
+      "purchases_waiting": "Na tym telefonie opłacone zakupy w Google Play wciąż czekają na potwierdzenie. Najpierw je dokończ lub poczekaj, aż Google Play zwróci pieniądze, zanim kupisz ponownie."
     }
   },
   "tray": {
@@ -2463,7 +2465,8 @@
         "otherText": "Zakup z tego konta Google należy do innego konta Koona Pin. Zaloguj się e-mailem tamtego konta, aby używać go tutaj.",
         "ownerTitle": "Zaloguj się, aby używać",
         "ownerText": "Supporter z tego konta Google należy do konta Koona Pin. Zaloguj się e-mailem tego konta, aby używać go tutaj.",
-        "suspended": "Twoja subskrypcja Supporter jest wstrzymana lub zawieszona w Google Play. Popraw tam płatność lub ją wznów — nie musisz kupować jej ponownie."
+        "suspended": "Twoja subskrypcja Supporter jest wstrzymana lub zawieszona w Google Play. Popraw tam płatność lub ją wznów — nie musisz kupować jej ponownie.",
+        "kept": "Koona Pin nie zdołał jeszcze potwierdzić zakupu w Google Play. Jeśli zapłacono, zakup jest zachowany i zostanie sprawdzony ponownie po powrocie do aplikacji — nie trzeba kupować ponownie."
       },
       "managed": "Planem zarządza się tam, gdzie został rozpoczęty.",
       "pastDue": "Ostatnia płatność nie przeszła · Supporter do {{date}}",

@@ -1262,7 +1262,8 @@
       "not_supporter": "kein Supporter hat diese E-Mail",
       "wrong_code": "der Code hat nicht funktioniert",
       "signed_out": "Sie wurden abgemeldet",
-      "update_needed": "die Synchronisierung braucht eine neuere Version von Koona Pin"
+      "update_needed": "die Synchronisierung braucht eine neuere Version von Koona Pin",
+      "purchases_waiting": "bezahlte Google-Play-Käufe warten hier noch"
     },
     "code": {
       "not_found": "Es existiert nicht mehr — vielleicht wurde es inzwischen gelöscht.",
@@ -1294,7 +1295,8 @@
       "not_supporter": "Kein Supporter hat diese E-Mail. Nutzen Sie die E-Mail Ihrer Zahlung.",
       "wrong_code": "Der Code hat nicht funktioniert. Prüfen Sie ihn oder fordern Sie einen neuen an.",
       "signed_out": "Sie wurden abgemeldet. Öffnen Sie „Unterstützen“ und wählen Sie „Ich bin schon Supporter“, um sich erneut anzumelden.",
-      "update_needed": "Für die Synchronisierung ist eine neuere Version von Koona Pin nötig. Aktualisieren Sie die App und versuchen Sie es erneut."
+      "update_needed": "Für die Synchronisierung ist eine neuere Version von Koona Pin nötig. Aktualisieren Sie die App und versuchen Sie es erneut.",
+      "purchases_waiting": "Bezahlte Google-Play-Käufe warten auf diesem Telefon noch auf ihre Bestätigung. Schließen Sie sie zuerst ab oder warten Sie, bis Google Play sie erstattet, bevor Sie erneut kaufen."
     }
   },
   "tray": {
@@ -2199,7 +2201,8 @@
         "otherText": "Der Kauf dieses Google-Kontos gehört zu einem anderen Koona-Pin-Konto. Melden Sie sich mit dessen E-Mail an, um ihn hier zu nutzen.",
         "ownerTitle": "Zum Nutzen anmelden",
         "ownerText": "Supporter dieses Google-Kontos gehört zu einem Koona-Pin-Konto. Melden Sie sich mit dessen E-Mail an, um ihn hier zu nutzen.",
-        "suspended": "Ihr Supporter-Abo ist in Google Play angehalten oder pausiert. Korrigieren Sie dort die Zahlung oder setzen Sie es fort – ein erneuter Kauf ist nicht nötig."
+        "suspended": "Ihr Supporter-Abo ist in Google Play angehalten oder pausiert. Korrigieren Sie dort die Zahlung oder setzen Sie es fort – ein erneuter Kauf ist nicht nötig.",
+        "kept": "Koona Pin konnte Ihren Kauf noch nicht mit Google Play bestätigen. Wenn Sie bezahlt haben, bleibt er erhalten und wird erneut geprüft, sobald Sie zur App zurückkehren – ein erneuter Kauf ist nicht nötig."
       },
       "managed": "Ihr Tarif wird dort verwaltet, wo Sie ihn abgeschlossen haben.",
       "pastDue": "Die letzte Zahlung ist nicht durchgegangen · Supporter bis {{date}}",
