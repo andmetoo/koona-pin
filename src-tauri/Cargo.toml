@@ -25,6 +25,9 @@ custom-protocol = ["tauri/custom-protocol"]
 # The installer build (NP-037): the native host accepts only the store
 # extensions, not the development id.
 public-release = []
+# The Google Play build (NP-154): Supporter through Play Billing, on Android only (`cfg(play)`, build.rs).
+# Off for every other build, so the site's APK has no billing library and no BILLING permission.
+store-play = ["dep:tauri-plugin-koona-play"]
 
 [dependencies]
 tauri = { version = "2.1", features = ["tray-icon"] }
@@ -101,9 +104,15 @@ tauri-plugin-koona-mobile = { path = "plugins/koona-mobile" }
 # `_exit` at the end of a phone's run (lib.rs, `end_on_phone`). Already in the tree.
 libc = "0.2"
 
+# The Play build only (feature `store-play`, NP-154): Play Billing, under the commercial license.
+[target.'cfg(target_os = "android")'.dependencies]
+tauri-plugin-koona-play = { path = "commercial/koona-play", optional = true }
+
 [dev-dependencies]
 # `trace`: the example `query_plans` prints the plan of every statement a command runs (NP-114).
 rusqlite = { version = "0.32", features = ["trace"] }
+# The answers of the Play plugin, so billing.rs's handling of them is tested on a desktop (NP-154).
+tauri-plugin-koona-play = { path = "commercial/koona-play" }
 
 # Native messaging (NP-016): the user's SID for the pipe name and its access
 # rule, registry keys for the browsers, starting the app from the host.

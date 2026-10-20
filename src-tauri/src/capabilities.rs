@@ -34,12 +34,14 @@ pub enum UpdateSource {
     None,
 }
 
-/// How Supporter is bought: Paddle's checkout in the browser, or not at all in this build.
+/// How Supporter is bought: Paddle's checkout in the browser, Google Play Billing in the Play
+/// build (NP-154), or not at all in this build.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
 #[serde(rename_all = "lowercase")]
 #[ts(export)]
 pub enum Purchase {
     Paddle,
+    Play,
     None,
 }
 
@@ -107,14 +109,18 @@ impl AppInfo {
     }
 }
 
-/// How this build sells Supporter. A computer with the billing service: Paddle's checkout. A phone:
-/// nothing until NP-154 — the Play build may sell only through Play Billing and must not link to
-/// the Paddle checkout (Google Play's payments policy); the site's APK gets `Paddle` through its own
-/// flavour (NP-074, NP-078). Signing in with the email code stays on phones, so someone who pays on
-/// a computer is a Supporter on the phone too.
+/// How this build sells Supporter, with the billing service. A computer: Paddle's checkout. The
+/// Play build (`cfg(play)`, the feature `store-play` on Android): only Play Billing, never a link to
+/// the Paddle checkout (Google Play's payments policy; NP-154). Any other phone: nothing; the site's
+/// APK gets `Paddle` through its own flavour (NP-074, NP-078). Signing in with the email code stays
+/// on phones, so someone who pays on a computer is a Supporter on the phone too.
 fn purchase(desktop: bool) -> Purchase {
-    if desktop && crate::billing::service().is_some() {
+    if crate::billing::service().is_none() {
+        Purchase::None
+    } else if desktop {
         Purchase::Paddle
+    } else if cfg!(play) {
+        Purchase::Play
     } else {
         Purchase::None
     }
@@ -148,8 +154,9 @@ mod tests {
     }
 
     #[test]
-    fn a_phone_sells_nothing() {
+    fn a_phone_sells_nothing_outside_the_play_build() {
         assert_eq!(purchase(false), Purchase::None);
+        assert_eq!(serde_json::to_string(&Purchase::Play).unwrap(), r#""play""#);
     }
 
     #[test]

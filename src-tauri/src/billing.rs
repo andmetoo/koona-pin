@@ -8,6 +8,12 @@
 //!
 //! Sales are closed until sync ships (Р-64): a build without the account service, or a sandbox
 //! one that is not a development build, has no purchase at all.
+//!
+//! The Google Play build sells through Play Billing instead of Paddle (NP-154, [`play`]): the
+//! purchase comes first, the email given after it claims it, and the server binds it once the code
+//! from that email has signed in.
+
+pub mod play;
 
 use crate::error::{CommandError, ErrorCode, ErrorDetail};
 use chrono::{DateTime, TimeDelta, Utc};
@@ -99,6 +105,17 @@ pub enum PlanInterval {
     FiveYears,
 }
 
+/// Where the plan is paid and managed (NP-154): the channel of the renewing subscription, else of
+/// the purchase that sets `valid_until`. «Manage» opens Paddle's portal or Google Play's
+/// subscriptions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum Store {
+    Paddle,
+    Play,
+}
+
 /// The plan as the server signed it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -115,6 +132,10 @@ pub struct Plan {
     /// Paid once, and a subscription of the account still renews: the dialog says to cancel it.
     #[serde(default)]
     pub also_renews: bool,
+    /// Where it is paid; none from a server before NP-154, which sold through Paddle only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub store: Option<Store>,
 }
 
 /// The plan signed by the server: `payload` is the exact text signed, kept as it came.
@@ -141,6 +162,13 @@ struct SignedPlan {
     renews_at: Option<DateTime<Utc>>,
     #[serde(default)]
     also_renews: bool,
+    /// A store this build does not know reads as none: never a reason to drop the whole lease.
+    #[serde(default, deserialize_with = "known_store")]
+    store: Option<Store>,
+}
+
+fn known_store<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<Store>, D::Error> {
+    Ok(Option::<Value>::deserialize(deserializer)?.and_then(|value| serde_json::from_value(value).ok()))
 }
 
 /// What a `plan` or `claim` answer says about the plan: whether the server names one at all, and
@@ -176,8 +204,8 @@ fn plan_of(lease: &Lease, email: &str, key: &[u8]) -> Option<Plan> {
     if terms.v != 1 || !terms.email.eq_ignore_ascii_case(email.trim()) {
         return None;
     }
-    let SignedPlan { status, interval, valid_until, renews_at, also_renews } = terms.plan;
-    Some(Plan { status, interval, valid_until, renews_at, offline_until: terms.offline_until, also_renews })
+    let SignedPlan { status, interval, valid_until, renews_at, also_renews, store } = terms.plan;
+    Some(Plan { status, interval, valid_until, renews_at, offline_until: terms.offline_until, also_renews, store })
 }
 
 fn plan_key() -> Vec<u8> {
@@ -226,6 +254,13 @@ struct Stored {
     claim: Option<String>,
     #[serde(default, skip_serializing)]
     claim_started: Option<DateTime<Utc>>,
+    /// Purchases made here through Google Play and not bound to an account yet, oldest first
+    /// (NP-154). Kept over Sign out: a paid purchase's secret is its only claim.
+    #[serde(default)]
+    play: Vec<play::PlayCheckout>,
+    /// What the last Play purchase finished as in this run, once it left `play`.
+    #[serde(skip)]
+    play_outcome: Option<play::PlayState>,
 }
 
 /// A purchase started here: the secret the server knows by its hash, and the payment page.
@@ -372,6 +407,11 @@ pub struct SupporterStatus {
     /// A payment went through with the email of an existing account: the purchase dialog opens on
     /// «Payment received» and its sign-in by code.
     pub awaiting_sign_in: bool,
+    /// A purchase through Google Play here (NP-154): one waiting for its email, its code or a slow
+    /// payment, else how the last one in this run finished. Only the Play build has one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub play: Option<play::PlayProgress>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -464,6 +504,7 @@ fn status(stored: &Stored, now: DateTime<Utc>) -> SupporterStatus {
         plan,
         plan_unknown: stored.session.is_some() && stored.plan.is_none() && stored.check_failed,
         awaiting_sign_in: stored.awaiting_sign_in && stored.session.is_none(),
+        play: stored.play_progress(),
     }
 }
 
@@ -487,6 +528,9 @@ pub struct Billing {
     refreshing: tokio::sync::Mutex<()>,
     /// When «Manage» last opened the portal: the check after it asks the server again.
     portal_at: Mutex<Option<DateTime<Utc>>>,
+    /// One Play purchase step at a time, Play's sheet included (NP-154): the check on the way back
+    /// to the screen waits for the purchase that put Play's sheet over the app.
+    playing: tokio::sync::Mutex<()>,
 }
 
 impl Billing {
@@ -515,6 +559,7 @@ impl Billing {
             checking: tokio::sync::Mutex::new(()),
             refreshing: tokio::sync::Mutex::new(()),
             portal_at: Mutex::new(None),
+            playing: tokio::sync::Mutex::new(()),
         }
     }
 
@@ -562,6 +607,9 @@ pub fn start(app: &AppHandle) {
     if service().is_none() {
         return;
     }
+    // Purchases through Google Play, on start and each time the app comes back (NP-154).
+    #[cfg(play)]
+    play::watch(app);
     let app = app.clone();
     let mut foreground = crate::lifecycle::foreground(&app);
     tauri::async_runtime::spawn(async move {
@@ -1014,6 +1062,9 @@ pub async fn verify_sign_in_code(app: AppHandle, email: String, code: String) ->
     let session = verified_session(&app, &email, &code).await?;
     let billing = app.state::<Billing>();
     billing.update(&app, |s| keep_session(s, session))?;
+    // A Play purchase waiting for this sign-in is bound to the account now (NP-154); one that fails
+    // here is asked about again when the app comes back to the screen.
+    play::verify_waiting(&app).await;
     // Signed in whatever the plan check says: when it fails, the status says the plan is not known
     // yet (`plan_unknown`) and the background asks again within the hour.
     match check(&app, false).await {
@@ -1043,7 +1094,8 @@ pub async fn sign_out_supporter(app: AppHandle) -> Result<SupporterStatus, Comma
     // After a claim already asking: what it signs in is signed out here, and one starting later
     // finds no purchase.
     let _one_at_a_time = billing.claiming.lock().await;
-    billing.update(&app, |s| *s = Stored { sandbox: s.sandbox, ..Stored::default() })
+    // Play purchases not bound yet stay: their secrets are their only claim (NP-154).
+    billing.update(&app, |s| *s = Stored { sandbox: s.sandbox, play: std::mem::take(&mut s.play), ..Stored::default() })
 }
 
 #[cfg(test)]
@@ -1065,6 +1117,7 @@ mod tests {
                 renews_at: Some(at(until)),
                 offline_until: at(until) + TimeDelta::days(7),
                 also_renews: false,
+                store: None,
             }),
             ..Stored::default()
         }
@@ -1169,6 +1222,7 @@ mod tests {
                 renews_at: None,
                 offline_until: at("2026-11-11T12:00:00Z"),
                 also_renews: false,
+                store: None,
             })
         );
         let edited = Lease { payload: PAYLOAD.replace("2026-11-11", "2099-11-11"), ..signed.clone() };

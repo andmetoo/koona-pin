@@ -72,6 +72,8 @@ import {
   SupporterStatus,
   PlanInterval,
   CheckoutState,
+  PlayOffer,
+  PlayState,
   BackupFolder,
   SyncAccount,
   SyncStatus,
@@ -329,6 +331,14 @@ const native = {
   sendSignInCode: (email: string) => call<void>("send_sign_in_code", { email }),
   verifySignInCode: (email: string, code: string) => call<SupporterStatus>("verify_sign_in_code", { email, code }),
   signOutSupporter: () => call<SupporterStatus>("sign_out_supporter"),
+  // Supporter through Google Play Billing (NP-154): registered in the Play build only, where
+  // `capabilities.purchase` is "play". A purchase waiting here shows in `SupporterStatus.play`.
+  /** Google Play's prices for the sheet; `available: false` where Play cannot sell (no Play Store). */
+  getPlayOffer: () => call<PlayOffer>("get_play_offer"),
+  /** Play's sheet for this plan, then the server's verdict: `paid`, `email`, `sign_in`, `pending`… */
+  startPlayPurchase: (interval: PlanInterval) => call<PlayState>("start_play_purchase", { interval }),
+  /** The email step: the code is sent there (`sign_in`); then `verifySignInCode` binds the purchase. */
+  playClaimEmail: (email: string) => call<PlayState>("play_claim_email", { email }),
   // Supporter's backups to a folder of one's choice (commercial/backup_folder.rs).
   getBackupFolder: () => call<BackupFolder>("get_backup_folder"),
   onBackupFolder: (callback: (folder: BackupFolder) => void) => subscription("backup-folder", callback),

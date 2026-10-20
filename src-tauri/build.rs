@@ -11,7 +11,18 @@ fn main() {
     // Sync (Р-68, commercial/sync): the relay, `wss://…/v1/sync`.
     forward_from_dotenv("KOONAPIN_SYNC_URL", "KOONAPIN_SYNC_URL");
     collation_version();
+    play();
     tauri_build::build()
+}
+
+/// `cfg(play)`: the Google Play build (NP-154), the feature `store-play` on Android. Play Billing's
+/// plugin and the commands that use it exist only there; the feature means nothing elsewhere.
+fn play() {
+    println!("cargo:rustc-check-cfg=cfg(play)");
+    let android = std::env::var("CARGO_CFG_TARGET_OS").is_ok_and(|os| os == "android");
+    if android && std::env::var_os("CARGO_FEATURE_STORE_PLAY").is_some() {
+        println!("cargo:rustc-cfg=play");
+    }
 }
 
 /// `name` for `option_env!`, from the environment or `.env` under `name` or `source`.
