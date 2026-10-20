@@ -2257,6 +2257,64 @@ test("a notice set as its sheet closes never goes into it; an older one stays be
   await expect(dialog).toBeVisible();
   await expect(dialog.locator("[data-glass-toast]")).toHaveCount(0);
 });
+test("the dialog a notice is raised in closes: the notice comes back to the window, the page goes on (NP-092)", async ({ page }) => {
+  await page.getByRole("button", { name: "No browser yet" }).click();
+  const dialog = page.getByRole("dialog", { name: "Connect browser" });
+  await failOnce(page, "openUrl", "internal", "No browser to open the link");
+  await dialog.getByRole("button", { name: "Help ↗" }).click();
+  const raised = dialog.getByRole("alert").filter({ hasText: "No browser to open the link" });
+  await expect(raised).toBeVisible();
+  // Closed as «Hide window» closes its dialog, after an await: outside an event, so React renders it in a
+  // later task, and takes the dialog out of the page with the notice in it before the dialog's «close».
+  // Bringing the notice back changes the page too, and the dialog's watch brought it back again on every
+  // change, in microtasks that never let that task run: 2.8.0 froze. The dialog's own «×» (the notice,
+  // with its «Close», is put at the dialog's end), its handler called from a timer.
+  await dialog
+    .getByRole("button", { name: "Close" })
+    .first()
+    .evaluate((button) => {
+      const props = Object.entries(button).find(([key]) => key.startsWith("__reactProps$"))![1] as { onClick: () => void };
+      setTimeout(() => props.onClick());
+    });
+  await expect(dialog).toHaveCount(0);
+  const notice = page.getByRole("alert").filter({ hasText: "No browser to open the link" });
+  await expect(notice).toBeVisible();
+  expect(await notice.evaluate((el) => !!el.closest("dialog") || el.hasAttribute("popover"))).toBe(false);
+  await notice.getByRole("button", { name: "Close" }).click();
+  await expect(notice).toHaveCount(0);
+});
+test("a late frame leaves an older notice behind a dialog opened since (NP-092)", async ({ page }) => {
+  // WebKitGTK once held the frame of a new notice for 900 ms, and the dialog opened meanwhile took the
+  // notice in. Frames are held here until the dialog is open.
+  await page.evaluate(() => {
+    const w = window as unknown as { releaseFrames: () => void };
+    const native = { request: window.requestAnimationFrame.bind(window), cancel: window.cancelAnimationFrame.bind(window) };
+    const held = new Map<number, FrameRequestCallback>();
+    let next = 1;
+    window.requestAnimationFrame = (callback) => (held.set(next, callback), next++);
+    window.cancelAnimationFrame = (id) => void held.delete(id);
+    w.releaseFrames = () => {
+      Object.assign(window, { requestAnimationFrame: native.request, cancelAnimationFrame: native.cancel });
+      for (const callback of held.values()) callback(performance.now());
+      held.clear();
+    };
+  });
+  await page.getByRole("button", { name: "New link", exact: true }).click();
+  const sheet = page.getByRole("dialog", { name: "Add link" });
+  await sheet.getByRole("textbox", { name: "Link" }).fill("https://example.com/late");
+  await page.keyboard.press("Enter");
+  await expect(sheet.getByRole("button", { name: "Save link" })).toBeEnabled();
+  await page.keyboard.press("Enter");
+  await expect(sheet).toHaveCount(0);
+  const toast = page.locator("[data-glass-toast]");
+  await expect(toast).toContainText("Saved to");
+  await page.getByRole("button", { name: "No browser yet" }).click();
+  const dialog = page.getByRole("dialog", { name: "Connect browser" });
+  await expect(dialog).toBeVisible();
+  await page.evaluate(() => (window as unknown as { releaseFrames: () => void }).releaseFrames());
+  await expect(dialog.locator("[data-glass-toast]")).toHaveCount(0);
+  expect(await toast.evaluate((el) => !!el.closest("dialog") || el.hasAttribute("popover"))).toBe(false);
+});
 test("connect dialog: steps for each browser, no token and no bookmarklet", async ({ page }) => {
   await page.getByRole("button", { name: "No browser yet" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect browser" });

@@ -14,9 +14,24 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// Google Play's upload key (NP-074a), passed in by scripts/build-android.mjs from .env: the keystore's path
+// and its password, the key's alias. Without it the release build is signed with the debug key, for testing.
+val uploadKeystore = System.getenv("ANDROID_UPLOAD_KEYSTORE")?.takeIf { it.isNotEmpty() }
+
 android {
     compileSdk = 37
     namespace = "app.koona.pin"
+    signingConfigs {
+        if (uploadKeystore != null) {
+            create("upload") {
+                storeFile = file(uploadKeystore)
+                storeType = "pkcs12"
+                storePassword = System.getenv("ANDROID_UPLOAD_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_UPLOAD_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_UPLOAD_KEYSTORE_PASSWORD")
+            }
+        }
+    }
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
         applicationId = "app.koona.pin"
@@ -40,8 +55,7 @@ android {
             }
         }
         getByName("release") {
-            // The debug key until store signing (NP-151): a release build to install and measure.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
             optimization {
                enable = true
             }
