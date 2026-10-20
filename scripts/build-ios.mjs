@@ -25,25 +25,17 @@
 // build number into the committed Xcode project and Info.plist; this script puts both files back as they
 // were, whatever happens. The archive is not signed; the export signs it.
 import { execFileSync, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import {
   existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync,
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { args, buildNumber, cleanMain, option, writeChecksums } from "./lib/store-build.mjs";
 import { loadEnv } from "./lib/env.mjs";
 import { app, appleProject, bundleId, requireLlvmTools, version } from "./lib/ios.mjs";
 import { publish, root, test } from "./lib/paths.mjs";
 
 if (process.platform !== "darwin") throw new Error("Build this on a Mac with Xcode");
-const args = process.argv.slice(2);
-const option = (name) => {
-  const at = args.indexOf(name);
-  if (at < 0) return undefined;
-  const value = args[at + 1];
-  if (!value || value.startsWith("--")) throw new Error(`${name} needs a value`);
-  return value;
-};
 const validate = args.includes("--validate");
 const upload = args.includes("--upload");
 const given = option("--ipa");
@@ -78,7 +70,6 @@ if (!existsSync(env.APPLE_STORE_KEY_PATH)) throw new Error("APPLE_STORE_KEY_PATH
 const team = env.APPLE_TEAM_ID || env.APPLE_SIGNING_IDENTITY?.match(/\(([A-Z0-9]{10})\)$/)?.[1];
 if (!team) throw new Error("APPLE_TEAM_ID is not set (and APPLE_SIGNING_IDENTITY names no team)");
 
-const sha256 = (file) => createHash("sha256").update(readFileSync(file)).digest("hex");
 const work = mkdtempSync(path.join(os.tmpdir(), "koonapin-ios-"));
 process.on("exit", () => rmSync(work, { recursive: true, force: true }));
 
@@ -116,30 +107,10 @@ if (leftovers.length > 0) {
   throw new Error(`A build left ${leftovers.join(" and ")}, not as committed: git checkout -- src-tauri/gen/apple, then build again`);
 }
 
-// HEAD must be on origin/main as it is now, not as last fetched: else a commit of main reads as a branch's.
-const fetched = spawnSync("git", ["fetch", "--quiet", "origin", "main"], {
-  cwd: root, stdio: ["ignore", "ignore", "pipe"], encoding: "utf8", timeout: 60_000, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
-});
-if (fetched.status !== 0) {
-  console.warn(`Could not fetch origin/main (${fetched.error?.message ?? fetched.stderr.trim().split("\n")[0]}): `
-    + "the check below uses the local origin/main, which may be out of date.");
-}
-
-// The build number: --build, else the commit count of HEAD.
-let build = option("--build");
-if (build === undefined) {
-  if (git("rev-parse", "--is-shallow-repository") === "true") throw new Error("A shallow clone has no commit count: fetch the history or pass --build");
-  build = git("rev-list", "--count", "HEAD");
-}
-if (!/^[1-9]\d{0,8}$/.test(build)) throw new Error(`The build number must be a positive whole number, not «${build}»`);
-// A branch's count can pass main's: once squash-merged, main counts one more, and App Store Connect
-// refuses its next builds of the version as not higher than the branch's upload. Such builds and those
-// of a worktree with changes are for testing only: release/test/ios, never uploaded. A new file that
-// Git does not ignore is a change too: the build has it, the commit does not. --build does not make a
-// branch's build publishable: it is for a second upload of the same commit of main.
-const onMain = spawnSync("git", ["merge-base", "--is-ancestor", "HEAD", "origin/main"], { cwd: root }).status === 0;
-const dirty = Boolean(git("status", "--porcelain", "--untracked-files=normal"));
-const publishable = !dirty && onMain;
+// The build number and whether this commit may reach App Store Connect: scripts/lib/store-build.mjs.
+// --build does not make a branch's build publishable: it is for a second upload of the same commit of main.
+const build = buildNumber(option("--build"));
+const { dirty, clean: publishable } = cleanMain();
 if (upload && !publishable) {
   throw new Error(dirty ? "The worktree has changes or new files: an upload is built from a commit as it is"
     : "Upload builds of main only: HEAD is not on origin/main (--build is for a second upload of a commit of main)");
@@ -260,8 +231,7 @@ execFileSync("cp", [path.join(exported, ipaName), ipa]);
 const dsyms = path.join(archive, "dSYMs");
 if (!existsSync(dsyms) || readdirSync(dsyms).length === 0) throw new Error("The archive has no dSYMs");
 execFileSync("ditto", ["-c", "-k", "--keepParent", dsyms, symbols]);
-const files = readdirSync(target).filter((name) => name !== "SHA256SUMS.txt").sort();
-writeFileSync(path.join(target, "SHA256SUMS.txt"), files.map((name) => `${sha256(path.join(target, name))}  ${name}\n`).join(""));
+writeChecksums(target);
 console.log(`iOS ${version} (${build}), App Store: ${path.relative(root, ipa)}`);
 
 if (validate) altool("--validate-app", ipa);

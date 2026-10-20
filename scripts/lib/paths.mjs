@@ -7,6 +7,7 @@
 //     macos/<version>/<arch>/  Koona Pin.app in a ZIP, .dmg and SHA256SUMS.txt   bun run build:macos
 //     aur/<version>/       PKGBUILD and .SRCINFO of koonapin-bin     bun run build:aur
 //     ios/<version>/       App Store IPAs, their dSYMs in ZIPs, SHA256SUMS.txt   bun run build:ios
+//     android/<version>/   App Bundles for Google Play (upload key), SHA256SUMS.txt   bun run build:android
 //     updates/<version>/   packages with .sig, SHA256SUMS.txt, latest.json and release.json; deployed to koona.app   bun run build:latest, build:release-data
 //   release/shots/     screenshots of the app for the site (andmetoo/koona-site)   bun run site:shots
 //     chrome/<version>/    koonapin-chrome.zip, Chrome Web Store    bun run extension:build
@@ -16,7 +17,7 @@
 //     macos/<version>/<arch>/  test .app, its ZIP, SHA256SUMS.txt, build.json   bun run build:macos:test
 //     windows/<version>/   installer, unsigned                       bun run build:installer
 //     chrome-edge/<version>/  extension with the store id            bun run extension:build (CHROME_STORE_PUBLIC_KEY)
-//     android/<version>/   .aab and arm64 .apk, debug-signed, SHA256SUMS.txt   bun run build:android
+//     android/<version>/   .aab and arm64 .apk not for Play (debug key, branch, changes), SHA256SUMS.txt   bun run build:android
 //     ios-simulator/<version>/  Koona Pin.app for the iOS Simulator (arm64)    bun run build:ios:sim
 //     ios/<version>/       App Store IPAs not built from a clean commit of main, never uploaded   bun run build:ios
 //   release/dev/       this machine
@@ -38,6 +39,8 @@ export const publish = {
   aur: (version) => path.join(release, "publish", "aur", version),
   /** Every build number of the version side by side: KoonaPin-<version>-<build>.ipa (build-ios.mjs). */
   ios: (version) => path.join(release, "publish", "ios", version),
+  /** Every build number of the version side by side: koona-pin-<version>-<build>.aab (build-android.mjs). */
+  android: (version) => path.join(release, "publish", "android", version),
   /** One folder per version (build-latest.mjs, build-release-data.mjs). */
   updates: path.join(release, "publish", "updates"),
   chrome: (version) => path.join(release, "publish", "chrome", version),
