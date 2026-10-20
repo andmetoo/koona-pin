@@ -26,6 +26,19 @@ export function option(name) {
 
 export const sha256 = (file) => createHash("sha256").update(readFileSync(file)).digest("hex");
 
+/**
+ * The members of a ZIP file (an APK, an AAB) that match `pattern`, a wildcard such as `lib/*` or
+ * `classes*.dex`, extracted into `folder`. Windows has no unzip; its own tar (bsdtar) reads ZIP files, named
+ * by path because the tar of Git Bash, first on its PATH, is GNU tar, which takes `C:` for a remote host.
+ */
+export function unzip(zip, pattern, folder) {
+  if (process.platform === "win32") {
+    execFileSync(path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe"), ["-xf", zip, "-C", folder, pattern]);
+  } else {
+    execFileSync("unzip", ["-q", "-o", zip, pattern, "-d", folder]);
+  }
+}
+
 /** SHA256SUMS.txt of every other file in the folder, by name. */
 export function writeChecksums(folder) {
   const files = readdirSync(folder).filter((name) => name !== "SHA256SUMS.txt").sort();
