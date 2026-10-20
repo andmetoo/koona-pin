@@ -10,6 +10,7 @@ export function Toast({
   tone = "status",
   docked = false,
   glass = false,
+  raise,
 }: {
   children: ReactNode;
   action?: ReactNode;
@@ -18,13 +19,15 @@ export function Toast({
   docked?: boolean;
   /** Glass with a check (2026-10-16): «Saved to Design · Undo» after a link is added. */
   glass?: boolean;
+  /** What makes it a new notice (the notice itself): a new one is raised over an open dialog. */
+  raise: unknown;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   // At the bottom of the window it stays readable over an open dialog; docked, it sits in the column.
-  const { popover, place } = useOverDialogs(ref, !docked, children);
+  const place = useOverDialogs(ref, { on: !docked, raise });
   if (glass)
     return place(
-      <div ref={ref} popover={popover} role={tone} data-glass-toast data-docked={docked || undefined} className={`glass-toast ${docked ? "max-w-full" : "fixed"}`}>
+      <div ref={ref} role={tone} data-glass-toast data-docked={docked || undefined} className={`glass-toast ${docked ? "max-w-full" : "fixed"}`}>
         <Icon icon={Check} size={15} strokeWidth={2.25} className="shrink-0 text-accent" />
         <span className="min-w-0">{children}</span>
         {action}
@@ -33,7 +36,6 @@ export function Toast({
   return place(
     <div
       ref={ref}
-      popover={popover}
       role={tone}
       data-toast
       data-docked={docked || undefined}

@@ -163,6 +163,19 @@ function barStyle(bar: VerticalBar | null, status: number): Record<string, strin
 }
 
 /**
+ * The shared dialogs stand outside the phone's root, and the snackbar is styled under it: in a dialog,
+ * its box takes the root's class, data and variables, and gives them back at home.
+ */
+function dressAsPhone(box: HTMLElement, inDialog: boolean) {
+  const root = document.querySelector<HTMLElement>("[data-phone]");
+  for (const name of box.getAttributeNames()) if (name !== "style") box.removeAttribute(name);
+  box.style.cssText = "display: contents";
+  if (!inDialog || !root) return;
+  for (const name of root.getAttributeNames()) if (name !== "style" && name !== "data-phone") box.setAttribute(name, root.getAttribute(name)!);
+  box.style.cssText = `${root.style.cssText}; display: contents`;
+}
+
+/**
  * The app's notice as the snackbar: Undo, Show or Try again as its action; an alert stays until
  * closed. A new notice is a new snackbar with its own 5 s.
  */
@@ -173,7 +186,7 @@ function PhoneSnackbar() {
   const next = useRef(1);
   const slot = useRef<HTMLDivElement>(null);
   // Readable over an open dialog, such as Sync's: a modal one makes the rest of the screen inert.
-  const { popover, place } = useOverDialogs(slot, !!notice, notice);
+  const place = useOverDialogs(slot, { on: !!notice, raise: notice, dress: dressAsPhone });
   if (!notice) return null;
   if (!keys.current.has(notice)) keys.current.set(notice, next.current++);
   const close = () => setNotice((now) => (now === notice ? null : now));
@@ -193,7 +206,7 @@ function PhoneSnackbar() {
           ? { label: t("common.close"), run: () => setNotice(null) }
           : undefined;
   return place(
-    <div ref={slot} popover={popover} className="ph-snackbar-slot">
+    <div ref={slot} className="ph-snackbar-slot">
       <Snackbar
         key={keys.current.get(notice)}
         text={notice.text}

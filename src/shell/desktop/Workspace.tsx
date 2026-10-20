@@ -333,6 +333,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     <Toast
       glass
       docked={selecting}
+      raise={notice}
       action={
         notice.undo ? (
           <button type="button" onClick={notice.undo}>
@@ -352,6 +353,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
   ) : notice ? (
     <Toast
       docked={selecting}
+      raise={notice}
       tone={notice.alert ? "alert" : "status"}
       action={
         notice.undo ? (
@@ -391,6 +393,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
   ) : movedAside ? (
     <Toast
       docked={selecting}
+      raise={movedAside}
       action={
         <button type="button" onClick={() => setMovedAside("")} className="font-semibold text-[#8fd0ae]">
           {t("common.ok")}
