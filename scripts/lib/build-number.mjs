@@ -19,7 +19,7 @@ export function buildNumber(given) {
     if (git("rev-parse", "--is-shallow-repository") === "true") throw new Error("A shallow clone has no commit count: fetch the history or pass --build");
     build = git("rev-list", "--count", "HEAD");
   }
-  if (!/^[1-9]\d{0,8}$/.test(build) || Number(build) > 2_100_000_000) {
+  if (!/^[1-9]\d{0,9}$/.test(build) || Number(build) > 2_100_000_000) {
     throw new Error(`The build number must be a positive whole number up to 2100000000, not «${build}»`);
   }
   return build;

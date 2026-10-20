@@ -45,7 +45,7 @@ Follow sites
 Follow RSS, Atom and JSON feeds. Posts come straight from the sites to your phone; save the ones worth keeping.
 
 Your library stays on your phone
-The library is a file on your device. Koona Pin shows no ads and sends no analytics, telemetry or crash reports. It talks to the websites of the links you save and the feeds you follow, and to Koona only for your Supporter plan.
+The library is a file on your device. Koona Pin shows no ads and sends no analytics, telemetry or crash reports. It requests pages, pictures and feeds from the sites of the links you save and the feeds you follow, and asks Google's icon service for site icons. It talks to Koona for your Supporter plan, with sync on to the sync relay, which passes your end-to-end encrypted library between your devices and keeps nothing, and for feedback, only when you send it.
 
 Bring your bookmarks
 Import bookmarks from a browser's HTML export, and feeds from OPML.

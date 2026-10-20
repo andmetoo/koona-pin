@@ -1,19 +1,22 @@
 // Builds Koona Pin for Android: a release build for arm64 phones. Folders: scripts/lib/paths.mjs.
 //   bun run build:android                   the App Bundle (.aab) and a universal APK of arm64 only, checked
 //   bun run build:android -- --build <n>    the versionCode instead of the commit count
+//   bun run build:android -- --sign-test    a test build signed with the upload key: tries the signing path
 //   bun scripts/build-android.mjs --check <apk>   only the 16 KB checks below, of an APK built already (CI)
 // Needs the Android SDK with platform 37 and an NDK of r28 or newer (16 KB pages by default):
 // ANDROID_HOME and NDK_HOME, as ~/.zshrc sets them on the build Mac (doc: docs/building.md), JDK 17 or
 // newer (JAVA_HOME, else java and keytool on the PATH) and the Rust target aarch64-linux-android.
 // Settings come from the environment or from .env in the repository root, as for the desktop.
 //
-// Signing (NP-074a). With Google Play's upload key in .env (ANDROID_UPLOAD_KEYSTORE, a PKCS12 file;
-// ANDROID_UPLOAD_KEYSTORE_PASSWORD; ANDROID_UPLOAD_KEY_ALIAS) Gradle signs both files with it, and Play
-// signs what it delivers with the app signing key it keeps (Play App Signing). Built so from a clean
-// commit of origin/main, the AAB goes to release/publish/android/<version>/ for Play Console; the APK
-// stays in Gradle's folder: phones refuse Play's updates over an APK of the upload key. Without the key
-// (the debug key signs), from a branch or from a worktree with changes, both files go to
-// release/test/android/<version>/ and are never uploaded.
+// Signing (NP-074a). Google Play's upload key is in .env (ANDROID_UPLOAD_KEYSTORE, a PKCS12 file;
+// ANDROID_UPLOAD_KEYSTORE_PASSWORD; ANDROID_UPLOAD_KEY_ALIAS), and Play signs what it delivers with the
+// app signing key it keeps (Play App Signing). Gradle signs with the upload key only a build of a clean
+// commit of origin/main: its AAB goes to release/publish/android/<version>/ for Play Console, and its APK
+// stays in Gradle's folder (phones refuse Play's updates over an APK of the upload key). Any other build
+// (no key, a branch, a worktree with changes) is signed with the debug key, which Play refuses, and both
+// files go to release/test/android/<version>/. --sign-test signs such a test build with the upload key to
+// try the signing path; then only its AAB is copied. Gradle's configuration cache is off for a build with
+// the upload key, so the password is not kept in src-tauri/gen/android/.gradle.
 //
 // Build numbers as for iOS (build-ios.mjs): versionName is the app's version, versionCode the number of
 // commits up to HEAD (`git rev-list --count HEAD`), so a build of the same commit has the same number on
@@ -40,7 +43,16 @@ const sdk = env.ANDROID_HOME;
 const ndk = env.NDK_HOME;
 if (!sdk || !ndk) throw new Error("Set ANDROID_HOME and NDK_HOME (the Android SDK and its NDK)");
 const version = JSON.parse(readFileSync(path.join(root, "src-tauri", "tauri.conf.json"), "utf8")).version;
-const packageName = "app.koona.pin";
+// What the APK must say, from the Gradle file that sets it (one place to change the SDK levels).
+const gradleFile = readFileSync(path.join(root, "src-tauri", "gen", "android", "app", "build.gradle.kts"), "utf8");
+const gradleValue = (name) => {
+  const value = gradleFile.match(new RegExp(`^\\s*${name} = "?([\\w.]+)"?\\s*$`, "m"))?.[1];
+  if (!value) throw new Error(`build.gradle.kts sets no ${name}`);
+  return value;
+};
+const packageName = gradleValue("applicationId");
+const minSdk = gradleValue("minSdk");
+const targetSdk = gradleValue("targetSdk");
 const sha256 = (file) => createHash("sha256").update(readFileSync(file)).digest("hex");
 const exe = (name) => (process.platform === "win32" ? `${name}.exe` : name);
 const jdk = (name) => (env.JAVA_HOME ? path.join(env.JAVA_HOME, "bin", exe(name)) : name);
@@ -129,8 +141,10 @@ if (checkOnly) {
 
 // The upload key: all three settings or none. The password reaches keytool and Gradle through the
 // environment only, never on a command line.
-const upload = Boolean(env.ANDROID_UPLOAD_KEYSTORE);
-if (upload) {
+const hasKey = Boolean(env.ANDROID_UPLOAD_KEYSTORE);
+const signTest = args.includes("--sign-test");
+if (signTest && !hasKey) throw new Error("--sign-test needs the upload key in .env (docs/building.md)");
+if (hasKey) {
   for (const name of ["ANDROID_UPLOAD_KEYSTORE_PASSWORD", "ANDROID_UPLOAD_KEY_ALIAS"]) {
     if (!env[name]) throw new Error(`ANDROID_UPLOAD_KEYSTORE is set but ${name} is not (docs/building.md)`);
   }
@@ -139,13 +153,15 @@ if (upload) {
 }
 
 // The versionCode and whether this commit may reach Play: scripts/lib/build-number.mjs. Without the upload
-// key (the debug key signs) a build is for testing too.
+// key a build is for testing whatever the commit, so main is not fetched for it.
 const build = buildNumber(option("--build"));
-const { dirty, clean } = cleanMain();
-const publishable = upload && clean;
+const { dirty, clean } = hasKey ? cleanMain() : { dirty: false, clean: false };
+const publishable = hasKey && clean;
+const upload = publishable || signTest;
 if (!publishable) {
-  const why = !upload ? "no upload key in .env: signed with the debug key" : dirty ? "the worktree has changes or new files" : "HEAD is not on origin/main";
-  console.warn(`Not for Play (${why}): a test build in ${path.relative(root, test.android(version))}.`);
+  const why = !hasKey ? "no upload key in .env" : dirty ? "the worktree has changes or new files" : "HEAD is not on origin/main";
+  console.warn(`Not for Play (${why}): a test build in ${path.relative(root, test.android(version))}, `
+    + `signed with the ${upload ? "upload key (--sign-test)" : "debug key"}.`);
 }
 
 rmSync(apk, { force: true });
@@ -156,8 +172,11 @@ process.on("exit", () => rmSync(work, { recursive: true, force: true }));
 // The versionCode through a config file: JSON on the command line loses its quotes on Windows.
 const config = path.join(work, "tauri.version.json");
 writeFileSync(config, JSON.stringify({ bundle: { android: { versionCode: Number(build) } } }));
-// Gradle reads the upload key from the environment (gen/android/app/build.gradle.kts); without it, none.
-const gradleEnv = upload ? env : Object.fromEntries(Object.entries(env).filter(([name]) => !name.startsWith("ANDROID_UPLOAD_")));
+// Gradle signs with the upload key when the environment has it (gen/android/app/build.gradle.kts). Its
+// configuration cache would keep the password, so it is off then.
+const gradleEnv = upload
+  ? { ...env, GRADLE_OPTS: `${env.GRADLE_OPTS ?? ""} -Dorg.gradle.configuration-cache=false`.trim() }
+  : Object.fromEntries(Object.entries(env).filter(([name]) => !name.startsWith("ANDROID_UPLOAD_")));
 const result = spawnSync("bun", ["run", "tauri", "android", "build", "--target", "aarch64", "--apk", "--aab", "--config", config], {
   cwd: root, stdio: "inherit", env: gradleEnv,
 });
@@ -174,8 +193,8 @@ const field = (pattern) => badging.match(pattern)?.[1];
 expect("the package", field(/^package: name='([^']+)'/m), packageName);
 expect("versionCode", field(/^package: .*versionCode='(\d+)'/m), build);
 expect("versionName", field(/^package: .*versionName='([^']+)'/m), version);
-expect("minSdkVersion", field(/^(?:minSdkVersion|sdkVersion):'(\d+)'/m), "29");
-expect("targetSdkVersion", field(/^targetSdkVersion:'(\d+)'/m), "36");
+expect("minSdkVersion", field(/^(?:minSdkVersion|sdkVersion):'(\d+)'/m), minSdk);
+expect("targetSdkVersion", field(/^targetSdkVersion:'(\d+)'/m), targetSdk);
 if (/^application-debuggable/m.test(badging)) failures.push("the APK is debuggable");
 
 /** The SHA-256 of each certificate in PEM text, as keytool -rfc prints them. */
@@ -203,14 +222,15 @@ if (env.BUNDLETOOL) {
 } else if (publishable) failures.push("BUNDLETOOL is not set: a build for Play is validated with bundletool");
 else console.warn("BUNDLETOOL is not set: the AAB is not validated with bundletool");
 if (failures.length > 0) throw new Error(`The build fails its checks:\n- ${failures.join("\n- ")}`);
-console.log(`Checked: ${packageName} ${version} (${build}), SDK 29–36, not debuggable, `
+console.log(`Checked: ${packageName} ${version} (${build}), SDK ${minSdk}–${targetSdk}, not debuggable, `
   + `${upload ? "signed with the upload key" : "signed with the debug key"}${env.BUNDLETOOL ? ", bundletool validate passes" : ""}`);
 check16k();
 
 // The files, and the checksums of the folder. Every build number of the version side by side, as for iOS.
 const target = publishable ? publish.android(version) : test.android(version);
 mkdirSync(target, { recursive: true });
-const names = publishable
+// An APK of the upload key is never copied: a phone with it refuses Play's updates.
+const names = upload
   ? { [aab]: `koona-pin-${version}-${build}.aab` }
   : { [aab]: `koona-pin-${version}-${build}.aab`, [apk]: `koona-pin-${version}-${build}-arm64.apk` };
 for (const [file, name] of Object.entries(names)) copyFileSync(file, path.join(target, name));

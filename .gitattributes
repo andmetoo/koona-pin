@@ -13,3 +13,6 @@ src-tauri/linux/** text eol=lf
 # bun.lock with LF.
 .bun-version text eol=lf
 bun.lock text eol=lf
+# Tauri rewrites the Gradle wrapper with LF on every Android build: a CRLF checkout would show it changed,
+# and build:android would then take the worktree for one with changes.
+src-tauri/gen/android/gradlew text eol=lf
