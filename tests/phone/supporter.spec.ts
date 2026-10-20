@@ -415,6 +415,8 @@ test("the Play build: bought signed out, the email claims it, the code signs in,
   const plan = sheet(page, "plan");
   await expect(sheet(page, "you")).toHaveCount(0);
   // P9: Sign out and Manage in Google Play on one row; the heart's switch beside its words.
+  // The sheet settles (its rise) before it is measured: two boxes read mid-rise are far apart.
+  await page.waitForTimeout(400);
   const manage = (await plan.getByRole("button", { name: "Manage in Google Play" }).boundingBox())!;
   const signOut = (await plan.getByRole("button", { name: "Sign out" }).boundingBox())!;
   expect(Math.abs(manage.y - signOut.y)).toBeLessThan(8);
@@ -562,6 +564,8 @@ test("the Play build: a plan paid through Google Play whose renewal failed is fi
   const plan = sheet(page, "plan");
   await expect(plan.getByRole("status")).toHaveText(/^The last payment didn't go through · Supporter until \w+ \d+, \d{4}$/);
   // P10: the fix across the sheet on one line, Sign out centred under it.
+  // The sheet settles (its rise) before it is measured: two boxes read mid-rise are far apart.
+  await page.waitForTimeout(400);
   const fix = (await plan.getByRole("button", { name: "Fix payment in Google Play" }).boundingBox())!;
   const out = (await plan.getByRole("button", { name: "Sign out" }).boundingBox())!;
   expect(fix.height).toBeLessThanOrEqual(52);
