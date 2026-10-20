@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import i18n from "../../../i18n";
 import type { PlayOffer, PlayState } from "../../../types";
-import { failureLine, playBadge, playPlans, playPriceLine, playStep, playUnavailable, resumedStep } from "./playFlow";
+import { failureLine, playBadge, playPlans, playPriceLine, playStep, playUnavailable, resumedFailure, resumedStep } from "./playFlow";
 
 const t = i18n.getFixedT("en");
 
@@ -50,6 +50,13 @@ describe("the Play purchase's steps", () => {
     for (const state of ["paid", "already_supporter", "other_account", "owned", "suspended", "kept", "canceled", "invalid", "unavailable", "error"] as const)
       expect(resumedStep({ state, email: null }), state).toBe("plans");
     expect(resumedStep({ state: "sign_in", email: null })).toBe("plans");
+  });
+
+  it("open on the kept notice for a purchase kept after a payment, and on nothing else", () => {
+    expect(resumedStep({ state: "kept", email: null })).toBe("plans");
+    expect(resumedFailure({ state: "kept", email: null })).toBe("kept");
+    for (const state of ["email", "pending", "paid", "unavailable", "error"] as const) expect(resumedFailure({ state, email: null }), state).toBeNull();
+    expect(resumedFailure(null)).toBeNull();
   });
 
   it("say each failure in its own words", () => {

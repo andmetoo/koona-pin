@@ -86,6 +86,8 @@ pub enum Error {
     Unavailable(String),
     /// Play or the plugin failed otherwise.
     Failed(String),
+    /// No answer in time (set by the caller's time limit): what Play did meanwhile is not known.
+    NoAnswer,
 }
 
 impl std::fmt::Display for Error {
@@ -93,6 +95,7 @@ impl std::fmt::Display for Error {
         match self {
             Error::Unavailable(message) => write!(f, "Google Play Billing is unavailable: {message}"),
             Error::Failed(message) => write!(f, "Google Play Billing failed: {message}"),
+            Error::NoAnswer => write!(f, "Google Play did not answer in time"),
         }
     }
 }

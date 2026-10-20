@@ -91,7 +91,7 @@ pub enum PlayState {
 impl PlayState {
     /// Still waiting for the person or for Play: kept with its purchase and shown by the sheet.
     fn waiting(self) -> bool {
-        matches!(self, PlayState::Email | PlayState::SignIn | PlayState::Owned | PlayState::Pending)
+        matches!(self, PlayState::Email | PlayState::SignIn | PlayState::Owned | PlayState::Pending | PlayState::Kept)
     }
 }
 
@@ -158,9 +158,10 @@ pub(super) struct PlayCheckout {
 }
 
 impl PlayCheckout {
-    /// May make room for a new purchase: never one that is paid, nor one Play reported that waits.
+    /// May make room for a new purchase: never one that is paid, nor one that waits (for its email,
+    /// its code, a slow payment, or a confirmation after a payment that may exist).
     fn evictable(&self) -> bool {
-        self.paid_at.is_none() && !(self.token.is_some() && self.state.is_some_and(PlayState::waiting))
+        self.paid_at.is_none() && !self.state.is_some_and(PlayState::waiting)
     }
 }
 
@@ -240,25 +241,20 @@ pub(super) fn verdict(status: reqwest::StatusCode, value: &Value) -> Result<Verd
 }
 
 impl Stored {
-    /// Whether a new purchase fits: under the limit, or with one that may make room.
-    pub(super) fn room_for_play(&self) -> bool {
-        self.play.len() < MAX_KEPT || self.play.iter().any(PlayCheckout::evictable)
-    }
-
     /// Keeps a new purchase and follows it. Room is made from the oldest Play never reported, then
-    /// the oldest unpaid one that waits for nothing; never from one that is paid. False, and
-    /// nothing changed, when nothing may make room.
+    /// the oldest unpaid one that waits for nothing; never from one that is paid or waits. False,
+    /// and nothing changed, when not enough may make room: the one room check.
     pub(super) fn add_play(&mut self, checkout: PlayCheckout) -> bool {
-        if !self.room_for_play() {
+        let excess = (self.play.len() + 1).saturating_sub(MAX_KEPT);
+        let mut order: Vec<usize> = (0..self.play.len()).filter(|&i| self.play[i].evictable()).collect();
+        if order.len() < excess {
             return false;
         }
-        while self.play.len() >= MAX_KEPT {
-            let at = self
-                .play
-                .iter()
-                .position(|c| c.evictable() && c.token.is_none())
-                .or_else(|| self.play.iter().position(PlayCheckout::evictable))
-                .expect("room_for_play found one");
+        // Unreported first, each group oldest first; removed from the back, so the indexes hold.
+        order.sort_by_key(|&i| (self.play[i].token.is_some(), i));
+        let mut gone: Vec<usize> = order.into_iter().take(excess).collect();
+        gone.sort_unstable_by(|a, b| b.cmp(a));
+        for at in gone {
             self.play.remove(at);
         }
         self.play_outcome = None;
@@ -330,8 +326,12 @@ impl Stored {
             checkout.state = Some(state);
             return Some(state);
         }
-        // The server cannot verify Play purchases now: this one stays as it was, asked again later.
+        // The server cannot verify Play purchases now: kept, shown as such, and asked again later. A
+        // slow payment stays pending: nothing was paid yet.
         if state == PlayState::Unavailable {
+            if checkout.state != Some(PlayState::Pending) {
+                checkout.state = Some(PlayState::Kept);
+            }
             return Some(PlayState::Kept);
         }
         if let (Some(answer), Some(email)) = (verdict.answer, asked_for) {
@@ -410,7 +410,8 @@ pub(super) enum AfterBuy {
     Forget(PlayState),
     /// Owned already by this Google account: a purchase kept here is verified again, if one is.
     Owned,
-    /// Play answered, but not about this purchase, or failed: kept, and looked for on the way back.
+    /// Play said purchased, but not with this purchase: a payment may exist, so it is kept and
+    /// looked for on the way back.
     Keep,
 }
 
@@ -418,14 +419,15 @@ pub(super) enum AfterBuy {
 pub(super) fn after_buy(bought: &native::Bought, id: &str) -> AfterBuy {
     use native::Outcome;
     match bought.outcome {
-        Outcome::Purchased | Outcome::Pending => match bought.purchases.iter().find(|p| p.account_id.as_deref() == Some(id)) {
+        Outcome::Purchased | Outcome::Pending | Outcome::Error => match bought.purchases.iter().find(|p| p.account_id.as_deref() == Some(id)) {
             Some(purchase) => AfterBuy::Verify(purchase.token.clone(), purchase.state == native::PurchaseState::Purchased),
+            // Play failed with no purchase of this one (its sheet refused or never opened): none exists.
+            None if bought.outcome == Outcome::Error => AfterBuy::Forget(PlayState::Error),
             None => AfterBuy::Keep,
         },
         Outcome::Canceled => AfterBuy::Forget(PlayState::Canceled),
         Outcome::Unavailable => AfterBuy::Forget(PlayState::Unavailable),
         Outcome::AlreadyOwned => AfterBuy::Owned,
-        Outcome::Error => AfterBuy::Keep,
     }
 }
 
@@ -561,8 +563,7 @@ async fn within<T: Send + 'static>(
     });
     match tokio::time::timeout(limit, answered).await {
         Ok(Ok(result)) => result,
-        Ok(Err(_)) => Err(native::Error::Failed("Google Play's call ended without an answer".into())),
-        Err(_) => Err(native::Error::Failed("Google Play did not answer in time".into())),
+        Ok(Err(_)) | Err(_) => Err(native::Error::NoAnswer),
     }
 }
 
@@ -655,14 +656,25 @@ async fn claim_email<A: Account>(account: &A, email: String) -> Result<PlayState
     Ok(PlayState::SignIn)
 }
 
+/// A purchase a payment may exist for, not confirmed now: kept, with its state saying so, so the
+/// sheet shows it after a restart too; it is asked about again until the server answers.
+fn keep<A: Account>(account: &A, secret: &str) -> Result<PlayState, CommandError> {
+    account.update(|s| {
+        if let Some(kept) = s.play.iter_mut().find(|c| c.secret == secret) {
+            kept.state = Some(PlayState::Kept);
+        }
+    })?;
+    Ok(PlayState::Kept)
+}
+
 /// After a payment the purchase is never lost to a failure: it is kept and asked about again.
-fn kept_after_payment(asked: Result<Option<PlayState>, CommandError>) -> PlayState {
+fn kept_after_payment<A: Account>(account: &A, secret: &str, asked: Result<Option<PlayState>, CommandError>) -> Result<PlayState, CommandError> {
     match asked {
-        Ok(Some(state)) => state,
-        Ok(None) => PlayState::Error,
+        Ok(Some(state)) => Ok(state),
+        Ok(None) => Ok(PlayState::Error),
         Err(error) => {
             eprintln!("Koona Pin: a Play purchase is kept, the server could not be asked: {}", error.message);
-            PlayState::Kept
+            keep(account, secret)
         }
     }
 }
@@ -672,15 +684,14 @@ fn kept_after_payment(asked: Result<Option<PlayState>, CommandError>) -> PlaySta
 async fn purchase<A: Account, S: Store>(account: &A, store: &S, interval: PlanInterval) -> Result<PlayState, CommandError> {
     let billing = account.billing();
     let _one = billing.playing.lock().await;
-    if !billing.get().room_for_play() {
-        return Err(too_many());
-    }
     let checkout = started(interval, billing.get().session.map(|s| s.email), Utc::now());
     let secret = checkout.secret.clone();
     let id = account_id(&secret);
-    account.update(|s| {
-        s.add_play(checkout.clone());
-    })?;
+    let mut added = false;
+    account.update(|s| added = s.add_play(checkout.clone()))?;
+    if !added {
+        return Err(too_many());
+    }
     let bought = match store.buy(checkout.product.clone(), checkout.base_plan.clone(), id.clone()).await {
         Ok(bought) => bought,
         // Nothing can be bought here: forgotten.
@@ -688,10 +699,16 @@ async fn purchase<A: Account, S: Store>(account: &A, store: &S, interval: PlanIn
             account.update(|s| s.finish_play(&secret, PlayState::Unavailable))?;
             return Ok(PlayState::Unavailable);
         }
-        // No answer, or one that did not read: kept, and found by its account id on the way back.
+        // No answer from Play's sheet: a payment may exist, kept and found by its account id later.
+        Err(native::Error::NoAnswer) => {
+            eprintln!("Koona Pin: Play's sheet gave no answer, the purchase is kept");
+            return keep(account, &secret);
+        }
+        // Play or the plugin failed before any purchase: none exists.
         Err(error) => {
-            eprintln!("Koona Pin: Play's sheet gave no answer, the purchase is kept: {error}");
-            return Ok(PlayState::Kept);
+            eprintln!("Koona Pin: Play's sheet did not open: {error}");
+            account.update(|s| s.finish_play(&secret, PlayState::Error))?;
+            return Ok(PlayState::Error);
         }
     };
     match after_buy(&bought, &id) {
@@ -699,13 +716,13 @@ async fn purchase<A: Account, S: Store>(account: &A, store: &S, interval: PlanIn
             account.update(|s| {
                 s.find_play([(token.as_str(), Some(id.as_str()), paid)], Utc::now());
             })?;
-            Ok(kept_after_payment(verify(account, &secret).await))
+            kept_after_payment(account, &secret, verify(account, &secret).await)
         }
         AfterBuy::Forget(state) => {
             account.update(|s| s.finish_play(&secret, state))?;
             Ok(state)
         }
-        AfterBuy::Keep => Ok(PlayState::Kept),
+        AfterBuy::Keep => keep(account, &secret),
         AfterBuy::Owned => {
             // Nothing was bought now. A purchase made here before is verified again, and followed.
             let mut found = Vec::new();
@@ -717,7 +734,7 @@ async fn purchase<A: Account, S: Store>(account: &A, store: &S, interval: PlanIn
                 }
             })?;
             if let Some(earlier) = found.last() {
-                return Ok(kept_after_payment(verify(account, earlier).await));
+                return kept_after_payment(account, earlier, verify(account, earlier).await);
             }
             // Signed in: the account's own plan, asked now, may be what this Google account owns.
             if billing.get().session.is_some() {
@@ -783,15 +800,18 @@ async fn resume<A: Account, S: Store>(account: &A, store: &S, reported: Option<V
 }
 
 /// «Try again» after a purchase was kept: the purchases here asked about again now, without
-/// Play's sheet. The state of the purchase followed; `kept` while one is still unconfirmed.
+/// Play's sheet. The state of the purchase followed; `kept` while one the server may be asked about
+/// with this session is still unconfirmed (another account's is not this one's to wait for).
 #[cfg(any(test, play))]
 async fn retry<A: Account, S: Store>(account: &A, store: &S) -> Result<PlayState, CommandError> {
     let asked = resume(account, store, None, true).await;
     let stored = account.billing().get();
+    let signed_in = stored.session.as_ref().map(|s| s.email.clone());
+    let unconfirmed = stored.play.iter().any(|c| c.token.is_some() && ask_for(c, signed_in.as_deref()) != Ask::Skip);
     match (stored.play_progress(), asked) {
         (Some(progress), _) => Ok(progress.state),
         (None, Err(error)) => Err(error),
-        (None, Ok(())) if stored.play.iter().any(|c| c.token.is_some()) => Ok(PlayState::Kept),
+        (None, Ok(())) if unconfirmed => Ok(PlayState::Kept),
         (None, Ok(())) => Ok(PlayState::Error),
     }
 }
@@ -1025,7 +1045,12 @@ mod tests {
         let unset = verdict_of(404, json!({ "error": "play" })).unwrap();
         assert_eq!(stored.take_play_answer("s1", unset, None, &key, now), Some(PlayState::Kept));
         assert_eq!(stored.play.len(), 1);
-        assert_eq!(stored.play_progress().map(|p| p.state), Some(PlayState::Owned));
+        assert_eq!(stored.play_progress().map(|p| p.state), Some(PlayState::Kept), "the sheet says so, after a restart too");
+        // A slow payment the server cannot verify now stays pending: nothing was paid yet.
+        let mut slow = Stored::default();
+        slow.add_play(PlayCheckout { token: Some("t".into()), state: Some(PlayState::Pending), ..checkout("slow", "2026-10-20T12:00:00Z") });
+        slow.take_play_answer("slow", verdict_of(404, json!({ "error": "play" })).unwrap(), None, &key, now);
+        assert_eq!(slow.play[0].state, Some(PlayState::Pending));
         for done in ["invalid", "other_account", "suspended"] {
             let mut finished = stored.clone();
             assert_eq!(finished.take_play_answer("s1", state(done), None, &key, now), Some(state(done).state));
@@ -1189,7 +1214,11 @@ mod tests {
         assert_eq!(after_buy(&bought(Outcome::Canceled, vec![]), &id), AfterBuy::Forget(PlayState::Canceled));
         assert_eq!(after_buy(&bought(Outcome::Unavailable, vec![]), &id), AfterBuy::Forget(PlayState::Unavailable));
         assert_eq!(after_buy(&bought(Outcome::AlreadyOwned, vec![]), &id), AfterBuy::Owned);
-        assert_eq!(after_buy(&bought(Outcome::Error, vec![]), &id), AfterBuy::Keep);
+        // Play failed with no purchase of this one (its sheet refused or never opened): none exists.
+        assert_eq!(after_buy(&bought(Outcome::Error, vec![]), &id), AfterBuy::Forget(PlayState::Error));
+        assert_eq!(after_buy(&bought(Outcome::Error, vec![purchase("t9", Some("someone"), PurchaseState::Purchased)]), &id), AfterBuy::Forget(PlayState::Error));
+        // Failed, but with this purchase reported: the server is asked.
+        assert_eq!(after_buy(&bought(Outcome::Error, vec![purchase("t1", Some(&id), PurchaseState::Purchased)]), &id), AfterBuy::Verify("t1".into(), true));
         assert_eq!(owned_elsewhere(Some(PlanStore::Play), false), PlayState::Paid, "the plan of the account signed in, paid through Google Play");
         assert_eq!(owned_elsewhere(Some(PlanStore::Paddle), false), PlayState::Owned, "a Paddle plan says nothing of this Google purchase");
         assert_eq!(owned_elsewhere(None, false), PlayState::Owned);
@@ -1298,7 +1327,7 @@ mod tests {
             let quick = within(std::time::Duration::from_secs(5), async { Ok::<_, native::Error>(7) }).await;
             assert_eq!(quick, Ok(7));
             let hung = within(std::time::Duration::from_millis(50), std::future::pending::<Result<u8, native::Error>>()).await;
-            assert!(matches!(hung, Err(native::Error::Failed(ref message)) if message.contains("in time")), "{hung:?}");
+            assert_eq!(hung, Err(native::Error::NoAnswer), "no answer in time is not a failure Play said");
             let refused = within(std::time::Duration::from_secs(5), async { Err::<u8, _>(native::Error::Unavailable("no Play".into())) }).await;
             assert_eq!(refused, Err(native::Error::Unavailable("no Play".into())));
         });
@@ -1311,7 +1340,6 @@ mod tests {
         for i in 0..MAX_KEPT {
             assert!(full.add_play(paid(i)));
         }
-        assert!(!full.room_for_play(), "every one paid: no room");
         assert!(!full.add_play(checkout("new", "2026-10-20T13:00:00Z")), "refused, nothing dropped");
         assert_eq!(full.play.len(), MAX_KEPT);
         assert!(full.play.iter().all(|c| c.secret.starts_with("paid")));
@@ -1523,9 +1551,18 @@ mod tests {
         let other = Fake::new(|_, _| Ok((200, json!({ "status": "email" }))));
         other.buys(|_| Ok(bought(native::Outcome::Purchased, "t9", "someone else")));
         assert_eq!(run(purchase(&other, &other, PlanInterval::Month)).ok(), Some(PlayState::Kept));
-        other.buys(|_| Err(native::Error::Failed("Google Play did not answer in time".into())));
+        other.buys(|_| Err(native::Error::NoAnswer));
         assert_eq!(run(purchase(&other, &other, PlanInterval::Month)).ok(), Some(PlayState::Kept));
         assert_eq!(other.billing.get().play.len(), 2, "both kept");
+        assert!(other.billing.get().play.iter().all(|c| c.state == Some(PlayState::Kept)), "stored as kept, for the sheet after a restart");
+        // Play's sheet refused or never opened (the plugin failed, Play's error with no purchase):
+        // no payment exists, so it is an error and nothing is kept.
+        let refused = Fake::new(|_, _| unreachable!("nothing to ask"));
+        refused.buys(|_| Err(native::Error::Failed("the purchase did not start".into())));
+        assert_eq!(run(purchase(&refused, &refused, PlanInterval::Month)).ok(), Some(PlayState::Error));
+        refused.buys(|_| Ok(native::Bought { outcome: native::Outcome::Error, purchases: vec![] }));
+        assert_eq!(run(purchase(&refused, &refused, PlanInterval::Month)).ok(), Some(PlayState::Error));
+        assert!(refused.billing.get().play.is_empty());
         // Before any payment, Play that cannot sell here is unavailable and nothing is kept.
         let none = Fake::new(|_, _| unreachable!("nothing to ask"));
         none.buys(|_| Err(native::Error::Unavailable("no Play".into())));
@@ -1623,5 +1660,38 @@ mod tests {
         let refused = run(purchase(&fake, &fake, PlanInterval::Month)).unwrap_err();
         assert_eq!(refused.detail, Some(ErrorDetail::PurchasesWaiting));
         assert_eq!(fake.billing.get().play.len(), MAX_KEPT);
+    }
+
+    #[test]
+    fn try_again_waits_only_for_purchases_this_session_may_ask_about() {
+        let fake = Fake::new(|_, _| unreachable!("another account's purchase is never asked about"));
+        fake.set(|s| {
+            s.session = Some(bob());
+            s.play.push(PlayCheckout { token: Some("t1".into()), account: Some("anna@example.com".into()), ..checkout("anna's", "2026-10-20T12:00:00Z") });
+        });
+        *fake.owned.lock().unwrap() = Ok(vec![play_purchase("t1", &account_id("anna's"))]);
+        assert_eq!(run(retry(&fake, &fake)).ok(), Some(PlayState::Error), "Anna's purchase is not Bob's to wait for");
+        assert!(fake.asked("play_verify").is_empty());
+        // Signed out, it is asked where it stands; the server not verifying Play purchases: kept.
+        fake.set(|s| s.session = None);
+        fake.answers(|_, _| Ok((404, json!({ "error": "play" }))));
+        assert_eq!(run(retry(&fake, &fake)).ok(), Some(PlayState::Kept));
+    }
+
+    #[test]
+    fn a_kept_purchase_shows_after_a_restart_and_finishes_when_asked_again() {
+        let fake = Fake::new(|_, _| Err(offline()));
+        fake.buys(|id| Ok(bought(native::Outcome::Purchased, "t1", id)));
+        assert_eq!(run(purchase(&fake, &fake, PlanInterval::Year)).ok(), Some(PlayState::Kept));
+        // The app starts again: nothing followed, the kept purchase is what the sheet resumes on.
+        let restarted = Billing::load(fake.folder.join("account.json")).get();
+        assert_eq!(restarted.play_progress(), Some(PlayProgress { state: PlayState::Kept, email: None }));
+        // Asked again on the way back, it finishes as the server says.
+        fake.answers(|_, _| Ok((200, json!({ "status": "email" }))));
+        run(resume(&fake, &fake, Some(Vec::new()), true)).unwrap();
+        assert_eq!(fake.billing.get().play_progress().map(|p| p.state), Some(PlayState::Email));
+        fake.answers(|_, _| Ok((200, json!({ "status": "invalid" }))));
+        run(resume(&fake, &fake, Some(Vec::new()), true)).unwrap();
+        assert!(fake.billing.get().play.is_empty());
     }
 }

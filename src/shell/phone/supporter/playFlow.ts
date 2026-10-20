@@ -73,6 +73,12 @@ export function resumedStep(play: PlayProgress | null | undefined): PlayStep {
   return waiting ? playStep(play.state).step : "plans";
 }
 
+/**
+ * The line the plans open with: a purchase kept after a payment (not confirmed yet, kept over
+ * restarts) says so, with Try again asking the server; nothing else does.
+ */
+export const resumedFailure = (play: PlayProgress | null | undefined): PlayFailure | null => (play?.state === "kept" ? "kept" : null);
+
 const PLAY_PLANS: readonly PlanInterval[] = ["year", "month", "five_years"];
 
 /** The plans the sheet shows: all three while Play's prices are on their way, then those Play sells. */
@@ -125,7 +131,10 @@ export function usePlayPurchase(supporter: SupporterStatus | null) {
   const { t } = useTranslation();
   const play = supporter?.play ?? null;
   const [step, setStep] = useState<PlayStep>(() => resumedStep(play));
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => {
+    const failure = resumedFailure(play);
+    return failure ? failureLine(failure, t) : null;
+  });
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState(play?.email ?? "");
   const [code, setCode] = useState("");
@@ -172,7 +181,7 @@ export function usePlayPurchase(supporter: SupporterStatus | null) {
    * The server could not be asked about a purchase that may be paid: it is kept, asked about again
    * when the app comes back, and «Try again» asks the server now, never Play's sheet again.
    */
-  const [kept, setKept] = useState(false);
+  const [kept, setKept] = useState(() => resumedFailure(play) === "kept");
   const unreachable = () => {
     setStep("plans");
     setError(t("phone.supporter.play.unreachable"));
