@@ -2069,7 +2069,9 @@
         "otherText": "这个 Google 账号的购买属于另一个 Koona Pin 账号。请用那个账号的邮箱登录，才能在这里使用。",
         "ownerTitle": "登录后使用",
         "ownerText": "这个 Google 账号的 Supporter 属于一个 Koona Pin 账号。请用那个账号的邮箱登录，才能在这里使用。",
-        "suspended": "你的 Supporter 订阅在 Google Play 中处于保留或暂停状态。请在 Google Play 中修正付款或恢复订阅，无需再次购买。",
+        "suspendedTitle": "Supporter 已暂停",
+        "suspendedText": "Google Play 未能收取上一笔付款。在 Google Play 中修复后，Supporter 会自动恢复。",
+        "suspendedTerms": "付款成功后方案即会续订。可随时在 Google Play 中取消。",
         "kept": "Koona Pin 暂时无法通过 Google Play 确认你的购买。如果你已付款，购买会被保留，并在你回到应用时再次确认，无需再次购买。"
       },
       "managed": "你的方案在开通它的地方管理。",

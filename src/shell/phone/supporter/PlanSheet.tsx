@@ -62,12 +62,14 @@ function PlanBody({ supporter }: { supporter: NonNullable<ReturnType<typeof useP
   // plan's lines say what is so without sending anyone to pay. A plan paid through Google Play
   // (NP-154) is managed on Google Play's page, in any build: the plan's own lines name it.
   const portal = planLink(action) === "portal";
+  // A failed renewal says until when the plan runs, in every build that does not sell through
+  // Paddle; the button beside it says where it is fixed (P10).
   const shownStatus =
-    sells || supporter.check_failed || plan.store === "play"
+    supporter.check_failed || (sells && plan.store !== "play")
       ? status
       : plan.status === "past_due"
         ? t("phone.supporter.pastDue", { date: longDate(plan.valid_until, i18n.language) })
-        : plan.interval === "five_years" && plan.also_renews
+        : plan.interval === "five_years" && plan.also_renews && plan.store !== "play"
           ? t("phone.supporter.alsoRenews")
           : status;
   const name = t(plan.interval === "five_years" ? "plan.fiveYears" : plan.interval === "month" ? "plan.monthly" : "plan.yearly");
@@ -75,10 +77,6 @@ function PlanBody({ supporter }: { supporter: NonNullable<ReturnType<typeof useP
     action === "retry" ? (
       <Button kind="primary" disabled={busy} onClick={() => act(action)}>
         {t("common.retry")}
-      </Button>
-    ) : action === "fixInPlay" ? (
-      <Button kind="primary" icon={ExternalLink} disabled={busy} onClick={() => act(action)}>
-        {t("plan.fixInPlay")}
       </Button>
     ) : action === "manageInPlay" ? (
       <Button kind="clear" icon={ExternalLink} disabled={busy} onClick={() => act(action)}>
@@ -99,6 +97,17 @@ function PlanBody({ supporter }: { supporter: NonNullable<ReturnType<typeof useP
       title={t("phone.you.supporter")}
       className="sp-sheet"
       footer={
+        action === "fixInPlay" ? (
+          // P10: the payment to fix is the one action, across the sheet; Sign out under it.
+          <div className="sp-footer">
+            <Button kind="primary" block icon={ExternalLink} disabled={busy} onClick={() => act(action)}>
+              {t("plan.fixInPlay")}
+            </Button>
+            <Button kind="ghost" compact disabled={busy} className="sp-sign-out sp-sign-out-under" onClick={signOut}>
+              {t("plan.signOut")}
+            </Button>
+          </div>
+        ) : (
         <div className="sp-footer">
           {!sells && portal && <p className="sp-hint sp-managed">{t("phone.supporter.managed")}</p>}
           {offerSwitch && action === "manage" && (
@@ -113,6 +122,7 @@ function PlanBody({ supporter }: { supporter: NonNullable<ReturnType<typeof useP
             {main}
           </div>
         </div>
+        )
       }
     >
       <div className="ys-card ys-supporter" data-plan-sheet={supporter.check_failed ? "unchecked" : plan.status}>

@@ -2201,7 +2201,9 @@
         "otherText": "Bu Google hesabının satın alması başka bir Koona Pin hesabına ait. Burada kullanmak için o hesabın e-postasıyla oturum açın.",
         "ownerTitle": "Kullanmak için oturum açın",
         "ownerText": "Bu Google hesabının Supporter’ı bir Koona Pin hesabına ait. Burada kullanmak için o hesabın e-postasıyla oturum açın.",
-        "suspended": "Supporter aboneliğiniz Google Play’de beklemede veya duraklatılmış. Ödemeyi orada düzeltin ya da aboneliği sürdürün; yeniden satın almanız gerekmez.",
+        "suspendedTitle": "Supporter beklemede",
+        "suspendedText": "Google Play son ödemeyi alamadı. Orada düzeltin, Supporter kendiliğinden geri gelir.",
+        "suspendedTerms": "Ödeme gerçekleştiğinde planınız yenilenir. İstediğiniz zaman Google Play’den iptal edin.",
         "kept": "Koona Pin satın alma işleminizi henüz Google Play ile doğrulayamadı. Ödeme yaptıysanız satın alma saklanır ve uygulamaya döndüğünüzde yeniden denetlenir; yeniden satın almanız gerekmez."
       },
       "managed": "Planınız, başlattığınız yerden yönetilir.",

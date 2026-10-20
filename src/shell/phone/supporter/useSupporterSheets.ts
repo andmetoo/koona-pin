@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { capabilities } from "../../../platform/capabilities";
 import { usePhone } from "../PhoneContext";
 
 /** The app's surfaces the phone shows as sheets of its own, not as the desktop's dialogs. */
@@ -22,7 +23,10 @@ export function useSupporterSheets() {
     if (!isSheetSurface(surface)) return;
     setSurface(null);
     if ((surface === "plan" && !hasPlan) || sheets.isOpen(surface)) return;
-    if (opened.current !== null) sheets.close(opened.current);
+    // The Play build's sheets (NP-154, P1–P10) are one sheet over the library: "You & sync" under
+    // them goes, so nothing is dimmed twice.
+    if (capabilities.purchase === "play") sheets.closeAll();
+    else if (opened.current !== null) sheets.close(opened.current);
     opened.current = sheets.open({ kind: surface, props: {} });
   }, [surface, setSurface, sheets, hasPlan]);
 }

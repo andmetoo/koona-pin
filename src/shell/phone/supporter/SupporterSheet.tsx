@@ -8,7 +8,7 @@ import { usePhone } from "../PhoneContext";
 import { Button } from "../ui/buttons";
 import { Sheet, useCloseSheet } from "../ui/Sheet";
 import { Shelf, ShelfRow } from "../ui/Shelf";
-import { CodeForm, Note, SeasonHeart } from "./parts";
+import { AccountWell, CodeForm, Note, Notice, SeasonHeart } from "./parts";
 import { playBadge, playPlans, playPriceLine, playUnavailable, usePlayPurchase } from "./playFlow";
 
 export type SupporterSheetProps = Record<string, never>;
@@ -49,7 +49,7 @@ function PerksSheet() {
  * The hero card, the perks on a phone and what stays free. The purchase leaves the hero out: the
  * plans need the room.
  */
-function Perks({ hero = true }: { hero?: boolean }) {
+function Perks({ hero = true, plainFree = false }: { hero?: boolean; plainFree?: boolean }) {
   const { app } = usePhone();
   const { t } = app;
   return (
@@ -71,10 +71,18 @@ function Perks({ hero = true }: { hero?: boolean }) {
           <ShelfRow className="sp-heart-row" icon={Heart} title={t("phone.supporter.perk.badge")} subtitle={t("phone.supporter.perk.badgeHint")} />
         </Shelf>
       </section>
-      <section className="ys-section" data-supporter-free>
-        <h3 className="ys-label">{t("phone.supporter.freeLabel")}</h3>
-        <p className="ys-card sp-free">{t("phone.supporter.freeText")}</p>
-      </section>
+      {plainFree ? (
+        // The Play sheet (P1, P8): a heading and a line, so the plans fit without scrolling.
+        <section className="ys-section sp-free-plain" data-supporter-free>
+          <h3 className="sp-free-title">{t("phone.supporter.freeLabel")}</h3>
+          <p className="sp-free-text">{t("phone.supporter.freeText")}</p>
+        </section>
+      ) : (
+        <section className="ys-section" data-supporter-free>
+          <h3 className="ys-label">{t("phone.supporter.freeLabel")}</h3>
+          <p className="ys-card sp-free">{t("phone.supporter.freeText")}</p>
+        </section>
+      )}
     </>
   );
 }
@@ -227,28 +235,19 @@ function PlaySheet() {
   const signIn = () => setSurface("signIn");
 
   if (step === "email" || step === "code") {
+    // P2, P3: a compact sheet right above the keyboard; its one action under the field. «Use
+    // another email» is the way back, so there is no Back beside «Sign in».
     const onEmail = step === "email";
     const title = t(onEmail ? "phone.supporter.play.emailTitle" : "supporter.codeTitle");
     return (
       <Sheet
         label={title}
         title={title}
-        className="sp-sheet"
+        className="sp-sheet sp-play sp-play-form"
         footer={
-          onEmail ? (
-            <Button kind="primary" block type="submit" form={formId} disabled={busy || !email.trim()}>
-              {t("supporter.sendCode")}
-            </Button>
-          ) : (
-            <div className="sp-actions">
-              <Button kind="clear" onClick={anotherEmail}>
-                {t("supporter.back")}
-              </Button>
-              <Button kind="primary" type="submit" form={formId} disabled={busy || !codeReady}>
-                {t("supporter.signIn")}
-              </Button>
-            </div>
-          )
+          <Button kind="primary" block type="submit" form={formId} disabled={busy || (onEmail ? !email.trim() : !codeReady)}>
+            {t(onEmail ? "supporter.sendCode" : "supporter.signIn")}
+          </Button>
         }
       >
         <CodeForm
@@ -271,11 +270,12 @@ function PlaySheet() {
   }
 
   if (step === "pending")
+    // P4: the code step's layout, the wait on a card with a ring.
     return (
       <Sheet
         label={t("phone.supporter.play.pendingTitle")}
         title={t("phone.supporter.play.pendingTitle")}
-        className="sp-sheet"
+        className="sp-sheet sp-play sp-play-form"
         footer={
           <Button kind="clear" block onClick={close}>
             {t("common.close")}
@@ -293,7 +293,8 @@ function PlaySheet() {
     );
 
   if (step !== "plans" && step !== "suspended") {
-    // How the purchase ended: thanks, a Supporter already (Play refunds it), or an account to sign in to.
+    // P5–P7: how the purchase ended — thanks, a Supporter already (Play refunds it), or an account
+    // to sign in to — on one layout: a round well, the title, the words, the action.
     const ended = {
       paid: { title: t("supporter.thanksTitle"), text: t("phone.supporter.play.thanksText", { email: supporter?.email ?? email.trim() }) },
       alreadySupporter: { title: t("phone.supporter.play.alreadyTitle"), text: t("phone.supporter.play.alreadyText") },
@@ -304,7 +305,7 @@ function PlaySheet() {
     return (
       <Sheet
         label={ended.title}
-        className="sp-sheet"
+        className="sp-sheet sp-play"
         footer={
           toSignIn ? (
             <div className="sp-actions">
@@ -323,7 +324,7 @@ function PlaySheet() {
         }
       >
         <div className="sp-done" data-play-step={step}>
-          {!toSignIn && <SeasonHeart size={64} />}
+          {toSignIn ? <AccountWell /> : <SeasonHeart size={72} />}
           <h2 className="ph-title2">{ended.title}</h2>
           <p className="sp-text">{ended.text}</p>
         </div>
@@ -331,53 +332,75 @@ function PlaySheet() {
     );
   }
 
+  if (suspended)
+    // P8: the account's subscription is on hold or paused. Its payment is fixed in Google Play,
+    // where Google sends such a subscriber; nothing to buy and nobody else to sign in as.
+    return (
+      <Sheet label={t("phone.supporter.title")} title={t("phone.supporter.title")} className="sp-sheet sp-play">
+        <div data-play-step="suspended">
+          <Notice tone="danger" title={t("phone.supporter.play.suspendedTitle")}>
+            {t("phone.supporter.play.suspendedText")}
+          </Notice>
+          <Button kind="primary" block icon={ExternalLink} className="sp-fix" disabled={busy} onClick={() => void fixPayment()}>
+            {t("plan.fixInPlay")}
+          </Button>
+          {error && (
+            <Notice tone="danger" live="alert">
+              {error}
+            </Notice>
+          )}
+        </div>
+        <Perks hero={false} plainFree />
+        <p className="sp-hint sp-terms">{t("phone.supporter.play.suspendedTerms")}</p>
+      </Sheet>
+    );
+
+  // P1: everything on one screen — «I'm already a Supporter» first, the perks, what stays free, the
+  // plans on one shelf and what renews. A failure is a notice in the plans' place or under them.
   return (
-    <Sheet label={t("phone.supporter.title")} title={t("phone.supporter.title")} className="sp-sheet">
-      <Button kind="clear" block className="sp-already" onClick={signIn}>
+    <Sheet label={t("phone.supporter.title")} title={t("phone.supporter.title")} className="sp-sheet sp-play">
+      <Button kind="clear" compact block className="sp-already" onClick={signIn}>
         {t("plan.already")}
       </Button>
-      <Perks hero={false} />
-      <section className="ys-section">
+      <Perks hero={false} plainFree />
+      <section className="ys-section sp-plan-section">
         <h3 className="ys-label">{t("phone.supporter.planLabel")}</h3>
-        {suspended ? (
-          // The account's subscription is on hold or paused: its payment is fixed in Google Play,
-          // where Google sends such a subscriber, never bought again.
-          <div className="sp-play-failure" data-play-step="suspended">
-            <Note tone="amber">{t("phone.supporter.play.suspended")}</Note>
-            <Button kind="primary" icon={ExternalLink} disabled={busy} onClick={() => void fixPayment()}>
-              {t("plan.fixInPlay")}
-            </Button>
-            {error && <Note tone="danger">{error}</Note>}
-          </div>
-        ) : playUnavailable(offer) ? (
-          <Note tone="amber">{t("phone.supporter.play.notAvailable")}</Note>
+        {playUnavailable(offer) ? (
+          <Notice tone="amber" live="status">
+            {t("phone.supporter.play.notAvailable")}
+          </Notice>
         ) : offerFailed && !offer ? (
-          <div className="sp-play-failure">
-            <Note tone="danger">{t("phone.supporter.play.offerFailed")}</Note>
-            <Button kind="ghost" compact className="sp-open-again" onClick={askOffer}>
-              {t("common.retry")}
-            </Button>
-          </div>
+          <Notice
+            tone="danger"
+            live="alert"
+            action={
+              <Button kind="ghost" compact className="sp-notice-action" onClick={askOffer}>
+                {t("common.retry")}
+              </Button>
+            }
+          >
+            {t("phone.supporter.play.offerFailed")}
+          </Notice>
         ) : (
           <>
-            <ul aria-label={t("supporter.plan")} aria-busy={!offer || undefined} className="sp-plans sp-play-plans">
+            <ul aria-label={t("supporter.plan")} aria-busy={!offer || undefined} className="sp-play-plans">
               {playPlans(offer).map((value) => {
                 const price = offer?.[value];
                 const badge = playBadge(value, offer, t);
                 const name = planName(value, t);
                 const action = t(value === "five_years" ? "phone.supporter.play.buy" : "phone.supporter.play.subscribe");
                 return (
-                  <li key={value} className="sp-plan" data-play-plan={value}>
-                    <span className="sp-plan-text">
-                      <span className="sp-plan-name">
+                  <li key={value} className="sp-play-plan" data-play-plan={value}>
+                    <span className="sp-play-plan-text">
+                      <span className="sp-play-plan-name">
                         {name}
                         {badge && <span className="sp-plan-badge">{badge}</span>}
                       </span>
-                      <span className="sp-plan-price">{price ? playPriceLine(value, price, t) : <span className="sp-pending" aria-hidden="true" />}</span>
+                      <span className="sp-play-plan-price">{price ? playPriceLine(value, price, t) : <span className="sp-pending" aria-hidden="true" />}</span>
                     </span>
                     <Button
                       kind="soft"
-                      compact
+                      className="sp-buy"
                       disabled={busy || !price}
                       aria-label={t("phone.supporter.play.buyLabel", { action, plan: name })}
                       onClick={() => void buy(value)}
@@ -389,22 +412,29 @@ function PlaySheet() {
               })}
             </ul>
             {error ? (
-              <div className="sp-play-failure">
-                <Note tone="danger">{error}</Note>
-                {(last || kept) && (
-                  <Button kind="ghost" compact className="sp-open-again" disabled={busy} onClick={() => void retry()}>
-                    {t("common.retry")}
-                  </Button>
-                )}
-              </div>
+              <Notice
+                tone={kept ? "amber" : "danger"}
+                live="alert"
+                action={
+                  (last || kept) && (
+                    <Button kind="ghost" compact className="sp-notice-action" disabled={busy} onClick={() => void retry()}>
+                      {t("common.retry")}
+                    </Button>
+                  )
+                }
+              >
+                {error}
+              </Notice>
             ) : (
               supporter?.plan_unknown &&
               supporter.email && (
                 // Signed in, but the plan could not be checked: a Supporter must not buy it twice.
-                <Note tone="amber">{t("supporter.planUnknownNotice", { email: supporter.email })}</Note>
+                <Notice tone="amber" live="status">
+                  {t("supporter.planUnknownNotice", { email: supporter.email })}
+                </Notice>
               )
             )}
-            <div data-play-terms>
+            <div className="sp-terms" data-play-terms>
               <p className="sp-hint">{t("phone.supporter.play.renews")}</p>
               {offer?.five_years && <p className="sp-hint">{t("phone.supporter.play.once")}</p>}
             </div>
@@ -414,4 +444,3 @@ function PlaySheet() {
     </Sheet>
   );
 }
-

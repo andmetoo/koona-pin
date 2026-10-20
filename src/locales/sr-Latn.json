@@ -2347,7 +2347,9 @@
         "otherText": "Kupovina ovog Google naloga pripada drugom Koona Pin nalogu. Prijavite se e-poštom tog naloga da biste je koristili ovde.",
         "ownerTitle": "Prijavite se da biste ga koristili",
         "ownerText": "Supporter ovog Google naloga pripada Koona Pin nalogu. Prijavite se e-poštom tog naloga da biste ga koristili ovde.",
-        "suspended": "Vaša Supporter pretplata je na čekanju ili pauzirana u Google Play-u. Ispravite plaćanje ili je nastavite tamo — ne morate ponovo da je kupujete.",
+        "suspendedTitle": "Supporter je na čekanju",
+        "suspendedText": "Google Play nije uspeo da naplati poslednju uplatu. Ispravite je tamo i Supporter se vraća sam.",
+        "suspendedTerms": "Plan se obnavlja čim plaćanje prođe. Otkažite kad god želite u Google Play-u.",
         "kept": "Koona Pin još nije mogao da potvrdi vašu kupovinu u Google Play-u. Ako ste platili, kupovina je sačuvana i biće ponovo proverena kada se vratite u aplikaciju — ne morate ponovo da je kupujete."
       },
       "managed": "Planom se upravlja tamo gde ste ga započeli.",

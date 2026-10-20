@@ -34,6 +34,9 @@
   --ph-ink-button: #24251f;
   --ph-on-ink-button: #fbfaf6;
   --ph-danger: #af3838;
+  /* A notice's well: danger and amber at a whisper (the Play sheet's P8). */
+  --ph-danger-soft: #f6e3e1;
+  --ph-amber-soft: color-mix(in srgb, var(--ph-amber) 16%, var(--ph-paper));
   --ph-scrim: rgb(46 48 43 / 0.24);
   /* The Supporter heart: the season's colour of app.css (`data-season`, light and dark). */
   --ph-season: var(--np-season);
@@ -111,6 +114,8 @@
   --ph-ink-button: #ecebe6;
   --ph-on-ink-button: #161615;
   --ph-danger: #e99797;
+  --ph-danger-soft: rgb(233 151 151 / 0.16);
+  --ph-amber-soft: color-mix(in srgb, var(--ph-amber) 22%, transparent);
   --ph-scrim: rgb(0 0 0 / 0.55);
   /* Cards add a 1 px top highlight instead of a visible shadow. */
   --ph-e1: inset 0 1px 0 rgb(255 255 255 / 0.05);

@@ -180,37 +180,228 @@
   vertical-align: middle;
 }
 
-/* The Play build's plans (NP-154): the same tiles, each with its own soft button on the right; the
-   badge beside the plan's name. With large text the button goes under the words. */
-.phone .sp-already {
-  margin-bottom: 4px;
+/* The Play build's sheets (NP-154, frames P1–P10 of mobile.sketch). One sheet over the library;
+   the plans sheet fits a phone without scrolling: a compact "I'm already a Supporter", what stays
+   free as a heading and a line, the plans on one shelf. */
+.phone .sp-play .ph-sheet-head {
+  padding-top: 0;
 }
+.phone .sp-play .ph-sheet-body {
+  padding-bottom: 8px;
+}
+/* The frames' running text sits 4 in from the cards, and their clear buttons are Medium. */
+.phone .sp-play .sp-text {
+  padding: 0 4px;
+}
+.phone .sp-play .ph-button[data-kind="clear"] {
+  font-weight: 500;
+}
+/* A section's label takes its own line, with no line box around it. */
+.phone .sp-play .ys-section {
+  display: flex;
+  flex-direction: column;
+}
+.phone .sp-play .sp-already + .ys-section {
+  margin-top: 16px;
+}
+/* The kit's sheet keeps clear of the gesture bar, the frames do not: the rows give back the
+   difference so the plans sheet still fits a phone (P1). */
+.phone .sp-play .sp-shelf .ph-shelf-row {
+  min-height: 56px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.phone .sp-play .sp-shelf .ph-shelf-text .ph-meta {
+  margin-top: 2px;
+}
+.phone .sp-free-plain {
+  margin-top: 16px;
+  padding: 0 4px;
+}
+.phone .sp-free-title {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--ph-ink);
+}
+.phone .sp-free-text {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ph-meta);
+}
+.phone .sp-plan-section {
+  margin-top: 24px;
+}
+
+/* The plans: one shelf, a row each with its name, badge and price, and a soft button of one width
+   (112) on the right. With large text the button goes under the words. */
 .phone .sp-play-plans {
   margin: 0;
   padding: 0;
   list-style: none;
+  border-radius: var(--ph-r-shelf);
+  background: var(--ph-paper);
+  box-shadow:
+    inset 0 0 0 1px var(--ph-hairline),
+    var(--ph-e1);
+  overflow: hidden;
 }
-.phone .sp-play-plans .sp-plan {
+.phone .sp-play-plan {
+  position: relative;
+  display: flex;
   flex-wrap: wrap;
-  row-gap: 8px;
+  align-items: center;
+  gap: 8px 12px;
+  min-height: 60px;
+  padding: 10px 12px 8px 16px;
 }
-.phone .sp-play-plans .sp-plan-text {
+.phone .sp-play-plan + .sp-play-plan::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  height: 1px;
+  background: var(--ph-line);
+}
+.phone .sp-play-plan-text {
+  display: flex;
   flex: 1 1 150px;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
 }
-.phone .sp-play-plans .sp-plan-name {
+.phone .sp-play-plan-name {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 2px 8px;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+  color: var(--ph-ink);
 }
-.phone .sp-play-plans .ph-button {
+.phone .sp-play-plan-price {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ph-meta);
+  font-variant-numeric: tabular-nums;
+}
+.phone .sp-play-plans .sp-plan-badge {
+  padding: 3px 10px;
+}
+.phone .ph-button.sp-buy {
   flex: none;
+  width: 112px;
+  min-height: 40px;
   margin-left: auto;
+  padding: 0 12px;
+  font-weight: 600;
 }
-.phone .sp-play-failure {
+.phone .sp-terms {
+  margin-top: 8px;
+}
+.phone .sp-terms .sp-hint,
+.phone .sp-hint.sp-terms {
+  margin: 0 4px;
+}
+.phone .sp-terms .sp-hint + .sp-hint {
+  margin-top: 6px;
+}
+.phone .sp-hint.sp-terms {
+  margin-top: 20px;
+}
+
+/* A notice on paper (P8): a 40 well with the alert glyph, the title, the words, an action. Red for
+   what went wrong, amber for what waits. */
+.phone .sp-notice {
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 14px 16px;
 }
+.phone .sp-plan-section .ys-label + .sp-notice,
+.phone [data-play-step="suspended"] > .sp-notice:first-child {
+  margin-top: 0;
+}
+.phone .sp-notice-well {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--ph-danger-soft);
+  color: var(--ph-danger);
+}
+.phone .sp-notice[data-tone="amber"] .sp-notice-well {
+  background: var(--ph-amber-soft);
+  color: var(--ph-amber);
+}
+.phone .sp-notice-text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+.phone .sp-notice-title {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--ph-ink);
+}
+.phone .sp-notice-body {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ph-meta);
+}
+.phone .sp-notice-title + .sp-notice-body {
+  margin-top: 0;
+}
+.phone .sp-notice:not(:has(.sp-notice-title)) .sp-notice-body {
+  padding-top: 2px;
+  color: var(--ph-body);
+}
+.phone .ph-button.sp-notice-action {
+  align-self: flex-start;
+  min-height: 36px;
+  margin: 4px 0 -6px -12px;
+  padding: 0 12px;
+  color: var(--ph-accent);
+}
+.phone .ph-button.sp-fix {
+  margin-top: 16px;
+}
+.phone [data-play-step="suspended"] + .ys-section {
+  margin-top: 24px;
+}
+
+/* The email and the code (P2, P3) and the wait (P4): the action 16 under the last line. */
+.phone .sp-play-form .ph-sheet-body {
+  padding-bottom: 8px;
+}
+
+/* An account to sign in to (P7): a person on a neutral well, in the heart's place. */
+.phone .sp-account-well {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--ph-well);
+  color: var(--ph-icon);
+}
+.phone .sp-play .sp-done .sp-heart {
+  margin-bottom: 4px;
+}
+.phone .sp-play .sp-done .sp-text {
+  padding: 0 8px;
+}
+
 
 /* Waiting for the payment. */
 .phone .sp-waiting {
@@ -225,12 +416,13 @@
   line-height: 20px;
   font-weight: 500;
 }
+/* A ring: the track in the well's colour, the arc in the accent (P4). */
 .phone .sp-spinner {
   flex: none;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   border-radius: 999px;
-  border: 2px solid var(--ph-line);
+  border: 2.5px solid var(--ph-well);
   border-top-color: var(--ph-accent);
   animation: ph-turn 1s linear infinite;
 }
@@ -269,6 +461,11 @@
   margin-right: auto;
   color: var(--ph-meta);
 }
+/* Under a primary across the sheet (P10): centred. */
+.phone .sp-sign-out.sp-sign-out-under {
+  align-self: center;
+  margin: 0;
+}
 
 /* Sign-in: the field under its words, the code in wide figures. */
 .phone .sp-form {
@@ -278,26 +475,36 @@
 .phone .sp-field {
   margin-top: 16px;
 }
-.phone .sp-code input {
+/* The code in large figures (P3: 20 Medium). The field's own rule sets its input's size, so this one
+   names the input inside it. */
+.phone .ph-field.sp-code input {
   font-size: 20px;
-  font-weight: 600;
-  letter-spacing: 4px;
+  line-height: 24px;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
+/* «Send again» or its countdown on the left, «Use another email» on the right (P3). */
 .phone .sp-resend {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 4px;
-  margin: 10px 0 0;
+  margin: 12px 0 0;
 }
 .phone .sp-resend .ph-button {
+  min-height: 36px;
+  padding: 0 4px;
   color: var(--ph-accent);
+  font-weight: 600;
+}
+.phone .sp-resend .ph-button:last-child {
+  margin-left: auto;
 }
 .phone .sp-wait {
-  padding: 0 14px;
+  padding: 0 4px;
   font-size: 14px;
-  line-height: 20px;
+  line-height: 18px;
   color: var(--ph-meta);
 }
 

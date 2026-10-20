@@ -2465,7 +2465,9 @@
         "otherText": "Zakup z tego konta Google należy do innego konta Koona Pin. Zaloguj się e-mailem tamtego konta, aby używać go tutaj.",
         "ownerTitle": "Zaloguj się, aby używać",
         "ownerText": "Supporter z tego konta Google należy do konta Koona Pin. Zaloguj się e-mailem tego konta, aby używać go tutaj.",
-        "suspended": "Twoja subskrypcja Supporter jest wstrzymana lub zawieszona w Google Play. Popraw tam płatność lub ją wznów — nie musisz kupować jej ponownie.",
+        "suspendedTitle": "Supporter jest wstrzymany",
+        "suspendedText": "Google Play nie pobrał ostatniej płatności. Popraw ją tam, a Supporter wróci sam.",
+        "suspendedTerms": "Twój plan odnowi się, gdy płatność przejdzie. Anuluj w każdej chwili w Google Play.",
         "kept": "Koona Pin nie zdołał jeszcze potwierdzić zakupu w Google Play. Jeśli zapłacono, zakup jest zachowany i zostanie sprawdzony ponownie po powrocie do aplikacji — nie trzeba kupować ponownie."
       },
       "managed": "Planem zarządza się tam, gdzie został rozpoczęty.",

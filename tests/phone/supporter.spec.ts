@@ -301,6 +301,12 @@ const openPlay = async (page: Page, settings: Record<string, string> = FREE) => 
   await expect(supporter.getByRole("dialog", { name: "Koona Pin Supporter" })).toBeVisible();
   return { you, supporter };
 };
+/** The Play build's sheets are one sheet over the library (P1–P10): You is opened again to reach them. */
+const reopenPlay = async (page: Page) => {
+  const you = await openYou(page);
+  await you.locator('[data-supporter="free"]').click();
+  return sheet(page, "supporter");
+};
 
 /** The links the preview opens (demo `openUrl` is `window.open`). */
 const recordLinks = (page: Page) =>
@@ -313,7 +319,11 @@ const opened = (page: Page) => page.evaluate(() => (window as unknown as { opene
 
 test("the Play build: «I'm already a Supporter» first, Google Play's prices with a button each, what renews and how to cancel", async ({ page }) => {
   const { supporter } = await openPlay(page);
+  await expect(sheet(page, "you")).toHaveCount(0);
+  await expect(page.locator(".ph-scrim")).toHaveCount(1);
   const body = supporter.locator(".ph-sheet-body");
+  // Everything on one screen: nothing to scroll to.
+  expect(await body.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
   await expect(body.locator(":scope > *").first()).toHaveText("I'm already a Supporter");
   const plans = supporter.getByRole("list", { name: "Plan" }).getByRole("listitem");
   await expect(plans).toHaveText([/Yearly.*2 months free.*€20\.00 a year.*Subscribe/, /Monthly.*€2\.00 a month.*Subscribe/, /5 years.*Save 50%.*€50\.00 once.*Buy/]);
@@ -329,10 +339,16 @@ test("the Play build: «I'm already a Supporter» first, Google Play's prices wi
 });
 
 test("the Play build: bought signed out, the email claims it, the code signs in, thanks, and the plan is managed in Google Play", async ({ page }) => {
-  const { you, supporter } = await openPlay(page);
+  const { supporter } = await openPlay(page);
   await supporter.getByRole("button", { name: "Subscribe · Monthly" }).click();
   await expect(supporter.getByRole("dialog", { name: "Where should we send your code?" })).toBeVisible();
   await expect(supporter).toContainText("Google Play has your payment");
+  // P2: the keyboard up (300 dp over the gesture inset), «Send code» stays above it.
+  await page.evaluate(() => document.documentElement.style.setProperty("--kp-inset-bottom", "334px"));
+  await page.waitForTimeout(400);
+  const send = (await supporter.getByRole("button", { name: "Send code" }).boundingBox())!;
+  expect(send.y + send.height).toBeLessThanOrEqual(852 - 334);
+  await page.evaluate(() => document.documentElement.style.removeProperty("--kp-inset-bottom"));
   const email = supporter.getByLabel("Email");
   await expect(email).toBeFocused();
   await email.fill("not an email");
@@ -342,7 +358,7 @@ test("the Play build: bought signed out, the email claims it, the code signs in,
   // Closed on the way, the purchase waits: the sheet opens on its email again.
   expect(await systemBack(page)).toBe(true);
   await expect(sheet(page, "supporter")).toHaveCount(0);
-  await you.locator('[data-supporter="free"]').click();
+  await reopenPlay(page);
   await expect(supporter.getByRole("dialog", { name: "Where should we send your code?" })).toBeVisible();
 
   await supporter.getByLabel("Email").fill("anna@example.com");
@@ -350,6 +366,9 @@ test("the Play build: bought signed out, the email claims it, the code signs in,
   await expect(supporter.getByRole("dialog", { name: "Check your email" })).toBeVisible();
   await expect(supporter).toContainText("We sent a 6-digit code to anna@example.com. Enter it to sign in and finish the purchase.");
   await expect(supporter).toContainText(/Send again in 0:5\d/);
+  // P3: «Use another email» is the way back; «Sign in» is the one action.
+  await expect(supporter.getByRole("button", { name: "Back", exact: true })).toHaveCount(0);
+  await expect(supporter.getByRole("button", { name: "Use another email" })).toBeVisible();
   await supporter.getByLabel("Code").fill("000 000");
   await supporter.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(supporter.getByRole("alert")).toBeVisible();
@@ -360,9 +379,16 @@ test("the Play build: bought signed out, the email claims it, the code signs in,
   await supporter.getByRole("button", { name: "Done" }).click();
   await expect(sheet(page, "supporter")).toHaveCount(0);
 
+  const you = await openYou(page);
   await expect(you.locator('[data-supporter="plan"]')).toContainText(/Thank you · yearly plan, renews/);
   await you.locator('[data-supporter="plan"]').click();
   const plan = sheet(page, "plan");
+  await expect(sheet(page, "you")).toHaveCount(0);
+  // P9: Sign out and Manage in Google Play on one row; the heart's switch beside its words.
+  const manage = (await plan.getByRole("button", { name: "Manage in Google Play" }).boundingBox())!;
+  const signOut = (await plan.getByRole("button", { name: "Sign out" }).boundingBox())!;
+  expect(Math.abs(manage.y - signOut.y)).toBeLessThan(8);
+  expect(manage.height).toBeLessThanOrEqual(52);
   await recordLinks(page);
   await plan.getByRole("button", { name: "Manage in Google Play" }).click();
   expect(await opened(page)).toEqual([PLAY_PAGE]);
@@ -371,13 +397,13 @@ test("the Play build: bought signed out, the email claims it, the code signs in,
 });
 
 test("the Play build: a slow payment waits for Google Play, and the sheet opens on it again", async ({ page }) => {
-  const { you, supporter } = await openPlay(page, { ...FREE, "demo.play": "pending" });
+  const { supporter } = await openPlay(page, { ...FREE, "demo.play": "pending" });
   await supporter.getByRole("button", { name: "Subscribe · Yearly" }).click();
   await expect(supporter.getByRole("dialog", { name: "Payment pending" })).toBeVisible();
   await expect(supporter.getByRole("status")).toHaveText("Waiting for Google Play to confirm the payment…");
   await supporter.getByRole("button", { name: "Close", exact: true }).last().click();
   await expect(sheet(page, "supporter")).toHaveCount(0);
-  await you.locator('[data-supporter="free"]').click();
+  await reopenPlay(page);
   await expect(sheet(page, "supporter").getByRole("dialog", { name: "Payment pending" })).toBeVisible();
 });
 
@@ -390,8 +416,7 @@ test("the Play build: a Supporter buying again is refunded; another account's pu
   await expect(sheet(page, "supporter")).toHaveCount(0);
 
   await page.evaluate(() => localStorage.setItem("koonapin.demo.play", "other_account"));
-  const you = sheet(page, "you");
-  await you.locator('[data-supporter="free"]').click();
+  await reopenPlay(page);
   await sheet(page, "supporter").getByRole("button", { name: "Subscribe · Yearly" }).click();
   const other = sheet(page, "supporter");
   await expect(other.getByRole("dialog", { name: "Bought for another account" })).toBeVisible();
@@ -413,8 +438,13 @@ test("the Play build: signed out, a Supporter this Google account owns asks to s
 test("the Play build: a subscription on hold or paused is fixed in Google Play, never bought again", async ({ page }) => {
   // Play says so of what this Google account owns as the sheet opens: no plans to buy.
   const { supporter } = await openPlay(page, { ...FREE, "demo.playSuspended": "on" });
-  await expect(supporter).toContainText("Your Supporter subscription is on hold or paused in Google Play.");
+  await expect(supporter.locator(".sp-notice")).toHaveText(
+    "Supporter is on holdGoogle Play couldn't take the last payment. Fix it there and Supporter comes back by itself.",
+  );
+  await expect(supporter).toContainText("Your plan renews once the payment goes through. Cancel any time in Google Play.");
   await expect(supporter.getByRole("button", { name: /Subscribe|Buy/ })).toHaveCount(0);
+  await expect(supporter.getByRole("button", { name: "I'm already a Supporter" })).toHaveCount(0);
+  await expect(supporter.getByRole("list", { name: "Plan" })).toHaveCount(0);
   await recordLinks(page);
   await supporter.getByRole("button", { name: "Fix payment in Google Play" }).click();
   expect(await opened(page)).toEqual([PLAY_PAGE]);
@@ -425,7 +455,7 @@ test("the Play build: the server finds the account's own subscription on hold af
   const { supporter } = await openPlay(page, { ...FREE, "demo.play": "suspended" });
   await supporter.getByRole("button", { name: "Subscribe · Monthly" }).click();
   await expect(supporter.getByRole("button", { name: "Fix payment in Google Play" })).toBeVisible();
-  await expect(supporter).toContainText("Fix the payment or resume it there");
+  await expect(supporter).toContainText("Supporter is on hold");
   await expect(supporter.getByRole("button", { name: /Subscribe|Buy/ })).toHaveCount(0);
 });
 
@@ -495,7 +525,14 @@ test("the Play build: a plan paid through Google Play whose renewal failed is fi
   await expect(you.locator('[data-supporter="plan"]')).toContainText("The renewal didn't go through — fix the payment in Google Play");
   await you.locator('[data-supporter="plan"]').click();
   const plan = sheet(page, "plan");
-  await expect(plan.getByRole("status")).toHaveText("The renewal didn't go through — fix the payment in Google Play");
+  await expect(plan.getByRole("status")).toHaveText(/^The last payment didn't go through · Supporter until \w+ \d+, \d{4}$/);
+  // P10: the fix across the sheet on one line, Sign out centred under it.
+  const fix = (await plan.getByRole("button", { name: "Fix payment in Google Play" }).boundingBox())!;
+  const out = (await plan.getByRole("button", { name: "Sign out" }).boundingBox())!;
+  expect(fix.height).toBeLessThanOrEqual(52);
+  expect(fix.width).toBeGreaterThan(330);
+  expect(out.y).toBeGreaterThanOrEqual(fix.y + fix.height);
+  expect(Math.abs(out.x + out.width / 2 - (fix.x + fix.width / 2))).toBeLessThan(2);
   await recordLinks(page);
   await plan.getByRole("button", { name: "Fix payment in Google Play" }).click();
   expect(await opened(page)).toEqual([PLAY_PAGE]);

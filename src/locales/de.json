@@ -2201,7 +2201,9 @@
         "otherText": "Der Kauf dieses Google-Kontos gehört zu einem anderen Koona-Pin-Konto. Melden Sie sich mit dessen E-Mail an, um ihn hier zu nutzen.",
         "ownerTitle": "Zum Nutzen anmelden",
         "ownerText": "Supporter dieses Google-Kontos gehört zu einem Koona-Pin-Konto. Melden Sie sich mit dessen E-Mail an, um ihn hier zu nutzen.",
-        "suspended": "Ihr Supporter-Abo ist in Google Play angehalten oder pausiert. Korrigieren Sie dort die Zahlung oder setzen Sie es fort – ein erneuter Kauf ist nicht nötig.",
+        "suspendedTitle": "Supporter ist pausiert",
+        "suspendedText": "Google Play konnte die letzte Zahlung nicht einziehen. Korrigieren Sie sie dort, dann ist Supporter von selbst wieder da.",
+        "suspendedTerms": "Ihr Plan verlängert sich, sobald die Zahlung durchgeht. Kündigen Sie jederzeit in Google Play.",
         "kept": "Koona Pin konnte Ihren Kauf noch nicht mit Google Play bestätigen. Wenn Sie bezahlt haben, bleibt er erhalten und wird erneut geprüft, sobald Sie zur App zurückkehren – ein erneuter Kauf ist nicht nötig."
       },
       "managed": "Ihr Tarif wird dort verwaltet, wo Sie ihn abgeschlossen haben.",
