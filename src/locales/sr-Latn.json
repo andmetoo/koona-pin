@@ -1354,7 +1354,8 @@
       "not_supporter": "nema Supporter-a sa ovom adresom",
       "wrong_code": "kod nije prošao",
       "signed_out": "odjavljeni ste",
-      "update_needed": "za sinhronizaciju je potrebna novija verzija Koona Pin"
+      "update_needed": "za sinhronizaciju je potrebna novija verzija Koona Pin",
+      "purchases_waiting": "plaćene kupovine u Google Play-u još čekaju ovde"
     },
     "code": {
       "not_found": "Više ne postoji — možda je u međuvremenu obrisano.",
@@ -1386,7 +1387,8 @@
       "not_supporter": "Nema Supporter-a sa ovom adresom. Unesite adresu iz plaćanja.",
       "wrong_code": "Kod nije prošao. Proverite ga ili zatražite novi.",
       "signed_out": "Odjavljeni ste. Otvorite „Podrži“ i izaberite „Već sam Supporter“ da biste se ponovo prijavili.",
-      "update_needed": "Za sinhronizaciju je potrebna novija verzija Koona Pin. Ažurirajte aplikaciju i pokušajte ponovo."
+      "update_needed": "Za sinhronizaciju je potrebna novija verzija Koona Pin. Ažurirajte aplikaciju i pokušajte ponovo.",
+      "purchases_waiting": "Plaćene kupovine u Google Play-u na ovom telefonu još čekaju potvrdu. Prvo ih završite ili sačekajte da ih Google Play refundira pre nego što ponovo kupite."
     }
   },
   "tray": {
@@ -1562,12 +1564,14 @@
     "endsOn": "Ne obnavlja se · Supporter do {{date}}",
     "paidUntil": "Plaćeno jednom · Supporter do {{date}}",
     "alsoRenews": "Pretplata se i dalje obnavlja — otkažite je u „Upravljaj“",
+    "alsoRenewsPlay": "Pretplata se i dalje obnavlja — otkažite je u Google Play-u",
     "upgradeTitle": "Prelazak na 5 godina",
     "upgradeTextYearly": "Platite {{price}} jednom umesto obnavljanja. Godišnji plan traje do {{date}} i posle toga se ne obnavlja; pet godina počinje tog dana.",
     "upgradeTextMonthly": "Platite {{price}} jednom umesto obnavljanja. Mesečni plan traje do {{date}} i posle toga se ne obnavlja; pet godina počinje tog dana.",
     "upgradeHint": "Plaćanje se otvara u pregledaču. Njega i poreze vodi Paddle, naš preprodavac. Supporter će trajati do {{date}}.",
     "fiveYearsNotSold": "Pet godina jednom uplatom trenutno se ne prodaje. Pretplata se nastavlja kao i do sada.",
     "pastDue": "Obnova nije prošla — ažurirajte karticu",
+    "pastDuePlay": "Obnova nije prošla — ispravite plaćanje u Google Play-u",
     "unchecked": "Plan nije proveren — važi do {{date}}",
     "perk": {
       "reading": "Teme za čitanje",
@@ -1598,6 +1602,8 @@
     "monthly": "Supporter · mesečno",
     "fiveYears": "Supporter · 5 godina",
     "switchToFiveYears": "Pređi na 5 godina",
+    "manageInPlay": "Upravljaj u Google Play-u",
+    "fixInPlay": "Ispravi plaćanje u Google Play-u",
     "updateCard": "Ažuriraj karticu",
     "manage": "Upravljaj",
     "signOut": "Odjavi se"
@@ -2316,6 +2322,36 @@
       "perksTitle": "Vaše prednosti",
       "sync": "Sinhronizacija",
       "syncOff": "Isključena",
+      "play": {
+        "subscribe": "Pretplati se",
+        "buy": "Kupi",
+        "buyLabel": "{{action}} · {{plan}}",
+        "renews": "Godišnji i mesečni plan se automatski obnavljaju po svojoj ceni dok ih ne otkažete. Otkažite kad god želite u Google Play-u.",
+        "once": "5 godina se plaća jednom i ne obnavlja se.",
+        "notAvailable": "Google Play trenutno ne može da proda Supporter na ovom telefonu.",
+        "offerFailed": "Cene iz Google Play-a nisu mogle da se preuzmu.",
+        "failed": "Google Play nije uspeo da završi kupovinu.",
+        "invalid": "Ova kupovina nije mogla da se potvrdi u Google Play-u.",
+        "unavailable": "Google Play trenutno ne može da prihvati ovu kupovinu na ovom telefonu.",
+        "unreachable": "Server Koona Pin nije dostupan. Ako ste platili, kupovina je sačuvana i biće ponovo proverena kada se vratite u aplikaciju.",
+        "emailTitle": "Gde da pošaljemo kod?",
+        "emailText": "Google Play je primio uplatu. Unesite e-poštu i poslaćemo šestocifreni kod da je potvrdite — inače je Google Play vraća za 3 dana.",
+        "codeText": "Poslali smo šestocifreni kod na {{email}}. Unesite ga da biste se prijavili i završili kupovinu.",
+        "pendingTitle": "Plaćanje na čekanju",
+        "pending": "Čekamo da Google Play potvrdi plaćanje…",
+        "pendingText": "Neki načini plaćanja traju duže. Koona Pin sam završava kupovinu kada je Google Play potvrdi, čak i ako ovo zatvorite.",
+        "thanksText": "Supporter je aktivan za {{email}}. Na drugim uređajima izaberite „Već sam Supporter“ i prijavite se njom.",
+        "alreadyTitle": "Već imate Supporter",
+        "alreadyText": "Google Play vraća novac za ovu kupovinu. Vaš plan ostaje kakav jeste.",
+        "otherTitle": "Kupljeno za drugi nalog",
+        "otherText": "Kupovina ovog Google naloga pripada drugom Koona Pin nalogu. Prijavite se e-poštom tog naloga da biste je koristili ovde.",
+        "ownerTitle": "Prijavite se da biste ga koristili",
+        "ownerText": "Supporter ovog Google naloga pripada Koona Pin nalogu. Prijavite se e-poštom tog naloga da biste ga koristili ovde.",
+        "suspendedTitle": "Supporter je na čekanju",
+        "suspendedText": "Google Play nije uspeo da naplati poslednju uplatu. Ispravite je tamo i Supporter se vraća sam.",
+        "suspendedTerms": "Plan se obnavlja čim plaćanje prođe. Otkažite kad god želite u Google Play-u.",
+        "kept": "Koona Pin još nije mogao da potvrdi vašu kupovinu u Google Play-u. Ako ste platili, kupovina je sačuvana i biće ponovo proverena kada se vratite u aplikaciju — ne morate ponovo da je kupujete."
+      },
       "managed": "Planom se upravlja tamo gde ste ga započeli.",
       "pastDue": "Poslednja uplata nije prošla · Supporter do {{date}}",
       "alsoRenews": "Vaša pretplata se i dalje obnavlja"

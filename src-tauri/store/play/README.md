@@ -1,6 +1,8 @@
 # Google Play listing
 
-What Play Console asks for before a closed test, for the app `app.koona.pin` (English (US) by default, free). The owner fills the console; this folder keeps the texts and the pictures. Prepared on 20 October 2026 for app 2.8.0, before Share (the phone's share sheet), sync on phones and store purchases: update the texts when they land.
+What Play Console asks for before a closed test, for the app `app.koona.pin` (English (US) by default, free). The owner fills the console; this folder keeps the texts and the pictures. Prepared on 20 October 2026 for app 2.8.0, before Share (the phone's share sheet), sync on phones and store purchases: update the texts when they land. Updated for 2.9.0, where the Play build sells Supporter through Google Play Billing.
+
+**Before a build with Play Billing goes up** (`bun run build:android -- --play`), Play Console's Monetisation setup must exist: the organization's payments profile, the subscription `supporter` with the auto-renewing base plans `monthly` and `yearly`, and the one-time product `supporter_5_years`. Those ids are the app's (`src-tauri/src/billing/play.rs`) and the server's secrets; a product Play does not know is simply not offered.
 
 The App Bundle is `release/publish/android/<version>/koona-pin-<version>-<build>.aab` from `bun run build:android` with the upload key ([docs/building.md](../../../docs/building.md)).
 
@@ -45,10 +47,13 @@ Follow sites
 Follow RSS, Atom and JSON feeds. Posts come straight from the sites to your phone; save the ones worth keeping.
 
 Your library stays on your phone
-The library is a file on your device. Koona Pin shows no ads and sends no analytics, telemetry or crash reports. It requests pages, pictures and feeds from the sites of the links you save and the feeds you follow, and asks Google's icon service for site icons. It talks to Koona for your Supporter plan, with sync on to the sync relay, which passes your end-to-end encrypted library between your devices and keeps nothing, and for feedback, only when you send it.
+The library is a file on your device. Koona Pin shows no ads and sends no analytics, telemetry or crash reports. It requests pages, pictures and feeds from the sites of the links you save and the feeds you follow, and asks Google's icon service for site icons. It talks to Koona for your Supporter plan (with a purchase, Google Play's receipt of it and the email you give to claim it), with sync on to the sync relay, which passes your end-to-end encrypted library between your devices and keeps nothing, and for feedback, only when you send it.
 
 Bring your bookmarks
 Import bookmarks from a browser's HTML export, and feeds from OPML.
+
+Supporter
+Koona Pin is free. Supporter is an optional subscription, or five years paid once, bought in the app through Google Play: it adds sync between your phone and your computers, the Paper and Sepia reading themes and the Supporter heart.
 ```
 
 ## Release notes of the first closed test
@@ -61,7 +66,7 @@ The first test build of Koona Pin for Android: the library, the Inbox, search, c
 
 - **Privacy policy:** https://koona.app/pin/privacy. Before the closed test it needs a section for the phone apps (the plan's "The site"): the phone keeps the library in the app's own folder, Android backup and device transfer are off, and what a phone sends is what the desktop sends.
 - **Ads:** No, the app contains no ads.
-- **App access:** "All or some functionality is restricted". Instructions for the reviewer: "Everything in the app works without signing in: saving links, the Inbox, search, collections, the Reading list, reading mode and feeds. Signing in (Settings → You & sync) is only for people who already have a Koona Pin Supporter subscription, bought on koona.app; it takes the email and a one-time code sent to it. The app sells nothing." If Play asks for a login anyway, the owner decides whether to make a review account (a fixed code needs a change on the server).
+- **App access:** "All or some functionality is restricted". Instructions for the reviewer: "Everything in the app works without signing in: saving links, the Inbox, search, collections, the Reading list, reading mode and feeds. Supporter is sold in the app through Google Play Billing: a subscription (monthly or yearly) or five years paid once. To reach the purchase sheet: tap the gear at the top right of the library (You & sync), then the Supporter card. After paying, the app asks for an email and a one-time code sent to it; that email becomes the Supporter account. Signing in on its own (I'm already a Supporter) is only for sync and for someone who already has Supporter." If Play asks for a login anyway, the owner decides whether to make a review account (a fixed code needs a change on the server).
 - **Content rating:** the IARC questionnaire, below.
 - **Target audience:** 18 and over. Not designed for children; nothing appeals to them. Younger groups can be added later without the Families policy as long as under 13 stays out.
 - **News app:** No (it reads feeds the person chooses; it publishes no news).
@@ -78,7 +83,7 @@ Category: **Utility, Productivity, Communication, or Other** (or "All Other App 
 | Gambling, simulated gambling | No |
 | Users interact or exchange content with other users | No (sync goes between one person's own devices) |
 | Shares the user's current location with other users | No |
-| Allows purchases of digital goods | No, for now: the phone build sells nothing until store purchases arrive; change it then |
+| Allows purchases of digital goods | Yes: Supporter, as subscriptions (monthly, yearly) and a one-time «5 years», through Google Play Billing |
 | Web browser or search engine | No |
 | Unrestricted internet access, if asked | Yes: reading mode and feeds show pages and posts of any site the person chooses |
 
@@ -88,17 +93,18 @@ What a phone build sends, from the README's "Privacy and where your data lives" 
 
 - **Does the app collect or share any of the required user data types?** Yes.
 - **Is all user data encrypted in transit?** Yes (HTTPS, and WSS for sync).
-- **Can people request deletion?** Yes, by email to the owner (the account is deleted with its plan). The app creates no accounts: signing in is only for an existing Supporter, so the account-deletion URL requirement should not apply; if Play asks, give the privacy policy's section on deletion.
+- **Can people request deletion?** Yes, by email to the owner (the account is deleted with its plan). Since 2.9.0 the app creates an account when a Google Play purchase is claimed by an email, so Play's account-deletion requirement applies: a way to delete the account in the app and a web page for it. **Not built yet** (a separate task): it must exist before a build with Play Billing reaches production.
 
 | Data type | Collected | Shared | Optional | Purpose | Why |
 | --- | --- | --- | --- | --- | --- |
-| Personal info → Email address | Yes | No | Yes | Account management; App functionality | Sign-in of a Supporter with an email code; the reply address a person may add to feedback |
+| Personal info → Email address | Yes | No | Yes | Account management; App functionality | The email that claims a Google Play purchase (an account is made for it) and the sign-in of a Supporter with an email code; the reply address a person may add to feedback |
 | App activity → Other user-generated content | Yes | No | Yes | App functionality | The text of feedback, only when the person sends it |
 | App info and performance → Diagnostics | Yes | No | Yes | App functionality | The report a person may attach to feedback: app and system versions; no links, titles, tags or notes |
-| Financial info → Purchase history | No | No | | | The phone sells nothing; the plan's state comes from Koona's server, not from the phone |
+| Financial info → Purchase history | Yes | No | Yes | App functionality; Account management | A Google Play purchase: the app sends its purchase token and product to Koona's server, which checks it with Google and keeps the token, the product, the order id, its state and paid period, and the account it belongs to. No card or payment details: Google keeps those |
 
 Not declared, with the reason (check each against Play's help before submitting):
 
+- **Device or other IDs:** a Google Play purchase carries a random id made on the phone for that purchase (the hash of a secret), not a device or advertising id; it only ties the purchase to its claim.
 - **The library through sync:** end-to-end encrypted with a key only the person's devices have; the relay passes it between devices online at the same time and keeps nothing.
 - **The pages, feeds and pictures of links:** requested from those sites at the person's action (saving a link, following a feed, opening reading mode); they never pass through Koona.
 - **Site icons:** the app asks Google's favicon service (`google.com/s2/favicons`) for the icon of a saved link's domain. That sends the domain to Google without a separate action. **Owner's decision:** declare it (Web browsing → "Web browsing history", shared, for App functionality) or stop using the service on phones. The full description names the service: if phones stop using it, take that clause out of the description in the same change.

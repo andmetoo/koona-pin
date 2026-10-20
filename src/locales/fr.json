@@ -1340,7 +1340,8 @@
       "not_supporter": "aucun Supporter n’a cette adresse",
       "wrong_code": "le code n’a pas fonctionné",
       "signed_out": "vous avez été déconnecté",
-      "update_needed": "la synchronisation nécessite une version plus récente de Koona Pin"
+      "update_needed": "la synchronisation nécessite une version plus récente de Koona Pin",
+      "purchases_waiting": "des achats Google Play payés attendent encore ici"
     },
     "code": {
       "not_found": "Cela n’existe plus — peut-être supprimé entre-temps.",
@@ -1372,7 +1373,8 @@
       "not_supporter": "Aucun Supporter n’a cette adresse. Utilisez celle de votre paiement.",
       "wrong_code": "Ce code n’a pas fonctionné. Vérifiez-le ou demandez-en un nouveau.",
       "signed_out": "Vous avez été déconnecté. Ouvrez « Soutenir » et choisissez « Je suis déjà Supporter » pour vous reconnecter.",
-      "update_needed": "La synchronisation nécessite une version plus récente de Koona Pin. Mettez l’application à jour, puis réessayez."
+      "update_needed": "La synchronisation nécessite une version plus récente de Koona Pin. Mettez l’application à jour, puis réessayez.",
+      "purchases_waiting": "Des achats Google Play payés attendent encore d’être confirmés sur ce téléphone. Terminez-les d’abord, ou attendez que Google Play les rembourse, avant d’acheter à nouveau."
     }
   },
   "tray": {
@@ -1548,12 +1550,14 @@
     "endsOn": "Pas de renouvellement · Supporter jusqu’au {{date}}",
     "paidUntil": "Payé une fois · Supporter jusqu’au {{date}}",
     "alsoRenews": "Votre abonnement se renouvelle encore — annulez-le dans Gérer",
+    "alsoRenewsPlay": "Votre abonnement se renouvelle encore — annulez-le dans Google Play",
     "upgradeTitle": "Passer à 5 ans",
     "upgradeTextYearly": "Payez {{price}} une seule fois au lieu de renouveler. Votre formule annuelle reste jusqu’au {{date}} puis ne se renouvelle plus ; les cinq ans commencent ce jour-là.",
     "upgradeTextMonthly": "Payez {{price}} une seule fois au lieu de renouveler. Votre formule mensuelle reste jusqu’au {{date}} puis ne se renouvelle plus ; les cinq ans commencent ce jour-là.",
     "upgradeHint": "Le paiement s’ouvre dans votre navigateur. Paddle, notre revendeur, s’en charge avec les taxes. Supporter durera jusqu’au {{date}}.",
     "fiveYearsNotSold": "Les cinq ans en un seul paiement ne sont pas en vente pour le moment. Votre abonnement continue comme avant.",
     "pastDue": "Le renouvellement n’est pas passé — mettez à jour la carte",
+    "pastDuePlay": "Le renouvellement n’est pas passé — réglez le paiement dans Google Play",
     "unchecked": "Formule non vérifiée — elle reste active jusqu’au {{date}}",
     "perk": {
       "reading": "Thèmes de lecture",
@@ -1584,6 +1588,8 @@
     "monthly": "Supporter · mensuel",
     "fiveYears": "Supporter · 5 ans",
     "switchToFiveYears": "Passer à 5 ans",
+    "manageInPlay": "Gérer dans Google Play",
+    "fixInPlay": "Régler le paiement dans Google Play",
     "updateCard": "Mettre à jour la carte",
     "manage": "Gérer",
     "signOut": "Se déconnecter"
@@ -2302,6 +2308,36 @@
       "perksTitle": "Vos avantages",
       "sync": "Synchronisation",
       "syncOff": "Désactivée",
+      "play": {
+        "subscribe": "S’abonner",
+        "buy": "Acheter",
+        "buyLabel": "{{action}} · {{plan}}",
+        "renews": "Les formules annuelle et mensuelle se renouvellent automatiquement à leur prix jusqu’à ce que vous annuliez. Annulez à tout moment dans Google Play.",
+        "once": "Les 5 ans se paient une fois et ne se renouvellent pas.",
+        "notAvailable": "Google Play ne peut pas vendre Supporter sur ce téléphone pour le moment.",
+        "offerFailed": "Impossible d’obtenir les prix de Google Play.",
+        "failed": "Google Play n’a pas pu finaliser l’achat.",
+        "invalid": "Cet achat n’a pas pu être confirmé auprès de Google Play.",
+        "unavailable": "Google Play ne peut pas accepter cet achat sur ce téléphone pour le moment.",
+        "unreachable": "Impossible de joindre le serveur de Koona Pin. Si vous avez payé, l’achat est conservé et vérifié à nouveau à votre retour dans l’app.",
+        "emailTitle": "Où envoyer votre code ?",
+        "emailText": "Google Play a reçu votre paiement. Saisissez votre e-mail et nous enverrons un code à 6 chiffres pour le confirmer — sinon Google Play le rembourse sous 3 jours.",
+        "codeText": "Nous avons envoyé un code à 6 chiffres à {{email}}. Saisissez-le pour vous connecter et finaliser l’achat.",
+        "pendingTitle": "Paiement en attente",
+        "pending": "En attente de la confirmation du paiement par Google Play…",
+        "pendingText": "Certains moyens de paiement prennent du temps. Koona Pin finalise l’achat tout seul dès que Google Play le confirme, même si vous fermez ceci.",
+        "thanksText": "Supporter est actif pour {{email}}. Sur vos autres appareils, choisissez « Je suis déjà Supporter » et connectez-vous avec cette adresse.",
+        "alreadyTitle": "Vous avez déjà Supporter",
+        "alreadyText": "Google Play rembourse cet achat. Votre formule reste inchangée.",
+        "otherTitle": "Acheté pour un autre compte",
+        "otherText": "L’achat de ce compte Google appartient à un autre compte Koona Pin. Connectez-vous avec l’e-mail de ce compte pour l’utiliser ici.",
+        "ownerTitle": "Connectez-vous pour l’utiliser",
+        "ownerText": "Le Supporter de ce compte Google appartient à un compte Koona Pin. Connectez-vous avec l’e-mail de ce compte pour l’utiliser ici.",
+        "suspendedTitle": "Supporter est suspendu",
+        "suspendedText": "Google Play n’a pas pu prélever le dernier paiement. Réglez-le là-bas et Supporter revient tout seul.",
+        "suspendedTerms": "Votre formule se renouvelle dès que le paiement passe. Annulez à tout moment dans Google Play.",
+        "kept": "Koona Pin n’a pas encore pu confirmer votre achat auprès de Google Play. Si vous avez payé, il est conservé et vérifié à nouveau à votre retour dans l’app : inutile de l’acheter à nouveau."
+      },
       "managed": "Votre formule se gère là où vous l’avez souscrite.",
       "pastDue": "Le dernier paiement n’est pas passé · Supporter jusqu’au {{date}}",
       "alsoRenews": "Votre abonnement se renouvelle toujours, lui aussi"

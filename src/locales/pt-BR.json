@@ -1340,7 +1340,8 @@
       "not_supporter": "nenhum Supporter tem este e-mail",
       "wrong_code": "o código não funcionou",
       "signed_out": "sua sessão foi encerrada",
-      "update_needed": "a sincronização precisa de uma versão mais recente do Koona Pin"
+      "update_needed": "a sincronização precisa de uma versão mais recente do Koona Pin",
+      "purchases_waiting": "há compras pagas do Google Play ainda aguardando aqui"
     },
     "code": {
       "not_found": "Não existe mais — talvez tenha sido excluído nesse meio-tempo.",
@@ -1372,7 +1373,8 @@
       "not_supporter": "Nenhum Supporter tem este e-mail. Use o e-mail do pagamento.",
       "wrong_code": "O código não funcionou. Confira ou peça um novo.",
       "signed_out": "Sua sessão foi encerrada. Abra “Apoiar” e escolha “Já sou Supporter” para entrar de novo.",
-      "update_needed": "A sincronização precisa de uma versão mais recente do Koona Pin. Atualize o aplicativo e tente de novo."
+      "update_needed": "A sincronização precisa de uma versão mais recente do Koona Pin. Atualize o aplicativo e tente de novo.",
+      "purchases_waiting": "Há compras pagas do Google Play ainda aguardando confirmação neste telefone. Conclua-as primeiro, ou espere o Google Play reembolsá-las, antes de comprar de novo."
     }
   },
   "tray": {
@@ -1548,12 +1550,14 @@
     "endsOn": "Não renova · Supporter até {{date}}",
     "paidUntil": "Pago uma vez · Supporter até {{date}}",
     "alsoRenews": "Sua assinatura ainda renova — cancele em Gerenciar",
+    "alsoRenewsPlay": "Sua assinatura ainda renova — cancele no Google Play",
     "upgradeTitle": "Mudar para 5 anos",
     "upgradeTextYearly": "Pague {{price}} uma única vez em vez de renovar. Seu plano anual continua até {{date}} e depois não renova mais; os cinco anos começam nesse dia.",
     "upgradeTextMonthly": "Pague {{price}} uma única vez em vez de renovar. Seu plano mensal continua até {{date}} e depois não renova mais; os cinco anos começam nesse dia.",
     "upgradeHint": "O pagamento abre no navegador. O Paddle, nosso revendedor, cuida dele e dos impostos. O Supporter vai até {{date}}.",
     "fiveYearsNotSold": "Os cinco anos em um único pagamento não estão à venda agora. Sua assinatura continua como antes.",
     "pastDue": "A renovação não foi concluída — atualize o cartão",
+    "pastDuePlay": "A renovação não foi concluída — corrija o pagamento no Google Play",
     "unchecked": "Não foi possível verificar o plano — ele continua ativo até {{date}}",
     "perk": {
       "reading": "Temas de leitura",
@@ -1584,6 +1588,8 @@
     "monthly": "Supporter · mensal",
     "fiveYears": "Supporter · 5 anos",
     "switchToFiveYears": "Mudar para 5 anos",
+    "manageInPlay": "Gerenciar no Google Play",
+    "fixInPlay": "Corrigir pagamento no Google Play",
     "updateCard": "Atualizar cartão",
     "manage": "Gerenciar",
     "signOut": "Sair"
@@ -2302,6 +2308,36 @@
       "perksTitle": "Seus benefícios",
       "sync": "Sincronização",
       "syncOff": "Desligada",
+      "play": {
+        "subscribe": "Assinar",
+        "buy": "Comprar",
+        "buyLabel": "{{action}} · {{plan}}",
+        "renews": "Os planos anual e mensal renovam automaticamente pelo seu preço até você cancelar. Cancele quando quiser no Google Play.",
+        "once": "Os 5 anos são pagos uma vez e não renovam.",
+        "notAvailable": "O Google Play não pode vender o Supporter neste celular agora.",
+        "offerFailed": "Não foi possível obter os preços do Google Play.",
+        "failed": "O Google Play não conseguiu concluir a compra.",
+        "invalid": "Não foi possível confirmar esta compra com o Google Play.",
+        "unavailable": "O Google Play não pode aceitar esta compra neste celular agora.",
+        "unreachable": "Não foi possível falar com o servidor do Koona Pin. Se você pagou, a compra fica guardada e é verificada de novo quando você voltar ao app.",
+        "emailTitle": "Para onde enviamos seu código?",
+        "emailText": "O Google Play recebeu seu pagamento. Digite seu e-mail e enviaremos um código de 6 dígitos para confirmá-lo — senão o Google Play o reembolsa em 3 dias.",
+        "codeText": "Enviamos um código de 6 dígitos para {{email}}. Digite-o para entrar e concluir a compra.",
+        "pendingTitle": "Pagamento pendente",
+        "pending": "Aguardando o Google Play confirmar o pagamento…",
+        "pendingText": "Algumas formas de pagamento demoram. O Koona Pin conclui a compra sozinho quando o Google Play confirmar, mesmo que você feche isto.",
+        "thanksText": "O Supporter está ativo para {{email}}. Nos seus outros dispositivos, escolha “Já sou Supporter” e entre com ele.",
+        "alreadyTitle": "Você já tem o Supporter",
+        "alreadyText": "O Google Play reembolsa esta compra. Seu plano continua como está.",
+        "otherTitle": "Comprado para outra conta",
+        "otherText": "A compra desta conta Google pertence a outra conta do Koona Pin. Entre com o e-mail dessa conta para usá-la aqui.",
+        "ownerTitle": "Entre para usar",
+        "ownerText": "O Supporter desta conta Google pertence a uma conta do Koona Pin. Entre com o e-mail dessa conta para usá-lo aqui.",
+        "suspendedTitle": "O Supporter está suspenso",
+        "suspendedText": "O Google Play não conseguiu cobrar o último pagamento. Corrija lá e o Supporter volta sozinho.",
+        "suspendedTerms": "Seu plano renova assim que o pagamento for concluído. Cancele quando quiser no Google Play.",
+        "kept": "O Koona Pin ainda não conseguiu confirmar sua compra com o Google Play. Se você pagou, ela fica guardada e é verificada de novo quando você voltar ao app — não é preciso comprar de novo."
+      },
       "managed": "Seu plano é gerenciado onde você o iniciou.",
       "pastDue": "O último pagamento não foi aprovado · Supporter até {{date}}",
       "alsoRenews": "Sua assinatura também continua renovando"

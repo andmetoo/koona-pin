@@ -67,6 +67,8 @@ import {
   SupporterPrices,
   PlanInterval,
   CheckoutState,
+  PlayOffer,
+  PlayState,
   BackupFolder,
   SyncAccount,
   SyncDevice,
@@ -191,7 +193,15 @@ function demoSwitch(key: string): string | null {
 const storedSupporter = () => demoSwitch(DEMO_SUPPORTER_KEY);
 const supporterListeners = new Set<(status: SupporterStatus) => void>();
 const inDays = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
+/**
+ * A plan of the preview; `koonapin.demo.store` «play» makes it one paid through Google Play
+ * (NP-154), which is managed there.
+ */
 function demoPlan(kind: string | null): SupporterStatus["plan"] {
+  const plan = demoPlanOf(kind);
+  return plan && demoSwitch("koonapin.demo.store") === "play" ? { ...plan, store: "play" } : plan;
+}
+function demoPlanOf(kind: string | null): SupporterStatus["plan"] {
   // `offline_until` as the server signs it: 30 days ahead, never past the period and a week.
   const plan = { also_renews: false };
   if (kind === "supporter") return { ...plan, status: "active", interval: "year", valid_until: inDays(365), renews_at: inDays(365), offline_until: inDays(30) };
@@ -224,6 +234,22 @@ function setDemoSupporter(status: SupporterStatus) {
   supporterListeners.forEach((fn) => fn(status));
 }
 let demoPolls = 0;
+/**
+ * The Play build's purchase (NP-154): `koonapin.demo.play` is the server's verdict on the next
+ * purchase (a `PlayState`); without it a signed-in preview is `paid` and a signed-out one `email`.
+ * `koonapin.demo.playSuspended` "on": this Google account's subscription is on hold, as Play says
+ * when the sheet opens.
+ */
+const DEMO_PLAY_KEY = "koonapin.demo.play";
+/** The preview server's verdict on a Play purchase of this plan, and the status it leaves. */
+function demoPlayVerdict(interval: PlanInterval): PlayState {
+  const now = currentDemoSupporter();
+  const state = (demoSwitch(DEMO_PLAY_KEY) as PlayState | null) ?? (now.email ? "paid" : "email");
+  const plan = state === "paid" ? demoPlan(interval === "five_years" ? "five_years" : "supporter") : now.plan;
+  setDemoSupporter({ ...now, plan: plan && { ...plan, store: "play" }, play: { state, email: null } });
+  return state;
+}
+const demoPlayPrice = (price: string, micros: number, period: string | null) => ({ price, currency: "EUR", micros, period });
 /** The plan of the last purchase started: five years paid once become that plan. */
 let demoBought: PlanInterval | null = null;
 
@@ -2537,6 +2563,38 @@ export const demo = {
     return currentDemoSupporter();
   },
   async openSupporterPortal() {},
+  async getPlayOffer(): Promise<PlayOffer> {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    noServer();
+    // `koonapin.demo.playProducts` "none": Play sells no product yet (not active in Play Console).
+    const sells = demoSwitch("koonapin.demo.playProducts") !== "none";
+    return {
+      available: true,
+      month: sells ? demoPlayPrice("€2.00", 2_000_000, "P1M") : null,
+      year: sells ? demoPlayPrice("€20.00", 20_000_000, "P1Y") : null,
+      five_years: sells ? demoPlayPrice("€50.00", 50_000_000, null) : null,
+      suspended: demoSwitch("koonapin.demo.playSuspended") === "on",
+    };
+  },
+  async startPlayPurchase(interval: PlanInterval): Promise<PlayState> {
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    noServer();
+    demoBought = interval;
+    return demoPlayVerdict(interval);
+  },
+  /** The server asked again about the purchase kept: its verdict as `koonapin.demo.play` says. */
+  async retryPlayPurchase(): Promise<PlayState> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    noServer();
+    return demoPlayVerdict(demoBought ?? "year");
+  },
+  async playClaimEmail(email: string): Promise<PlayState> {
+    if (!emailShape(email.trim())) throw new CommandError("invalid_request", "The email address does not look right", "invalid_email");
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    noServer();
+    setDemoSupporter({ ...currentDemoSupporter(), play: { state: "sign_in", email: email.trim() } });
+    return "sign_in";
+  },
   async sendSignInCode(email: string) {
     if (!emailShape(email.trim())) throw new CommandError("invalid_request", "The email address does not look right", "invalid_email");
     await new Promise((resolve) => setTimeout(resolve, 300));
@@ -2550,8 +2608,14 @@ export const demo = {
     // check failed (the server did not answer), until «Try again».
     const address = email.trim().toLowerCase();
     const unknown = address.startsWith("unknown@");
-    const plan = address.startsWith("free@") || unknown ? null : demoPlan("supporter");
-    setDemoSupporter({ ...currentDemoSupporter(), email: email.trim(), plan, check_failed: unknown, plan_unknown: unknown, awaiting_sign_in: false });
+    // A Play purchase waiting for this code is bound by the sign-in (billing/play.rs), unless
+    // `koonapin.demo.playBind` "fail": the server could not be asked, the purchase waits.
+    const waiting = currentDemoSupporter().play;
+    const binds = waiting?.state === "sign_in" && demoSwitch("koonapin.demo.playBind") !== "fail";
+    const play = binds ? ({ state: "paid", email: null } as const) : waiting;
+    const bought = play?.state === "paid" ? demoPlan(demoBought === "five_years" ? "five_years" : "supporter") : null;
+    const plan = bought ? { ...bought, store: "play" as const } : address.startsWith("free@") || unknown ? null : demoPlan("supporter");
+    setDemoSupporter({ ...currentDemoSupporter(), email: email.trim(), plan, check_failed: unknown, plan_unknown: unknown, awaiting_sign_in: false, play });
     return currentDemoSupporter();
   },
   async getBackupFolder(): Promise<BackupFolder> {

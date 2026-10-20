@@ -2509,7 +2509,7 @@ dependencies = [
 
 [[package]]
 name = "koonapin"
-version = "2.8.1"
+version = "2.9.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -2543,6 +2543,7 @@ dependencies = [
  "tauri-plugin-deep-link",
  "tauri-plugin-dialog",
  "tauri-plugin-koona-mobile",
+ "tauri-plugin-koona-play",
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
@@ -5117,6 +5118,16 @@ name = "tauri-plugin-koona-mobile"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "tauri",
+ "tauri-plugin",
+]
+
+[[package]]
+name = "tauri-plugin-koona-play"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
  "tauri",
  "tauri-plugin",
 ]

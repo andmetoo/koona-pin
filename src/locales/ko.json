@@ -1184,7 +1184,8 @@
       "not_supporter": "이 이메일을 쓰는 Supporter가 없습니다",
       "wrong_code": "코드가 맞지 않습니다",
       "signed_out": "로그아웃되었습니다",
-      "update_needed": "동기화하려면 최신 버전의 Koona Pin이 필요합니다"
+      "update_needed": "동기화하려면 최신 버전의 Koona Pin이 필요합니다",
+      "purchases_waiting": "결제된 Google Play 구매가 아직 대기 중입니다"
     },
     "code": {
       "not_found": "더 이상 존재하지 않습니다. 그사이 삭제되었을 수 있습니다.",
@@ -1216,7 +1217,8 @@
       "not_supporter": "이 이메일을 쓰는 Supporter가 없습니다. 결제한 이메일을 사용하세요.",
       "wrong_code": "코드가 맞지 않습니다. 확인하거나 새 코드를 받으세요.",
       "signed_out": "로그아웃되었습니다. '후원하기'를 열고 '이미 Supporter입니다'를 선택해 다시 로그인하세요.",
-      "update_needed": "동기화하려면 최신 버전의 Koona Pin이 필요합니다. 앱을 업데이트한 다음 다시 시도하세요."
+      "update_needed": "동기화하려면 최신 버전의 Koona Pin이 필요합니다. 앱을 업데이트한 다음 다시 시도하세요.",
+      "purchases_waiting": "이 휴대폰에 아직 확인을 기다리는 결제된 Google Play 구매가 있습니다. 다시 구매하기 전에 먼저 완료하거나 Google Play가 환불할 때까지 기다리세요."
     }
   },
   "tray": {
@@ -1342,12 +1344,14 @@
     "endsOn": "갱신되지 않음 · {{date}}까지 Supporter",
     "paidUntil": "1회 결제 완료 · {{date}}까지 Supporter",
     "alsoRenews": "구독이 아직 갱신됩니다. 관리에서 해지하세요",
+    "alsoRenewsPlay": "구독이 아직 갱신됩니다. Google Play에서 해지하세요",
     "upgradeTitle": "5년으로 전환",
     "upgradeTextYearly": "갱신 대신 {{price}}을(를) 한 번만 결제하세요. 연간 플랜은 {{date}}까지 유지된 뒤 더 이상 갱신되지 않으며, 그날부터 5년이 시작됩니다.",
     "upgradeTextMonthly": "갱신 대신 {{price}}을(를) 한 번만 결제하세요. 월간 플랜은 {{date}}까지 유지된 뒤 더 이상 갱신되지 않으며, 그날부터 5년이 시작됩니다.",
     "upgradeHint": "결제는 브라우저에서 열립니다. 리셀러인 Paddle이 세금과 함께 처리합니다. Supporter는 {{date}}까지 유지됩니다.",
     "fiveYearsNotSold": "5년 일시불은 지금 판매하지 않습니다. 구독은 이전처럼 계속됩니다.",
     "pastDue": "갱신 결제에 실패했습니다 — 카드를 업데이트하세요",
+    "pastDuePlay": "갱신 결제에 실패했습니다 — Google Play에서 결제를 수정하세요",
     "unchecked": "요금제를 확인하지 못했습니다 — {{date}}까지 유지됩니다",
     "perk": {
       "reading": "읽기 테마",
@@ -1378,6 +1382,8 @@
     "monthly": "Supporter · 월간",
     "fiveYears": "Supporter · 5년",
     "switchToFiveYears": "5년으로 전환",
+    "manageInPlay": "Google Play에서 관리",
+    "fixInPlay": "Google Play에서 결제 수정",
     "updateCard": "카드 업데이트",
     "manage": "관리",
     "signOut": "로그아웃"
@@ -2038,6 +2044,36 @@
       "perksTitle": "내 혜택",
       "sync": "동기화",
       "syncOff": "꺼짐",
+      "play": {
+        "subscribe": "구독",
+        "buy": "구매",
+        "buyLabel": "{{action}} · {{plan}}",
+        "renews": "연간과 월간은 해지할 때까지 해당 가격으로 자동 갱신됩니다. 언제든 Google Play에서 해지할 수 있습니다.",
+        "once": "5년은 한 번만 결제하며 갱신되지 않습니다.",
+        "notAvailable": "지금은 이 휴대전화에서 Google Play로 Supporter를 판매할 수 없습니다.",
+        "offerFailed": "Google Play에서 가격을 가져오지 못했습니다.",
+        "failed": "Google Play에서 구매를 완료하지 못했습니다.",
+        "invalid": "Google Play에서 이 구매를 확인하지 못했습니다.",
+        "unavailable": "지금은 이 휴대전화에서 Google Play가 이 구매를 받을 수 없습니다.",
+        "unreachable": "Koona Pin 서버에 연결하지 못했습니다. 결제했다면 구매는 보관되며 앱으로 돌아올 때 다시 확인됩니다.",
+        "emailTitle": "코드를 어디로 보낼까요?",
+        "emailText": "Google Play에서 결제를 받았습니다. 이메일을 입력하면 확인용 6자리 코드를 보내 드립니다. 확인하지 않으면 Google Play가 3일 후 환불합니다.",
+        "codeText": "{{email}}(으)로 6자리 코드를 보냈습니다. 입력하여 로그인하고 구매를 완료하세요.",
+        "pendingTitle": "결제 대기 중",
+        "pending": "Google Play의 결제 확인을 기다리는 중…",
+        "pendingText": "일부 결제 수단은 시간이 걸립니다. Google Play가 확인하면 이 창을 닫아도 Koona Pin이 알아서 구매를 완료합니다.",
+        "thanksText": "{{email}}에 대해 Supporter가 활성화되었습니다. 다른 기기에서는 ‘이미 Supporter입니다’를 고르고 이 이메일로 로그인하세요.",
+        "alreadyTitle": "이미 Supporter입니다",
+        "alreadyText": "이 구매는 Google Play가 환불합니다. 플랜은 그대로 유지됩니다.",
+        "otherTitle": "다른 계정용 구매",
+        "otherText": "이 Google 계정의 구매는 다른 Koona Pin 계정에 속합니다. 여기서 사용하려면 그 계정의 이메일로 로그인하세요.",
+        "ownerTitle": "로그인하여 사용",
+        "ownerText": "이 Google 계정의 Supporter는 Koona Pin 계정에 속합니다. 여기서 사용하려면 그 계정의 이메일로 로그인하세요.",
+        "suspendedTitle": "Supporter가 보류되었습니다",
+        "suspendedText": "Google Play에서 지난 결제를 받지 못했습니다. Google Play에서 수정하면 Supporter가 자동으로 돌아옵니다.",
+        "suspendedTerms": "결제가 완료되면 플랜이 갱신됩니다. 언제든 Google Play에서 해지할 수 있습니다.",
+        "kept": "Koona Pin이 아직 Google Play에서 구매를 확인하지 못했습니다. 결제하셨다면 구매는 보관되며 앱으로 돌아오면 다시 확인합니다. 다시 구매할 필요는 없습니다."
+      },
       "managed": "요금제는 시작한 곳에서 관리됩니다.",
       "pastDue": "지난 결제가 처리되지 않았습니다 · {{date}}까지 Supporter",
       "alsoRenews": "구독도 계속 갱신됩니다"

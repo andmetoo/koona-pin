@@ -1262,7 +1262,8 @@
       "not_supporter": "bu e-postaya sahip bir Supporter yok",
       "wrong_code": "kod işe yaramadı",
       "signed_out": "oturumunuz kapandı",
-      "update_needed": "eşitleme için Koona Pin'in daha yeni bir sürümü gerekiyor"
+      "update_needed": "eşitleme için Koona Pin'in daha yeni bir sürümü gerekiyor",
+      "purchases_waiting": "ödenmiş Google Play satın almaları burada hâlâ bekliyor"
     },
     "code": {
       "not_found": "Artık yok — bu arada silinmiş olabilir.",
@@ -1294,7 +1295,8 @@
       "not_supporter": "Bu e-postaya sahip bir Supporter yok. Ödemedeki e-postayı kullanın.",
       "wrong_code": "Kod işe yaramadı. Kontrol edin ya da yenisini isteyin.",
       "signed_out": "Oturumunuz kapandı. Yeniden giriş yapmak için \"Destekleyin\"i açıp \"Zaten Supporter'ım\"ı seçin.",
-      "update_needed": "Eşitleme için Koona Pin'in daha yeni bir sürümü gerekiyor. Uygulamayı güncelleyip yeniden deneyin."
+      "update_needed": "Eşitleme için Koona Pin'in daha yeni bir sürümü gerekiyor. Uygulamayı güncelleyip yeniden deneyin.",
+      "purchases_waiting": "Bu telefonda ödenmiş Google Play satın almaları hâlâ onay bekliyor. Yeniden satın almadan önce bunları tamamlayın ya da Google Play'in iade etmesini bekleyin."
     }
   },
   "tray": {
@@ -1445,12 +1447,14 @@
     "endsOn": "Yenilenmez · {{date}} tarihine kadar Supporter",
     "paidUntil": "Tek seferde ödendi · {{date}} tarihine kadar Supporter",
     "alsoRenews": "Aboneliğiniz hâlâ yenileniyor — Yönet bölümünden iptal edin",
+    "alsoRenewsPlay": "Aboneliğiniz hâlâ yenileniyor — Google Play’den iptal edin",
     "upgradeTitle": "5 yıla geç",
     "upgradeTextYearly": "Yenilemek yerine bir kez {{price}} ödeyin. Yıllık planınız {{date}} tarihine kadar sürer, sonra yenilenmez; beş yıl o gün başlar.",
     "upgradeTextMonthly": "Yenilemek yerine bir kez {{price}} ödeyin. Aylık planınız {{date}} tarihine kadar sürer, sonra yenilenmez; beş yıl o gün başlar.",
     "upgradeHint": "Ödeme tarayıcınızda açılır. Bayimiz Paddle ödemeyi ve vergileri yürütür. Supporter {{date}} tarihine kadar sürer.",
     "fiveYearsNotSold": "Tek ödemeyle beş yıl şu anda satılmıyor. Aboneliğiniz eskisi gibi devam ediyor.",
     "pastDue": "Yenileme alınamadı — kartınızı güncelleyin",
+    "pastDuePlay": "Yenileme alınamadı — ödemeyi Google Play’de düzeltin",
     "unchecked": "Plan kontrol edilemedi — {{date}} tarihine kadar geçerli",
     "perk": {
       "reading": "Okuma temaları",
@@ -1481,6 +1485,8 @@
     "monthly": "Supporter · aylık",
     "fiveYears": "Supporter · 5 yıl",
     "switchToFiveYears": "5 yıla geç",
+    "manageInPlay": "Google Play’de yönet",
+    "fixInPlay": "Ödemeyi Google Play’de düzelt",
     "updateCard": "Kartı güncelle",
     "manage": "Yönet",
     "signOut": "Çıkış yap"
@@ -2170,6 +2176,36 @@
       "perksTitle": "Ayrıcalıklarınız",
       "sync": "Eşitleme",
       "syncOff": "Kapalı",
+      "play": {
+        "subscribe": "Abone ol",
+        "buy": "Satın al",
+        "buyLabel": "{{action}} · {{plan}}",
+        "renews": "Yıllık ve aylık planlar siz iptal edene kadar kendi fiyatlarıyla otomatik olarak yenilenir. İstediğiniz zaman Google Play’den iptal edin.",
+        "once": "5 yıl bir kez ödenir ve yenilenmez.",
+        "notAvailable": "Google Play şu anda bu telefonda Supporter satamıyor.",
+        "offerFailed": "Fiyatlar Google Play’den alınamadı.",
+        "failed": "Google Play satın alma işlemini tamamlayamadı.",
+        "invalid": "Bu satın alma Google Play ile doğrulanamadı.",
+        "unavailable": "Google Play şu anda bu telefonda bu satın almayı kabul edemiyor.",
+        "unreachable": "Koona Pin sunucusuna ulaşılamadı. Ödeme yaptıysanız satın alma saklanır ve uygulamaya döndüğünüzde yeniden kontrol edilir.",
+        "emailTitle": "Kodunuzu nereye gönderelim?",
+        "emailText": "Ödemeniz Google Play’de. E-postanızı girin, onaylamanız için 6 haneli bir kod gönderelim; aksi halde Google Play 3 gün içinde iade eder.",
+        "codeText": "{{email}} adresine 6 haneli bir kod gönderdik. Giriş yapıp satın almayı tamamlamak için kodu girin.",
+        "pendingTitle": "Ödeme bekleniyor",
+        "pending": "Google Play’in ödemeyi onaylaması bekleniyor…",
+        "pendingText": "Bazı ödeme yöntemleri biraz sürer. Google Play onayladığında, bunu kapatsanız bile Koona Pin satın almayı kendisi tamamlar.",
+        "thanksText": "Supporter, {{email}} için etkin. Diğer cihazlarınızda “Zaten Supporter’ım”ı seçin ve bu adresle oturum açın.",
+        "alreadyTitle": "Zaten Supporter’sınız",
+        "alreadyText": "Google Play bu satın almayı iade eder. Planınız olduğu gibi kalır.",
+        "otherTitle": "Başka bir hesap için satın alındı",
+        "otherText": "Bu Google hesabının satın alması başka bir Koona Pin hesabına ait. Burada kullanmak için o hesabın e-postasıyla oturum açın.",
+        "ownerTitle": "Kullanmak için oturum açın",
+        "ownerText": "Bu Google hesabının Supporter’ı bir Koona Pin hesabına ait. Burada kullanmak için o hesabın e-postasıyla oturum açın.",
+        "suspendedTitle": "Supporter beklemede",
+        "suspendedText": "Google Play son ödemeyi alamadı. Orada düzeltin, Supporter kendiliğinden geri gelir.",
+        "suspendedTerms": "Ödeme gerçekleştiğinde planınız yenilenir. İstediğiniz zaman Google Play’den iptal edin.",
+        "kept": "Koona Pin satın alma işleminizi henüz Google Play ile doğrulayamadı. Ödeme yaptıysanız satın alma saklanır ve uygulamaya döndüğünüzde yeniden denetlenir; yeniden satın almanız gerekmez."
+      },
       "managed": "Planınız, başlattığınız yerden yönetilir.",
       "pastDue": "Son ödeme gerçekleşmedi · {{date}} tarihine kadar Supporter",
       "alsoRenews": "Aboneliğiniz de hâlâ yenileniyor"

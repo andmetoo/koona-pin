@@ -15,6 +15,9 @@ pub fn hand_over(_context: &tauri::Context<tauri::Wry>) -> bool {
 /// phone's look and haptic feedback (NP-072b, src/platform/system.ts and haptics.ts).
 pub fn plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
     let builder = builder.plugin(tauri_plugin_koona_mobile::init());
+    // The Play build's purchases (NP-154, billing/play.rs): Play Billing, under the commercial license.
+    #[cfg(play)]
+    let builder = builder.plugin(tauri_plugin_koona_play::init());
     // iOS ended the page's WebContent process (memory, a crash): the same page again, which
     // reads the library anew. What was committed is in the library already.
     #[cfg(target_os = "ios")]

@@ -1,0 +1,18 @@
+[package]
+name = "tauri-plugin-koona-play"
+version = "0.1.0"
+description = "Koona Pin on Android: Supporter through Google Play Billing (the Play build only)"
+license-file = "../../../LICENSE-COMMERCIAL.md"
+edition = "2021"
+publish = false
+# Tauri plugins with native code name themselves here, so the app's build finds their Kotlin.
+links = "tauri-plugin-koona-play"
+
+[dependencies]
+tauri = "2.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[build-dependencies]
+# Already in the tree through the other plugins' builds.
+tauri-plugin = { version = "2", features = ["build"] }

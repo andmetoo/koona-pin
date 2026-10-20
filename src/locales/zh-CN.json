@@ -1184,7 +1184,8 @@
       "not_supporter": "没有使用此邮箱的 Supporter",
       "wrong_code": "验证码无效",
       "signed_out": "你已退出登录",
-      "update_needed": "同步需要更新版本的 Koona Pin"
+      "update_needed": "同步需要更新版本的 Koona Pin",
+      "purchases_waiting": "已付款的 Google Play 购买仍在等待中"
     },
     "code": {
       "not_found": "它已不存在 — 可能在此期间被删除了。",
@@ -1216,7 +1217,8 @@
       "not_supporter": "没有使用此邮箱的 Supporter。请使用付款时的邮箱。",
       "wrong_code": "验证码无效。请检查或重新获取。",
       "signed_out": "你已退出登录。请打开“支持”并选择“我已是 Supporter”重新登录。",
-      "update_needed": "同步需要更新版本的 Koona Pin。请更新应用后重试。"
+      "update_needed": "同步需要更新版本的 Koona Pin。请更新应用后重试。",
+      "purchases_waiting": "这部手机上仍有已付款的 Google Play 购买在等待确认。请先完成它们，或等待 Google Play 退款，然后再购买。"
     }
   },
   "tray": {
@@ -1342,12 +1344,14 @@
     "endsOn": "不会续订 · Supporter 至 {{date}}",
     "paidUntil": "已一次付清 · Supporter 至 {{date}}",
     "alsoRenews": "你的订阅仍会续订——请在“管理”中取消",
+    "alsoRenewsPlay": "你的订阅仍会续订——请在 Google Play 中取消",
     "upgradeTitle": "改为 5 年",
     "upgradeTextYearly": "一次性支付 {{price}}，不再续订。你的年付计划持续到 {{date}}，之后不再续订；五年从那天开始。",
     "upgradeTextMonthly": "一次性支付 {{price}}，不再续订。你的月付计划持续到 {{date}}，之后不再续订；五年从那天开始。",
     "upgradeHint": "付款将在浏览器中打开，由我们的经销商 Paddle 处理，包括税费。Supporter 将持续到 {{date}}。",
     "fiveYearsNotSold": "一次付清五年目前暂不出售。你的订阅照常继续。",
     "pastDue": "续订扣款失败——请更新银行卡",
+    "pastDuePlay": "续订扣款失败——请在 Google Play 中修复付款",
     "unchecked": "无法检查方案——有效期至 {{date}}",
     "perk": {
       "reading": "阅读主题",
@@ -1378,6 +1382,8 @@
     "monthly": "Supporter · 按月",
     "fiveYears": "Supporter · 5 年",
     "switchToFiveYears": "改为 5 年",
+    "manageInPlay": "在 Google Play 中管理",
+    "fixInPlay": "在 Google Play 中修复付款",
     "updateCard": "更新银行卡",
     "manage": "管理",
     "signOut": "退出登录"
@@ -2038,6 +2044,36 @@
       "perksTitle": "你的权益",
       "sync": "同步",
       "syncOff": "已关闭",
+      "play": {
+        "subscribe": "订阅",
+        "buy": "购买",
+        "buyLabel": "{{action}} · {{plan}}",
+        "renews": "按年和按月方案会按其价格自动续订，直到你取消。可随时在 Google Play 中取消。",
+        "once": "5 年方案一次付清，不会续订。",
+        "notAvailable": "Google Play 目前无法在这部手机上出售 Supporter。",
+        "offerFailed": "无法从 Google Play 获取价格。",
+        "failed": "Google Play 未能完成购买。",
+        "invalid": "无法通过 Google Play 确认这笔购买。",
+        "unavailable": "Google Play 目前无法在这部手机上接受这笔购买。",
+        "unreachable": "无法连接 Koona Pin 服务器。如果你已付款，购买会被保留，并在你回到应用时重新检查。",
+        "emailTitle": "验证码发到哪里？",
+        "emailText": "Google Play 已收到你的付款。输入邮箱，我们会发送 6 位验证码来确认——否则 Google Play 会在 3 天内退款。",
+        "codeText": "我们已向 {{email}} 发送 6 位验证码。输入后即可登录并完成购买。",
+        "pendingTitle": "付款处理中",
+        "pending": "正在等待 Google Play 确认付款…",
+        "pendingText": "部分付款方式需要一些时间。Google Play 确认后，即使你关闭这里，Koona Pin 也会自动完成购买。",
+        "thanksText": "Supporter 已为 {{email}} 生效。在其他设备上，选择“我已是 Supporter”，然后用这个邮箱登录。",
+        "alreadyTitle": "你已经是 Supporter",
+        "alreadyText": "Google Play 会退还这笔购买。你的方案保持不变。",
+        "otherTitle": "已为其他账号购买",
+        "otherText": "这个 Google 账号的购买属于另一个 Koona Pin 账号。请用那个账号的邮箱登录，才能在这里使用。",
+        "ownerTitle": "登录后使用",
+        "ownerText": "这个 Google 账号的 Supporter 属于一个 Koona Pin 账号。请用那个账号的邮箱登录，才能在这里使用。",
+        "suspendedTitle": "Supporter 已暂停",
+        "suspendedText": "Google Play 未能收取上一笔付款。在 Google Play 中修复后，Supporter 会自动恢复。",
+        "suspendedTerms": "付款成功后方案即会续订。可随时在 Google Play 中取消。",
+        "kept": "Koona Pin 暂时无法通过 Google Play 确认你的购买。如果你已付款，购买会被保留，并在你回到应用时再次确认，无需再次购买。"
+      },
       "managed": "你的方案在开通它的地方管理。",
       "pastDue": "上次付款未成功 · Supporter 至 {{date}}",
       "alsoRenews": "你的订阅也仍会续订"

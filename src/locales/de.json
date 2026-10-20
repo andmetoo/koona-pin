@@ -1262,7 +1262,8 @@
       "not_supporter": "kein Supporter hat diese E-Mail",
       "wrong_code": "der Code hat nicht funktioniert",
       "signed_out": "Sie wurden abgemeldet",
-      "update_needed": "die Synchronisierung braucht eine neuere Version von Koona Pin"
+      "update_needed": "die Synchronisierung braucht eine neuere Version von Koona Pin",
+      "purchases_waiting": "bezahlte Google-Play-Käufe warten hier noch"
     },
     "code": {
       "not_found": "Es existiert nicht mehr — vielleicht wurde es inzwischen gelöscht.",
@@ -1294,7 +1295,8 @@
       "not_supporter": "Kein Supporter hat diese E-Mail. Nutzen Sie die E-Mail Ihrer Zahlung.",
       "wrong_code": "Der Code hat nicht funktioniert. Prüfen Sie ihn oder fordern Sie einen neuen an.",
       "signed_out": "Sie wurden abgemeldet. Öffnen Sie „Unterstützen“ und wählen Sie „Ich bin schon Supporter“, um sich erneut anzumelden.",
-      "update_needed": "Für die Synchronisierung ist eine neuere Version von Koona Pin nötig. Aktualisieren Sie die App und versuchen Sie es erneut."
+      "update_needed": "Für die Synchronisierung ist eine neuere Version von Koona Pin nötig. Aktualisieren Sie die App und versuchen Sie es erneut.",
+      "purchases_waiting": "Bezahlte Google-Play-Käufe warten auf diesem Telefon noch auf ihre Bestätigung. Schließen Sie sie zuerst ab oder warten Sie, bis Google Play sie erstattet, bevor Sie erneut kaufen."
     }
   },
   "tray": {
@@ -1445,12 +1447,14 @@
     "endsOn": "Verlängert sich nicht · Supporter bis {{date}}",
     "paidUntil": "Einmal bezahlt · Supporter bis {{date}}",
     "alsoRenews": "Dein Abo verlängert sich noch — kündige es unter „Verwalten“",
+    "alsoRenewsPlay": "Ihr Abo verlängert sich noch — kündigen Sie es in Google Play",
     "upgradeTitle": "Zu 5 Jahren wechseln",
     "upgradeTextYearly": "Zahle einmal {{price}} statt zu verlängern. Dein Jahresplan läuft bis {{date}} und verlängert sich dann nicht mehr; die fünf Jahre beginnen an diesem Tag.",
     "upgradeTextMonthly": "Zahle einmal {{price}} statt zu verlängern. Dein Monatsplan läuft bis {{date}} und verlängert sich dann nicht mehr; die fünf Jahre beginnen an diesem Tag.",
     "upgradeHint": "Die Zahlung öffnet sich im Browser. Paddle wickelt sie und die Steuern als unser Wiederverkäufer ab. Supporter gilt dann bis {{date}}.",
     "fiveYearsNotSold": "Fünf Jahre mit einer Zahlung gibt es gerade nicht. Dein Abo läuft weiter wie bisher.",
     "pastDue": "Die Verlängerung ist fehlgeschlagen — aktualisieren Sie die Karte",
+    "pastDuePlay": "Die Verlängerung ist fehlgeschlagen — korrigieren Sie die Zahlung in Google Play",
     "unchecked": "Tarif nicht geprüft — er gilt bis {{date}}",
     "perk": {
       "reading": "Lesedesigns",
@@ -1481,6 +1485,8 @@
     "monthly": "Supporter · monatlich",
     "fiveYears": "Supporter · 5 Jahre",
     "switchToFiveYears": "Zu 5 Jahren wechseln",
+    "manageInPlay": "In Google Play verwalten",
+    "fixInPlay": "Zahlung in Google Play korrigieren",
     "updateCard": "Karte aktualisieren",
     "manage": "Verwalten",
     "signOut": "Abmelden"
@@ -2170,6 +2176,36 @@
       "perksTitle": "Ihre Vorteile",
       "sync": "Synchronisierung",
       "syncOff": "Aus",
+      "play": {
+        "subscribe": "Abonnieren",
+        "buy": "Kaufen",
+        "buyLabel": "{{action}} · {{plan}}",
+        "renews": "Jährlich und monatlich verlängern sich automatisch zu ihrem Preis, bis Sie kündigen. Kündigen Sie jederzeit in Google Play.",
+        "once": "5 Jahre werden einmal bezahlt und verlängern sich nicht.",
+        "notAvailable": "Google Play kann Supporter auf diesem Telefon gerade nicht verkaufen.",
+        "offerFailed": "Die Preise von Google Play konnten nicht geladen werden.",
+        "failed": "Google Play konnte den Kauf nicht abschließen.",
+        "invalid": "Dieser Kauf konnte bei Google Play nicht bestätigt werden.",
+        "unavailable": "Google Play kann diesen Kauf auf diesem Telefon gerade nicht annehmen.",
+        "unreachable": "Der Koona-Pin-Server war nicht erreichbar. Falls Sie bezahlt haben, bleibt der Kauf erhalten und wird erneut geprüft, wenn Sie zur App zurückkehren.",
+        "emailTitle": "Wohin sollen wir Ihren Code senden?",
+        "emailText": "Google Play hat Ihre Zahlung. Geben Sie Ihre E-Mail ein, und wir senden einen 6-stelligen Code zur Bestätigung — sonst erstattet Google Play sie in 3 Tagen.",
+        "codeText": "Wir haben einen 6-stelligen Code an {{email}} gesendet. Geben Sie ihn ein, um sich anzumelden und den Kauf abzuschließen.",
+        "pendingTitle": "Zahlung ausstehend",
+        "pending": "Warten, bis Google Play die Zahlung bestätigt…",
+        "pendingText": "Manche Zahlungsarten brauchen etwas Zeit. Koona Pin schließt den Kauf selbst ab, sobald Google Play ihn bestätigt, auch wenn Sie dies schließen.",
+        "thanksText": "Supporter ist für {{email}} aktiv. Wählen Sie auf Ihren anderen Geräten „Ich bin schon Supporter“ und melden Sie sich damit an.",
+        "alreadyTitle": "Sie haben Supporter bereits",
+        "alreadyText": "Google Play erstattet diesen Kauf. Ihr Plan bleibt, wie er ist.",
+        "otherTitle": "Für ein anderes Konto gekauft",
+        "otherText": "Der Kauf dieses Google-Kontos gehört zu einem anderen Koona-Pin-Konto. Melden Sie sich mit dessen E-Mail an, um ihn hier zu nutzen.",
+        "ownerTitle": "Zum Nutzen anmelden",
+        "ownerText": "Supporter dieses Google-Kontos gehört zu einem Koona-Pin-Konto. Melden Sie sich mit dessen E-Mail an, um ihn hier zu nutzen.",
+        "suspendedTitle": "Supporter ist pausiert",
+        "suspendedText": "Google Play konnte die letzte Zahlung nicht einziehen. Korrigieren Sie sie dort, dann ist Supporter von selbst wieder da.",
+        "suspendedTerms": "Ihr Plan verlängert sich, sobald die Zahlung durchgeht. Kündigen Sie jederzeit in Google Play.",
+        "kept": "Koona Pin konnte Ihren Kauf noch nicht mit Google Play bestätigen. Wenn Sie bezahlt haben, bleibt er erhalten und wird erneut geprüft, sobald Sie zur App zurückkehren – ein erneuter Kauf ist nicht nötig."
+      },
       "managed": "Ihr Tarif wird dort verwaltet, wo Sie ihn abgeschlossen haben.",
       "pastDue": "Die letzte Zahlung ist nicht durchgegangen · Supporter bis {{date}}",
       "alsoRenews": "Ihr Abo verlängert sich ebenfalls weiter"

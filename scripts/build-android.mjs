@@ -4,6 +4,8 @@
 //   bun run build:android -- --sign-test    a test build signed with the upload key and checked, then nothing
 //                                           is copied: it only tries the signing path
 //   bun scripts/build-android.mjs --check <apk>   only the 16 KB checks below, of an APK built already (CI)
+//   bun run build:android -- --play         with Supporter through Play Billing (feature store-play): its files
+//                                           are named koona-pin-<version>-play-<n>.* beside the others
 // Needs the Android SDK with platform 37 and an NDK of r28 or newer (16 KB pages by default):
 // ANDROID_HOME and NDK_HOME, as ~/.zshrc sets them on the build Mac (doc: docs/building.md), JDK 17 or
 // newer (JAVA_HOME, else java and keytool on the PATH) and the Rust target aarch64-linux-android.
@@ -37,6 +39,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { checkBilling } from "./check-apk-billing.mjs";
 import { args, buildNumber, cleanMain, option, writeChecksums } from "./lib/store-build.mjs";
 import { loadEnv } from "./lib/env.mjs";
 import { publish, root, test } from "./lib/paths.mjs";
@@ -152,7 +155,11 @@ const build = buildNumber(option("--build"));
 const { dirty, clean } = hasKey ? cleanMain() : { dirty: false, clean: false };
 const publishable = hasKey && clean;
 const upload = publishable || signTest;
-const published = path.join(publish.android(version), `koona-pin-${version}-${build}.aab`);
+// The Play build sells through Play Billing (NP-154); without --play the APK has no billing library and
+// no BILLING permission, which is checked. Its files carry -play, so the one uploaded is never the other.
+const play = process.argv.includes("--play");
+const suffix = play ? "-play" : "";
+const published = path.join(publish.android(version), `koona-pin-${version}${suffix}-${build}.aab`);
 if (publishable && existsSync(published)) {
   throw new Error(`${path.relative(root, published)} exists: Play has seen or may have seen that number. Pass --build with a higher one, `
     + "or delete the file if it was never uploaded");
@@ -176,7 +183,7 @@ writeFileSync(config, JSON.stringify({ bundle: { android: { versionCode: Number(
 const gradleEnv = upload
   ? { ...env, GRADLE_OPTS: `${env.GRADLE_OPTS ?? ""} -Dorg.gradle.configuration-cache=false -Dorg.gradle.daemon=false`.trim() }
   : Object.fromEntries(Object.entries(env).filter(([name]) => !name.startsWith("ANDROID_UPLOAD_")));
-const result = spawnSync("bun", ["run", "tauri", "android", "build", "--target", "aarch64", "--apk", "--aab", "--config", config], {
+const result = spawnSync("bun", ["run", "tauri", "android", "build", "--target", "aarch64", "--apk", "--aab", "--config", config, ...(play ? ["--features", "store-play"] : [])], {
   cwd: root, stdio: "inherit", env: gradleEnv,
 });
 if (result.status !== 0) throw new Error(`tauri android build failed with status ${result.status}`);
@@ -227,6 +234,7 @@ if (failures.length > 0) throw new Error(`The build fails its checks:\n- ${failu
 console.log(`Checked: ${packageName} ${version} (${build}), SDK ${minSdk}–${targetSdk}, not debuggable, `
   + `${upload ? "signed with the upload key" : "signed with the debug key"}${env.BUNDLETOOL ? ", bundletool validate passes" : ""}`);
 check16k();
+checkBilling(apk, play ? "present" : "absent");
 if (signTest && !publishable) {
   console.log("--sign-test: signed with the upload key and checked; nothing is copied");
   process.exit(0);
@@ -237,8 +245,8 @@ const target = publishable ? publish.android(version) : test.android(version);
 mkdirSync(target, { recursive: true });
 // An APK of the upload key is never copied: a phone with it refuses Play's updates.
 const names = publishable
-  ? { [aab]: `koona-pin-${version}-${build}.aab` }
-  : { [aab]: `koona-pin-${version}-${build}.aab`, [apk]: `koona-pin-${version}-${build}-arm64.apk` };
+  ? { [aab]: `koona-pin-${version}${suffix}-${build}.aab` }
+  : { [aab]: `koona-pin-${version}${suffix}-${build}.aab`, [apk]: `koona-pin-${version}${suffix}-${build}-arm64.apk` };
 for (const [file, name] of Object.entries(names)) copyFileSync(file, path.join(target, name));
 writeChecksums(target);
-console.log(`Android ${version} (${build}), ${publishable ? "for Play" : "test"}: ${path.relative(root, target)}`);
+console.log(`Android ${version}${play ? " with Play Billing" : ""} (${build}), ${publishable ? "for Play" : "test"}: ${path.relative(root, target)}`);

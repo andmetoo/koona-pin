@@ -1,5 +1,5 @@
-//! Every command the interface may call (NP-019, NP-072a): the shared ones first, then the desktop's,
-//! each behind `cfg(desktop)`. Per-item `cfg` lives here only; a phone never gets a desktop command.
+//! Every command the interface may call (NP-019, NP-072a): the shared ones first, then the Play
+//! build's behind `cfg(play)` (NP-154), then the desktop's, each behind `cfg(desktop)`. Per-item `cfg` lives here only; a phone never gets a desktop command.
 //! The types they take and answer are never `cfg`-gated (docs/building.md), so `src/bindings` are the
 //! same whichever target wrote them.
 
@@ -127,6 +127,16 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         lists::download::read_list_file,
         open_requests::take_pending_opens,
         open_requests::set_list_open,
+        // Google Play Billing (NP-154): the Play build only (`cfg(play)`, the feature `store-play`
+        // on Android). `verify_sign_in_code` above binds a purchase waiting for the sign-in.
+        #[cfg(play)]
+        billing::play::get_play_offer,
+        #[cfg(play)]
+        billing::play::start_play_purchase,
+        #[cfg(play)]
+        billing::play::play_claim_email,
+        #[cfg(play)]
+        billing::play::retry_play_purchase,
         #[cfg(desktop)]
         desktop::commands::reveal_export,
         #[cfg(desktop)]
@@ -167,9 +177,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         desktop::updates::install_update,
         #[cfg(desktop)]
         desktop::updates::cancel_update,
-        // Paddle's purchase and its portal: a phone sells nothing until NP-154 (Play Billing) and
-        // links to no Paddle page (capabilities.rs, `purchase`); the site's APK gets them back with
-        // its own flavour (NP-074, NP-078).
+        // Paddle's purchase and its portal: a phone links to no Paddle page (capabilities.rs,
+        // `purchase`); the site's APK gets them back with its own flavour (NP-074, NP-078).
         #[cfg(desktop)]
         billing::get_supporter_prices,
         #[cfg(desktop)]

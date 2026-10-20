@@ -58,7 +58,7 @@ jobs:
             case "$file" in
               docs/* | changelog/* | design/* | *.md | LICENSE* | .github/workflows/cla.yml | .github/workflows/release.yml) ;;
               # src-tauri/* includes the Safari extension's Xcode project (src-tauri/macos/safari).
-              src/* | src-tauri/* | scripts/build-macos.mjs | scripts/build-extension.mjs | scripts/build-android.mjs | scripts/build-ios-sim.mjs | \
+              src/* | src-tauri/* | scripts/build-macos.mjs | scripts/build-extension.mjs | scripts/build-android.mjs | scripts/check-apk-billing.mjs | scripts/build-ios-sim.mjs | \
                 scripts/lib/paths.mjs | scripts/lib/ios.mjs | scripts/lib/env.mjs | package.json | bun.lock | .bun-version | rust-toolchain.toml | .cargo/* | \
                 vite.config.ts | tsconfig*.json | index.html | .github/workflows/ci.yml)
                 linux=true native=true ;;
@@ -226,6 +226,19 @@ jobs:
       # Android's 16 KB pages: zipalign and the ELF LOAD alignment, as build:android checks its release APK.
       - name: 16 KB alignment of the APK
         run: bun scripts/build-android.mjs --check src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+      # The site's APK carries no Google Play Billing (NP-154): no BILLING permission, no billing classes.
+      - name: No Play Billing in the site's APK
+        run: bun scripts/check-apk-billing.mjs src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk absent
+      # The Google Play build (feature store-play): its Rust (cfg(play)) and the koona-play plugin's
+      # Kotlin compile, the plugin's unit tests pass, and its APK carries Play Billing. Built over the
+      # same project: only the main crate and the plugin's module are new.
+      - name: Android debug build, Google Play (arm64)
+        run: bun run tauri android build --debug --target aarch64 --features store-play
+      - name: Play plugin unit tests
+        working-directory: src-tauri/gen/android
+        run: ./gradlew :tauri-plugin-koona-play:testDebugUnitTest
+      - name: Play Billing in the Google Play build's APK
+        run: bun scripts/check-apk-billing.mjs src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk present
 
   ios:
     name: iOS Simulator / build

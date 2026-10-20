@@ -78,6 +78,14 @@ describe("the Supporter card's line", () => {
     expect(planLine(plan({ status: "past_due" }), t, "en-GB", false)).toMatch(/^The last payment didn't go through · Supporter until \d+ \w+ \d{4}$/);
     expect(planLine(plan({ interval: "five_years", also_renews: true }), t, "en-GB", false)).toBe("Your subscription still renews as well");
   });
+
+  it("sends a plan paid through Google Play to Google Play, in any build (NP-154)", () => {
+    for (const sells of [true, false]) {
+      expect(planLine(plan({ status: "past_due", store: "play" }), t, "en-GB", sells)).toBe("The renewal didn't go through — fix the payment in Google Play");
+      expect(planLine(plan({ interval: "five_years", also_renews: true, store: "play" }), t, "en-GB", sells)).toBe(t("supporter.alsoRenewsPlay"));
+    }
+    expect(planLine(plan({ store: "play" }), t, "en-GB", false)).toBe("Thank you · yearly plan, renews 9 Oct 2027");
+  });
 });
 
 describe("the Sync shelf", () => {

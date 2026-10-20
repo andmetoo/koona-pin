@@ -26,5 +26,12 @@ describe("platform", () => {
       expect(capabilities).toEqual(phone);
       expect(desktopCommands).toBe(false);
     });
+
+    it("sells through Google Play in the Play build", async () => {
+      vi.resetModules();
+      vi.stubGlobal("window", { __KOONA__: { platform: "android", capabilities: { purchase: "play" } } });
+      const { capabilities } = await import("./capabilities");
+      expect(capabilities.purchase).toBe("play");
+    });
   });
 });
