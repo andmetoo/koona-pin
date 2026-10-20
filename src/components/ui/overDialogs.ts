@@ -41,37 +41,49 @@ export function useOverDialogs(
   const dressRef = useRef(dress);
   dressRef.current = dress;
 
-  // Into the dialog on top when a notice appears: looked for after the commit, so a dialog that
-  // closes in the same update (a sheet that saved, a confirmation) has gone already.
+  // Into the dialog on top when a notice appears, a frame later: a dialog that closes with the notice
+  // (the Add sheet that saved, a confirmation) may go in the next update, and the notice stays home.
   useLayoutEffect(() => {
-    if (!box || !anchor.current) return;
-    const target = on && popovers ? openModal() : null;
-    const element = ref.current;
-    if (target) {
-      if (box.parentNode !== target) target.append(box);
-      dressRef.current?.(box, true);
-      if (element) {
-        element.setAttribute("popover", "manual");
-        if (element.matches(":popover-open")) element.hidePopover();
-        element.showPopover();
-      }
-    } else if (box.previousSibling !== anchor.current) {
-      home(box, anchor.current, element);
+    if (!box) return;
+    // The notice is gone (its owner renders nothing, so no anchor either): the box leaves the dialog
+    // bare, and comes back beside the anchor with the next notice.
+    if (!anchor.current) {
+      if (box.parentNode) home(box, null, ref.current);
       dressRef.current?.(box, false);
+      setHost(null);
+      return;
     }
-    setHost(target);
+    const top = on && popovers ? openModal() : null;
+    // A new notice in the dialog it is in already is raised there at once; anywhere else it starts home.
+    if (top && box.parentNode === top) raiseIn(top, box, ref.current);
+    else if (box.previousSibling !== anchor.current) {
+      home(box, anchor.current, ref.current);
+      dressRef.current?.(box, false);
+      setHost(null);
+    }
+    if (!on || !popovers) return;
+    const frame = requestAnimationFrame(() => {
+      const target = openModal();
+      if (!target || box.parentNode === target || !box.isConnected) return;
+      dressRef.current?.(box, true);
+      raiseIn(target, box, ref.current);
+      setHost(target);
+    });
+    return () => cancelAnimationFrame(frame);
   }, [box, on, raise]);
 
   // Back to its place when that dialog closes or leaves the page without closing.
   useEffect(() => {
     if (!host || !box) return;
     const back = () => {
-      if (anchor.current) home(box, anchor.current, ref.current);
+      home(box, anchor.current, ref.current);
       dressRef.current?.(box, false);
       setHost(null);
     };
+    // React removes the topmost element that goes, often a wrapper of the dialog: the whole page is
+    // watched while the notice is in one.
     const gone = new MutationObserver(() => !host.isConnected && back());
-    if (host.parentNode) gone.observe(host.parentNode, { childList: true });
+    gone.observe(document.body, { childList: true, subtree: true });
     host.addEventListener("close", back);
     return () => {
       gone.disconnect();
@@ -79,18 +91,35 @@ export function useOverDialogs(
     };
   }, [host, box]);
 
-  // The box goes with the notice.
-  useLayoutEffect(() => () => box?.remove(), [box]);
+  // The box goes with its owner.
+  useLayoutEffect(
+    () => () => {
+      if (!box) return;
+      box.remove();
+      dressRef.current?.(box, false);
+    },
+    [box],
+  );
 
   return (node: ReactNode) =>
     box ? [createElement("span", { key: "anchor", ref: anchor, hidden: true }), createPortal(node, box, "notice")] : node;
 }
 
-/** The box back beside its anchor, the notice out of the top layer. */
-function home(box: HTMLElement, anchor: HTMLElement, element: HTMLElement | null) {
+/** The box in the dialog, the notice over it in the top layer. */
+function raiseIn(dialog: HTMLDialogElement, box: HTMLElement, element: HTMLElement | null) {
+  if (box.parentNode !== dialog) dialog.append(box);
+  if (!element) return;
+  element.setAttribute("popover", "manual");
+  if (element.matches(":popover-open")) element.hidePopover();
+  element.showPopover();
+}
+
+/** The notice out of the top layer, its box back beside the anchor (out of the page without one). */
+function home(box: HTMLElement, anchor: HTMLElement | null, element: HTMLElement | null) {
   if (element?.hasAttribute("popover")) {
     if (element.matches(":popover-open")) element.hidePopover();
     element.removeAttribute("popover");
   }
-  anchor.after(box);
+  if (anchor) anchor.after(box);
+  else box.remove();
 }

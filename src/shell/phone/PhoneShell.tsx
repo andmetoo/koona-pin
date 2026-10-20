@@ -162,17 +162,31 @@ function barStyle(bar: VerticalBar | null, status: number): Record<string, strin
   return style;
 }
 
+/** The phone root each dressed box follows while its snackbar is in a dialog. */
+const following = new WeakMap<HTMLElement, MutationObserver>();
+
 /**
- * The shared dialogs stand outside the phone's root, and the snackbar is styled under it: in a dialog,
- * its box takes the root's class, data and variables, and gives them back at home.
+ * The shared dialogs stand outside the phone's root, and the snackbar is styled under it (`.phone`,
+ * its data and variables). In a dialog its box takes them from the root and follows the root's changes
+ * (the keyboard's lift, a Fold unfolded, the hand) for as long as it is there; at home, or once the
+ * notice is gone, the box is bare again.
  */
 function dressAsPhone(box: HTMLElement, inDialog: boolean) {
+  following.get(box)?.disconnect();
+  following.delete(box);
   const root = document.querySelector<HTMLElement>("[data-phone]");
-  for (const name of box.getAttributeNames()) if (name !== "style") box.removeAttribute(name);
-  box.style.cssText = "display: contents";
+  const copy = () => {
+    for (const name of box.getAttributeNames()) if (name !== "style") box.removeAttribute(name);
+    box.style.cssText = "display: contents";
+    if (!inDialog || !root) return;
+    for (const name of root.getAttributeNames()) if (name !== "style" && name !== "data-phone") box.setAttribute(name, root.getAttribute(name)!);
+    box.style.cssText = `${root.style.cssText}; display: contents`;
+  };
+  copy();
   if (!inDialog || !root) return;
-  for (const name of root.getAttributeNames()) if (name !== "style" && name !== "data-phone") box.setAttribute(name, root.getAttribute(name)!);
-  box.style.cssText = `${root.style.cssText}; display: contents`;
+  const observer = new MutationObserver(copy);
+  observer.observe(root, { attributes: true });
+  following.set(box, observer);
 }
 
 /**

@@ -2228,6 +2228,35 @@ test("a help link that can't open says so over the dialog, readable and not iner
   await expect(notice).toHaveCount(0);
   await expect(dialog).toBeVisible();
 });
+test("a notice set as its sheet closes never goes into it; an older one stays behind a dialog opened later (NP-092)", async ({ page }) => {
+  // The sheet sets «Saved to …» and closes in the next update: the toast must not be put into it on the
+  // way (it would jump and start its entrance again). Every place a toast is put is recorded.
+  await page.evaluate(() => {
+    const w = window as unknown as { intoDialog: number };
+    w.intoDialog = 0;
+    new MutationObserver((changes) => {
+      for (const change of changes)
+        for (const node of change.addedNodes)
+          if (node instanceof HTMLElement && (node.matches("[data-glass-toast]") || node.querySelector("[data-glass-toast]")) && node.closest("dialog")) w.intoDialog++;
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  await page.getByRole("button", { name: "New link", exact: true }).click();
+  const sheet = page.getByRole("dialog", { name: "Add link" });
+  await sheet.getByRole("textbox", { name: "Link" }).fill("https://example.com/once");
+  await page.keyboard.press("Enter");
+  await expect(sheet.getByRole("button", { name: "Save link" })).toBeEnabled();
+  await page.keyboard.press("Enter");
+  await expect(sheet).toHaveCount(0);
+  const toast = page.locator("[data-glass-toast]");
+  await expect(toast).toContainText("Saved to");
+  expect(await page.evaluate(() => (window as unknown as { intoDialog: number }).intoDialog)).toBe(0);
+  expect(await toast.evaluate((el) => !!el.closest("dialog") || el.hasAttribute("popover"))).toBe(false);
+  // A dialog opened now covers it, as any window does: the notice is older than the dialog.
+  await page.getByRole("button", { name: "No browser yet" }).click();
+  const dialog = page.getByRole("dialog", { name: "Connect browser" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator("[data-glass-toast]")).toHaveCount(0);
+});
 test("connect dialog: steps for each browser, no token and no bookmarklet", async ({ page }) => {
   await page.getByRole("button", { name: "No browser yet" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect browser" });
