@@ -1870,6 +1870,13 @@
       "tipAddHow": "アドレスを貼り付けると、ここで待機します",
       "openLibrary": "ライブラリを開く"
     },
+    "share": {
+      "saved": "Koona Pin に保存しました",
+      "inInbox": "インボックス内 · {{host}}",
+      "done": "完了",
+      "noLink": "保存するリンクがありません",
+      "failed": "リンクを保存できませんでした"
+    },
     "feeds": {
       "title": "フィード",
       "chips": "表示するフィード",

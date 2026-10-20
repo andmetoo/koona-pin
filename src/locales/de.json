@@ -1995,6 +1995,13 @@
       "tipAddHow": "Adresse einfügen, sie wartet hier",
       "openLibrary": "Bibliothek öffnen"
     },
+    "share": {
+      "saved": "In Koona Pin gespeichert",
+      "inInbox": "Im Eingang · {{host}}",
+      "done": "Fertig",
+      "noLink": "Kein Link zum Speichern",
+      "failed": "Link konnte nicht gespeichert werden"
+    },
     "feeds": {
       "title": "Feeds",
       "chips": "Angezeigte Feeds",

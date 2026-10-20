@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Written from src/locales/de.json (phone.share) by `bun run locales:android`; do not edit. -->
+<resources>
+    <string name="koona_share_saved">In Koona Pin gespeichert</string>
+    <string name="koona_share_in_inbox">Im Eingang · %1$s</string>
+    <string name="koona_share_done">Fertig</string>
+    <string name="koona_share_no_link">Kein Link zum Speichern</string>
+    <string name="koona_share_failed">Link konnte nicht gespeichert werden</string>
+</resources>

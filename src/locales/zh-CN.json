@@ -1870,6 +1870,13 @@
       "tipAddHow": "粘贴地址，它会在这里等待",
       "openLibrary": "打开资料库"
     },
+    "share": {
+      "saved": "已保存到 Koona Pin",
+      "inInbox": "在收件箱中 · {{host}}",
+      "done": "完成",
+      "noLink": "没有可保存的链接",
+      "failed": "无法保存链接"
+    },
     "feeds": {
       "title": "订阅源",
       "chips": "要显示的订阅源",

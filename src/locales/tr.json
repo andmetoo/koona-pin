@@ -1995,6 +1995,13 @@
       "tipAddHow": "Bir adres yapıştırın, burada bekler",
       "openLibrary": "Kitaplığı aç"
     },
+    "share": {
+      "saved": "Koona Pin'e kaydedildi",
+      "inInbox": "Gelen kutusunda · {{host}}",
+      "done": "Tamam",
+      "noLink": "Kaydedilecek bağlantı yok",
+      "failed": "Bağlantı kaydedilemedi"
+    },
     "feeds": {
       "title": "Akışlar",
       "chips": "Gösterilecek akışlar",

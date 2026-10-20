@@ -2120,6 +2120,13 @@
       "tipAddHow": "Incolla un indirizzo, aspetta qui",
       "openLibrary": "Apri la libreria"
     },
+    "share": {
+      "saved": "Salvato in Koona Pin",
+      "inInbox": "In arrivo · {{host}}",
+      "done": "Fatto",
+      "noLink": "Nessun link da salvare",
+      "failed": "Impossibile salvare il link"
+    },
     "feeds": {
       "title": "Feed",
       "chips": "Feed da mostrare",

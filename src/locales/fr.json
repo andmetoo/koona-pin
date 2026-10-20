@@ -2120,6 +2120,13 @@
       "tipAddHow": "Collez une adresse, elle attend ici",
       "openLibrary": "Ouvrir la bibliothèque"
     },
+    "share": {
+      "saved": "Enregistré dans Koona Pin",
+      "inInbox": "Dans la boîte de réception · {{host}}",
+      "done": "Terminé",
+      "noLink": "Aucun lien à enregistrer",
+      "failed": "Impossible d’enregistrer le lien"
+    },
     "feeds": {
       "title": "Flux",
       "chips": "Flux affichés",

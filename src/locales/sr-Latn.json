@@ -2134,6 +2134,13 @@
       "tipAddHow": "Nalepite adresu, čeka ovde",
       "openLibrary": "Otvori biblioteku"
     },
+    "share": {
+      "saved": "Sačuvano u Koona Pin",
+      "inInbox": "U prijemnom sandučetu · {{host}}",
+      "done": "Gotovo",
+      "noLink": "Nema linka za čuvanje",
+      "failed": "Link nije sačuvan"
+    },
     "feeds": {
       "title": "Fidovi",
       "chips": "Fidovi za prikaz",
