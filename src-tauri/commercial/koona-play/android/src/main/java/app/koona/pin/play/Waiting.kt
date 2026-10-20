@@ -1,33 +1,31 @@
 package app.koona.pin.play
 
 /**
- * The calls waiting for the connection to Play. Each runs exactly once: with the setup's result, or
- * with a failure when the connection fails, drops, or gives no answer in time. Every connection
- * attempt has its number; only the attempt in progress settles the queue, so a callback that comes
- * after its attempt timed out is ignored, and the next call starts a new attempt.
+ * The calls waiting for the connection to Play. One connection attempt runs at a time and is never
+ * started twice: Play's BillingClient refuses startConnection while it is still connecting, and one
+ * whose endConnection was called can never connect again. So a call that comes while an attempt is
+ * in flight joins it, and each call has its own time limit: one that runs out fails alone (`expire`),
+ * the attempt goes on for the others, and when its callback comes at last it settles whoever waits.
  */
 class Waiting<T> {
   private val actions = mutableListOf<(T) -> Unit>()
-  private var attempt = 0
   private var connecting = false
 
-  /** Queues `action`; the number of the attempt the caller is to start, or null when one runs. */
+  /** Queues `action`; true when the caller is to start the connection (none is in flight). */
   @Synchronized
-  fun add(action: (T) -> Unit): Int? {
+  fun add(action: (T) -> Unit): Boolean {
     actions.add(action)
-    if (connecting) return null
-    connecting = true
-    return ++attempt
+    return (!connecting).also { connecting = true }
   }
 
-  /**
-   * Attempt `number` is set up, failed, dropped or timed out: everything queued, to run once with
-   * the result. Nothing when that attempt was settled already.
-   */
+  /** The attempt answered (set up, failed or dropped): everything queued, to run once with it. */
   @Synchronized
-  fun settle(number: Int): List<(T) -> Unit> {
-    if (!connecting || number != attempt) return emptyList()
+  fun settle(): List<(T) -> Unit> {
     connecting = false
     return actions.toList().also { actions.clear() }
   }
+
+  /** `action` ran out of time: true when it still waited (it is taken out, to fail alone). */
+  @Synchronized
+  fun expire(action: (T) -> Unit): Boolean = actions.remove(action)
 }

@@ -81,8 +81,9 @@ class KoonaPlayPlugin(activity: Activity) : Plugin(activity), PurchasesUpdatedLi
   private var buying: Invoke? = null
   private var buyingAccount: String? = null
 
-  /** What waits for the connection to Play. */
+  /** What waits for the connection to Play, and the clock of each call's time limit. */
   private val waiting = Waiting<BillingResult>()
+  private val timer = Handler(Looper.getMainLooper())
 
   /**
    * Runs `action` once connected to Play, with the setup's result; at once when connected. A setup
@@ -90,27 +91,27 @@ class KoonaPlayPlugin(activity: Activity) : Plugin(activity), PurchasesUpdatedLi
    */
   private fun ready(action: (BillingResult) -> Unit) {
     if (client.isReady) return action(BillingResult.newBuilder().setResponseCode(BillingResponseCode.OK).build())
-    val attempt = waiting.add(action) ?: return
     val failed = { message: String ->
       BillingResult.newBuilder().setResponseCode(BillingResponseCode.SERVICE_DISCONNECTED).setDebugMessage(message).build()
     }
-    // An attempt whose callback never comes would leave every later call waiting: it times out.
-    val timer = Handler(Looper.getMainLooper())
+    // Each call has its time limit: a connection whose callback never comes fails it alone. The
+    // attempt is not ended (endConnection closes the client for good) nor started again (Play
+    // refuses startConnection while connecting): later calls join it until its callback comes.
     timer.postDelayed({
-      val late = waiting.settle(attempt)
-      if (late.isNotEmpty()) Log.w(TAG, "Google Play did not answer the connection in time")
-      late.forEach { it(failed("Google Play did not answer the connection in time")) }
+      if (waiting.expire(action)) {
+        Log.w(TAG, "Google Play did not answer the connection in time")
+        action(failed("Google Play did not answer the connection in time"))
+      }
     }, CONNECT_WAIT_MS)
+    if (!waiting.add(action)) return
     client.startConnection(object : BillingClientStateListener {
       override fun onBillingSetupFinished(result: BillingResult) {
-        timer.removeCallbacksAndMessages(null)
-        waiting.settle(attempt).forEach { it(result) }
+        waiting.settle().forEach { it(result) }
       }
 
       // Later calls reconnect by themselves (enableAutoServiceReconnection); those waiting now fail.
       override fun onBillingServiceDisconnected() {
-        timer.removeCallbacksAndMessages(null)
-        waiting.settle(attempt).forEach { it(failed("The connection to Google Play dropped")) }
+        waiting.settle().forEach { it(failed("The connection to Google Play dropped")) }
       }
     })
   }
