@@ -3,12 +3,14 @@
     <application>
         <!-- "Share → Koona Pin" (NP-071): its own process, so it opens at once without the app's
              WebView and works while the app's process is gone; its own task (empty affinity), so
-             the sheet floats over the app that shares, never over Koona Pin's own screen. -->
+             the sheet floats over the app that shares, never over Koona Pin's own screen; singleTop, so a
+             share made while the sheet is open reaches it (onNewIntent) instead of being dropped. -->
         <activity
             android:name="app.koona.pin.share.ShareActivity"
             android:process=":share"
             android:exported="true"
             android:taskAffinity=""
+            android:launchMode="singleTop"
             android:excludeFromRecents="true"
             android:theme="@style/Theme.KoonaShare">
             <intent-filter>

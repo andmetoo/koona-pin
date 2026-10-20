@@ -58,23 +58,6 @@ class ShareActivity : Activity() {
 
   override fun onCreate(saved: Bundle?) {
     super.onCreate(saved)
-    val url = if (intent?.action == Intent.ACTION_SEND) ShareQueue.firstLink(intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()) else null
-    if (url == null) {
-      leave(R.string.koona_share_no_link)
-      return
-    }
-    // Some apps send the link as the subject too: then there is no title, the app finds one.
-    val title = intent.getCharSequenceExtra(Intent.EXTRA_SUBJECT)?.toString()?.trim()?.take(1000)?.takeIf { it != url }.orEmpty()
-    // A sheet made again (the phone turned) has queued its link already.
-    if (saved == null) {
-      try {
-        ShareQueue.write(ShareQueue.folder(this), ShareItem(UUID.randomUUID().toString(), url, title, Instant.now().toString()))
-      } catch (error: IOException) {
-        Log.e(TAG, "Cannot queue the shared link", error)
-        leave(R.string.koona_share_failed)
-        return
-      }
-    }
     // Edge to edge, as Android 15 and later make every window; the sheet keeps clear of the bars.
     if (Build.VERSION.SDK_INT in 30..34) {
       @Suppress("DEPRECATION")
@@ -87,22 +70,69 @@ class ShareActivity : Activity() {
     // The frame's scrim as the window's dim, which the system fades in and out with the window.
     window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
     window.setDimAmount(if (night) 0.55f else 0.24f)
-    setContentView(content(url, title))
     if (Build.VERSION.SDK_INT >= 33) {
       onBackInvokedDispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT) { close() }
     }
+    // A sheet made again (the phone turned) has queued its link already.
+    take(intent, queue = saved == null)
+  }
+
+  /**
+   * A share made while the sheet is open: the system hands it to this sheet, whose task it brings
+   * back, instead of starting another. It is queued and shown like the first.
+   */
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    take(intent, queue = true)
+  }
+
+  /** Queues the link shared and shows the sheet for it; a short word instead when there is none. */
+  private fun take(intent: Intent?, queue: Boolean) {
+    val shared = try {
+      shared(intent)
+    } catch (error: RuntimeException) {
+      // Extras another app made unreadable (a Parcelable of its own, a broken bundle).
+      Log.w(TAG, "Cannot read what was shared", error)
+      null
+    }
+    if (shared == null) {
+      tell(R.string.koona_share_no_link)
+      return
+    }
+    val (url, title) = shared
+    if (queue) {
+      try {
+        ShareQueue.write(ShareQueue.folder(this), ShareItem(UUID.randomUUID().toString(), url, title, Instant.now().toString()))
+      } catch (error: IOException) {
+        Log.e(TAG, "Cannot queue the shared link", error)
+        tell(R.string.koona_share_failed)
+        return
+      }
+    }
+    setContentView(content(url, title))
     val accessibility = getSystemService(AccessibilityManager::class.java)
     val stay = accessibility?.getRecommendedTimeoutMillis(
       AUTO_CLOSE_MS,
       AccessibilityManager.FLAG_CONTENT_TEXT or AccessibilityManager.FLAG_CONTENT_CONTROLS,
     ) ?: AUTO_CLOSE_MS
+    handler.removeCallbacks(autoClose)
     handler.postDelayed(autoClose, stay.toLong())
   }
 
-  /** A short word instead of the sheet, and away. */
-  private fun leave(message: Int) {
+  /** The link the app can save and its title, from what was shared; null when there is no such link. */
+  private fun shared(intent: Intent?): Pair<String, String>? {
+    if (intent?.action != Intent.ACTION_SEND) return null
+    val url = ShareQueue.firstLink(intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()) ?: return null
+    // Some apps send the link as the subject too: then there is no title, the app finds one.
+    val title = intent.getCharSequenceExtra(Intent.EXTRA_SUBJECT)?.toString()?.trim()?.take(1000)?.takeIf { it != url }.orEmpty()
+    return url to title
+  }
+
+  /** A short word; without a sheet showing a link already, away too. */
+  private fun tell(message: Int) {
     Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
-    finish()
+    if (!::sheet.isInitialized) finish()
   }
 
   override fun dispatchTouchEvent(event: MotionEvent): Boolean {

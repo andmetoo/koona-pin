@@ -61,8 +61,49 @@ class ShareQueueTest {
     assertEquals("http://example.com/", ShareQueue.firstLink("ftp://example.com/x then http://example.com/"))
     assertEquals("https://example.com/", ShareQueue.firstLink("HTTPS://example.com/"))
     assertEquals("https://example.com/", ShareQueue.firstLink("(see https://example.com/)"))
-    assertEquals("https://en.wikipedia.org/wiki/Bracket_(disambiguation)", ShareQueue.firstLink("https://en.wikipedia.org/wiki/Bracket_(disambiguation)."))
+    assertEquals("https://en.wikipedia.org/wiki/Bracket_(disambiguation)", ShareQueue.firstLink("See https://en.wikipedia.org/wiki/Bracket_(disambiguation)."))
     assertEquals("https://example.com/b", ShareQueue.firstLink("https:// broken https://example.com/b"))
+  }
+
+  /** Links the app's capture takes and refuses, one per line; share_queue.rs tests them against validate_url. */
+  private fun links(name: String) = File("../queue-fixtures/links/$name.txt").readLines(Charsets.UTF_8).map { it.trim() }.filter { it.isNotEmpty() }
+
+  @Test
+  fun theSheetTakesTheLinksTheAppTakes() {
+    for (url in links("accepted")) {
+      assertTrue(url, ShareQueue.acceptable(url))
+      assertEquals(url, ShareQueue.firstLink(url))
+    }
+    assertTrue(ShareQueue.acceptable("https://example.com/" + "a".repeat(8192 - 20)))
+  }
+
+  @Test
+  fun theSheetRefusesTheLinksTheAppRefuses() {
+    for (url in links("refused")) assertFalse(url, ShareQueue.acceptable(url))
+    assertFalse(ShareQueue.acceptable("https://example.com/" + "a".repeat(8192 - 19)))
+    assertNull(ShareQueue.firstLink("https://example.com/" + "я".repeat(4100)))
+    assertNull(ShareQueue.firstLink("https://example.com:99999/"))
+    assertNull(ShareQueue.firstLink("look: http://[::1 and more"))
+  }
+
+  @Test
+  fun aWholeAddressIsTakenWholeOneInATextUpToItsEnd() {
+    assertEquals("https://en.wikipedia.org/wiki/Conan_O'Brien", ShareQueue.firstLink("https://en.wikipedia.org/wiki/Conan_O'Brien"))
+    assertEquals("https://en.wikipedia.org/wiki/Conan_O'Brien", ShareQueue.firstLink("About him: https://en.wikipedia.org/wiki/Conan_O'Brien."))
+    assertEquals("https://example.com/a", ShareQueue.firstLink("'https://example.com/a'"))
+    assertEquals("https://fonts.googleapis.com/css2?family=A|B", ShareQueue.firstLink("fonts https://fonts.googleapis.com/css2?family=A|B|"))
+    assertEquals("https://example.com/{id}", ShareQueue.firstLink("route https://example.com/{id}}"))
+    assertEquals("https://example.com/a.", ShareQueue.firstLink("https://example.com/a."))
+  }
+
+  @Test
+  fun chineseAndJapanesePunctuationEndsALink() {
+    assertEquals("https://example.jp/a", ShareQueue.firstLink("これを見て https://example.jp/a。次へ"))
+    assertEquals("https://example.jp/a", ShareQueue.firstLink("「https://example.jp/a」"))
+    assertEquals("https://example.cn/a", ShareQueue.firstLink("看看（https://example.cn/a），好"))
+    assertEquals("https://example.cn/a", ShareQueue.firstLink("《https://example.cn/a》、【x】"))
+    assertEquals("https://example.com/a", ShareQueue.firstLink("“https://example.com/a”"))
+    assertEquals("https://example.com/a", ShareQueue.firstLink("‘https://example.com/a’…"))
   }
 
   @Test
