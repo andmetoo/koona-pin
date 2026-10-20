@@ -14,7 +14,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 # The sync engine (Р-68) is its own crate under the commercial license, without Tauri, so the
 # phone apps can wrap it later. One SQLite links: both crates use rusqlite 0.32.
 [workspace]
-members = [".", "commercial/koona-sync", "commercial/koona-play", "plugins/koona-mobile"]
+members = [".", "commercial/koona-sync", "commercial/koona-play", "plugins/koona-mobile", "plugins/koona-share"]
 
 [build-dependencies]
 tauri-build = { version = "2.0", features = [] }
@@ -101,6 +101,8 @@ tauri-plugin-deep-link = "2.6"
 # insets, and (NP-072b) the signals of the phone's look and the haptics (plugins/koona-mobile).
 [target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
 tauri-plugin-koona-mobile = { path = "plugins/koona-mobile" }
+# Links shared from other apps (NP-071): the share sheet and its queue folder (plugins/koona-share).
+tauri-plugin-koona-share = { path = "plugins/koona-share" }
 # `_exit` at the end of a phone's run (lib.rs, `end_on_phone`). Already in the tree.
 libc = "0.2"
 

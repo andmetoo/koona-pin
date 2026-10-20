@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- "Share → Koona Pin" (NP-071): its own process, so it opens at once without the app's
+             WebView and works while the app's process is gone; its own task (empty affinity), so
+             the sheet floats over the app that shares, never over Koona Pin's own screen. -->
+        <activity
+            android:name="app.koona.pin.share.ShareActivity"
+            android:process=":share"
+            android:exported="true"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.KoonaShare">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

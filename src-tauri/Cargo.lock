@@ -2544,6 +2544,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-koona-mobile",
  "tauri-plugin-koona-play",
+ "tauri-plugin-koona-share",
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
@@ -5128,6 +5129,15 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "tauri",
+ "tauri-plugin",
+]
+
+[[package]]
+name = "tauri-plugin-koona-share"
+version = "0.1.0"
+dependencies = [
+ "serde",
  "tauri",
  "tauri-plugin",
 ]

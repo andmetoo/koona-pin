@@ -1,0 +1,6 @@
+# What the Tauri build puts here for the Android build: a copy of Tauri's own native API, Gradle's
+# output, and the permissions of the (no) commands.
+/.tauri
+/android/build
+/android/.tauri
+/permissions
