@@ -16,6 +16,7 @@ pub mod error;
 pub mod export;
 pub mod feedback;
 pub mod feeds;
+pub mod hash;
 pub mod import;
 pub mod ipc;
 pub mod journal;

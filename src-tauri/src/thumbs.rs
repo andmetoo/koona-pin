@@ -40,7 +40,6 @@ use image::metadata::Orientation;
 use image::{DynamicImage, GenericImageView, ImageDecoder, ImageFormat, ImageReader};
 use percent_encoding::percent_decode_str;
 use rusqlite::{Connection, OpenFlags, OptionalExtension};
-use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Cursor;
@@ -310,7 +309,7 @@ pub fn feed_addresses(conn: &Connection) -> rusqlite::Result<Vec<String>> {
 
 /// The file name of an address: the hex SHA-256 of it, as it is stored.
 pub fn key(address: &str) -> String {
-    Sha256::digest(address.as_bytes()).iter().map(|b| format!("{b:02x}")).collect()
+    crate::hash::sha256_hex(address.as_bytes())
 }
 
 /// The keys of a set of addresses.
