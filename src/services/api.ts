@@ -339,6 +339,8 @@ const native = {
   startPlayPurchase: (interval: PlanInterval) => call<PlayState>("start_play_purchase", { interval }),
   /** The email step: the code is sent there (`sign_in`); then `verifySignInCode` binds the purchase. */
   playClaimEmail: (email: string) => call<PlayState>("play_claim_email", { email }),
+  /** «Try again» when the server could not be asked about a purchase: asks it now, not Play's sheet. */
+  retryPlayPurchase: () => call<PlayState>("retry_play_purchase"),
   // Supporter's backups to a folder of one's choice (commercial/backup_folder.rs).
   getBackupFolder: () => call<BackupFolder>("get_backup_folder"),
   onBackupFolder: (callback: (folder: BackupFolder) => void) => subscription("backup-folder", callback),

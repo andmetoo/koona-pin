@@ -446,6 +446,34 @@ test("the Play build: a cancelled purchase is back on the plans quietly; a failu
   await failOnce(page, "startPlayPurchase", "network", "offline");
   await supporter.getByRole("button", { name: "Try again" }).click();
   await expect(supporter.getByRole("alert")).toContainText("If you paid, the purchase is kept");
+  // «Try again» now asks the server about the kept purchase, never Play's sheet again (which fails here).
+  await failOnce(page, "startPlayPurchase", "network", "offline");
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.play", "email"));
+  await supporter.getByRole("button", { name: "Try again" }).click();
+  await expect(supporter.getByRole("dialog", { name: "Where should we send your code?" })).toBeVisible();
+});
+
+test("the Play build: signed in by the code but the purchase not bound yet, the used code is not asked for again", async ({ page }) => {
+  const { supporter } = await openPlay(page, { ...FREE, "demo.playBind": "fail" });
+  await supporter.getByRole("button", { name: "Subscribe · Monthly" }).click();
+  await expect(supporter.getByRole("dialog", { name: "Where should we send your code?" })).toBeVisible();
+  await supporter.getByLabel("Email").fill("anna@example.com");
+  await supporter.getByRole("button", { name: "Send code" }).click();
+  await expect(supporter.getByRole("dialog", { name: "Check your email" })).toBeVisible();
+  await supporter.getByLabel("Code").fill("123456");
+  await supporter.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(supporter.getByRole("alert")).toContainText("If you paid, the purchase is kept");
+  await expect(supporter.getByLabel("Code")).toHaveCount(0);
+  // The server answers now: the purchase is bound to the account signed in.
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.play", "paid"));
+  await supporter.getByRole("button", { name: "Try again" }).click();
+  await expect(supporter.getByRole("dialog", { name: "Thank you for supporting Koona Pin" })).toBeVisible();
+});
+
+test("the Play build: Google Play selling no plan says so instead of an empty list", async ({ page }) => {
+  const { supporter } = await openPlay(page, { ...FREE, "demo.playProducts": "none" });
+  await expect(supporter).toContainText("Google Play can't sell Supporter on this phone right now.");
+  await expect(supporter.locator("[data-play-terms]")).toHaveCount(0);
 });
 
 test("the Play build: a plan paid through Google Play whose renewal failed is fixed in Google Play", async ({ page }) => {

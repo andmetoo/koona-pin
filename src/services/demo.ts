@@ -241,6 +241,14 @@ let demoPolls = 0;
  * when the sheet opens.
  */
 const DEMO_PLAY_KEY = "koonapin.demo.play";
+/** The preview server's verdict on a Play purchase of this plan, and the status it leaves. */
+function demoPlayVerdict(interval: PlanInterval): PlayState {
+  const now = currentDemoSupporter();
+  const state = (demoSwitch(DEMO_PLAY_KEY) as PlayState | null) ?? (now.email ? "paid" : "email");
+  const plan = state === "paid" ? demoPlan(interval === "five_years" ? "five_years" : "supporter") : now.plan;
+  setDemoSupporter({ ...now, plan: plan && { ...plan, store: "play" }, play: { state, email: null } });
+  return state;
+}
 const demoPlayPrice = (price: string, micros: number, period: string | null) => ({ price, currency: "EUR", micros, period });
 /** The plan of the last purchase started: five years paid once become that plan. */
 let demoBought: PlanInterval | null = null;
@@ -2558,11 +2566,13 @@ export const demo = {
   async getPlayOffer(): Promise<PlayOffer> {
     await new Promise((resolve) => setTimeout(resolve, 200));
     noServer();
+    // `koonapin.demo.playProducts` "none": Play sells no product yet (not active in Play Console).
+    const sells = demoSwitch("koonapin.demo.playProducts") !== "none";
     return {
       available: true,
-      month: demoPlayPrice("€2.00", 2_000_000, "P1M"),
-      year: demoPlayPrice("€20.00", 20_000_000, "P1Y"),
-      five_years: demoPlayPrice("€50.00", 50_000_000, null),
+      month: sells ? demoPlayPrice("€2.00", 2_000_000, "P1M") : null,
+      year: sells ? demoPlayPrice("€20.00", 20_000_000, "P1Y") : null,
+      five_years: sells ? demoPlayPrice("€50.00", 50_000_000, null) : null,
       suspended: demoSwitch("koonapin.demo.playSuspended") === "on",
     };
   },
@@ -2570,11 +2580,13 @@ export const demo = {
     await new Promise((resolve) => setTimeout(resolve, 600));
     noServer();
     demoBought = interval;
-    const now = currentDemoSupporter();
-    const state = (demoSwitch(DEMO_PLAY_KEY) as PlayState | null) ?? (now.email ? "paid" : "email");
-    const plan = state === "paid" ? demoPlan(interval === "five_years" ? "five_years" : "supporter") : now.plan;
-    setDemoSupporter({ ...now, plan: plan && { ...plan, store: "play" }, play: { state, email: null } });
-    return state;
+    return demoPlayVerdict(interval);
+  },
+  /** The server asked again about the purchase kept: its verdict as `koonapin.demo.play` says. */
+  async retryPlayPurchase(): Promise<PlayState> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    noServer();
+    return demoPlayVerdict(demoBought ?? "year");
   },
   async playClaimEmail(email: string): Promise<PlayState> {
     if (!emailShape(email.trim())) throw new CommandError("invalid_request", "The email address does not look right", "invalid_email");
@@ -2596,8 +2608,11 @@ export const demo = {
     // check failed (the server did not answer), until «Try again».
     const address = email.trim().toLowerCase();
     const unknown = address.startsWith("unknown@");
-    // A Play purchase waiting for this code is bound by the sign-in (billing/play.rs).
-    const play = currentDemoSupporter().play?.state === "sign_in" ? ({ state: "paid", email: null } as const) : currentDemoSupporter().play;
+    // A Play purchase waiting for this code is bound by the sign-in (billing/play.rs), unless
+    // `koonapin.demo.playBind` "fail": the server could not be asked, the purchase waits.
+    const waiting = currentDemoSupporter().play;
+    const binds = waiting?.state === "sign_in" && demoSwitch("koonapin.demo.playBind") !== "fail";
+    const play = binds ? ({ state: "paid", email: null } as const) : waiting;
     const bought = play?.state === "paid" ? demoPlan(demoBought === "five_years" ? "five_years" : "supporter") : null;
     const plan = bought ? { ...bought, store: "play" as const } : address.startsWith("free@") || unknown ? null : demoPlan("supporter");
     setDemoSupporter({ ...currentDemoSupporter(), email: email.trim(), plan, check_failed: unknown, plan_unknown: unknown, awaiting_sign_in: false, play });

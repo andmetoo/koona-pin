@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import i18n from "../../../i18n";
 import type { PlayOffer, PlayState } from "../../../types";
-import { failureLine, playBadge, playPlans, playPriceLine, playStep, resumedStep } from "./playFlow";
+import { failureLine, playBadge, playPlans, playPriceLine, playStep, playUnavailable, resumedStep } from "./playFlow";
 
 const t = i18n.getFixedT("en");
 
@@ -69,6 +69,15 @@ describe("the Play plans", () => {
     expect(playPriceLine("year", price("€20.00", 20_000_000, "P1Y"), t)).toBe("€20.00 a year");
     expect(playPriceLine("month", price("2,00 €", 2_000_000, "P1M"), t)).toBe("2,00 € a month");
     expect(playPriceLine("five_years", price("€50.00", 50_000_000, null), t)).toBe("€50.00 once");
+    // The period is Play's: a yearly card with Play's yearly period, whatever the card.
+    expect(playPriceLine("month", price("€20.00", 20_000_000, "P1Y"), t)).toBe("€20.00 a year");
+  });
+
+  it("say Play sells nothing here when it has no plan, as when it is not there", () => {
+    expect(playUnavailable(null)).toBe(false);
+    expect(playUnavailable(offer())).toBe(false);
+    expect(playUnavailable(offer({ month: null, year: null, five_years: null }))).toBe(true);
+    expect(playUnavailable(offer({ available: false }))).toBe(true);
   });
 
   it("carry a badge only where Play's prices make it true", () => {

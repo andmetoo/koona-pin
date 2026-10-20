@@ -74,10 +74,16 @@ export const playPlans = (offer: PlayOffer | null): PlanInterval[] => (offer ? P
 
 /**
  * A plan's price as its card says it, as Play formats it, cents and all («€20.00 a year»): the
- * price Google Play charges, to the letter.
+ * price Google Play charges, to the letter, for the period Play reports (billing/play.rs offers a
+ * base plan only with the period its card names).
  */
-export const playPriceLine = (value: PlanInterval, price: PlayPrice, t: TFunction) =>
-  t(value === "year" ? "supporter.perYear" : value === "month" ? "supporter.perMonth" : "supporter.once", { price: price.price });
+export const playPriceLine = (value: PlanInterval, price: PlayPrice, t: TFunction) => {
+  const per = price.period === "P1Y" ? "year" : price.period === "P1M" ? "month" : price.period === null || value === "five_years" ? "once" : value;
+  return t(per === "year" ? "supporter.perYear" : per === "month" ? "supporter.perMonth" : "supporter.once", { price: price.price });
+};
+
+/** Play sells nothing here: no Play, or no plan Play offers. */
+export const playUnavailable = (offer: PlayOffer | null) => !!offer && (!offer.available || playPlans(offer).length === 0);
 
 /**
  * The badge of a card, only where Play's prices make it true: «2 months free» for a year at most ten
@@ -149,15 +155,25 @@ export function usePlayPurchase(supporter: SupporterStatus | null) {
     show(play.state);
   }, [play?.state, play?.email]);
 
+  /**
+   * The server could not be asked about a purchase that may be paid: it is kept, asked about again
+   * when the app comes back, and «Try again» asks the server now, never Play's sheet again.
+   */
+  const [kept, setKept] = useState(false);
+  const unreachable = () => {
+    setStep("plans");
+    setError(t("phone.supporter.play.unreachable"));
+    setKept(true);
+  };
   const run = async (action: () => Promise<void>, purchase = false) => {
     setBusy(true);
     setError(null);
+    setKept(false);
     try {
       await action();
     } catch (err) {
-      // A purchase may be paid when the server could not be asked: it is kept and asked about
-      // again when the app comes back (billing/play.rs).
-      setError(purchase && toCommandError(err).code === "network" ? t("phone.supporter.play.unreachable") : failureText(err, t));
+      if (purchase && toCommandError(err).code === "network") unreachable();
+      else setError(failureText(err, t));
     } finally {
       setBusy(false);
     }
@@ -177,12 +193,27 @@ export function usePlayPurchase(supporter: SupporterStatus | null) {
       }
       show(state);
     });
-  /** The code: it signs in, and the purchase waiting for it is bound to the account. */
+  /**
+   * The code: it signs in, and the purchase waiting for it is bound to the account. Signed in but
+   * not bound yet (the server could not be asked), the used code is not asked for again: the
+   * purchase is kept and «Try again» asks the server.
+   */
   const verify = () =>
     run(async () => {
       const status = await api.verifySignInCode(email, code);
-      show(status.play?.state ?? (status.plan ? "paid" : "error"));
+      const state = status.play?.state ?? (status.plan ? "paid" : "error");
+      if (state === "sign_in" && status.email) unreachable();
+      else show(state);
     });
+  /** «Try again»: the server again for a kept purchase, else Play's sheet for the last plan. */
+  const retry = () => {
+    if (!kept) return last ? buy(last) : Promise.resolve();
+    return run(async () => {
+      const state = await api.retryPlayPurchase();
+      if (state === "sign_in" && supporter?.email) unreachable();
+      else show(state);
+    }, true);
+  };
   const resend = () =>
     run(async () => {
       await api.sendSignInCode(email);
@@ -203,5 +234,5 @@ export function usePlayPurchase(supporter: SupporterStatus | null) {
   const suspended = step === "suspended" || (step === "plans" && !!offer?.suspended);
   const fixPayment = () => run(() => api.openUrl(PLAY_SUBSCRIPTIONS_URL));
 
-  return { step, setStep, error, busy, offer, offerFailed, askOffer, last, buy, email, setEmail, claim, code, setCode, verify, resend, wait, anotherEmail, codeReady, suspended, fixPayment };
+  return { step, setStep, error, busy, offer, offerFailed, askOffer, last, kept, retry, buy, email, setEmail, claim, code, setCode, verify, resend, wait, anotherEmail, codeReady, suspended, fixPayment };
 }

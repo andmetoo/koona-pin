@@ -9,7 +9,7 @@ import { Button } from "../ui/buttons";
 import { Sheet, useCloseSheet } from "../ui/Sheet";
 import { Shelf, ShelfRow } from "../ui/Shelf";
 import { CodeForm, Note, SeasonHeart } from "./parts";
-import { playBadge, playPlans, playPriceLine, usePlayPurchase } from "./playFlow";
+import { playBadge, playPlans, playPriceLine, playUnavailable, usePlayPurchase } from "./playFlow";
 
 export type SupporterSheetProps = Record<string, never>;
 
@@ -223,7 +223,7 @@ function PlaySheet() {
   const close = useCloseSheet();
   const formId = useId();
   const purchase = usePlayPurchase(supporter);
-  const { step, error, busy, offer, offerFailed, askOffer, last, buy, email, setEmail, claim, code, setCode, verify, resend, wait, anotherEmail, codeReady, suspended, fixPayment } = purchase;
+  const { step, error, busy, offer, offerFailed, askOffer, last, kept, retry, buy, email, setEmail, claim, code, setCode, verify, resend, wait, anotherEmail, codeReady, suspended, fixPayment } = purchase;
   const signIn = () => setSurface("signIn");
 
   if (step === "email" || step === "code") {
@@ -349,7 +349,7 @@ function PlaySheet() {
             </Button>
             {error && <Note tone="danger">{error}</Note>}
           </div>
-        ) : offer && !offer.available ? (
+        ) : playUnavailable(offer) ? (
           <Note tone="amber">{t("phone.supporter.play.notAvailable")}</Note>
         ) : offerFailed && !offer ? (
           <div className="sp-play-failure">
@@ -391,8 +391,8 @@ function PlaySheet() {
             {error ? (
               <div className="sp-play-failure">
                 <Note tone="danger">{error}</Note>
-                {last && (
-                  <Button kind="ghost" compact className="sp-open-again" disabled={busy} onClick={() => void buy(last)}>
+                {(last || kept) && (
+                  <Button kind="ghost" compact className="sp-open-again" disabled={busy} onClick={() => void retry()}>
                     {t("common.retry")}
                   </Button>
                 )}
