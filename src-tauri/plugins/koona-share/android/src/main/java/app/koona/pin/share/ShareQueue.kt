@@ -90,28 +90,30 @@ object ShareQueue {
 
   /**
    * The first link of a shared text the app can save: the whole text when it is one address, as a
-   * browser shares it, else the first http(s) link inside it. Punctuation that ends a sentence is
-   * not part of a link inside a text, nor a closing bracket the link did not open. Null when there
-   * is none.
+   * browser shares it, else the first http(s) link inside it. Either way punctuation that ends a
+   * sentence is not part of it, nor a closing bracket it did not open. Null when there is none.
    */
   fun firstLink(text: String?): String? {
     val whole = text?.trim() ?: return null
-    if (whole.none { it.isWhitespace() }) normalized(whole)?.let { return it }
-    for (match in link.findAll(whole)) {
-      var found = match.value
-      while (found.isNotEmpty()) {
-        val last = found.last()
-        val unopened = when (last) {
-          ')' -> found.count { it == ')' } > found.count { it == '(' }
-          ']' -> found.count { it == ']' } > found.count { it == '[' }
-          '}' -> found.count { it == '}' } > found.count { it == '{' }
-          else -> false
-        }
-        if (last in TRAILING || unopened) found = found.dropLast(1) else break
-      }
-      normalized(found)?.let { return it }
-    }
+    if (whole.none { it.isWhitespace() }) normalized(trimmed(whole))?.let { return it }
+    for (match in link.findAll(whole)) normalized(trimmed(match.value))?.let { return it }
     return null
+  }
+
+  /** Without the sentence's punctuation after it. */
+  private fun trimmed(link: String): String {
+    var found = link
+    while (found.isNotEmpty()) {
+      val last = found.last()
+      val unopened = when (last) {
+        ')' -> found.count { it == ')' } > found.count { it == '(' }
+        ']' -> found.count { it == ']' } > found.count { it == '[' }
+        '}' -> found.count { it == '}' } > found.count { it == '{' }
+        else -> false
+      }
+      if (last in TRAILING || unopened) found = found.dropLast(1) else break
+    }
+    return found
   }
 
   /** The link with its scheme in lower case, if the app can save it. */
@@ -124,29 +126,48 @@ object ShareQueue {
   /** Characters a host never has (the URL Standard's forbidden host code points, and `%`). */
   private const val FORBIDDEN_HOST = " #%/:<>?@[\\]^|"
 
+  /** The host and the port of a link as written: an IPv6 literal keeps its brackets. */
+  private class Authority(val host: String, val port: String?)
+
+  /**
+   * The host and port, as the url crate splits them for http and https: the authority ends at `/`,
+   * `\`, `?` or `#`, the user's name and password end at its last `@`. Null when the brackets of an
+   * IPv6 literal are not closed or something follows them other than a port.
+   */
+  private fun authority(url: String): Authority? {
+    val authority = url.substringAfter("://", "").takeWhile { it != '/' && it != '?' && it != '#' && it != '\\' }
+    val hostPort = authority.substringAfterLast('@')
+    if (!hostPort.startsWith("[")) {
+      return Authority(hostPort.substringBefore(':'), if (':' in hostPort) hostPort.substringAfter(':') else null)
+    }
+    val end = hostPort.indexOf(']')
+    if (end < 0) return null
+    val after = hostPort.substring(end + 1)
+    if (after.isNotEmpty() && !after.startsWith(":")) return null
+    return Authority(hostPort.substring(0, end + 1), if (after.isEmpty()) null else after.substring(1))
+  }
+
   /**
    * Whether the app's capture takes the link (capture.rs `validate_url`, the url crate): http or
    * https, at most 8192 bytes, a host, a port up to 65535. Read here by hand: java.net.URI is
    * stricter than browsers and the url crate (it refuses `|`, `{}`, `[` in a path, a second `#`),
-   * and InetAddress may look a name up. Where the two may differ, this side refuses, so a link the
-   * sheet calls saved is never put aside by the app.
+   * and InetAddress may look a name up. Where the two may differ this side refuses, so the sheet
+   * never says saved for a link the app puts aside: a host outside ASCII may hold letters, digits,
+   * marks and the full stops of other scripts only, since java.net.IDN follows IDNA2003 and the url
+   * crate UTS 46, which differ on symbols, emoji and characters newer than Unicode 3.2.
    */
   fun acceptable(url: String): Boolean {
     if (url.toByteArray(Charsets.UTF_8).size > MAX_LINK_BYTES || url.any { it.isWhitespace() || it < ' ' }) return false
     val scheme = url.substringBefore("://", "").lowercase()
     if (scheme != "http" && scheme != "https") return false
-    val authority = url.substringAfter("://").takeWhile { it != '/' && it != '?' && it != '#' && it != '\\' }
-    val hostPort = authority.substringAfterLast('@')
-    val port: String
-    if (hostPort.startsWith("[")) {
-      val end = hostPort.indexOf(']')
-      if (end < 0 || !ipv6(hostPort.substring(1, end))) return false
-      val after = hostPort.substring(end + 1)
-      if (after.isNotEmpty() && !after.startsWith(":")) return false
-      port = after.removePrefix(":")
+    val authority = authority(url) ?: return false
+    val host = authority.host
+    if (host.startsWith("[")) {
+      if (!ipv6(host.substring(1, host.length - 1))) return false
     } else {
-      val host = hostPort.substringBefore(':')
-      port = hostPort.substringAfter(':', "")
+      if (!host.codePoints().allMatch(::hostCodePoint)) return false
+      // A label may not begin with a mark (UTS 46; IDNA2003 lets it).
+      if (host.split('.', '。', '．', '｡').any { label -> label.isNotEmpty() && mark(label.codePointAt(0)) }) return false
       val ascii = try {
         IDN.toASCII(host, IDN.ALLOW_UNASSIGNED)
       } catch (error: IllegalArgumentException) {
@@ -157,8 +178,24 @@ object ShareQueue {
       val last = ascii.trimEnd('.').substringAfterLast('.')
       if (last.isNotEmpty() && (last.all { it.isDigit() } || last.startsWith("0x", ignoreCase = true)) && !ipv4(ascii.trimEnd('.'))) return false
     }
+    val port = authority.port ?: return true
     return port.isEmpty() || (port.length <= 5 && port.all { it in '0'..'9' } && port.toInt() <= 65535)
   }
+
+  /** A character of a host the two IDNA versions read alike: ASCII, or a letter, digit or mark. */
+  private fun hostCodePoint(point: Int): Boolean {
+    if (point < 0x80) return true
+    if (point == 0x3002 || point == 0xFF0E || point == 0xFF61) return true
+    // Unicode 3.2 ends below the supplementary planes' letters IDNA2003 knows nothing of.
+    if (point > 0xFFFF) return false
+    return when (Character.getType(point).toByte()) {
+      Character.UPPERCASE_LETTER, Character.LOWERCASE_LETTER, Character.TITLECASE_LETTER, Character.MODIFIER_LETTER,
+      Character.OTHER_LETTER, Character.NON_SPACING_MARK, Character.COMBINING_SPACING_MARK, Character.DECIMAL_DIGIT_NUMBER -> true
+      else -> false
+    }
+  }
+
+  private fun mark(point: Int) = Character.getType(point).toByte().let { it == Character.NON_SPACING_MARK || it == Character.COMBINING_SPACING_MARK }
 
   private fun ipv4(host: String): Boolean {
     val parts = host.split('.')
@@ -185,13 +222,7 @@ object ShareQueue {
   }
 
   /** The site of a link as the app names it: the host in lower case, without `www.`. */
-  fun host(url: String): String {
-    val authority = url.substringAfter("://", "").takeWhile { it != '/' && it != '?' && it != '#' }
-    val host = authority.substringAfterLast('@').let { hostPort ->
-      if (hostPort.startsWith("[")) hostPort.substringBefore(']') + "]" else hostPort.substringBefore(':')
-    }.lowercase()
-    return host.removePrefix("www.")
-  }
+  fun host(url: String): String = authority(url)?.host?.lowercase()?.removePrefix("www.").orEmpty()
 
   /** The letter of the title's tile: its first letter or digit, else the site's, else none. */
   fun letter(title: String, host: String): String {

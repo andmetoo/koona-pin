@@ -36,6 +36,9 @@ const REJECTED_KEPT: usize = 50;
 /// A `.tmp` older than this is a share whose sheet ended before its rename: it never comes.
 const ABANDONED: Duration = Duration::from_secs(60 * 60);
 
+/// A share that has failed by itself for this long will not be saved: it is put aside.
+const GIVE_UP: Duration = Duration::from_secs(30 * 24 * 60 * 60);
+
 /// The queue of a phone that has a share sheet; managed before the library opens.
 pub struct Queue {
     folder: PathBuf,
@@ -109,6 +112,10 @@ impl Queue {
                     eprintln!("Koona Pin: the shared links wait: {}", error.message);
                     drained.left += total - done;
                     break;
+                }
+                // Failing by itself for a month: it never will be saved.
+                Err(error) if Utc::now().signed_duration_since(share.created).to_std().is_ok_and(|age| age > GIVE_UP) => {
+                    drained.rejected += usize::from(self.reject(&path, &error.message));
                 }
                 // This one failed by itself: it stays for the next time, the others go on.
                 Err(error) => {
@@ -255,10 +262,27 @@ mod tests {
         Mutex::new(conn)
     }
 
-    fn folder(name: &str) -> PathBuf {
+    /// A queue folder of its own in the system's temp folder, removed with everything in it when
+    /// the test ends.
+    struct Folder(PathBuf);
+
+    impl std::ops::Deref for Folder {
+        type Target = PathBuf;
+        fn deref(&self) -> &PathBuf {
+            &self.0
+        }
+    }
+
+    impl Drop for Folder {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn folder(name: &str) -> Folder {
         let folder = std::env::temp_dir().join(format!("koonapin-share-{name}-{}", uuid::Uuid::new_v4().simple()));
         fs::create_dir_all(&folder).unwrap();
-        folder
+        Folder(folder)
     }
 
     fn share(folder: &Path, file: &str, request_id: &str, url: &str, created_at: &str) -> PathBuf {
@@ -392,6 +416,22 @@ mod tests {
     }
 
     #[test]
+    fn a_share_that_has_failed_for_a_month_is_put_aside() {
+        let (conn, folder) = (library(), folder("gives-up"));
+        conn.lock()
+            .unwrap()
+            .execute_batch("CREATE TEMP TRIGGER refuse BEFORE INSERT ON bookmarks WHEN NEW.url LIKE '%refused%' BEGIN SELECT RAISE(ABORT, 'refused'); END;")
+            .unwrap();
+        let month_ago = (Utc::now() - chrono::Duration::days(31)).to_rfc3339();
+        let recent = (Utc::now() - chrono::Duration::days(29)).to_rfc3339();
+        share(&folder, "old.json", ID, "https://example.com/refused/old", &month_ago);
+        share(&folder, "recent.json", "0b5e7c1d-2f4a-4e6b-8c9d-0e1f2a3b4c5d", "https://example.com/refused/recent", &recent);
+        assert_eq!(Queue::new(folder.clone()).drain(&conn, |_| {}), Drained { saved: 0, rejected: 1, left: 1 });
+        assert_eq!(names(&folder), ["recent.json", REJECTED]);
+        assert_eq!(names(&folder.join(REJECTED)), ["old.json"]);
+    }
+
+    #[test]
     fn the_files_put_aside_are_the_newest_fifty() {
         let (conn, folder) = (library(), folder("rejected-cap"));
         let rejected = folder.join(REJECTED);
@@ -425,6 +465,10 @@ mod tests {
         for url in read("refused.txt") {
             assert!(capture::validate_url(&url).is_err(), "{url}");
         }
+        // The app takes these; the sheet refuses them, as the two IDNA versions may read them apart.
+        for url in read("sheet-refuses.txt") {
+            assert!(capture::validate_url(&url).is_ok(), "{url}");
+        }
         let longest = format!("https://example.com/{}", "a".repeat(8192 - 20));
         assert!(capture::validate_url(&longest).is_ok());
         assert!(capture::validate_url(&format!("{longest}a")).is_err());
@@ -445,7 +489,7 @@ mod tests {
         let (conn, folder) = (library(), folder("order"));
         share(&folder, "a.json", "0b5e7c1d-2f4a-4e6b-8c9d-0e1f2a3b4c5d", "https://example.com/later", "2026-10-20T11:00:00+02:00");
         share(&folder, "b.json", ID, "https://example.com/earlier", "2026-10-20T08:30:00Z");
-        Queue::new(folder).drain(&conn, |_| {});
+        Queue::new(folder.clone()).drain(&conn, |_| {});
         let urls: Vec<String> = bookmarks(&conn).into_iter().map(|(url, ..)| url).collect();
         assert_eq!(urls, ["https://example.com/earlier", "https://example.com/later"]);
     }

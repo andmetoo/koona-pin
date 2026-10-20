@@ -123,9 +123,13 @@ class ShareActivity : Activity() {
   /** The link the app can save and its title, from what was shared; null when there is no such link. */
   private fun shared(intent: Intent?): Pair<String, String>? {
     if (intent?.action != Intent.ACTION_SEND) return null
-    val url = ShareQueue.firstLink(intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()) ?: return null
-    // Some apps send the link as the subject too: then there is no title, the app finds one.
-    val title = intent.getCharSequenceExtra(Intent.EXTRA_SUBJECT)?.toString()?.trim()?.take(1000)?.takeIf { it != url }.orEmpty()
+    val subject = intent.getCharSequenceExtra(Intent.EXTRA_SUBJECT)?.toString()?.trim().orEmpty()
+    // The text first; some apps put the link in the subject, or only in the clip data.
+    val clips = intent.clipData?.let { clip -> (0 until clip.itemCount).mapNotNull { clip.getItemAt(it)?.text?.toString() } }.orEmpty()
+    val url = (listOf(intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString(), subject) + clips).firstNotNullOfOrNull(ShareQueue::firstLink)
+      ?: return null
+    // A subject that holds a link is no title: the app finds one.
+    val title = subject.take(1000).takeIf { ShareQueue.firstLink(it) == null }.orEmpty()
     return url to title
   }
 

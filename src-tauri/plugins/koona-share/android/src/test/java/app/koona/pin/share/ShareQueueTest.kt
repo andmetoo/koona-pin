@@ -80,6 +80,8 @@ class ShareQueueTest {
   @Test
   fun theSheetRefusesTheLinksTheAppRefuses() {
     for (url in links("refused")) assertFalse(url, ShareQueue.acceptable(url))
+    // The app takes these; IDNA2003 and UTS 46 may read them differently, so the sheet does not.
+    for (url in links("sheet-refuses")) assertFalse(url, ShareQueue.acceptable(url))
     assertFalse(ShareQueue.acceptable("https://example.com/" + "a".repeat(8192 - 19)))
     assertNull(ShareQueue.firstLink("https://example.com/" + "я".repeat(4100)))
     assertNull(ShareQueue.firstLink("https://example.com:99999/"))
@@ -93,7 +95,11 @@ class ShareQueueTest {
     assertEquals("https://example.com/a", ShareQueue.firstLink("'https://example.com/a'"))
     assertEquals("https://fonts.googleapis.com/css2?family=A|B", ShareQueue.firstLink("fonts https://fonts.googleapis.com/css2?family=A|B|"))
     assertEquals("https://example.com/{id}", ShareQueue.firstLink("route https://example.com/{id}}"))
-    assertEquals("https://example.com/a.", ShareQueue.firstLink("https://example.com/a."))
+    assertEquals("https://example.com/page", ShareQueue.firstLink("https://example.com/page."))
+    assertEquals("https://example.com/page", ShareQueue.firstLink("https://example.com/page…"))
+    assertEquals("https://example.com/page", ShareQueue.firstLink("https://example.com/page)"))
+    assertEquals("https://example.com/a_(b)", ShareQueue.firstLink("https://example.com/a_(b)!"))
+    assertEquals("https://en.wikipedia.org/wiki/Conan_O'Brien", ShareQueue.firstLink("https://en.wikipedia.org/wiki/Conan_O'Brien."))
   }
 
   @Test

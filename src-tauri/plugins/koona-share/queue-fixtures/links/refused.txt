@@ -15,3 +15,6 @@ https://exa|mple.com/
 ftp://example.com/
 mailto:me@example.com
 example.com
+https://⒈.com/
+https://a‍b.com/
+https://́a.com/

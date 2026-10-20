@@ -21,3 +21,13 @@ https://user:secret@example.com/
 https://example.com/a%20b
 https://example.com/100%
 https://example.com/?q=1&r=2
+https://straße.de/
+https://ςόλος.gr/
+https://한국.kr/
+https://コーヒー.jp/
+https://ＡＢＣ.com/
+https://ℌ.com/
+https://ǅ.com/
+https://ꙮ.com/
+https://á.com/
+https://a️.com/
