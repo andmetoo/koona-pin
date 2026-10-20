@@ -2,8 +2,8 @@ import { type PointerEvent, useEffect, useRef } from "react";
 
 /** How long a finger stays before a press is long (Android's default long-press timeout). */
 export const LONG_PRESS_MS = 500;
-/** A finger that moves farther is scrolling, not pressing. */
-const SLOP = 10;
+/** A finger that moves farther is scrolling, not pressing (a swipe between filters starts past it). */
+export const LONG_PRESS_SLOP = 10;
 
 /**
  * A long press on an element (a nav pill slot names itself, a card opens its menu sheet): the
@@ -36,7 +36,7 @@ export function useLongPress(onLongPress: () => void, onEnd?: () => void) {
     },
     onPointerMove: (e: PointerEvent) => {
       const from = origin.current;
-      if (from && Math.hypot(e.clientX - from.x, e.clientY - from.y) > SLOP) cancel();
+      if (from && Math.hypot(e.clientX - from.x, e.clientY - from.y) > LONG_PRESS_SLOP) cancel();
     },
     onPointerUp: () => {
       cancel();

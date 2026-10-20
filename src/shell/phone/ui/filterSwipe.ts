@@ -1,3 +1,5 @@
+import { LONG_PRESS_SLOP } from "./useLongPress";
+
 /**
  * The rules of the swipe between a screen's filters (doc/mobile-design.md, "Swipes between
  * filters"; owner, 20 October 2026), apart from the DOM so Vitest checks them: Library's chips,
@@ -8,9 +10,9 @@
 export const EDGE = 24;
 /**
  * Movement before a touch is a swipe (sideways) or a scroll (anything else): past a row's long-press
- * slop (`useLongPress`, 10), so the row has let go of its press by the time the swipe takes over.
+ * slop, so the row has let go of its press by the time the swipe takes over.
  */
-export const SLOP = 12;
+export const SLOP = LONG_PRESS_SLOP + 2;
 /** Sideways must win by this much to be a swipe: a diagonal drag is the list's scroll. */
 const SIDEWAYS = 1.2;
 /** A drag this share of the width moves to the neighbour when let go… */
@@ -44,9 +46,10 @@ export function liftVelocity(samples: readonly Sample[], now: number): number {
   return span < MIN_SPAN ? 0 : (last.x - first.x) / span;
 }
 
-/** The samples worth keeping after `sample`: those still inside the flick's window. */
-export function keepSamples(samples: readonly Sample[], sample: Sample): Sample[] {
-  return [...samples.filter((s) => sample.t - s.t <= WINDOW), sample];
+/** Adds `sample` to the drag's samples, in place, and drops those that fell out of the flick's window. */
+export function pushSample(samples: Sample[], sample: Sample): void {
+  samples.push(sample);
+  while (sample.t - samples[0].t > WINDOW) samples.shift();
 }
 
 /** Whether a touch at `x` starts in the system's back-gesture strips of a screen `width` wide. */

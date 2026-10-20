@@ -1,25 +1,28 @@
 import { type DragEvent, type MouseEvent, type PointerEvent, type RefObject, useEffect, useRef } from "react";
-import { atEdge, axisOf, keepSamples, landOn, liftVelocity, offsetOf, type Sample } from "./filterSwipe";
+import { atEdge, axisOf, landOn, liftVelocity, offsetOf, pushSample, type Sample } from "./filterSwipe";
 
 /** Room kept beside the active chip when the row scrolls to it. */
 const CHIP_ROOM = 16;
 /** A click this soon (ms) after a swipe lifts is the swipe's own; a later one is a tap. */
 const SWIPE_CLICK = 400;
-/** The new filter slides in once its list has come, or after this long (ms) whatever it shows. */
-const WAIT = 300;
+/** The old filter leaves the way the finger went in this long (ms), while the new list loads. */
+const OUT = 160;
+/** The new filter comes in once its list has come, or after this long (ms) whatever it shows. */
+const WAIT = 400;
+
+const reduceMotion = () => !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 /**
  * Keeps the active chip (`aria-pressed`) of a scrolling chip row in view when `active` changes, as
  * a swipe does: the row scrolls sideways only, never the screen, and not when the screen first
- * shows.
+ * shows (the value it showed with is remembered, so React's double effects in development change
+ * nothing).
  */
 export function useChipInView(row: RefObject<HTMLElement | null>, active: unknown) {
-  const first = useRef(true);
+  const shown = useRef(active);
   useEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return;
-    }
+    if (Object.is(shown.current, active)) return;
+    shown.current = active;
     const el = row.current;
     const chip = el?.querySelector<HTMLElement>('[aria-pressed="true"]');
     if (!el || !chip) return;
@@ -27,8 +30,7 @@ export function useChipInView(row: RefObject<HTMLElement | null>, active: unknow
     const at = chip.getBoundingClientRect();
     const by = at.left < box.left + CHIP_ROOM ? at.left - box.left - CHIP_ROOM : at.right > box.right - CHIP_ROOM ? at.right - box.right + CHIP_ROOM : 0;
     if (by === 0) return;
-    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    el.scrollBy({ left: by, behavior: reduce ? "auto" : "smooth" });
+    el.scrollBy({ left: by, behavior: reduceMotion() ? "auto" : "smooth" });
   }, [row, active]);
 }
 
@@ -41,57 +43,78 @@ export function useChipInView(row: RefObject<HTMLElement | null>, active: unknow
  * sideways, so a row redrawn under the finger cannot strand the swipe. The page follows the finger
  * by transform alone, set on the element without a render; past a third of its width or after a
  * flick (its speed over the drag's last 100 ms) it calls `onChange` with the neighbour's index
- * (which chooses it as a tap does, `selection()` tick included), waits out of sight until
- * `content` changes to the new filter's list (null while it loads) and slides it in from that side
- * with the decision spring; short of it, or past the first and the last filter (a rubber band), it
+ * (which chooses it as a tap does, `selection()` tick included). The old filter then leaves the
+ * way the finger went while the new list loads; once `content` has changed to it (null while it
+ * loads; at most {@link WAIT}) the new filter comes in from the other side with the decision
+ * spring, or, when `failed` says the load failed and the old list still shows, fades in where it
+ * is. Short of the threshold, or past the first and the last filter (a rubber band), the page
  * springs back. Touches starting at the screen's side edges are the system's Back; the chips,
  * sheets and other screens are outside the area. A row's long press ends when the area takes the
  * pointer, and the click that follows a swipe right away is swallowed (a later one, a screen
  * reader's say, is a tap). Only the finger that began the swipe moves or ends it. Reduce Motion:
- * a cross-fade.
+ * cross-fades only.
  */
 export function useFilterSwipe({
   index,
   count,
   onChange,
   content,
+  failed = false,
   enabled = true,
 }: {
   index: number;
   count: number;
   onChange: (index: number) => void;
-  /** The list shown, or null while it loads: a new one after a swipe lets the new filter in. */
+  /** The list shown, or null while it loads: a change after a swipe lets the new filter in. */
   content: unknown;
+  /** The last load failed: the list shown is still the old filter's. */
+  failed?: boolean;
   enabled?: boolean;
 }) {
   const page = useRef<HTMLDivElement>(null);
   const gesture = useRef<{ x: number; y: number; id: number; sideways: boolean; dx: number; samples: Sample[] } | null>(null);
   /** When the last swipe lifted (the event's timeStamp), for the click that follows it. */
   const swipedAt = useRef<number | null>(null);
-  /** The new filter waiting for its list before it slides in. */
-  const waiting = useRef<number | null>(null);
-  const latest = useRef({ index, count, onChange });
-  latest.current = { index, count, onChange };
+  /** A filter on its way in: which way the old one left, and what it still waits for. */
+  const turn = useRef<{ dir: number; out: boolean; ready: boolean; timers: number[] } | null>(null);
+  const latest = useRef({ index, count, onChange, failed });
+  latest.current = { index, count, onChange, failed };
 
-  const slideIn = () => {
-    if (waiting.current === null) return;
-    window.clearTimeout(waiting.current);
-    waiting.current = null;
+  /** Brings the new filter in: from the side opposite the one the old left, or in place (now: no motion). */
+  const comeIn = (now = false) => {
+    const t = turn.current;
+    if (!t) return;
+    turn.current = null;
+    t.timers.forEach((timer) => window.clearTimeout(timer));
     const el = page.current;
     if (!el) return;
-    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    el.style.transition = reduce ? "opacity 200ms ease-out" : "transform var(--ph-spring-time) var(--ph-spring), opacity var(--ph-spring-time) ease-out";
+    const slide = !now && !reduceMotion() && !latest.current.failed;
+    el.style.transition = "none";
+    el.style.transform = slide ? `translate3d(${-t.dir * el.offsetWidth}px, 0, 0)` : "";
+    if (now) {
+      el.style.opacity = "";
+      return;
+    }
+    el.style.opacity = slide ? "0.6" : "0";
+    void el.offsetWidth;
+    el.style.transition = slide ? "transform var(--ph-spring-time) var(--ph-spring), opacity var(--ph-spring-time) ease-out" : "opacity 200ms ease-out";
     el.style.transform = "";
     el.style.opacity = "";
   };
-  const slide = useRef(slideIn);
-  slide.current = slideIn;
+  const step = (part: "out" | "ready") => {
+    const t = turn.current;
+    if (!t) return;
+    t[part] = true;
+    if (t.out && t.ready) comeIn();
+  };
+  const steps = useRef(step);
+  steps.current = step;
   useEffect(() => {
-    if (content !== null && content !== undefined) slide.current();
+    if (content !== null && content !== undefined) steps.current("ready");
   }, [content]);
   useEffect(
     () => () => {
-      if (waiting.current !== null) window.clearTimeout(waiting.current);
+      turn.current?.timers.forEach((timer) => window.clearTimeout(timer));
     },
     [],
   );
@@ -112,20 +135,25 @@ export function useFilterSwipe({
       el.style.transform = "";
       return;
     }
+    const dir = Math.sign(dx);
+    turn.current = {
+      dir,
+      out: false,
+      ready: false,
+      timers: [window.setTimeout(() => steps.current("out"), OUT), window.setTimeout(() => steps.current("ready"), WAIT)],
+    };
     onChange(to);
-    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    // The new filter waits out of sight on the side the finger went to, where the old one stood.
-    el.style.transition = "none";
-    el.style.transform = reduce ? "" : `translate3d(${dx - Math.sign(dx) * el.offsetWidth}px, 0, 0)`;
+    // The old filter leaves the way the finger went, while the new list loads.
+    const reduce = reduceMotion();
+    el.style.transition = reduce ? `opacity ${OUT}ms ease-in` : `transform ${OUT}ms ease-in, opacity ${OUT}ms ease-in`;
+    if (!reduce) el.style.transform = `translate3d(${dir * el.offsetWidth}px, 0, 0)`;
     el.style.opacity = "0";
-    void el.offsetWidth;
-    waiting.current = window.setTimeout(() => slide.current(), WAIT);
   };
 
   const bind = {
     onPointerDown: (e: PointerEvent<HTMLElement>) => {
-      // A filter still waiting for its list shows as it is.
-      slideIn();
+      // A filter still on its way in shows as it is.
+      comeIn(true);
       if (!enabled || latest.current.count < 2 || !e.isPrimary) return;
       if (e.pointerType === "mouse" && e.button !== 0) return;
       // The system's back gesture starts at the edges: not a swipe of ours.
@@ -156,7 +184,7 @@ export function useFilterSwipe({
         el.dataset.swiping = "";
       }
       g.dx = dx;
-      g.samples = keepSamples(g.samples, { x: dx, t: e.timeStamp });
+      pushSample(g.samples, { x: dx, t: e.timeStamp });
       el.style.transform = `translate3d(${offsetOf(dx, latest.current.index, latest.current.count)}px, 0, 0)`;
     },
     onPointerUp: (e: PointerEvent<HTMLElement>) => end(e, true),

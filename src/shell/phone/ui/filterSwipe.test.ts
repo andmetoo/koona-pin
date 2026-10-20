@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { atEdge, axisOf, keepSamples, landOn, liftVelocity, neighbour, offsetOf, type Sample } from "./filterSwipe";
+import { atEdge, axisOf, landOn, liftVelocity, neighbour, offsetOf, pushSample, type Sample } from "./filterSwipe";
 
 describe("the swipe between filters", () => {
   it("leaves the screen's side edges to the system's Back", () => {
@@ -33,8 +33,8 @@ describe("the swipe between filters", () => {
 
   it("measures a flick over the drag's last 100 ms, and forgets it when the finger rests", () => {
     // A steady drag of 1 px per ms, sampled every 8 ms.
-    let samples: Sample[] = [];
-    for (let t = 0; t <= 200; t += 8) samples = keepSamples(samples, { x: -t, t });
+    const samples: Sample[] = [];
+    for (let t = 0; t <= 200; t += 8) pushSample(samples, { x: -t, t });
     expect(samples.every((s) => 200 - s.t <= 100)).toBe(true);
     expect(liftVelocity(samples, 204)).toBeCloseTo(-1);
     // Rested 400 ms before lifting: no flick.
