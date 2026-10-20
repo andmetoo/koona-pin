@@ -1,5 +1,5 @@
-// The build number of the store builds and whether a build may reach a store, the same rule for iOS
-// (build-ios.mjs) and Android (build-android.mjs).
+// What the store builds share, iOS (build-ios.mjs) and Android (build-android.mjs): the build number,
+// whether a build may reach a store, their options and the checksums of their folders.
 //
 // The build number (iOS's CFBundleVersion, Android's versionCode) is the number of commits up to HEAD
 // (`git rev-list --count HEAD`), so every commit of main builds a higher number, the same on both phones;
@@ -8,7 +8,29 @@
 // than the branch's upload. So only a clean commit of origin/main goes to a store; anything else is a
 // test build (release/test/).
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { root } from "./paths.mjs";
+
+export const args = process.argv.slice(2);
+
+/** The value after `name` in the arguments, undefined without `name`; a name with no value is an error. */
+export function option(name) {
+  const at = args.indexOf(name);
+  if (at < 0) return undefined;
+  const value = args[at + 1];
+  if (!value || value.startsWith("--")) throw new Error(`${name} needs a value`);
+  return value;
+}
+
+export const sha256 = (file) => createHash("sha256").update(readFileSync(file)).digest("hex");
+
+/** SHA256SUMS.txt of every other file in the folder, by name. */
+export function writeChecksums(folder) {
+  const files = readdirSync(folder).filter((name) => name !== "SHA256SUMS.txt").sort();
+  writeFileSync(path.join(folder, "SHA256SUMS.txt"), files.map((name) => `${sha256(path.join(folder, name))}  ${name}\n`).join(""));
+}
 
 const git = (...parts) => execFileSync("git", parts, { cwd: root, encoding: "utf8" }).trim();
 

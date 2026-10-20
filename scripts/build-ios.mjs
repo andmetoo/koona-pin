@@ -25,26 +25,17 @@
 // build number into the committed Xcode project and Info.plist; this script puts both files back as they
 // were, whatever happens. The archive is not signed; the export signs it.
 import { execFileSync, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import {
   existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync,
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { buildNumber, cleanMain } from "./lib/build-number.mjs";
+import { args, buildNumber, cleanMain, option, writeChecksums } from "./lib/store-build.mjs";
 import { loadEnv } from "./lib/env.mjs";
 import { app, appleProject, bundleId, requireLlvmTools, version } from "./lib/ios.mjs";
 import { publish, root, test } from "./lib/paths.mjs";
 
 if (process.platform !== "darwin") throw new Error("Build this on a Mac with Xcode");
-const args = process.argv.slice(2);
-const option = (name) => {
-  const at = args.indexOf(name);
-  if (at < 0) return undefined;
-  const value = args[at + 1];
-  if (!value || value.startsWith("--")) throw new Error(`${name} needs a value`);
-  return value;
-};
 const validate = args.includes("--validate");
 const upload = args.includes("--upload");
 const given = option("--ipa");
@@ -79,7 +70,6 @@ if (!existsSync(env.APPLE_STORE_KEY_PATH)) throw new Error("APPLE_STORE_KEY_PATH
 const team = env.APPLE_TEAM_ID || env.APPLE_SIGNING_IDENTITY?.match(/\(([A-Z0-9]{10})\)$/)?.[1];
 if (!team) throw new Error("APPLE_TEAM_ID is not set (and APPLE_SIGNING_IDENTITY names no team)");
 
-const sha256 = (file) => createHash("sha256").update(readFileSync(file)).digest("hex");
 const work = mkdtempSync(path.join(os.tmpdir(), "koonapin-ios-"));
 process.on("exit", () => rmSync(work, { recursive: true, force: true }));
 
@@ -117,7 +107,7 @@ if (leftovers.length > 0) {
   throw new Error(`A build left ${leftovers.join(" and ")}, not as committed: git checkout -- src-tauri/gen/apple, then build again`);
 }
 
-// The build number and whether this commit may reach App Store Connect: scripts/lib/build-number.mjs.
+// The build number and whether this commit may reach App Store Connect: scripts/lib/store-build.mjs.
 // --build does not make a branch's build publishable: it is for a second upload of the same commit of main.
 const build = buildNumber(option("--build"));
 const { dirty, clean: publishable } = cleanMain();
@@ -241,8 +231,7 @@ execFileSync("cp", [path.join(exported, ipaName), ipa]);
 const dsyms = path.join(archive, "dSYMs");
 if (!existsSync(dsyms) || readdirSync(dsyms).length === 0) throw new Error("The archive has no dSYMs");
 execFileSync("ditto", ["-c", "-k", "--keepParent", dsyms, symbols]);
-const files = readdirSync(target).filter((name) => name !== "SHA256SUMS.txt").sort();
-writeFileSync(path.join(target, "SHA256SUMS.txt"), files.map((name) => `${sha256(path.join(target, name))}  ${name}\n`).join(""));
+writeChecksums(target);
 console.log(`iOS ${version} (${build}), App Store: ${path.relative(root, ipa)}`);
 
 if (validate) altool("--validate-app", ipa);

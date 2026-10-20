@@ -1,7 +1,8 @@
 // Builds Koona Pin for Android: a release build for arm64 phones. Folders: scripts/lib/paths.mjs.
 //   bun run build:android                   the App Bundle (.aab) and a universal APK of arm64 only, checked
 //   bun run build:android -- --build <n>    the versionCode instead of the commit count
-//   bun run build:android -- --sign-test    a test build signed with the upload key: tries the signing path
+//   bun run build:android -- --sign-test    a test build signed with the upload key and checked, then nothing
+//                                           is copied: it only tries the signing path
 //   bun scripts/build-android.mjs --check <apk>   only the 16 KB checks below, of an APK built already (CI)
 // Needs the Android SDK with platform 37 and an NDK of r28 or newer (16 KB pages by default):
 // ANDROID_HOME and NDK_HOME, as ~/.zshrc sets them on the build Mac (doc: docs/building.md), JDK 17 or
@@ -15,8 +16,10 @@
 // stays in Gradle's folder (phones refuse Play's updates over an APK of the upload key). Any other build
 // (no key, a branch, a worktree with changes) is signed with the debug key, which Play refuses, and both
 // files go to release/test/android/<version>/. --sign-test signs such a test build with the upload key to
-// try the signing path; then only its AAB is copied. Gradle's configuration cache is off for a build with
-// the upload key, so the password is not kept in src-tauri/gen/android/.gradle.
+// try the signing path and copies nothing, so no AAB of the upload key waits outside release/publish.
+// For a build with the upload key Gradle runs without its configuration cache and without a daemon, so
+// the password is neither stored in src-tauri/gen/android/.gradle nor kept in a process that outlives it.
+// A build for Play does not overwrite one of the same number: what was uploaded stays as it was.
 //
 // Build numbers as for iOS (build-ios.mjs): versionName is the app's version, versionCode the number of
 // commits up to HEAD (`git rev-list --count HEAD`), so a build of the same commit has the same number on
@@ -34,7 +37,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { buildNumber, cleanMain } from "./lib/build-number.mjs";
+import { args, buildNumber, cleanMain, option, writeChecksums } from "./lib/store-build.mjs";
 import { loadEnv } from "./lib/env.mjs";
 import { publish, root, test } from "./lib/paths.mjs";
 
@@ -53,18 +56,9 @@ const gradleValue = (name) => {
 const packageName = gradleValue("applicationId");
 const minSdk = gradleValue("minSdk");
 const targetSdk = gradleValue("targetSdk");
-const sha256 = (file) => createHash("sha256").update(readFileSync(file)).digest("hex");
 const exe = (name) => (process.platform === "win32" ? `${name}.exe` : name);
 const jdk = (name) => (env.JAVA_HOME ? path.join(env.JAVA_HOME, "bin", exe(name)) : name);
 
-const args = process.argv.slice(2);
-const option = (name) => {
-  const at = args.indexOf(name);
-  if (at < 0) return undefined;
-  const value = args[at + 1];
-  if (!value || value.startsWith("--")) throw new Error(`${name} needs a value`);
-  return value;
-};
 
 const outputs = path.join(root, "src-tauri", "gen", "android", "app", "build", "outputs");
 const checkOnly = args.includes("--check");
@@ -152,12 +146,17 @@ if (hasKey) {
   if (!existsSync(env.ANDROID_UPLOAD_KEYSTORE)) throw new Error("ANDROID_UPLOAD_KEYSTORE names no file");
 }
 
-// The versionCode and whether this commit may reach Play: scripts/lib/build-number.mjs. Without the upload
+// The versionCode and whether this commit may reach Play: scripts/lib/store-build.mjs. Without the upload
 // key a build is for testing whatever the commit, so main is not fetched for it.
 const build = buildNumber(option("--build"));
 const { dirty, clean } = hasKey ? cleanMain() : { dirty: false, clean: false };
 const publishable = hasKey && clean;
 const upload = publishable || signTest;
+const published = path.join(publish.android(version), `koona-pin-${version}-${build}.aab`);
+if (publishable && existsSync(published)) {
+  throw new Error(`${path.relative(root, published)} exists: Play has seen or may have seen that number. Pass --build with a higher one, `
+    + "or delete the file if it was never uploaded");
+}
 if (!publishable) {
   const why = !hasKey ? "no upload key in .env" : dirty ? "the worktree has changes or new files" : "HEAD is not on origin/main";
   console.warn(`Not for Play (${why}): a test build in ${path.relative(root, test.android(version))}, `
@@ -173,9 +172,9 @@ process.on("exit", () => rmSync(work, { recursive: true, force: true }));
 const config = path.join(work, "tauri.version.json");
 writeFileSync(config, JSON.stringify({ bundle: { android: { versionCode: Number(build) } } }));
 // Gradle signs with the upload key when the environment has it (gen/android/app/build.gradle.kts). Its
-// configuration cache would keep the password, so it is off then.
+// configuration cache would store the password and a daemon would keep it for hours, so neither then.
 const gradleEnv = upload
-  ? { ...env, GRADLE_OPTS: `${env.GRADLE_OPTS ?? ""} -Dorg.gradle.configuration-cache=false`.trim() }
+  ? { ...env, GRADLE_OPTS: `${env.GRADLE_OPTS ?? ""} -Dorg.gradle.configuration-cache=false -Dorg.gradle.daemon=false`.trim() }
   : Object.fromEntries(Object.entries(env).filter(([name]) => !name.startsWith("ANDROID_UPLOAD_")));
 const result = spawnSync("bun", ["run", "tauri", "android", "build", "--target", "aarch64", "--apk", "--aab", "--config", config], {
   cwd: root, stdio: "inherit", env: gradleEnv,
@@ -197,12 +196,14 @@ expect("minSdkVersion", field(/^(?:minSdkVersion|sdkVersion):'(\d+)'/m), minSdk)
 expect("targetSdkVersion", field(/^targetSdkVersion:'(\d+)'/m), targetSdk);
 if (/^application-debuggable/m.test(badging)) failures.push("the APK is debuggable");
 
-/** The SHA-256 of each certificate in PEM text, as keytool -rfc prints them. */
-const pemDigests = (text) => [...text.matchAll(/-----BEGIN CERTIFICATE-----([\s\S]+?)-----END CERTIFICATE-----/g)]
-  .map((m) => createHash("sha256").update(Buffer.from(m[1].replace(/\s+/g, ""), "base64")).digest("hex"));
+/** Each certificate in PEM text, as keytool -rfc prints them: its base64, without line breaks. */
+const pemCertificates = (text) => [...text.matchAll(/-----BEGIN CERTIFICATE-----([\s\S]+?)-----END CERTIFICATE-----/g)]
+  .map((m) => m[1].replace(/\s+/g, ""));
 // keytool in English whatever the system's language, so its errors read the same everywhere.
 const keytool = (...parts) => execFileSync(jdk("keytool"), ["-J-Duser.language=en", ...parts], { encoding: "utf8", env });
-const aabSigners = pemDigests(keytool("-printcert", "-rfc", "-jarfile", aab));
+const aabCertificates = pemCertificates(keytool("-printcert", "-rfc", "-jarfile", aab));
+// apksigner names the APK's signer by the SHA-256 of its certificate.
+const aabSigners = aabCertificates.map((base64) => createHash("sha256").update(Buffer.from(base64, "base64")).digest("hex"));
 if (spawnSync(jdk("jarsigner"), ["-verify", aab], { stdio: "ignore" }).status !== 0) failures.push("the AAB's signature does not verify");
 const apksigner = spawnSync(jdk("java"), ["-jar", path.join(buildTools(), "lib", "apksigner.jar"), "verify", "--print-certs", apk], { encoding: "utf8" });
 if (apksigner.status !== 0) failures.push("the APK's signature does not verify");
@@ -210,9 +211,10 @@ const apkSigners = [...apksigner.stdout.matchAll(/certificate SHA-256 digest: ([
 if (aabSigners.length !== 1 || apkSigners.length !== 1) failures.push("the AAB and the APK must have one signer each");
 else if (aabSigners[0] !== apkSigners[0]) failures.push("the AAB and the APK are signed with different keys");
 if (upload) {
-  const [key] = pemDigests(keytool("-exportcert", "-rfc", "-keystore", env.ANDROID_UPLOAD_KEYSTORE, "-storetype", "pkcs12",
+  // The upload key's certificate as it is, compared with the AAB's.
+  const [key] = pemCertificates(keytool("-exportcert", "-rfc", "-keystore", env.ANDROID_UPLOAD_KEYSTORE, "-storetype", "pkcs12",
     "-storepass:env", "ANDROID_UPLOAD_KEYSTORE_PASSWORD", "-alias", env.ANDROID_UPLOAD_KEY_ALIAS));
-  if (aabSigners[0] !== key) failures.push("the AAB is not signed with the upload key of ANDROID_UPLOAD_KEYSTORE");
+  if (!key || aabCertificates[0] !== key) failures.push("the AAB is not signed with the upload key of ANDROID_UPLOAD_KEYSTORE");
 }
 // bundletool's validation of the AAB, which Play Console runs on upload. BUNDLETOOL names its
 // bundletool-all-<version>.jar (github.com/google/bundletool/releases); a build for Play needs it.
@@ -225,15 +227,18 @@ if (failures.length > 0) throw new Error(`The build fails its checks:\n- ${failu
 console.log(`Checked: ${packageName} ${version} (${build}), SDK ${minSdk}–${targetSdk}, not debuggable, `
   + `${upload ? "signed with the upload key" : "signed with the debug key"}${env.BUNDLETOOL ? ", bundletool validate passes" : ""}`);
 check16k();
+if (signTest && !publishable) {
+  console.log("--sign-test: signed with the upload key and checked; nothing is copied");
+  process.exit(0);
+}
 
 // The files, and the checksums of the folder. Every build number of the version side by side, as for iOS.
 const target = publishable ? publish.android(version) : test.android(version);
 mkdirSync(target, { recursive: true });
 // An APK of the upload key is never copied: a phone with it refuses Play's updates.
-const names = upload
+const names = publishable
   ? { [aab]: `koona-pin-${version}-${build}.aab` }
   : { [aab]: `koona-pin-${version}-${build}.aab`, [apk]: `koona-pin-${version}-${build}-arm64.apk` };
 for (const [file, name] of Object.entries(names)) copyFileSync(file, path.join(target, name));
-const files = readdirSync(target).filter((name) => name !== "SHA256SUMS.txt").sort();
-writeFileSync(path.join(target, "SHA256SUMS.txt"), files.map((name) => `${sha256(path.join(target, name))}  ${name}\n`).join(""));
+writeChecksums(target);
 console.log(`Android ${version} (${build}), ${publishable ? "for Play" : "test"}: ${path.relative(root, target)}`);
