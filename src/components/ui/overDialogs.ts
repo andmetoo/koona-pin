@@ -43,6 +43,8 @@ export function useOverDialogs(
 
   // Into the dialog on top when a notice appears, a frame later: a dialog that closes with the notice
   // (the Add sheet that saved, a confirmation) may go in the next update, and the notice stays home.
+  // Only that dialog: a frame can come late (WebKitGTK held one for 900 ms), and a dialog opened in the
+  // meantime is later than the notice, so it covers it.
   useLayoutEffect(() => {
     if (!box) return;
     // The notice is gone (its owner renders nothing, so no anchor either): the box leaves the dialog
@@ -61,10 +63,10 @@ export function useOverDialogs(
       dressRef.current?.(box, false);
       setHost(null);
     }
-    if (!on || !popovers) return;
+    if (!top) return;
     const frame = requestAnimationFrame(() => {
       const target = openModal();
-      if (!target || box.parentNode === target || !box.isConnected) return;
+      if (target !== top || box.parentNode === target || !box.isConnected) return;
       dressRef.current?.(box, true);
       raiseIn(target, box, ref.current);
       setHost(target);
@@ -75,7 +77,14 @@ export function useOverDialogs(
   // Back to its place when that dialog closes or leaves the page without closing.
   useEffect(() => {
     if (!host || !box) return;
+    // Once, and the watch ends first: bringing the box back changes the page as well, and until React
+    // drops this effect the gone dialog would bring it back again on every change it makes, an endless
+    // chain of microtasks that froze the window (WebKitGTK tests, 2026-10-20).
+    let returned = false;
     const back = () => {
+      if (returned) return;
+      returned = true;
+      gone.disconnect();
       home(box, anchor.current, ref.current);
       dressRef.current?.(box, false);
       setHost(null);
