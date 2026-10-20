@@ -110,6 +110,13 @@ mod android {
     /// The plugin, managed by the app once registered: `app.state::<KoonaPlay<R>>()`.
     pub struct KoonaPlay<R: Runtime>(pub(crate) PluginHandle<R>);
 
+    /// A handle a call can carry past its caller (the app's time limits run calls on their own task).
+    impl<R: Runtime> Clone for KoonaPlay<R> {
+        fn clone(&self) -> Self {
+            KoonaPlay(self.0.clone())
+        }
+    }
+
     fn error(error: PluginInvokeError) -> Error {
         match error {
             PluginInvokeError::InvokeRejected(rejected) => {

@@ -54,44 +54,42 @@ class KoonaPlayPlugin(private val activity: Activity) : Plugin(activity), Purcha
     .enableAutoServiceReconnection()
     .build()
 
-  /** Play's products by id, from the last `products` or `buy`: a purchase needs the object. */
+  /**
+   * Play's products by id, from this sheet's `products`: a purchase needs the object. Asked afresh
+   * each time the sheet opens, as Google asks: a stale one can make the purchase fail.
+   */
   private val details = ConcurrentHashMap<String, ProductDetails>()
 
   private val lock = Any()
 
-  /** The `buy` waiting for Play's answer; one at a time. */
+  /** The `buy` waiting for Play's answer, one at a time, and the account id it was made with. */
   private var buying: Invoke? = null
+  private var buyingAccount: String? = null
 
-  /** What waits for the connection to Play, and whether it is being made. */
-  private val waiting = mutableListOf<(BillingResult) -> Unit>()
-  private var connecting = false
+  /** What waits for the connection to Play. */
+  private val waiting = Waiting<BillingResult>()
 
-  /** Runs `action` once connected to Play, with the setup's result; at once when connected. */
+  /**
+   * Runs `action` once connected to Play, with the setup's result; at once when connected. A setup
+   * that fails or a connection that drops before it is set up fails what waited, so no call hangs.
+   */
   private fun ready(action: (BillingResult) -> Unit) {
-    val start = synchronized(lock) {
-      if (client.isReady) null else {
-        waiting.add(action)
-        (!connecting).also { connecting = true }
+    if (client.isReady) return action(BillingResult.newBuilder().setResponseCode(BillingResponseCode.OK).build())
+    if (!waiting.add(action)) return
+    client.startConnection(object : BillingClientStateListener {
+      override fun onBillingSetupFinished(result: BillingResult) {
+        waiting.settle().forEach { it(result) }
       }
-    }
-    when (start) {
-      null -> action(BillingResult.newBuilder().setResponseCode(BillingResponseCode.OK).build())
-      true -> client.startConnection(object : BillingClientStateListener {
-        override fun onBillingSetupFinished(result: BillingResult) {
-          val actions = synchronized(lock) {
-            connecting = false
-            waiting.toList().also { waiting.clear() }
-          }
-          actions.forEach { it(result) }
-        }
 
-        // Reconnected by the library itself on the next call (enableAutoServiceReconnection).
-        override fun onBillingServiceDisconnected() {
-          synchronized(lock) { connecting = false }
-        }
-      })
-      false -> {}
-    }
+      // Later calls reconnect by themselves (enableAutoServiceReconnection); those waiting now fail.
+      override fun onBillingServiceDisconnected() {
+        val dropped = BillingResult.newBuilder()
+          .setResponseCode(BillingResponseCode.SERVICE_DISCONNECTED)
+          .setDebugMessage("The connection to Google Play dropped")
+          .build()
+        waiting.settle().forEach { it(dropped) }
+      }
+    })
   }
 
   private fun ok(result: BillingResult) = result.responseCode == BillingResponseCode.OK
@@ -118,6 +116,7 @@ class KoonaPlayPlugin(private val activity: Activity) : Plugin(activity), Purcha
   @Command
   fun products(invoke: Invoke) {
     val args = invoke.parseArgs(ProductsArgs::class.java)
+    details.clear()
     ready { setup ->
       if (!ok(setup)) return@ready reject(invoke, setup)
       // One type per query: Play refuses a list that mixes them.
@@ -136,7 +135,10 @@ class KoonaPlayPlugin(private val activity: Activity) : Plugin(activity), Purcha
   @Command
   fun buy(invoke: Invoke) {
     val args = invoke.parseArgs(BuyArgs::class.java)
-    val stale = synchronized(lock) { buying.also { buying = invoke } }
+    val stale = synchronized(lock) {
+      buyingAccount = args.accountId
+      buying.also { buying = invoke }
+    }
     // A purchase whose answer never came (the sheet lost with its activity): this one replaces it.
     stale?.resolveObject(BuyResult("error", emptyList()))
     val type = if (args.basePlan == null) ProductType.INAPP else ProductType.SUBS
@@ -189,14 +191,23 @@ class KoonaPlayPlugin(private val activity: Activity) : Plugin(activity), Purcha
   }
 
   private fun finish(invoke: Invoke, outcome: String, purchases: List<PurchaseFacts>) {
-    val current = synchronized(lock) { (buying === invoke).also { if (it) buying = null } }
+    val current = synchronized(lock) {
+      (buying === invoke).also {
+        if (it) {
+          buying = null
+          buyingAccount = null
+        }
+      }
+    }
     if (current) invoke.resolveObject(BuyResult(outcome, purchases.map(Catalog::bought)))
   }
 
   override fun onPurchasesUpdated(result: BillingResult, purchases: MutableList<Purchase>?) {
     val facts = purchases.orEmpty().map(::facts)
-    val invoke = synchronized(lock) { buying }
-    if (invoke != null) {
+    val (invoke, account) = synchronized(lock) { buying to buyingAccount }
+    // While a purchase waits, an update about another one (a slow payment completing) is not its
+    // answer: that goes to the app as an event, and the sheet keeps waiting for its own.
+    if (invoke != null && Catalog.answers(result.responseCode, facts, account)) {
       answer(invoke, result.responseCode, facts)
     } else if (facts.isNotEmpty()) {
       // A slow payment that completed, or a purchase made while no sheet waited: the app verifies it.

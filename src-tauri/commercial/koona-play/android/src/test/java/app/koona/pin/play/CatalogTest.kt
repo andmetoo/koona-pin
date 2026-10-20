@@ -4,7 +4,9 @@ import com.android.billingclient.api.BillingClient.BillingResponseCode
 import com.android.billingclient.api.ProductDetails.RecurrenceMode
 import com.android.billingclient.api.Purchase.PurchaseState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CatalogTest {
@@ -65,6 +67,16 @@ class CatalogTest {
     assertEquals("purchased", Catalog.state(PurchaseState.PURCHASED))
     assertEquals("unspecified", Catalog.state(PurchaseState.UNSPECIFIED_STATE))
     assertEquals("unspecified", Catalog.state(42))
+  }
+
+  @Test
+  fun anUpdateAboutAnotherPurchaseIsNotTheAnswerOfTheOneWaiting() {
+    val mine = PurchaseFacts("m", listOf("supporter"), PurchaseState.PURCHASED, false, false, "mine")
+    val earlier = PurchaseFacts("e", listOf("supporter_5_years"), PurchaseState.PURCHASED, false, false, "earlier")
+    assertTrue(Catalog.answers(BillingResponseCode.OK, listOf(earlier, mine), "mine"))
+    assertFalse("a slow payment completing while the sheet is open", Catalog.answers(BillingResponseCode.OK, listOf(earlier), "mine"))
+    assertTrue("a failure answers the purchase", Catalog.answers(BillingResponseCode.USER_CANCELED, emptyList(), "mine"))
+    assertTrue("so does an empty answer", Catalog.answers(BillingResponseCode.OK, emptyList(), "mine"))
   }
 
   @Test

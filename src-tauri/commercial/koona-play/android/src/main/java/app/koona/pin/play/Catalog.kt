@@ -109,6 +109,13 @@ object Catalog {
     else -> "error"
   }
 
+  /**
+   * Whether Play's update answers the purchase waiting, made with `accountId`: a failure or an empty
+   * answer does; a purchase update does only when it holds that purchase.
+   */
+  fun answers(code: Int, purchases: List<PurchaseFacts>, accountId: String?): Boolean =
+    code != BillingResponseCode.OK || purchases.isEmpty() || purchases.any { it.accountId == accountId }
+
   /** A query that failed: Play is not there (`unavailable`) or did not answer (`error`). */
   fun failure(code: Int): String = when (code) {
     BillingResponseCode.BILLING_UNAVAILABLE,

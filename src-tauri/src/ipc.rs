@@ -135,6 +135,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         billing::play::start_play_purchase,
         #[cfg(play)]
         billing::play::play_claim_email,
+        #[cfg(play)]
+        billing::play::retry_play_purchase,
         #[cfg(desktop)]
         desktop::commands::reveal_export,
         #[cfg(desktop)]
