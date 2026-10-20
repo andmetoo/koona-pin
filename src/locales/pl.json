@@ -1063,6 +1063,7 @@
     "onDate": "{{date}}",
     "savedFrom": "zapisana {{when}} z {{browser}}",
     "savedFromBrowser": "zapisana {{when}} z przeglądarki",
+    "sharedFromApp": "udostępniona {{when}} z innej aplikacji",
     "addedByHand": "dodana ręcznie {{when}}",
     "imported": "zaimportowana {{when}}",
     "fromList": "zaimportowana {{when}} z listy „{{name}}”",
@@ -2244,6 +2245,13 @@
       "tipAdd": "Dodaj link przyciskiem +",
       "tipAddHow": "Wklej adres, poczeka tutaj",
       "openLibrary": "Otwórz bibliotekę"
+    },
+    "share": {
+      "saved": "Zapisano w Koona Pin",
+      "inInbox": "W skrzynce odbiorczej · {{host}}",
+      "done": "Gotowe",
+      "noLink": "Brak linku do zapisania",
+      "failed": "Nie udało się zapisać linku"
     },
     "feeds": {
       "title": "Kanały",

@@ -34,7 +34,8 @@ export const phoneCapabilities = {
   mcp: false,
   quit: false,
   folder_picker: false,
-  share_intake: false,
+  // Android's share sheet; an iPhone has none until its share extension (openPhone).
+  share_intake: true,
   haptics: true,
   purchase: "none",
 };
@@ -200,7 +201,7 @@ export async function openPhone(
       localStorage.setItem("koonapin.theme", theme);
       for (const [key, value] of Object.entries(settings)) localStorage.setItem(`koonapin.${key}`, value);
     },
-    { capabilities: { ...phoneCapabilities, ...capabilities }, insets, theme, settings, system, platform, bar },
+    { capabilities: { ...phoneCapabilities, share_intake: platform === "android", ...capabilities }, insets, theme, settings, system, platform, bar },
   );
   await page.goto("/");
   await expect(page.locator("[data-phone]")).toBeVisible();

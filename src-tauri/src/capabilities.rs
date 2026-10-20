@@ -83,14 +83,15 @@ impl AppInfo {
     /// This build's.
     pub fn current() -> Self {
         let desktop = cfg!(desktop);
+        let platform = if cfg!(target_os = "android") {
+            Platform::Android
+        } else if cfg!(target_os = "ios") {
+            Platform::Ios
+        } else {
+            Platform::Desktop
+        };
         AppInfo {
-            platform: if cfg!(target_os = "android") {
-                Platform::Android
-            } else if cfg!(target_os = "ios") {
-                Platform::Ios
-            } else {
-                Platform::Desktop
-            },
+            platform,
             capabilities: Capabilities {
                 file_manager: desktop,
                 tray: desktop,
@@ -100,7 +101,7 @@ impl AppInfo {
                 mcp: desktop,
                 quit: desktop,
                 folder_picker: desktop,
-                share_intake: false,
+                share_intake: share_intake(platform),
                 // Played by the `haptic` command of koona-mobile, a plugin registered on phones only.
                 haptics: !desktop,
                 purchase: purchase(desktop),
@@ -124,6 +125,12 @@ fn purchase(desktop: bool) -> Purchase {
     } else {
         Purchase::None
     }
+}
+
+/// Links shared from other apps: Android's share sheet (koona-share, NP-071). iOS gets it with its
+/// share extension, which feeds the same queue.
+fn share_intake(platform: Platform) -> bool {
+    platform == Platform::Android
 }
 
 /// The script that hands [`AppInfo`] to the page, before the page's own scripts.
@@ -157,6 +164,12 @@ mod tests {
     fn a_phone_sells_nothing_outside_the_play_build() {
         assert_eq!(purchase(false), Purchase::None);
         assert_eq!(serde_json::to_string(&Purchase::Play).unwrap(), r#""play""#);
+    }
+
+    #[test]
+    fn only_android_takes_links_shared_from_other_apps() {
+        assert!(share_intake(Platform::Android));
+        assert!(!share_intake(Platform::Ios) && !share_intake(Platform::Desktop));
     }
 
     #[test]

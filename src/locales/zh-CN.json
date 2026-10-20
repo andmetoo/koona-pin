@@ -859,6 +859,7 @@
     "onDate": "{{date}}",
     "savedFrom": "{{when}} 从 {{browser}} 保存",
     "savedFromBrowser": "{{when}} 从浏览器保存",
+    "sharedFromApp": "{{when}} 从其他应用分享",
     "addedByHand": "{{when}} 手动添加",
     "imported": "{{when}} 导入",
     "fromList": "{{when}}从列表“{{name}}”导入",
@@ -1869,6 +1870,13 @@
       "tipAdd": "用 + 添加链接",
       "tipAddHow": "粘贴地址，它会在这里等待",
       "openLibrary": "打开资料库"
+    },
+    "share": {
+      "saved": "已保存到 Koona Pin",
+      "inInbox": "在收件箱中 · {{host}}",
+      "done": "完成",
+      "noLink": "没有可保存的链接",
+      "failed": "无法保存链接"
     },
     "feeds": {
       "title": "订阅源",

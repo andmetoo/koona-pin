@@ -1,0 +1,17 @@
+[package]
+name = "tauri-plugin-koona-share"
+version = "0.1.0"
+description = "Koona Pin on Android: links shared from other apps, queued by the share sheet for the app to take in"
+license = "GPL-3.0-only"
+edition = "2021"
+publish = false
+# Tauri plugins with native code name themselves here, so the app's build finds their Kotlin.
+links = "tauri-plugin-koona-share"
+
+[dependencies]
+tauri = "2.1"
+serde = { version = "1.0", features = ["derive"] }
+
+[build-dependencies]
+# Already in the tree through the other plugins' builds.
+tauri-plugin = { version = "2", features = ["build"] }

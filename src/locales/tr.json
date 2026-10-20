@@ -927,6 +927,7 @@
     "onDate": "{{date}}",
     "savedFrom": "{{when}} {{browser}} üzerinden kaydedildi",
     "savedFromBrowser": "{{when}} tarayıcıdan kaydedildi",
+    "sharedFromApp": "{{when}} başka bir uygulamadan paylaşıldı",
     "addedByHand": "{{when}} elle eklendi",
     "imported": "{{when}} içe aktarıldı",
     "fromList": "{{when}} “{{name}}” listesinden içe aktarıldı",
@@ -1994,6 +1995,13 @@
       "tipAdd": "+ ile bağlantı ekleyin",
       "tipAddHow": "Bir adres yapıştırın, burada bekler",
       "openLibrary": "Kitaplığı aç"
+    },
+    "share": {
+      "saved": "Koona Pin'e kaydedildi",
+      "inInbox": "Gelen kutusunda · {{host}}",
+      "done": "Tamam",
+      "noLink": "Kaydedilecek bağlantı yok",
+      "failed": "Bağlantı kaydedilemedi"
     },
     "feeds": {
       "title": "Akışlar",

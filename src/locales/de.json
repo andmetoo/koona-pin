@@ -927,6 +927,7 @@
     "onDate": "am {{date}}",
     "savedFrom": "gespeichert {{when}} aus {{browser}}",
     "savedFromBrowser": "gespeichert {{when}} aus dem Browser",
+    "sharedFromApp": "geteilt {{when}} aus einer anderen App",
     "addedByHand": "von Hand hinzugefügt {{when}}",
     "imported": "importiert {{when}}",
     "fromList": "importiert {{when}} aus der Liste „{{name}}“",
@@ -1994,6 +1995,13 @@
       "tipAdd": "Link mit + hinzufügen",
       "tipAddHow": "Adresse einfügen, sie wartet hier",
       "openLibrary": "Bibliothek öffnen"
+    },
+    "share": {
+      "saved": "In Koona Pin gespeichert",
+      "inInbox": "Im Eingang · {{host}}",
+      "done": "Fertig",
+      "noLink": "Kein Link zum Speichern",
+      "failed": "Link konnte nicht gespeichert werden"
     },
     "feeds": {
       "title": "Feeds",
