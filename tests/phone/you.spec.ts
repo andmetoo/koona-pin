@@ -39,15 +39,15 @@ test("a Supporter sees the plan, sync with its devices, and Settings rows with v
   await expect(you.locator(".ys-footer")).toContainText("your library stays on your devices");
 });
 
-test("the plan opens its sheet and sync the shared dialog over the sheet; Back closes them in turn", async ({ page }) => {
+test("the plan's sheet takes the place of You; sync opens the shared dialog over You; Back closes them in turn", async ({ page }) => {
   await openPhone(page, { settings: SUPPORTER });
-  const you = await openYou(page);
-  await you.locator('[data-supporter="plan"]').click();
+  await (await openYou(page)).locator('[data-supporter="plan"]').click();
   await expect(page.locator('[data-sheet-kind="plan"]')).toBeVisible();
+  await expect(page.locator('[data-sheet-kind="you"]:not([data-leaving])')).toHaveCount(0);
   expect(await systemBack(page)).toBe(true);
   await expect(page.locator('[data-sheet-kind="plan"]')).toHaveCount(0);
-  await expect(you).toBeVisible();
 
+  const you = await openYou(page);
   await you.getByRole("button", { name: /Synced just now/ }).click();
   await expect(sharedDialog(page)).toBeVisible();
   expect(await systemBack(page)).toBe(true);

@@ -42,10 +42,11 @@ test("where the phone sells nothing, Supporter shows the perks on a phone and th
   await expect(supporter.getByRole("radio")).toHaveCount(0);
   await expect(sharedDialog(page)).toHaveCount(0);
 
-  // Back closes it, the You sheet stays.
+  // It took the place of the You sheet: Back closes it, back to the library.
+  await expect(you).toHaveCount(0);
   expect(await systemBack(page)).toBe(true);
   await expect(sheet(page, "supporter")).toHaveCount(0);
-  await expect(you).toBeVisible();
+  await expect(page.locator("[data-sheet-kind]:not([data-leaving])")).toHaveCount(0);
 });
 
 test("the sign-in sheet: the email, its errors, the code, and the plan on the phone", async ({ page }) => {
@@ -86,7 +87,7 @@ test("the sign-in sheet: the email, its errors, the code, and the plan on the ph
   await signIn.getByLabel("Code").fill("123456");
   await signIn.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(sheet(page, "signIn")).toHaveCount(0);
-  await expect(you.locator('[data-supporter="plan"]')).toContainText(/Thank you · yearly plan, renews/);
+  await expect((await openYou(page)).locator('[data-supporter="plan"]')).toContainText(/Thank you · yearly plan, renews/);
 });
 
 test("signed in to an account with no plan: what it is, sign out, and no plans to see where nothing is sold", async ({ page }) => {
@@ -222,8 +223,36 @@ test("the plan sheet: the plan, its state, the perks with the heart's switch, si
 
   await plan.getByRole("button", { name: "Sign out" }).click();
   await expect(sheet(page, "plan")).toHaveCount(0);
-  await expect(you.locator('[data-supporter="free"]')).toBeVisible();
+  await expect(you).toHaveCount(0);
+  await expect((await openYou(page)).locator('[data-supporter="free"]')).toBeVisible();
 });
+
+for (const [build, capabilities] of [["sells nothing", undefined], ["sells through Paddle", PADDLE], ["sells through Google Play", PLAY]] as const) {
+  test(`where the phone ${build}, Supporter's sheets take the place of You & sync and nothing else`, async ({ page }) => {
+    await openPhone(page, { settings: FREE, capabilities });
+    const you = await openYou(page);
+    await you.locator('[data-supporter="free"]').click();
+    await expect(sheet(page, "supporter")).toBeVisible();
+    await expect(sheet(page, "you")).toHaveCount(0);
+    await expect(page.locator(".ph-scrim")).toHaveCount(1);
+    await sheet(page, "supporter").getByRole("button", { name: "I'm already a Supporter" }).click();
+    await expect(sheet(page, "signIn")).toBeVisible();
+    await expect(sheet(page, "supporter")).toHaveCount(0);
+    expect(await systemBack(page)).toBe(true);
+    await expect(page.locator("[data-sheet-kind]:not([data-leaving])")).toHaveCount(0);
+
+    // A settings page stays under Supporter's sheet: closing it goes back there.
+    await openYou(page);
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await topScreen(page).getByRole("button", { name: /Text size/ }).click();
+    const paper = topScreen(page).getByRole("radio", { name: /Paper/ });
+    await paper.click();
+    await expect(sheet(page, "supporter")).toBeVisible();
+    expect(await systemBack(page)).toBe(true);
+    await expect(sheet(page, "supporter")).toHaveCount(0);
+    await expect(paper).toBeVisible();
+  });
+}
 
 test("a locked reading theme leads to Supporter's sheet", async ({ page }) => {
   await openPhone(page, { settings: FREE });
@@ -259,7 +288,8 @@ test("a build that sells through Paddle: the plans, Continue to the checkout, th
   await supporter.getByRole("button", { name: "Done" }).click();
   await expect(sheet(page, "supporter")).toHaveCount(0);
   // The checkout was started for the plan chosen: the demo grants five years for five years.
-  await expect(you.locator('[data-supporter="plan"]')).toContainText(/5 years, until/);
+  await expect(you).toHaveCount(0);
+  await expect((await openYou(page)).locator('[data-supporter="plan"]')).toContainText(/5 years, until/);
 });
 
 test("a build that sells through Paddle offers the switch to five years on a renewing plan", async ({ page }) => {
@@ -506,6 +536,11 @@ test("the Play build: paid but not confirmed now is kept, and Try again asks the
   await expect(supporter.getByRole("alert")).toHaveText(
     "Koona Pin couldn't confirm your purchase with Google Play yet. If you paid, it's kept and checked again when you come back to the app — no need to buy it again.",
   );
+  // Closed and opened again (as after a restart), the sheet still says the purchase is kept.
+  expect(await systemBack(page)).toBe(true);
+  await expect(sheet(page, "supporter")).toHaveCount(0);
+  const again = await reopenPlay(page);
+  await expect(again.getByRole("alert")).toContainText("couldn't confirm your purchase with Google Play yet");
   // Try again asks the server about the kept purchase; Play's sheet would fail here.
   await failOnce(page, "startPlayPurchase", "network", "offline");
   await page.evaluate(() => localStorage.setItem("koonapin.demo.play", "email"));

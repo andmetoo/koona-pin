@@ -21,6 +21,8 @@ export type Sheets = {
   open: (request: SheetRequest) => number;
   close: (id?: number) => void;
   closeAll: () => void;
+  /** Closes every open sheet of this kind; the others stay. */
+  closeKind: (kind: SheetKind) => void;
   /** A sheet of this kind is open and not leaving. */
   isOpen: (kind: SheetKind) => boolean;
 };
@@ -80,6 +82,7 @@ export function useSheetState() {
         if (target) leave([target.id]);
       },
       closeAll: () => leave(entriesRef.current.filter((e) => !e.leaving).map((e) => e.id)),
+      closeKind: (kind) => leave(entriesRef.current.filter((e) => e.kind === kind && !e.leaving).map((e) => e.id)),
       isOpen: (kind) => entriesRef.current.some((e) => e.kind === kind && !e.leaving),
     }),
     [leave],
