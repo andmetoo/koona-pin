@@ -1,5 +1,6 @@
 import "../you/you.css";
 import "./supporter.css";
+import { useId } from "react";
 import { BookOpen, ExternalLink, Heart, RefreshCw } from "lucide-react";
 import { capabilities } from "../../../platform/capabilities";
 import { planBadge, planName, priceLine, useSupporterPurchase } from "../../../components/supporterFlow";
@@ -7,20 +8,21 @@ import { usePhone } from "../PhoneContext";
 import { Button } from "../ui/buttons";
 import { Sheet, useCloseSheet } from "../ui/Sheet";
 import { Shelf, ShelfRow } from "../ui/Shelf";
-import { Note, SeasonHeart } from "./parts";
+import { CodeForm, Note, SeasonHeart } from "./parts";
+import { playBadge, playPlans, playPriceLine, usePlayPurchase } from "./playFlow";
 
 export type SupporterSheetProps = Record<string, never>;
 
 /**
  * Supporter on a phone (NP-072b; `app.surface` "supporter"): what it gives on a phone — sync with
  * the person's computers, the reader's Paper and Sepia, the heart — and what stays free. A build that
- * sells nothing here (`purchase: "none"`: the Play build until NP-154) shows the perks and the sign-in
- * of someone who is a Supporter already, and nothing about buying. One that sells through Paddle (the
- * site's APK) adds the desktop's purchase: the plan, Continue to the checkout in the browser, the
- * waiting step, thank you.
+ * sells nothing here (`purchase: "none"`) shows the perks and the sign-in of someone who is a
+ * Supporter already, and nothing about buying. One that sells through Paddle (the site's APK) adds
+ * the desktop's purchase: the plan, Continue to the checkout in the browser, the waiting step, thank
+ * you. The Play build (`purchase: "play"`, NP-154) sells through Google Play Billing.
  */
 export function SupporterSheet(_: { props: SupporterSheetProps }) {
-  return capabilities.purchase === "paddle" ? <PurchaseSheet /> : <PerksSheet />;
+  return capabilities.purchase === "paddle" ? <PurchaseSheet /> : capabilities.purchase === "play" ? <PlaySheet /> : <PerksSheet />;
 }
 
 /** The sheet where nothing is sold: the perks and "I'm already a Supporter". */
@@ -200,6 +202,203 @@ function PurchaseSheet() {
           <Note tone="amber">{t("supporter.planUnknownNotice", { email: supporter.email })}</Note>
         ) : (
           <p className="sp-hint">{t("phone.supporter.paddleHint")}</p>
+        )}
+      </section>
+    </Sheet>
+  );
+}
+
+/**
+ * The sheet of the Play build (NP-154): "I'm already a Supporter" first, so a Supporter does not
+ * buy again; the perks; the plans at Google Play's prices, each with its own button, and under them
+ * what a subscription does (it renews until cancelled in Google Play; five years are paid once).
+ * After Play's sheet, the server's verdict leads on: thanks; the email that claims the purchase and
+ * the code sent to it; a slow payment; a Supporter buying again; a purchase that belongs to another
+ * account; a failure under the plans. A purchase still waiting when the sheet opens resumes its step.
+ * Nothing names where else Supporter is sold.
+ */
+function PlaySheet() {
+  const { app } = usePhone();
+  const { t, supporter, setSurface } = app;
+  const close = useCloseSheet();
+  const formId = useId();
+  const purchase = usePlayPurchase(supporter);
+  const { step, error, busy, offer, offerFailed, askOffer, last, buy, email, setEmail, claim, code, setCode, verify, resend, wait, anotherEmail, codeReady } = purchase;
+  const signIn = () => setSurface("signIn");
+
+  if (step === "email" || step === "code") {
+    const onEmail = step === "email";
+    const title = t(onEmail ? "phone.supporter.play.emailTitle" : "supporter.codeTitle");
+    return (
+      <Sheet
+        label={title}
+        title={title}
+        className="sp-sheet"
+        footer={
+          onEmail ? (
+            <Button kind="primary" block type="submit" form={formId} disabled={busy || !email.trim()}>
+              {t("supporter.sendCode")}
+            </Button>
+          ) : (
+            <div className="sp-actions">
+              <Button kind="clear" onClick={anotherEmail}>
+                {t("supporter.back")}
+              </Button>
+              <Button kind="primary" type="submit" form={formId} disabled={busy || !codeReady}>
+                {t("supporter.signIn")}
+              </Button>
+            </div>
+          )
+        }
+      >
+        <CodeForm
+          id={formId}
+          step={step}
+          text={onEmail ? t("phone.supporter.play.emailText") : t("phone.supporter.play.codeText", { email: email.trim() })}
+          email={email}
+          onEmail={setEmail}
+          code={code}
+          onCode={setCode}
+          error={error}
+          busy={busy}
+          wait={wait}
+          onSubmit={() => void (onEmail ? claim() : verify())}
+          onResend={() => void resend()}
+          onAnotherEmail={anotherEmail}
+        />
+      </Sheet>
+    );
+  }
+
+  if (step === "pending")
+    return (
+      <Sheet
+        label={t("phone.supporter.play.pendingTitle")}
+        title={t("phone.supporter.play.pendingTitle")}
+        className="sp-sheet"
+        footer={
+          <Button kind="clear" block onClick={close}>
+            {t("common.close")}
+          </Button>
+        }
+      >
+        <p className="sp-text">{t("phone.supporter.play.pendingText")}</p>
+        <div className="ys-card sp-waiting" data-play-step="pending">
+          <span className="sp-spinner" aria-hidden="true" />
+          <span role="status" className="sp-waiting-text">
+            {t("phone.supporter.play.pending")}
+          </span>
+        </div>
+      </Sheet>
+    );
+
+  if (step !== "plans") {
+    // How the purchase ended: thanks, a Supporter already (Play refunds it), or an account to sign in to.
+    const ended = {
+      paid: { title: t("supporter.thanksTitle"), text: t("phone.supporter.play.thanksText", { email: supporter?.email ?? email.trim() }) },
+      alreadySupporter: { title: t("phone.supporter.play.alreadyTitle"), text: t("phone.supporter.play.alreadyText") },
+      otherAccount: { title: t("phone.supporter.play.otherTitle"), text: t("phone.supporter.play.otherText") },
+      owner: { title: t("phone.supporter.play.ownerTitle"), text: t("phone.supporter.play.ownerText") },
+    }[step];
+    const toSignIn = step === "otherAccount" || step === "owner";
+    return (
+      <Sheet
+        label={ended.title}
+        className="sp-sheet"
+        footer={
+          toSignIn ? (
+            <div className="sp-actions">
+              <Button kind="clear" onClick={close}>
+                {t("supporter.notNow")}
+              </Button>
+              <Button kind="primary" onClick={signIn}>
+                {t("supporter.signIn")}
+              </Button>
+            </div>
+          ) : (
+            <Button kind="primary" block onClick={close}>
+              {t("supporter.done")}
+            </Button>
+          )
+        }
+      >
+        <div className="sp-done" data-play-step={step}>
+          {!toSignIn && <SeasonHeart size={64} />}
+          <h2 className="ph-title2">{ended.title}</h2>
+          <p className="sp-text">{ended.text}</p>
+        </div>
+      </Sheet>
+    );
+  }
+
+  return (
+    <Sheet label={t("phone.supporter.title")} title={t("phone.supporter.title")} className="sp-sheet">
+      <Button kind="clear" block className="sp-already" onClick={signIn}>
+        {t("plan.already")}
+      </Button>
+      <Perks hero={false} />
+      <section className="ys-section">
+        <h3 className="ys-label">{t("phone.supporter.planLabel")}</h3>
+        {offer && !offer.available ? (
+          <Note tone="amber">{t("phone.supporter.play.notAvailable")}</Note>
+        ) : offerFailed && !offer ? (
+          <div className="sp-play-failure">
+            <Note tone="danger">{t("phone.supporter.play.offerFailed")}</Note>
+            <Button kind="ghost" compact className="sp-open-again" onClick={askOffer}>
+              {t("common.retry")}
+            </Button>
+          </div>
+        ) : (
+          <>
+            <ul aria-label={t("supporter.plan")} aria-busy={!offer || undefined} className="sp-plans sp-play-plans">
+              {playPlans(offer).map((value) => {
+                const price = offer?.[value];
+                const badge = playBadge(value, offer, t);
+                const name = planName(value, t);
+                const action = t(value === "five_years" ? "phone.supporter.play.buy" : "phone.supporter.play.subscribe");
+                return (
+                  <li key={value} className="sp-plan" data-play-plan={value}>
+                    <span className="sp-plan-text">
+                      <span className="sp-plan-name">
+                        {name}
+                        {badge && <span className="sp-plan-badge">{badge}</span>}
+                      </span>
+                      <span className="sp-plan-price">{price ? playPriceLine(value, price, t) : <span className="sp-pending" aria-hidden="true" />}</span>
+                    </span>
+                    <Button
+                      kind="soft"
+                      compact
+                      disabled={busy || !price}
+                      aria-label={t("phone.supporter.play.buyLabel", { action, plan: name })}
+                      onClick={() => void buy(value)}
+                    >
+                      {action}
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+            {error ? (
+              <div className="sp-play-failure">
+                <Note tone="danger">{error}</Note>
+                {last && (
+                  <Button kind="ghost" compact className="sp-open-again" disabled={busy} onClick={() => void buy(last)}>
+                    {t("common.retry")}
+                  </Button>
+                )}
+              </div>
+            ) : (
+              supporter?.plan_unknown &&
+              supporter.email && (
+                // Signed in, but the plan could not be checked: a Supporter must not buy it twice.
+                <Note tone="amber">{t("supporter.planUnknownNotice", { email: supporter.email })}</Note>
+              )
+            )}
+            <div data-play-terms>
+              <p className="sp-hint">{t("phone.supporter.play.renews")}</p>
+              {offer?.five_years && <p className="sp-hint">{t("phone.supporter.play.once")}</p>}
+            </div>
+          </>
         )}
       </section>
     </Sheet>

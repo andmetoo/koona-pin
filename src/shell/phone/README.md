@@ -14,7 +14,7 @@ The phone's own interface, "Paper & Glass" (`doc/mobile-design.md` in the notes,
 | `navigation/usePhoneStack.ts` | The stack in React, tab → app section, system Back at place 0 | foundation |
 | `sheets/useSheets.ts`, `SheetLayer.tsx`, `registry.ts`, `useAppSheets.ts` | The sheet system | foundation |
 | `ui/` | The kit (below) | foundation |
-| `supporter/` | Supporter, sign-in and the plan as sheets; nothing sold where `capabilities.purchase` is `none` (the Play build until NP-154) | wave 2 |
+| `supporter/` | Supporter, sign-in and the plan as sheets: Paddle's checkout where `capabilities.purchase` is `paddle` (the site's APK), Google Play Billing where it is `play` (the Play build, NP-154; its steps in `playFlow.ts`), nothing sold where it is `none`; a plan paid through Google Play is managed there | wave 2 |
 | `screens/*Screen.tsx` | One file per screen, stubs now | wave 1 |
 | `sheets/EditSheet.tsx`, `CollectionPicker.tsx`, `NewLinkSheet.tsx`, `YouSheet.tsx`, `BookmarkMenu.tsx` | One file per sheet, stubs now | wave 1 |
 | `Rail.tsx` | The Fold's rail and its long-press popover (FL3) | wave 2 |

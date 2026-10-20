@@ -227,6 +227,19 @@ export function useSupporterPurchase({
   return { step, setStep, interval, setPlan, shown, plans, pay, openAgain, busy, error, checkout, paidEmail };
 }
 
+/** «Send again in 0:59»: a new code is offered a minute after the last one. */
+export function useResendWait() {
+  const [wait, setWait] = useState(0);
+  const timer = useRef<number | null>(null);
+  useEffect(() => () => void (timer.current && window.clearInterval(timer.current)), []);
+  const countdown = () => {
+    setWait(60);
+    if (timer.current) window.clearInterval(timer.current);
+    timer.current = window.setInterval(() => setWait((left) => Math.max(0, left - 1)), 1000);
+  };
+  return { wait, countdown };
+}
+
 export type SignInStep = "email" | "code" | "noPlan";
 
 /**
@@ -242,15 +255,7 @@ export function useSignIn({ onClose }: { onClose: () => void }) {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [wait, setWait] = useState(0);
-  const timer = useRef<number | null>(null);
-
-  useEffect(() => () => void (timer.current && window.clearInterval(timer.current)), []);
-  const countdown = () => {
-    setWait(60);
-    if (timer.current) window.clearInterval(timer.current);
-    timer.current = window.setInterval(() => setWait((left) => Math.max(0, left - 1)), 1000);
-  };
+  const { wait, countdown } = useResendWait();
 
   const run = async (action: () => Promise<void>) => {
     setBusy(true);

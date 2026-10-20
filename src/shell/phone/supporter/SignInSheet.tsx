@@ -5,9 +5,8 @@ import { capabilities } from "../../../platform/capabilities";
 import { useSignIn } from "../../../components/supporterFlow";
 import { usePhone } from "../PhoneContext";
 import { Button } from "../ui/buttons";
-import { Field } from "../ui/controls";
 import { Sheet, useCloseSheet } from "../ui/Sheet";
-import { Note } from "./parts";
+import { CodeForm, Note } from "./parts";
 
 export type SignInSheetProps = Record<string, never>;
 
@@ -22,13 +21,12 @@ export function SignInSheet(_: { props: SignInSheetProps }) {
   const { t, setSurface } = app;
   const close = useCloseSheet();
   const formId = useId();
-  const noteId = useId();
   const signIn = useSignIn({ onClose: close });
   const { step, setStep, email, setEmail, code, setCode, error, busy, wait, send, verify, retry, signOut, anotherEmail, unknown, codeReady } = signIn;
   const title = t(step === "email" ? "supporter.signInTitle" : step === "code" ? "supporter.codeTitle" : "supporter.signedInTitle");
 
   if (step === "noPlan") {
-    const sells = capabilities.purchase === "paddle";
+    const sells = capabilities.purchase !== "none";
     return (
       <Sheet
         label={title}
@@ -86,70 +84,21 @@ export function SignInSheet(_: { props: SignInSheetProps }) {
         )
       }
     >
-      <form
+      <CodeForm
         id={formId}
-        className="sp-form"
-        data-sign-in-step={step}
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          void (onEmail ? send() : verify());
-        }}
-      >
-        <p className="sp-text">{onEmail ? t("phone.supporter.signInText") : t("supporter.codeText", { email })}</p>
-        {onEmail ? (
-          <Field
-            key="email"
-            label={t("supporter.email")}
-            type="email"
-            inputMode="email"
-            enterKeyHint="send"
-            autoComplete="email"
-            autoCapitalize="off"
-            spellCheck={false}
-            autoFocus
-            value={email}
-            onChange={setEmail}
-            aria-invalid={!!error || undefined}
-            aria-describedby={error ? noteId : undefined}
-            className="sp-field"
-          />
-        ) : (
-          <Field
-            key="code"
-            label={t("supporter.code")}
-            inputMode="numeric"
-            enterKeyHint="done"
-            autoComplete="one-time-code"
-            autoFocus
-            maxLength={7}
-            value={code}
-            onChange={setCode}
-            aria-invalid={!!error || undefined}
-            aria-describedby={error ? noteId : undefined}
-            className="sp-field sp-code"
-          />
-        )}
-        {error && (
-          <p id={noteId} role="alert" className="sp-note" data-tone="danger">
-            {error}
-          </p>
-        )}
-        {!onEmail && (
-          <p className="sp-resend">
-            {wait > 0 ? (
-              <span className="sp-wait">{t("supporter.sendAgainIn", { time: `0:${String(wait).padStart(2, "0")}` })}</span>
-            ) : (
-              <Button kind="ghost" compact disabled={busy} onClick={() => void send()}>
-                {t("supporter.sendAgain")}
-              </Button>
-            )}
-            <Button kind="ghost" compact onClick={anotherEmail}>
-              {t("supporter.anotherEmail")}
-            </Button>
-          </p>
-        )}
-      </form>
+        step={onEmail ? "email" : "code"}
+        text={onEmail ? t("phone.supporter.signInText") : t("supporter.codeText", { email })}
+        email={email}
+        onEmail={setEmail}
+        code={code}
+        onCode={setCode}
+        error={error}
+        busy={busy}
+        wait={wait}
+        onSubmit={() => void (onEmail ? send() : verify())}
+        onResend={() => void send()}
+        onAnotherEmail={anotherEmail}
+      />
     </Sheet>
   );
 }

@@ -180,6 +180,38 @@
   vertical-align: middle;
 }
 
+/* The Play build's plans (NP-154): the same tiles, each with its own soft button on the right; the
+   badge beside the plan's name. With large text the button goes under the words. */
+.phone .sp-already {
+  margin-bottom: 4px;
+}
+.phone .sp-play-plans {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.phone .sp-play-plans .sp-plan {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+.phone .sp-play-plans .sp-plan-text {
+  flex: 1 1 150px;
+}
+.phone .sp-play-plans .sp-plan-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+}
+.phone .sp-play-plans .ph-button {
+  flex: none;
+  margin-left: auto;
+}
+.phone .sp-play-failure {
+  display: flex;
+  flex-direction: column;
+}
+
 /* Waiting for the payment. */
 .phone .sp-waiting {
   display: flex;
