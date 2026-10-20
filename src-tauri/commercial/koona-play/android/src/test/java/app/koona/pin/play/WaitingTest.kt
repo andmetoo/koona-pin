@@ -1,7 +1,7 @@
 package app.koona.pin.play
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -10,21 +10,38 @@ class WaitingTest {
   fun theFirstCallStartsTheConnectionAndAllRunOnceWithItsResult() {
     val waiting = Waiting<String>()
     val seen = mutableListOf<String>()
-    assertTrue(waiting.add { seen.add("a:$it") })
-    assertFalse("one connection at a time", waiting.add { seen.add("b:$it") })
-    waiting.settle().forEach { it("ok") }
+    val attempt = waiting.add { seen.add("a:$it") }
+    assertEquals(1, attempt)
+    assertNull("one connection at a time", waiting.add { seen.add("b:$it") })
+    waiting.settle(attempt!!).forEach { it("ok") }
     assertEquals(listOf("a:ok", "b:ok"), seen)
-    assertTrue("settled: nothing runs twice", waiting.settle().isEmpty())
+    assertTrue("settled: nothing runs twice", waiting.settle(attempt).isEmpty())
   }
 
   @Test
   fun aConnectionThatDropsFailsWhatWaitedAndTheNextCallConnectsAgain() {
     val waiting = Waiting<String>()
     val seen = mutableListOf<String>()
-    waiting.add { seen.add(it) }
+    val attempt = waiting.add { seen.add(it) }!!
     // Dropped before setup finished: the queued call gets the failure, not silence.
-    waiting.settle().forEach { it("disconnected") }
+    waiting.settle(attempt).forEach { it("disconnected") }
     assertEquals(listOf("disconnected"), seen)
-    assertTrue(waiting.add { seen.add(it) })
+    assertEquals(2, waiting.add { seen.add(it) })
+  }
+
+  @Test
+  fun anAttemptWithoutAnAnswerTimesOutAndItsLateCallbackIsIgnored() {
+    val waiting = Waiting<String>()
+    val seen = mutableListOf<String>()
+    val first = waiting.add { seen.add("first:$it") }!!
+    // No callback in time: the timer settles the attempt with a failure.
+    waiting.settle(first).forEach { it("timed out") }
+    assertEquals(listOf("first:timed out"), seen)
+    // The next call starts a new attempt; the first one's late callback changes nothing.
+    val second = waiting.add { seen.add("second:$it") }!!
+    assertEquals(2, second)
+    assertTrue(waiting.settle(first).isEmpty())
+    waiting.settle(second).forEach { it("ok") }
+    assertEquals(listOf("first:timed out", "second:ok"), seen)
   }
 }

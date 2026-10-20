@@ -1,7 +1,10 @@
 package app.koona.pin.play
 
 import android.app.Activity
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import androidx.appcompat.app.AppCompatActivity
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
 import app.tauri.annotation.TauriPlugin
@@ -22,6 +25,9 @@ import com.android.billingclient.api.QueryPurchasesParams
 import java.util.concurrent.ConcurrentHashMap
 
 private const val TAG = "KoonaPlay"
+
+/** A connection attempt to Play that has not answered by then fails what waits for it. */
+private const val CONNECT_WAIT_MS = 20_000L
 
 /** The products the sheet shows, by Play's ids. */
 @InvokeArg
@@ -47,8 +53,17 @@ class BuyArgs {
  * purchase nobody claims is refunded by Play after three days.
  */
 @TauriPlugin
-class KoonaPlayPlugin(private val activity: Activity) : Plugin(activity), PurchasesUpdatedListener {
-  private val client: BillingClient = BillingClient.newBuilder(activity)
+class KoonaPlayPlugin(activity: Activity) : Plugin(activity), PurchasesUpdatedListener {
+  /**
+   * The activity Play's sheet opens over. Tauri makes the plugin once, with the first activity, and
+   * calls onResume with each activity that comes to the screen (PluginManager), so a recreated
+   * activity replaces the one gone.
+   */
+  @Volatile
+  private var current: Activity = activity
+
+  /** The client lives as long as the app: made with the application's context, never an activity's. */
+  private val client: BillingClient = BillingClient.newBuilder(activity.applicationContext)
     .setListener(this)
     .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
     .enableAutoServiceReconnection()
@@ -75,21 +90,33 @@ class KoonaPlayPlugin(private val activity: Activity) : Plugin(activity), Purcha
    */
   private fun ready(action: (BillingResult) -> Unit) {
     if (client.isReady) return action(BillingResult.newBuilder().setResponseCode(BillingResponseCode.OK).build())
-    if (!waiting.add(action)) return
+    val attempt = waiting.add(action) ?: return
+    val failed = { message: String ->
+      BillingResult.newBuilder().setResponseCode(BillingResponseCode.SERVICE_DISCONNECTED).setDebugMessage(message).build()
+    }
+    // An attempt whose callback never comes would leave every later call waiting: it times out.
+    val timer = Handler(Looper.getMainLooper())
+    timer.postDelayed({
+      val late = waiting.settle(attempt)
+      if (late.isNotEmpty()) Log.w(TAG, "Google Play did not answer the connection in time")
+      late.forEach { it(failed("Google Play did not answer the connection in time")) }
+    }, CONNECT_WAIT_MS)
     client.startConnection(object : BillingClientStateListener {
       override fun onBillingSetupFinished(result: BillingResult) {
-        waiting.settle().forEach { it(result) }
+        timer.removeCallbacksAndMessages(null)
+        waiting.settle(attempt).forEach { it(result) }
       }
 
       // Later calls reconnect by themselves (enableAutoServiceReconnection); those waiting now fail.
       override fun onBillingServiceDisconnected() {
-        val dropped = BillingResult.newBuilder()
-          .setResponseCode(BillingResponseCode.SERVICE_DISCONNECTED)
-          .setDebugMessage("The connection to Google Play dropped")
-          .build()
-        waiting.settle().forEach { it(dropped) }
+        timer.removeCallbacksAndMessages(null)
+        waiting.settle(attempt).forEach { it(failed("The connection to Google Play dropped")) }
       }
     })
+  }
+
+  override fun onResume(activity: AppCompatActivity) {
+    current = activity
   }
 
   private fun ok(result: BillingResult) = result.responseCode == BillingResponseCode.OK
@@ -171,8 +198,9 @@ class KoonaPlayPlugin(private val activity: Activity) : Plugin(activity), Purcha
       .setProductDetailsParamsList(listOf(params.build()))
       .setObfuscatedAccountId(args.accountId)
       .build()
-    activity.runOnUiThread {
-      val result = client.launchBillingFlow(activity, flow)
+    val over = current
+    over.runOnUiThread {
+      val result = client.launchBillingFlow(over, flow)
       // Otherwise the answer comes in onPurchasesUpdated.
       if (!ok(result)) {
         Log.w(TAG, "The purchase did not start: ${result.responseCode} ${result.debugMessage}")
