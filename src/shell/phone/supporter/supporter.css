@@ -537,3 +537,62 @@
   margin: 0 4px 2px;
   text-align: center;
 }
+
+/* Deleting the account (D2–D7): what goes and what stays on two shelves, a cross and a tick in
+   their wells; the one destructive button red (D4), the owner's exception to red for errors. */
+.phone .sp-delete .sp-delete-first {
+  margin-top: 4px;
+}
+.phone .sp-delete-stays .ph-shelf-icon {
+  color: var(--ph-accent);
+}
+.phone .sp-delete-payments,
+.phone .sp-delete-note {
+  margin-top: 20px;
+}
+.phone .sp-delete-when,
+.phone .sp-delete-plan {
+  margin-top: 16px;
+}
+.phone .sp-delete-hint {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ph-meta);
+}
+.phone .ph-button.sp-danger[data-kind="primary"] {
+  background: var(--ph-danger) linear-gradient(rgb(255 255 255 / 0.08), transparent 50%);
+  color: var(--ph-on-accent);
+  box-shadow: none;
+}
+/* The running text 4 in from the cards, as the frames have it; «Keep my account» on one line (D6). */
+.phone .sp-delete .sp-text {
+  padding: 0 4px;
+}
+.phone .sp-delete .sp-actions > .ph-button.sp-keep {
+  flex: none;
+  white-space: nowrap;
+}
+/* Signed in without a plan: the account's email and «Delete account…», quiet, under the perks. */
+.phone .sp-account-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 16px 4px 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ph-meta);
+}
+.phone .sp-account-email {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phone .sp-account-line .sp-sign-out {
+  margin-right: 0;
+  flex: none;
+}
+.phone .sp-delete-more {
+  margin-top: 8px;
+}

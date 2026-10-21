@@ -67,6 +67,9 @@ import {
   SupporterPrices,
   PlanInterval,
   CheckoutState,
+  DeleteInfo,
+  DeleteOutcome,
+  DeleteWhen,
   PlayOffer,
   PlayState,
   BackupFolder,
@@ -168,7 +171,8 @@ let demoDownload: number | null = null;
  * after two polls; `existing` pays with the email of an account that existed before, so the payment
  * asks for the code; `background` has the app see the payment before the dialog does;
  * `later_sign_in` and `later_paid` have it see an earlier purchase while the dialog shows the plans; `supporter`, `canceling`, `past_due`, `offline`,
- * `five_years`, `five_years_renewing` are the states of the plan dialog; `no_server` makes every request fail. Without the key the build sells nothing, as a release.
+ * `five_years`, `five_years_renewing` are the states of the plan dialog; `deleting` is a canceling plan whose account is
+ * deleted at its end (`delete_at`); `no_server` makes every request fail. Without the key the build sells nothing, as a release.
  */
 export const DEMO_SUPPORTER_KEY = "koonapin.demo.supporter";
 /** «Mark as read at the end» (NP-124): "false" turns it off, as app_settings does. */
@@ -205,7 +209,7 @@ function demoPlanOf(kind: string | null): SupporterStatus["plan"] {
   // `offline_until` as the server signs it: 30 days ahead, never past the period and a week.
   const plan = { also_renews: false };
   if (kind === "supporter") return { ...plan, status: "active", interval: "year", valid_until: inDays(365), renews_at: inDays(365), offline_until: inDays(30) };
-  if (kind === "canceling") return { ...plan, status: "canceling", interval: "year", valid_until: inDays(20), renews_at: null, offline_until: inDays(30) };
+  if (kind === "canceling" || kind === "deleting") return { ...plan, status: "canceling", interval: "year", valid_until: inDays(20), renews_at: null, offline_until: inDays(30) };
   if (kind === "past_due") return { ...plan, status: "past_due", interval: "month", valid_until: inDays(20), renews_at: inDays(20), offline_until: inDays(27) };
   if (kind === "offline") return { ...plan, status: "active", interval: "year", valid_until: inDays(-2), renews_at: inDays(-2), offline_until: inDays(5) };
   // Supporter · 5 years, paid once; `five_years_renewing` while a subscription still renews too.
@@ -226,6 +230,9 @@ function currentDemoSupporter(): SupporterStatus {
     check_failed: kind === "offline",
     plan_unknown: false,
     awaiting_sign_in: false,
+    ...(kind === "deleting" && plan ? { delete_at: plan.valid_until } : {}),
+    // A deletion sent before a restart whose answer did not come (billing/deletion.rs, deletion_sent).
+    ...(demoSwitch("koonapin.demo.deletionPending") === "on" && plan ? { deletion_pending: "anna@example.com" } : {}),
   };
   return demoSupporter;
 }
@@ -473,6 +480,25 @@ function demoBecomeHub(status: SyncStatus, others: (d: SyncDevice) => SyncDevice
     hub_change: null,
     last_sync_at: new Date().toISOString(),
   };
+}
+/** The preview's sign-in by code for deleting the account: fresh once a code worked. */
+let demoDeletionFresh = demoSwitch("koonapin.demo.deletionFresh") === "on";
+async function demoFreshSignIn(code: string | null) {
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  noServer();
+  if (code !== null) {
+    if (code.replace(/D/g, "") === "000000") throw new CommandError("invalid_request", "The code did not work", "wrong_code");
+    demoDeletionFresh = true;
+  }
+  if (!demoDeletionFresh) throw new CommandError("invalid_request", "The sign-in is too old to delete the account", "fresh_sign_in");
+}
+async function demoDeletionInfo(code: string | null): Promise<DeleteInfo> {
+  await demoFreshSignIn(code);
+  const status = currentDemoSupporter();
+  const waitUntil = status.plan && new Date(status.plan.valid_until).getTime() > Date.now() ? status.plan.valid_until : null;
+  // The account answered: a deletion sent earlier did not delete it.
+  if (status.deletion_pending) setDemoSupporter({ ...status, deletion_pending: undefined });
+  return { email: status.email ?? "", can_wait: !!waitUntil, wait_until: waitUntil, scheduled: status.delete_at ?? null };
 }
 const noServer = () => {
   if (storedSupporter() === "no_server") throw new CommandError("network", "No connection", "no_connection");
@@ -2780,6 +2806,49 @@ export const demo = {
   async copySyncReport(): Promise<string> {
     const status = currentDemoSync();
     return ["Koona Pin sync report", "app: preview", `phase: ${JSON.stringify(status.phase)}`, `device: ${status.device.id}`, `devices: ${status.devices.length}`].join("\n");
+  },
+  // Deleting the account (billing/deletion.rs): any code but 000000 signs in afresh, and the actions
+  // after it go without one, as within the server's ten minutes; before a code they answer
+  // `fresh_sign_in`, unless `koonapin.demo.deletionFresh` is "on" (a sign-in by code minutes ago).
+  // Payments failing, an answer that does not come and the review account are the tests' failOnce.
+  async sendAccountCode(): Promise<string> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    noServer();
+    return currentDemoSupporter().email ?? "anna@example.com";
+  },
+  getAccountDeletion: demoDeletionInfo,
+  async deleteAccount(when: DeleteWhen): Promise<DeleteOutcome> {
+    const info = await demoDeletionInfo(null);
+    if (when === "period_end" && !info.can_wait) throw new CommandError("invalid_request", "No paid time is left to wait for", "no_paid_time");
+    if (when === "now") {
+      demoDeletionFresh = false;
+      setDemoSupporter({ ...currentDemoSupporter(), email: null, plan: null, check_failed: false, plan_unknown: false, awaiting_sign_in: false, delete_at: undefined });
+      setDemoSync({ ...currentDemoSync(), enabled: false, phase: { state: "off" }, pairing: null, error: null, hub_change: null });
+      return { status: "deleted", delete_at: null };
+    }
+    setDemoSupporter({ ...currentDemoSupporter(), delete_at: info.wait_until! });
+    return { status: "scheduled", delete_at: info.wait_until };
+  },
+  /**
+   * Still there, or scheduled; `koonapin.demo.deletionGone` "on" stands for a deletion that went
+   * through with its answer lost: the session no longer works, so this device is signed out.
+   */
+  async checkAccountDeletion(): Promise<DeleteOutcome> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    noServer();
+    const status = currentDemoSupporter();
+    if (!status.email) throw new CommandError("invalid_request", "Not signed in", "signed_out");
+    if (demoSwitch("koonapin.demo.deletionGone") === "on") {
+      setDemoSupporter({ ...status, email: null, plan: null, check_failed: false, plan_unknown: false, delete_at: undefined });
+      return { status: "signed_out", delete_at: null };
+    }
+    setDemoSupporter({ ...status, deletion_pending: undefined });
+    return status.delete_at ? { status: "scheduled", delete_at: status.delete_at } : { status: "active", delete_at: null };
+  },
+  async keepAccount(code: string | null): Promise<DeleteOutcome> {
+    await demoFreshSignIn(code);
+    setDemoSupporter({ ...currentDemoSupporter(), delete_at: undefined });
+    return { status: "kept", delete_at: null };
   },
   async signOutSupporter(): Promise<SupporterStatus> {
     setDemoSupporter({ ...currentDemoSupporter(), email: null, plan: null, check_failed: false, awaiting_sign_in: false });

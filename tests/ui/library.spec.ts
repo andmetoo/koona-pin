@@ -2760,8 +2760,9 @@ test("Supporter: signed in while the server did not answer about the plan — no
   await row.click();
   const plans = page.getByRole("dialog", { name: "Support Koona Pin" });
   await expect(plans.getByRole("status")).toHaveText(
-    "The plan of unknown@example.com couldn't be checked yet. Already a Supporter? Wait before buying again — the app tries again within the hour.",
+    "The plan of unknown@example.com couldn't be checked yet. Already a Supporter? Wait before buying again — the app tries again within the hour. Delete account…",
   );
+  // The account can still be deleted from the notice (the account line gave way to it).
   const warned = Math.round((await plans.boundingBox())!.height);
   await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
   await page.reload();

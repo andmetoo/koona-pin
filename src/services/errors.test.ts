@@ -32,7 +32,7 @@ describe("command errors", () => {
   });
   // English is enough: locales.test.ts keeps every other language's keys in step with it.
   it("has words for every detail and code", () => {
-    const details = ["empty_tag", "empty_collection_name", "empty_title", "bookmark_gone", "not_in_trash", "invalid_url", "unsupported_url", "nothing_exported", "copy_gone", "library_opening", "empty_message", "message_too_long", "invalid_email", "no_connection", "service_failed", "too_many_messages", "proxy_failed", "no_connection_or_proxy", "no_connection_or_system_proxy"];
+    const details = ["empty_tag", "empty_collection_name", "empty_title", "bookmark_gone", "not_in_trash", "invalid_url", "unsupported_url", "nothing_exported", "copy_gone", "library_opening", "empty_message", "message_too_long", "invalid_email", "no_connection", "service_failed", "too_many_messages", "proxy_failed", "no_connection_or_proxy", "no_connection_or_system_proxy", "fresh_sign_in", "review_account", "no_paid_time", "payments_not_stopped", "payment_pending", "deletion_unknown"];
     for (const key of [
       ...details.flatMap((d) => [`errors.detail.${d}`, `errors.reason.${d}`]),
       ...["not_found", "conflict", "invalid_request", "internal"].map((c) => `errors.code.${c}`),

@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { usePhone } from "../PhoneContext";
 
 /** The app's surfaces the phone shows as sheets of its own, not as the desktop's dialogs. */
-const SHEET_SURFACES = ["supporter", "signIn", "plan"] as const;
+const SHEET_SURFACES = ["supporter", "signIn", "plan", "deleteAccount"] as const;
 type SheetSurface = (typeof SHEET_SURFACES)[number];
 const isSheetSurface = (surface: unknown): surface is SheetSurface => SHEET_SURFACES.includes(surface as SheetSurface);
 

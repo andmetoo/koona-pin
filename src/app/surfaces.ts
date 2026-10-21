@@ -10,7 +10,7 @@ import type { Plan, SupporterStatus, SyncStatus, UpdateStatus } from "../types";
  * What opens over the window, one at a time: dialogs and sheets. `selectionCollection` — «Новая
  * коллекция из выбранного» in a narrow window, where the sidebar is a strip.
  */
-export type Surface = "add" | "import" | "importFeeds" | "importFile" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | "sync" | null;
+export type Surface = "add" | "import" | "importFeeds" | "importFile" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | "sync" | "deleteAccount" | null;
 
 /** An OPML, bookmarks or backup file dropped or picked: its dialog opens with it (NP-139, K9). */
 export type DroppedFile = { name: string; content: string; surface: "import" | "importFeeds" | "restore" };

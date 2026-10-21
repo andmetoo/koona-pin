@@ -80,6 +80,18 @@ pub enum ErrorDetail {
     UpdateNeeded,
     /// Google Play purchases paid here still wait to be claimed: no room for another (NP-154).
     PurchasesWaiting,
+    /// Deleting the account needs a sign-in by email code within the last ten minutes.
+    FreshSignIn,
+    /// The app store review's account is not deleted.
+    ReviewAccount,
+    /// Deleting at the end of the paid period, with no paid time left.
+    NoPaidTime,
+    /// A subscription could not be cancelled, so nothing was deleted.
+    PaymentsNotStopped,
+    /// A Google Play payment is still being processed, so nothing was deleted.
+    PaymentPending,
+    /// The deletion's answer did not come: whether the account was deleted is not known yet.
+    DeletionUnknown,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]

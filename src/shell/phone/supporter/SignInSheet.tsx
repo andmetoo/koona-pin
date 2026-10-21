@@ -33,6 +33,7 @@ export function SignInSheet(_: { props: SignInSheetProps }) {
         title={title}
         className="sp-sheet"
         footer={
+          <div className="sp-footer">
           <div className="sp-actions">
             <Button kind="ghost" disabled={busy} className="sp-sign-out" onClick={() => void signOut()}>
               {t("plan.signOut")}
@@ -50,6 +51,10 @@ export function SignInSheet(_: { props: SignInSheetProps }) {
                 {t("common.close")}
               </Button>
             )}
+          </div>
+          <Button kind="ghost" compact disabled={busy} className="sp-sign-out sp-sign-out-under" onClick={() => setSurface("deleteAccount")}>
+            {t("deleteAccount.open")}
+          </Button>
           </div>
         }
       >

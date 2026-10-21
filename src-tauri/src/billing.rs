@@ -13,6 +13,7 @@
 //! purchase comes first, the email given after it claims it, and the server binds it once the code
 //! from that email has signed in.
 
+pub mod deletion;
 pub mod play;
 
 use crate::error::{CommandError, ErrorCode, ErrorDetail};
@@ -184,6 +185,9 @@ fn known_store<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Opti
 struct Answer {
     has_plan: bool,
     lease: Option<Lease>,
+    /// The account's scheduled deletion (`deletion`), none when there is none: a deletion scheduled
+    /// on the web or another device shows here, one kept there or ended by a new purchase goes.
+    delete_at: Option<DateTime<Utc>>,
 }
 
 impl Answer {
@@ -197,8 +201,9 @@ impl Answer {
             Some(lease) => Answer {
                 has_plan: value["plan"].is_object() || lease.is_object(),
                 lease: serde_json::from_value(lease.clone()).unwrap_or(None),
+                delete_at: value["delete_at"].as_str().and_then(|text| text.parse().ok()),
             },
-            None => Answer { has_plan: true, lease: None },
+            None => Answer { has_plan: true, lease: None, delete_at: None },
         }
     }
 }
@@ -272,6 +277,13 @@ struct Stored {
     /// The Play purchase the sheet follows in this run: the one bought last, or claimed by an email.
     #[serde(skip)]
     play_followed: Option<String>,
+    /// The account is deleted on this date unless kept (billing/deletion.rs): what the server said last.
+    #[serde(default)]
+    delete_at: Option<DateTime<Utc>>,
+    /// A `delete_account` request went out and its answer did not come (billing/deletion.rs): kept
+    /// over a restart and over a session that stopped working, so «Check again» can still tell.
+    #[serde(default)]
+    deletion_sent: Option<deletion::SentDeletion>,
 }
 
 /// A purchase started here: the secret the server knows by its hash, and the payment page.
@@ -285,6 +297,12 @@ struct Checkout {
 }
 
 impl Stored {
+    /// Signed out, as «Sign out» leaves the file: the environment stays, and Play purchases not bound
+    /// yet (NP-154), whose secrets are their only claim; the account and all of its state go.
+    fn signed_out(&mut self) {
+        *self = Stored { sandbox: self.sandbox, play: std::mem::take(&mut self.play), ..Stored::default() };
+    }
+
     /// Keeps the server's signed plan and what of it verifies for the account signed in here.
     fn keep_lease(&mut self, lease: Option<Lease>, key: &[u8]) {
         self.plan = match (&lease, &self.session) {
@@ -309,6 +327,8 @@ impl Stored {
         } else {
             self.keep_lease(answer.lease, key);
             self.check_failed = false;
+            // The date is the server's: an answer without one clears it.
+            self.delete_at = answer.delete_at;
         }
     }
 
@@ -354,6 +374,10 @@ impl Stored {
     /// A new sign-in: the session, and of the signed plan kept here only what is this account's.
     /// Another account's lease is dropped, never shown, nor sent to the sync relay, as this one's.
     fn sign_in(&mut self, session: Session, key: &[u8]) {
+        // A deletion scheduled for another account is not this one's.
+        if !self.same_account(&session.email) {
+            self.delete_at = None;
+        }
         self.session = Some(session);
         let kept = self.lease.take();
         self.keep_lease(kept, key);
@@ -423,6 +447,15 @@ pub struct SupporterStatus {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub play: Option<play::PlayProgress>,
+    /// The account is deleted on this date unless kept (billing/deletion.rs).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "string")]
+    pub delete_at: Option<DateTime<Utc>>,
+    /// The email of the account here (or just signed out) whose deletion was sent and not answered:
+    /// the deletion dialog opens on «We couldn't confirm the deletion».
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub deletion_pending: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -516,6 +549,8 @@ fn status(stored: &Stored, now: DateTime<Utc>) -> SupporterStatus {
         plan_unknown: stored.session.is_some() && stored.plan.is_none() && stored.check_failed,
         awaiting_sign_in: stored.awaiting_sign_in && stored.session.is_none(),
         play: stored.play_progress(),
+        delete_at: stored.delete_at.filter(|_| stored.session.is_some()),
+        deletion_pending: deletion::pending(stored, now),
     }
 }
 
@@ -688,19 +723,29 @@ fn verify_refused(status: reqwest::StatusCode) -> Option<CommandError> {
     }
 }
 
-/// One action of the Edge Function `billing`.
+/// One action of the Edge Function `billing`; a server error is a failure.
 async fn call(app: &AppHandle, body: Value, token: Option<&str>) -> Result<(reqwest::StatusCode, Value), CommandError> {
+    let (status, value) = call_raw(app, body, token, None).await?;
+    if status.is_server_error() {
+        return Err(refused("billing", status));
+    }
+    Ok((status, value))
+}
+
+/// The action's answer whatever its status: a deletion's 502 says what failed ([`deletion`]).
+/// `timeout` replaces the client's 15 seconds for an action that takes longer (deleting now).
+async fn call_raw(app: &AppHandle, body: Value, token: Option<&str>, timeout: Option<Duration>) -> Result<(reqwest::StatusCode, Value), CommandError> {
     let service = need_service()?;
     let mut request = client(app)?.post(format!("{}/functions/v1/billing", service.url)).json(&body);
+    if let Some(timeout) = timeout {
+        request = request.timeout(timeout);
+    }
     if let Some(token) = token {
         request = request.bearer_auth(token);
     }
     let response = request.send().await.map_err(offline)?;
     let status = response.status();
     let value = response.json::<Value>().await.unwrap_or(Value::Null);
-    if status.is_server_error() {
-        return Err(refused("billing", status));
-    }
     Ok((status, value))
 }
 
@@ -1147,7 +1192,7 @@ pub async fn sign_out_supporter(app: AppHandle) -> Result<SupporterStatus, Comma
     // finds no purchase.
     let _one_at_a_time = billing.claiming.lock().await;
     // Play purchases not bound yet stay: their secrets are their only claim (NP-154).
-    billing.update(&app, |s| *s = Stored { sandbox: s.sandbox, play: std::mem::take(&mut s.play), ..Stored::default() })
+    billing.update(&app, Stored::signed_out)
 }
 
 #[cfg(test)]
@@ -1340,22 +1385,22 @@ mod tests {
     fn a_plan_the_server_names_but_that_does_not_verify_is_never_no_plan() {
         let (signed, key) = lease(PAYLOAD, 7);
         let mut stored = Stored { session: supporter("2027-10-11T12:00:00Z").session, ..Stored::default() };
-        stored.take_answer(Answer { has_plan: true, lease: Some(signed.clone()) }, &key, at("2026-10-12T12:00:00Z"));
+        stored.take_answer(Answer { has_plan: true, lease: Some(signed.clone()), delete_at: None }, &key, at("2026-10-12T12:00:00Z"));
         assert!(stored.plan.is_some() && !stored.check_failed);
         // The server names a plan, but the lease is missing or signed by another key: the plan here
         // stays and the check counts as failed.
-        stored.take_answer(Answer { has_plan: true, lease: None }, &key, at("2026-10-12T13:00:00Z"));
+        stored.take_answer(Answer { has_plan: true, lease: None, delete_at: None }, &key, at("2026-10-12T13:00:00Z"));
         assert!(stored.plan.is_some(), "kept");
         assert!(stored.check_failed);
         assert_eq!(stored.lease, Some(signed.clone()), "the lease that verified stays too");
-        stored.take_answer(Answer { has_plan: true, lease: Some(signed.clone()) }, &lease(PAYLOAD, 8).1, at("2026-10-12T14:00:00Z"));
+        stored.take_answer(Answer { has_plan: true, lease: Some(signed.clone()), delete_at: None }, &lease(PAYLOAD, 8).1, at("2026-10-12T14:00:00Z"));
         assert!(stored.plan.is_some() && stored.check_failed);
         // The server says there is none: Free.
-        stored.take_answer(Answer { has_plan: false, lease: None }, &key, at("2026-10-12T15:00:00Z"));
+        stored.take_answer(Answer { has_plan: false, lease: None, delete_at: None }, &key, at("2026-10-12T15:00:00Z"));
         assert!(stored.plan.is_none() && !stored.check_failed);
         assert!(!status(&stored, at("2026-10-12T15:00:00Z")).plan_unknown, "no plan, known");
         // Signed in with nothing known yet: not «no plan».
-        stored.take_answer(Answer { has_plan: true, lease: None }, &key, at("2026-10-12T16:00:00Z"));
+        stored.take_answer(Answer { has_plan: true, lease: None, delete_at: None }, &key, at("2026-10-12T16:00:00Z"));
         assert!(status(&stored, at("2026-10-12T16:00:00Z")).plan_unknown);
     }
 
@@ -1533,13 +1578,13 @@ mod tests {
         stored.add_checkout(checkout("year1", "2026-10-12T11:00:00Z", PlanInterval::Year));
         stored.add_checkout(checkout("month1", "2026-10-12T11:05:00Z", PlanInterval::Month));
         let session = supporter("2027-10-12T11:00:00Z").session.unwrap();
-        assert!(stored.signed_in_by("year1", session.clone(), Answer { has_plan: false, lease: None }, &plan_key(), at("2026-10-12T11:10:00Z")));
+        assert!(stored.signed_in_by("year1", session.clone(), Answer { has_plan: false, lease: None, delete_at: None }, &plan_key(), at("2026-10-12T11:10:00Z")));
         assert!(stored.same_account("anna@example.com"));
         assert_eq!(stored.checkouts.iter().map(|c| c.secret.as_str()).collect::<Vec<_>>(), ["month1"]);
         assert_eq!(stored.settled(), CheckoutState::Waiting, "month1 is still followed");
         // Sign out forgets every purchase: a «paid» that arrives after it signs nobody in.
         let mut signed_out = Stored { sandbox: stored.sandbox, ..Stored::default() };
-        assert!(!signed_out.signed_in_by("month1", session, Answer { has_plan: false, lease: None }, &plan_key(), at("2026-10-12T11:20:00Z")));
+        assert!(!signed_out.signed_in_by("month1", session, Answer { has_plan: false, lease: None, delete_at: None }, &plan_key(), at("2026-10-12T11:20:00Z")));
         assert!(signed_out.session.is_none());
         assert_eq!(signed_out.settled(), CheckoutState::None);
     }

@@ -51,7 +51,7 @@ function PerksSheet() {
  */
 function Perks({ hero = true, plainFree = false }: { hero?: boolean; plainFree?: boolean }) {
   const { app } = usePhone();
-  const { t } = app;
+  const { t, supporter, setSurface } = app;
   return (
     <>
       {hero && (
@@ -82,6 +82,17 @@ function Perks({ hero = true, plainFree = false }: { hero?: boolean; plainFree?:
           <h3 className="ys-label">{t("phone.supporter.freeLabel")}</h3>
           <p className="ys-card sp-free">{t("phone.supporter.freeText")}</p>
         </section>
+      )}
+      {/* Signed in without a plan: the account, and deleting it, quietly (as the plan sheet's D1). */}
+      {((supporter?.email && !supporter.plan) || supporter?.deletion_pending) && (
+        <p className="sp-account-line" data-account-line>
+          <span className="sp-account-email" data-user-text>
+            {supporter.email ? t("deleteAccount.signedInAs", { email: supporter.email }) : t("deleteAccount.unknownTitle")}
+          </span>
+          <Button kind="ghost" compact className="sp-sign-out" onClick={() => setSurface("deleteAccount")}>
+            {t("deleteAccount.open")}
+          </Button>
+        </p>
       )}
     </>
   );

@@ -325,6 +325,15 @@ export const planLink = (action: PlanAction): "portal" | "play" | null =>
  * Google Play is managed there.
  */
 export function planState(supporter: SupporterStatus, t: TFunction, language: string): { status: string; tone: "muted" | "danger" | "amber"; action: PlanAction } {
+  const state = planStateOf(supporter, t, language);
+  // A deletion scheduled for the end of the period (billing/deletion.rs) is what the line says first;
+  // a plan that could not be checked or a failed payment still says so.
+  if (supporter.delete_at && state.tone === "muted")
+    return { ...state, status: t("deleteAccount.scheduledLine", { date: longDate(supporter.delete_at, language) }), tone: "amber" };
+  return state;
+}
+
+function planStateOf(supporter: SupporterStatus, t: TFunction, language: string): { status: string; tone: "muted" | "danger" | "amber"; action: PlanAction } {
   const plan = supporter.plan;
   const date = (iso: string) => longDate(iso, language);
   if (!plan) return { status: "", tone: "muted", action: "manage" };
