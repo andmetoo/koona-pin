@@ -1955,6 +1955,8 @@
       "font": "字体",
       "lockedHint": "纸张和棕褐主题随 Supporter 提供。",
       "sync": "同步",
+      "syncFree": "Supporter 专享",
+      "syncOff": "已关闭",
       "syncNow": "立即同步",
       "devices": "设备",
       "thisDevice": "此设备",

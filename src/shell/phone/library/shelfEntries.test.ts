@@ -75,7 +75,7 @@ describe("shelvesOf", () => {
 
 describe("scaledSizes", () => {
   test("the frames' sizes at the normal text size; text grows the rows, not their paddings", () => {
-    expect(scaledSizes(1)).toEqual({ row: ROW_HEIGHT, label: LABEL_HEIGHT, cardText: 112 });
-    expect(scaledSizes(2)).toEqual({ row: 24 + 128, label: 28 + 36, cardText: 34 + 156 });
+    expect(scaledSizes(1)).toEqual({ row: ROW_HEIGHT, label: LABEL_HEIGHT, cardText: 76 });
+    expect(scaledSizes(2)).toEqual({ row: 24 + 128, label: 28 + 36, cardText: 20 + 112 });
   });
 });

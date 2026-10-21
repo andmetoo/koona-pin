@@ -2213,6 +2213,8 @@
       "font": "Фонт",
       "lockedHint": "Папир и Сепија долазе уз Supporter.",
       "sync": "Синхронизација",
+      "syncFree": "Уз Supporter",
+      "syncOff": "Искључена",
       "syncNow": "Синхронизуј сада",
       "devices": "Уређаји",
       "thisDevice": "Овај уређај",

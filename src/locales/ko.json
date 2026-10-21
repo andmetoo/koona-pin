@@ -1955,6 +1955,8 @@
       "font": "글꼴",
       "lockedHint": "페이퍼와 세피아는 Supporter 전용입니다.",
       "sync": "동기화",
+      "syncFree": "Supporter 전용",
+      "syncOff": "꺼짐",
       "syncNow": "지금 동기화",
       "devices": "기기",
       "thisDevice": "이 기기",

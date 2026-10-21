@@ -2084,6 +2084,8 @@
       "font": "Schrift",
       "lockedHint": "Papier und Sepia gehören zu Supporter.",
       "sync": "Synchronisierung",
+      "syncFree": "Mit Supporter",
+      "syncOff": "Aus",
       "syncNow": "Jetzt synchronisieren",
       "devices": "Geräte",
       "thisDevice": "Dieses Gerät",

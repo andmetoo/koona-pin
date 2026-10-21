@@ -2213,6 +2213,8 @@
       "font": "Carattere",
       "lockedHint": "Carta e Seppia sono inclusi in Supporter.",
       "sync": "Sincronizzazione",
+      "syncFree": "Con Supporter",
+      "syncOff": "Disattivata",
       "syncNow": "Sincronizza ora",
       "devices": "Dispositivi",
       "thisDevice": "Questo dispositivo",

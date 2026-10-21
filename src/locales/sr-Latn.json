@@ -2227,6 +2227,8 @@
       "font": "Font",
       "lockedHint": "Papir i Sepija dolaze uz Supporter.",
       "sync": "Sinhronizacija",
+      "syncFree": "Uz Supporter",
+      "syncOff": "Isključena",
       "syncNow": "Sinhronizuj sada",
       "devices": "Uređaji",
       "thisDevice": "Ovaj uređaj",

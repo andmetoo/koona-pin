@@ -111,14 +111,17 @@ export const BookmarkRow = memo(function BookmarkRow({
   );
 });
 
-/** L2's card: paper r 22, the picture inset 4 r 18, the title up to 3 lines, the meta line. */
+/**
+ * L2's card as the desktop's: the picture r 18, under it the meta line and the title in two
+ * lines, on the screen's ground. No paper around them: on a phone it made the words the card.
+ */
 export const BookmarkCard = memo(function BookmarkCard({ bookmark: b, dot, language, onOpen, onMenu, favorite, selected = false }: TileProps & { favorite: string }) {
   const press = useLongPress(() => onMenu(b));
   return (
     <button type="button" className="lib-card" data-bookmark-id={b.id} data-selected={selected || undefined} aria-current={selected || undefined} onClick={() => onOpen(b)} {...press}>
       <Thumb b={b} className="lib-card-picture" />
-      <span className="lib-card-title lib-clamp-3 ph-row">{b.title || b.url}</span>
       <Meta b={b} dot={dot} language={language} favorite={favorite} />
+      <span className="lib-card-title lib-clamp-2">{b.title || b.url}</span>
     </button>
   );
 });

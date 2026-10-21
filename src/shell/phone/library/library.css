@@ -240,18 +240,17 @@
   gap: 12px;
   padding: 0 var(--ph-side-chrome);
 }
+/* As the desktop's card: the picture is the card, the meta and the title sit under it on the
+   screen's ground. */
 .phone .lib-card {
   display: flex;
   min-width: 0;
   height: 100%;
   flex-direction: column;
-  padding: 4px 4px 14px;
+  padding: 0;
   border: 0;
-  border-radius: var(--ph-r-card);
-  background: var(--ph-paper);
-  box-shadow:
-    inset 0 0 0 1px var(--ph-hairline),
-    var(--ph-e1);
+  border-radius: var(--ph-r-tile);
+  background: none;
   color: var(--ph-ink);
   text-align: left;
   font: inherit;
@@ -266,21 +265,31 @@
 .phone .lib-card .lib-card-picture {
   width: 100%;
   height: auto;
-  aspect-ratio: 166.5 / 109;
+  aspect-ratio: 16 / 10;
   border-radius: var(--ph-r-tile);
 }
-.phone .lib-card .lib-cover {
-  font-size: 46px;
-  line-height: 55px;
+/* The hairline over the picture, as the desktop's ring. */
+.phone .lib-card .lib-card-picture::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--ph-hairline);
+  pointer-events: none;
 }
-.phone .lib-card-title {
-  height: calc(60px * var(--lib-scale, 1));
-  margin: 10px 8px 0;
-  font-size: 15px;
-  line-height: 20px;
+.phone .lib-card .lib-cover {
+  font-size: 40px;
+  line-height: 48px;
 }
 .phone .lib-card .lib-meta {
-  margin: auto 8px 0;
+  margin: 10px 2px 0;
+}
+.phone .lib-card-title {
+  height: calc(38px * var(--lib-scale, 1));
+  margin: 4px 2px 0;
+  font-size: 14px;
+  line-height: 19px;
+  font-weight: 500;
 }
 
 /* ---------------------------------------------------------------- Pull to refresh */
@@ -499,8 +508,6 @@
 .phone .lib-row[data-selected] > * {
   position: relative;
 }
-.phone .lib-card[data-selected] {
-  box-shadow:
-    inset 0 0 0 2px var(--ph-accent),
-    var(--ph-e1);
+.phone .lib-card[data-selected] .lib-card-picture::after {
+  box-shadow: inset 0 0 0 2px var(--ph-accent);
 }

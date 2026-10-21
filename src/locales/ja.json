@@ -1955,6 +1955,8 @@
       "font": "フォント",
       "lockedHint": "ペーパーとセピアは Supporter 向けです。",
       "sync": "同期",
+      "syncFree": "Supporter で利用可能",
+      "syncOff": "オフ",
       "syncNow": "今すぐ同期",
       "devices": "デバイス",
       "thisDevice": "このデバイス",

@@ -584,7 +584,9 @@
 /* ---------------------------------------------------------------- A chosen theme's glass */
 /* A reading theme darker or lighter than the app's (Dark in a light app, White in a dark one):
    the circles and the pill take the glass of the page's tone, so their icons stay legible. The
-   fallbacks (flat flag, Reduce Transparency) keep their opaque paper, which the look sets. */
+   fallbacks (flat flag, Reduce Transparency, no backdrop-filter) take the page's opaque paper,
+   which the look sets, over the dark app's fixed slab: White over battery saver in a dark app
+   drew dark icons on #262624. */
 .phone:not([data-glass="flat"]) .rd-screen[data-page="dark"] .ph-glass {
   background: rgb(38 38 36 / 0.7) linear-gradient(rgb(255 255 255 / 0.05), transparent 40%);
   box-shadow:
@@ -604,7 +606,21 @@
 .phone:not([data-glass="flat"]) .rd-screen[data-page="light"] .ph-glass::before {
   background: linear-gradient(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.6) 50%, rgb(46 48 43 / 0.1));
 }
+.phone[data-glass="flat"] .rd-screen[data-page] .ph-glass {
+  background: var(--ph-paper);
+}
+.phone[data-glass="flat"] .rd-screen[data-page] .ph-glass::before {
+  background: var(--ph-hairline);
+}
 @media (prefers-reduced-transparency: reduce) {
+  .phone .rd-screen[data-page] .ph-glass {
+    background: var(--ph-paper);
+  }
+  .phone .rd-screen[data-page] .ph-glass::before {
+    background: var(--ph-hairline);
+  }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .phone .rd-screen[data-page] .ph-glass {
     background: var(--ph-paper);
   }

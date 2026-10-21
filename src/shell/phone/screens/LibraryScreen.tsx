@@ -22,8 +22,8 @@ import { useChipInView, useFilterSwipe } from "../ui/useFilterSwipe";
 /** Grid cards: at least this wide (two columns on a phone and in the Fold's list pane, more where wider), 12 apart. */
 const CARD_MIN = 160;
 const CARD_GAP = 12;
-/** L2's card: the picture inset 4 at 166.5 × 109; title, meta and padding below it (scaledSizes). */
-const PICTURE_RATIO = 109 / 166.5;
+/** L2's card as the desktop's: the picture edge to edge at 16 × 10; meta and title below it (scaledSizes). */
+const PICTURE_RATIO = 10 / 16;
 /** A pull refreshes the previews of this many rows at the top that have no picture yet. */
 const PREVIEW_ROWS = 30;
 
@@ -101,7 +101,7 @@ export function LibraryScreen({ section, hidden }: { section: "all" | "reading";
   const grid = view === "grid";
   const columns = Math.max(2, Math.floor((width - 32 + CARD_GAP) / (CARD_MIN + CARD_GAP)));
   const cardWidth = (width - 32 - CARD_GAP * (columns - 1)) / columns;
-  const cardHeight = Math.round((cardWidth - 8) * PICTURE_RATIO) + sizes.cardText;
+  const cardHeight = Math.round(cardWidth * PICTURE_RATIO) + sizes.cardText;
   const { starts } = library.dateGroups;
   const grouping = !reading && byTime(sort) ? "time" : "none";
   const entries = useMemo(

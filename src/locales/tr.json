@@ -2084,6 +2084,8 @@
       "font": "Yazı tipi",
       "lockedHint": "Kâğıt ve Sepya, Supporter ile gelir.",
       "sync": "Eşitleme",
+      "syncFree": "Supporter ile",
+      "syncOff": "Kapalı",
       "syncNow": "Şimdi eşitle",
       "devices": "Cihazlar",
       "thisDevice": "Bu cihaz",

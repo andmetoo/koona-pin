@@ -2342,6 +2342,8 @@
       "font": "Шрифт",
       "lockedHint": "«Бумага» и «Сепия» — с Supporter.",
       "sync": "Синхронизация",
+      "syncFree": "С Supporter",
+      "syncOff": "Выключена",
       "syncNow": "Синхронизировать",
       "devices": "Устройства",
       "thisDevice": "Это устройство",
