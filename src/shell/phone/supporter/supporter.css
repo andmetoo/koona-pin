@@ -593,3 +593,6 @@
   margin-right: 0;
   flex: none;
 }
+.phone .sp-delete-more {
+  margin-top: 8px;
+}

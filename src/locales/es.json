@@ -1634,6 +1634,7 @@
     "scheduledLead": "Supporter funciona hasta entonces.",
     "endsOn": "Termina el {{date}}",
     "scheduledText": "Los pagos están detenidos y no se cobra nada más. Si conservas tu cuenta, Supporter igual termina en esa fecha salvo que lo compres de nuevo.",
+    "buyKeeps": "Si vuelves a comprar Supporter, tu cuenta se conserva.",
     "keptTitle": "Tu cuenta se queda",
     "keptText": "Los pagos siguen detenidos: Supporter termina el {{date}} salvo que lo compres de nuevo.",
     "failedTitle": "No se pudieron detener los pagos",

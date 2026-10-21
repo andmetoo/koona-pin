@@ -1428,6 +1428,7 @@
     "scheduledLead": "그때까지 Supporter를 사용할 수 있습니다.",
     "endsOn": "종료일: {{date}}",
     "scheduledText": "결제가 중지되어 더 이상 청구되지 않습니다. 계정을 유지해도 다시 구매하지 않으면 Supporter는 그날 끝납니다.",
+    "buyKeeps": "Supporter를 다시 구매하면 계정이 유지됩니다.",
     "keptTitle": "계정이 유지됩니다",
     "keptText": "결제는 계속 중지된 상태입니다. 다시 구매하지 않으면 Supporter는 {{date}}에 끝납니다.",
     "failedTitle": "결제를 중지할 수 없었습니다",

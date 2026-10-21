@@ -1531,6 +1531,7 @@
     "scheduledLead": "Supporter o zamana kadar çalışır.",
     "endsOn": "{{date}} tarihinde sona erer",
     "scheduledText": "Ödemeler durduruldu, başka ücret alınmaz. Hesabınızı korursanız, yeniden satın almadığınız sürece Supporter yine o tarihte sona erer.",
+    "buyKeeps": "Supporter'ı yeniden satın alırsanız hesabınız korunur.",
     "keptTitle": "Hesabınız kalıyor",
     "keptText": "Ödemeler durdurulmuş olarak kalır: yeniden satın almazsanız Supporter {{date}} tarihinde sona erer.",
     "failedTitle": "Ödemeler durdurulamadı",

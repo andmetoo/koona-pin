@@ -1531,6 +1531,7 @@
     "scheduledLead": "Supporter works until then.",
     "endsOn": "Ends on {{date}}",
     "scheduledText": "Payments are stopped, so nothing more is charged. If you keep your account, Supporter still ends on that date unless you buy it again.",
+    "buyKeeps": "Buying Supporter again keeps your account.",
     "keptTitle": "Your account stays",
     "keptText": "Payments stay stopped: Supporter ends on {{date}} unless you buy it again.",
     "failedTitle": "Could not stop payments",

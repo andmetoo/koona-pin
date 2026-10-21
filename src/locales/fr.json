@@ -1634,6 +1634,7 @@
     "scheduledLead": "Supporter fonctionne jusque-là.",
     "endsOn": "Prend fin le {{date}}",
     "scheduledText": "Les paiements sont arrêtés, rien d’autre n’est prélevé. Si vous gardez votre compte, Supporter prend quand même fin à cette date, sauf si vous l’achetez de nouveau.",
+    "buyKeeps": "Racheter Supporter conserve votre compte.",
     "keptTitle": "Votre compte reste",
     "keptText": "Les paiements restent arrêtés : Supporter prend fin le {{date}}, sauf si vous l’achetez de nouveau.",
     "failedTitle": "Impossible d’arrêter les paiements",

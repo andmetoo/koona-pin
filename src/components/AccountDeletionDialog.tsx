@@ -235,6 +235,7 @@ export function AccountDeletionDialog({ supporter, onClose }: { supporter: Suppo
           </div>
         )}
         <p className="mt-4 text-sm text-muted">{t("deleteAccount.scheduledText")}</p>
+        <p className="mt-2 text-sm text-muted">{t("deleteAccount.buyKeeps")}</p>
         {failure && <FailureNote text={failure} live={!sizing} />}
         {footer(
           <>

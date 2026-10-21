@@ -67,6 +67,7 @@ test("a Supporter signs in by code, chooses the end of the paid period, confirms
   const scheduled = page.getByRole("dialog", { name: SCHEDULED });
   await expect(shown(page)).toContainText("Supporter works until then.");
   await expect(shown(page)).toContainText(/Ends on \w+ \d+, \d{4}/);
+  await expect(shown(page)).toContainText("unless you buy it again.Buying Supporter again keeps your account.");
   expect(await height(page)).toBe(first);
   await scheduled.getByRole("button", { name: "Done" }).click();
 

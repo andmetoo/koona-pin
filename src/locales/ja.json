@@ -1428,6 +1428,7 @@
     "scheduledLead": "それまで Supporter は使えます。",
     "endsOn": "{{date}} に終了",
     "scheduledText": "支払いは停止しているため、これ以上請求されません。アカウントを残しても、再度購入しない限り Supporter はその日に終了します。",
+    "buyKeeps": "Supporter をもう一度購入すると、アカウントは残ります。",
     "keptTitle": "アカウントは残ります",
     "keptText": "支払いは停止したままです。再度購入しない限り、Supporter は {{date}} に終了します。",
     "failedTitle": "支払いを停止できませんでした",

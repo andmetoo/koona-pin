@@ -266,6 +266,7 @@ function DeleteBody({ supporter }: { supporter: NonNullable<ReturnType<typeof us
             </div>
           )}
           <p className="sp-text sp-delete-note">{t("deleteAccount.scheduledText")}</p>
+          <p className="sp-text sp-delete-more">{t("deleteAccount.buyKeeps")}</p>
           {error && <Note tone="danger">{error}</Note>}
         </div>
       </Sheet>

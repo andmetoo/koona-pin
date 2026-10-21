@@ -645,6 +645,7 @@ test("the Play build, a Google Play plan: cancelled for you; payments failing (D
   await expect(scheduled).toContainText("Supporter works until then.");
   await expect(scheduled).toContainText("Supporter · yearly");
   await expect(scheduled).toContainText(/Ends on \w+ \d+, \d{4}/);
+  await expect(scheduled).toContainText("unless you buy it again.Buying Supporter again keeps your account.");
   await expect(scheduled.getByRole("button", { name: "Delete now instead" })).toBeVisible();
   await scheduled.getByRole("button", { name: "Keep my account" }).click();
   await expect(deletion.getByRole("dialog", { name: "Your account stays" })).toContainText("Payments stay stopped");

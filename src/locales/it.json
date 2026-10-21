@@ -1634,6 +1634,7 @@
     "scheduledLead": "Supporter funziona fino ad allora.",
     "endsOn": "Termina il {{date}}",
     "scheduledText": "I pagamenti sono fermi, quindi non viene addebitato altro. Se tieni il tuo account, Supporter termina comunque in quella data, a meno che tu non lo acquisti di nuovo.",
+    "buyKeeps": "Se acquisti di nuovo Supporter, il tuo account resta.",
     "keptTitle": "Il tuo account resta",
     "keptText": "I pagamenti restano fermi: Supporter termina il {{date}}, a meno che tu non lo acquisti di nuovo.",
     "failedTitle": "Impossibile fermare i pagamenti",

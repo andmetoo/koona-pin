@@ -1737,6 +1737,7 @@
     "scheduledLead": "Do tego czasu Supporter działa.",
     "endsOn": "Kończy się {{date}}",
     "scheduledText": "Płatności są zatrzymane, więc nic więcej nie zostanie pobrane. Jeśli zachowasz konto, Supporter i tak skończy się tego dnia, chyba że kupisz go ponownie.",
+    "buyKeeps": "Ponowny zakup Supportera zachowa Twoje konto.",
     "keptTitle": "Twoje konto zostaje",
     "keptText": "Płatności pozostają zatrzymane: Supporter kończy się {{date}}, chyba że kupisz go ponownie.",
     "failedTitle": "Nie udało się zatrzymać płatności",

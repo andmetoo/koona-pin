@@ -1531,6 +1531,7 @@
     "scheduledLead": "Supporter funktioniert bis dahin.",
     "endsOn": "Endet am {{date}}",
     "scheduledText": "Die Zahlungen sind beendet, es wird nichts mehr abgebucht. Wenn Sie Ihr Konto behalten, endet Supporter trotzdem an diesem Datum, außer Sie kaufen es erneut.",
+    "buyKeeps": "Wenn Sie Supporter erneut kaufen, bleibt Ihr Konto bestehen.",
     "keptTitle": "Ihr Konto bleibt",
     "keptText": "Die Zahlungen bleiben beendet: Supporter endet am {{date}}, außer Sie kaufen es erneut.",
     "failedTitle": "Zahlungen konnten nicht beendet werden",

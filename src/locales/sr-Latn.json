@@ -1648,6 +1648,7 @@
     "scheduledLead": "Supporter radi do tada.",
     "endsOn": "Završava se {{date}}",
     "scheduledText": "Plaćanja su zaustavljena, pa se ništa više ne naplaćuje. Ako zadržite nalog, Supporter se ipak završava tog dana, osim ako ga ponovo ne kupite.",
+    "buyKeeps": "Ako ponovo kupite Supporter, nalog ostaje.",
     "keptTitle": "Vaš nalog ostaje",
     "keptText": "Plaćanja ostaju zaustavljena: Supporter se završava {{date}}, osim ako ga ponovo ne kupite.",
     "failedTitle": "Plaćanja nije bilo moguće zaustaviti",

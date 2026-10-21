@@ -1428,6 +1428,7 @@
     "scheduledLead": "在此之前 Supporter 照常可用。",
     "endsOn": "{{date}} 结束",
     "scheduledText": "付款已停止，不再收取任何费用。即使保留账户，除非再次购买，Supporter 仍会在该日期结束。",
+    "buyKeeps": "再次购买 Supporter 即可保留你的账户。",
     "keptTitle": "你的账户会保留",
     "keptText": "付款仍保持停止：除非再次购买，Supporter 将在 {{date}} 结束。",
     "failedTitle": "无法停止付款",
