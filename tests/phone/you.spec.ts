@@ -158,3 +158,38 @@ test("on the Fold, Layout moves the controls to the other side, and it stays", a
   await page.reload();
   await expect(page.locator("[data-phone]")).toHaveAttribute("data-hand", "left");
 });
+
+test("Settings rows in Russian: the names stay whole, a value wraps only between words", async ({ page }) => {
+  await openPhone(page, { settings: { language: "ru", "demo.supporter": "free" } });
+  await page.locator("[data-account]").first().click();
+  await page.getByRole("button", { name: "Настройки", exact: true }).click();
+  const list = topScreen(page);
+  // The sync row's name already says it: its value is short.
+  const sync = list.locator(".ph-shelf-row", { hasText: "Синхронизация" }).first();
+  await expect(sync.locator(".ph-shelf-detail")).toHaveText("С Supporter");
+  const rows = await list.locator(".st-shelf .ph-shelf-row:has(> .ph-shelf-detail)").evaluateAll((all) =>
+    all.map((row) => {
+      const title = row.querySelector(".ph-shelf-title")!;
+      const detail = row.querySelector(".ph-shelf-detail")!;
+      // The value's longest word, laid out alone: the value is never narrower than it.
+      const probe = document.createElement("span");
+      probe.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap;font:inherit";
+      detail.append(probe);
+      const widest = Math.max(
+        ...(detail.textContent ?? "").trim().split(/\s+/).map((word) => {
+          probe.textContent = word;
+          return probe.getBoundingClientRect().width;
+        }),
+      );
+      probe.remove();
+      const line = parseFloat(getComputedStyle(title).lineHeight);
+      return {
+        name: title.textContent,
+        nameOneLine: title.getBoundingClientRect().height <= line + 1,
+        wordsWhole: detail.getBoundingClientRect().width + 0.5 >= widest,
+      };
+    }),
+  );
+  expect(rows.length).toBeGreaterThan(4);
+  for (const row of rows) expect(row, row.name ?? "").toMatchObject({ nameOneLine: true, wordsWhole: true });
+});

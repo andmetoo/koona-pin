@@ -62,6 +62,12 @@ test("L2: the grid switch shows cards in two columns and is kept as the view pre
   expect(a.y).toBe(b.y);
   expect(Math.round(b.x - (a.x + a.width))).toBe(12);
   expect(Math.round(a.width)).toBe(175);
+  // The site line shows above the title but is read after it: the card's name starts with the title.
+  const card = cards.first();
+  const title = (await card.locator(".lib-card-title").textContent())!;
+  expect(await card.evaluate((node) => node.textContent)).toMatch(new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  const [meta, heading] = [(await card.locator(".lib-meta").boundingBox())!, (await card.locator(".lib-card-title").boundingBox())!];
+  expect(meta.y).toBeLessThan(heading.y);
   await page.reload();
   await expect(topScreen(page).getByRole("radio", { name: "Grid" })).toHaveAttribute("aria-checked", "true");
   await expect(cards.first()).toBeVisible();

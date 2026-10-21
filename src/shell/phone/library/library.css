@@ -139,9 +139,12 @@
   border-bottom-left-radius: var(--ph-r-shelf);
   border-bottom-right-radius: var(--ph-r-shelf);
 }
-.phone .lib-row:focus-visible,
-.phone .lib-card:focus-visible {
+.phone .lib-row:focus-visible {
   outline-offset: -2px;
+}
+/* The card has no box of its own: the ring goes around it, off the picture and the title. */
+.phone .lib-card:focus-visible {
+  outline-offset: 3px;
 }
 /* An inset hairline between rows, from the text's edge to the shelf's. */
 .phone .lib-row:not([data-last])::after {
@@ -281,10 +284,13 @@
   font-size: 40px;
   line-height: 48px;
 }
+/* Shown above the title, read after it (the title comes first in the card's name). */
 .phone .lib-card .lib-meta {
+  order: 1;
   margin: 10px 2px 0;
 }
 .phone .lib-card-title {
+  order: 2;
   height: calc(38px * var(--lib-scale, 1));
   margin: 4px 2px 0;
   font-size: 14px;

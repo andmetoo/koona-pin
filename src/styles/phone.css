@@ -318,7 +318,9 @@
 /* The fallback: opaque paper and a hairline, the same radius, shadow and layout. For Reduce
    Transparency, a WebView without backdrop-filter, and `data-glass="flat"` on the root, which the
    shell sets for Android's battery saver and slow devices. The rules are spelled three times:
-   a selector cannot sit inside @media and @supports at once. */
+   a selector cannot sit inside @media and @supports at once. The dark slab is the raised token,
+   not a colour of its own, so a screen that repaints the tokens (the reader's chosen theme)
+   repaints its glass too. */
 .phone[data-glass="flat"] .ph-glass,
 .phone[data-glass="flat"] .ph-glass-sheet {
   background: var(--ph-paper);
@@ -336,7 +338,7 @@
 }
 [data-theme="dark"] .phone[data-glass="flat"] .ph-glass,
 [data-theme="dark"] .phone[data-glass="flat"] .ph-glass-sheet {
-  background: #262624;
+  background: var(--ph-raised);
 }
 [data-theme="dark"] .phone[data-glass="flat"] .ph-glass-toast {
   background: #3a3a37;
@@ -359,7 +361,7 @@
   }
   [data-theme="dark"] .phone .ph-glass,
   [data-theme="dark"] .phone .ph-glass-sheet {
-    background: #262624;
+    background: var(--ph-raised);
   }
   [data-theme="dark"] .phone .ph-glass-toast {
     background: #3a3a37;
@@ -379,7 +381,7 @@
   }
   [data-theme="dark"] .phone .ph-glass,
   [data-theme="dark"] .phone .ph-glass-sheet {
-    background: #262624;
+    background: var(--ph-raised);
   }
   [data-theme="dark"] .phone .ph-glass-toast {
     background: #3a3a37;

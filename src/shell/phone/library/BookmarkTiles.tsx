@@ -120,8 +120,9 @@ export const BookmarkCard = memo(function BookmarkCard({ bookmark: b, dot, langu
   return (
     <button type="button" className="lib-card" data-bookmark-id={b.id} data-selected={selected || undefined} aria-current={selected || undefined} onClick={() => onOpen(b)} {...press}>
       <Thumb b={b} className="lib-card-picture" />
-      <Meta b={b} dot={dot} language={language} favorite={favorite} />
+      {/* The title first, for a screen reader; library.css shows the meta above it. */}
       <span className="lib-card-title lib-clamp-2">{b.title || b.url}</span>
+      <Meta b={b} dot={dot} language={language} favorite={favorite} />
     </button>
   );
 });
