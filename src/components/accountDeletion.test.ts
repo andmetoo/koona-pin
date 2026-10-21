@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import i18n from "../i18n";
 import type { Plan, SupporterStatus } from "../types";
-import { paidTimeLeft, stillCharges } from "./accountDeletion";
+import { paidTimeLeft } from "./accountDeletion";
 import { planState } from "./supporterFlow";
 
 const t = i18n.getFixedT("en");
@@ -32,15 +32,6 @@ describe("deleting the account", () => {
     expect(paidTimeLeft(plan(), now)).toBe(true);
     expect(paidTimeLeft(plan({ valid_until: "2026-10-20T12:00:00Z" }), now)).toBe(false);
     expect(paidTimeLeft(null, now)).toBe(false);
-  });
-
-  it("says payments stop only for a plan that still charges", () => {
-    expect(stillCharges(plan())).toBe(true);
-    expect(stillCharges(plan({ status: "past_due" }))).toBe(true);
-    expect(stillCharges(plan({ status: "canceling", renews_at: null }))).toBe(false);
-    expect(stillCharges(plan({ interval: "five_years", renews_at: null }))).toBe(false);
-    expect(stillCharges(plan({ interval: "five_years", renews_at: null, also_renews: true }))).toBe(true);
-    expect(stillCharges(null)).toBe(false);
   });
 
   it("puts a scheduled deletion on the plan's line, after what needs doing", () => {

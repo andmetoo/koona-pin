@@ -538,20 +538,37 @@
   text-align: center;
 }
 
-/* Deleting the account: what happens, a dot to each line, on a card. */
-.phone .sp-delete-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 16px 0 0;
-  padding: 14px 16px 14px 32px;
-  list-style: disc;
-  font-size: 14px;
-  line-height: 20px;
-  color: var(--ph-body);
+/* Deleting the account (D2–D7): what goes and what stays on two shelves, a cross and a tick in
+   their wells; the one destructive button red (D4), the owner's exception to red for errors. */
+.phone .sp-delete .sp-delete-first {
+  margin-top: 4px;
+}
+.phone .sp-delete-stays .ph-shelf-icon {
+  color: var(--ph-accent);
+}
+.phone .sp-delete-payments,
+.phone .sp-delete-note {
+  margin-top: 20px;
+}
+.phone .sp-delete-when,
+.phone .sp-delete-plan {
+  margin-top: 16px;
 }
 .phone .sp-delete-hint {
   font-size: 13px;
   line-height: 18px;
   color: var(--ph-meta);
+}
+.phone .ph-button.sp-danger[data-kind="primary"] {
+  background: var(--ph-danger) linear-gradient(rgb(255 255 255 / 0.08), transparent 50%);
+  color: var(--ph-on-accent);
+  box-shadow: none;
+}
+/* The running text 4 in from the cards, as the frames have it; «Keep my account» on one line (D6). */
+.phone .sp-delete .sp-text {
+  padding: 0 4px;
+}
+.phone .sp-delete .sp-actions > .ph-button.sp-keep {
+  flex: none;
+  white-space: nowrap;
 }

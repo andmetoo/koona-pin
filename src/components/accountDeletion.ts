@@ -3,7 +3,6 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import type { DeleteWhen, Plan, SupporterStatus } from "../types";
 import { api } from "../services/api";
-import { capabilities } from "../platform/capabilities";
 import { toCommandError } from "../services/errors";
 import { failureText, useResendWait } from "./supporterFlow";
 
@@ -11,20 +10,16 @@ import { failureText, useResendWait } from "./supporterFlow";
 // (./AccountDeletionDialog.tsx) and the phone's sheet (src/shell/phone/supporter) draw it.
 
 /**
- * The steps: what happens and when → the code sent to the account's email → done (deleted), or
- * the date it will be (scheduled) with «Keep my account» → kept. `failed` is a deletion the server
- * refused after the code (payments not stopped, no connection): nothing was deleted, Try again.
+ * The steps (frames D2–D7): what is deleted and what stays → when, only while paid time is left →
+ * the code sent to the account's email → done (deleted), or the date it will be (scheduled) with
+ * «Keep my account» → kept. `failed` is a deletion the server refused after the code (payments not
+ * stopped, no connection): nothing was deleted, Try again.
  */
-export type DeleteStep = "about" | "code" | "failed" | "deleted" | "scheduled" | "kept";
+export type DeleteStep = "about" | "when" | "code" | "failed" | "deleted" | "scheduled" | "kept";
 
 /** Paid time is left on this plan, so the account may stay until it ends (the server decides). */
 export const paidTimeLeft = (plan: Plan | null, now = Date.now()) => !!plan && new Date(plan.valid_until).getTime() > now;
 
-/** The plan still charges: a subscription that renews, or five years with a subscription renewing too. */
-export const stillCharges = (plan: Plan | null) => !!plan && plan.status !== "canceling" && (plan.interval !== "five_years" || plan.also_renews);
-
-/** A plan or a build of Google Play: the texts say Google Play subscriptions are stopped by us. */
-export const viaPlay = (plan: Plan | null) => plan?.store === "play" || capabilities.purchase === "play";
 
 /** Errors a code step shows on its field: the code itself, or a sign-in too old for the server. */
 /** What a failure says here: the deletion's own reasons first (payments is a server failure that has words). */
@@ -47,12 +42,15 @@ export function useAccountDeletion({ supporter }: { supporter: SupporterStatus }
   const [deleteAt, setDeleteAt] = useState<string | null>(supporter.delete_at ?? null);
   const [canWait, setCanWait] = useState(() => paidTimeLeft(plan));
   const [waitUntil, setWaitUntil] = useState<string | null>(plan?.valid_until ?? null);
-  const [when, setWhen] = useState<DeleteWhen>("now");
+  // The end of the paid period is chosen first (D3): the person keeps what they paid for.
+  const [when, setWhen] = useState<DeleteWhen>(() => (paidTimeLeft(plan) ? "period_end" : "now"));
   /** What the code is for: deleting, or keeping a scheduled deletion. */
   const [purpose, setPurpose] = useState<"delete" | "keep">("delete");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** The failed step is about payments or the connection (D7), not another refusal (the review account). */
+  const [paymentsFailed, setPaymentsFailed] = useState(false);
   /** A code worked in this dialog: the next actions go without one until the server says otherwise. */
   const verified = useRef(false);
   const { wait, countdown } = useResendWait();
@@ -80,7 +78,9 @@ export function useAccountDeletion({ supporter }: { supporter: SupporterStatus }
 
   /** A failure after the code: on the code step when it is about the code, else the failed step. */
   const failed = (err: unknown) => {
-    const detail = toCommandError(err).detail;
+    const failure = toCommandError(err);
+    const detail = failure.detail;
+    setPaymentsFailed(detail === "payments_not_stopped" || failure.code === "network");
     if (detail === "fresh_sign_in") verified.current = false;
     if (detail === "fresh_sign_in") setCode("");
     if (detail === "no_paid_time") {
@@ -152,8 +152,14 @@ export function useAccountDeletion({ supporter }: { supporter: SupporterStatus }
     }
   };
 
-  /** «Continue» of the first step: the code, or straight on after a code that already worked. */
-  const start = () => (verified.current ? void proceed(null) : void run(() => askCode("delete")));
+  /** On to the code, or straight on after a code that already worked. */
+  const toCode = () => (verified.current ? void proceed(null) : void run(() => askCode("delete")));
+  /** «Continue» of what happens: when, while paid time is left (D3), else the code (D4). */
+  const start = () => {
+    setError(null);
+    if (canWait) setStep("when");
+    else toCode();
+  };
   /** The code step's action. */
   const confirm = () => void (purpose === "keep" ? keep(code) : proceed(code));
   const resend = () => void run(() => askCode(purpose));
@@ -164,7 +170,7 @@ export function useAccountDeletion({ supporter }: { supporter: SupporterStatus }
   /** Leaves the code step for the one before it. */
   const back = () => {
     setError(null);
-    setStep(purpose === "keep" ? "scheduled" : "about");
+    setStep(purpose === "keep" ? "scheduled" : canWait ? "when" : "about");
   };
 
   return {
@@ -181,9 +187,16 @@ export function useAccountDeletion({ supporter }: { supporter: SupporterStatus }
     setCode,
     codeReady,
     error,
+    paymentsFailed,
     busy,
     wait,
     start,
+    toCode,
+    /** «Back» of the choice of when. */
+    toAbout: () => {
+      setError(null);
+      setStep("about");
+    },
     confirm,
     resend,
     retry,

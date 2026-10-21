@@ -1,155 +1,175 @@
 import type { ReactNode } from "react";
-import { CalendarClock, Check, Trash2, TriangleAlert } from "lucide-react";
+import { Check, Heart, TriangleAlert, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { SupporterStatus } from "../types";
-import { stillCharges, useAccountDeletion, viaPlay, type DeleteStep } from "./accountDeletion";
+import { capabilities } from "../platform/capabilities";
+import { useAccountDeletion, type DeleteStep } from "./accountDeletion";
 import { Icon } from "./icons";
 import { longDate } from "./supporterFlow";
 import { Button } from "./ui/Button";
 import { Field, StatePanels } from "./ui/Controls";
 import { Dialog } from "./ui/Dialog";
 
-const STEPS = ["about", "code", "failed", "deleted", "scheduled", "kept"] as const satisfies readonly DeleteStep[];
+const STEPS = ["about", "when", "code", "failed", "deleted", "scheduled", "kept"] as const satisfies readonly DeleteStep[];
+const LONG_EMAIL = "someone.with.a.long.address@example.com";
 
 /**
- * «Delete account» (Google Play's rule, and the owner's): what happens — payments stop, what is
- * deleted and what stays, the library on this computer included — and when, now or at the end of
- * the paid period; a code sent to the account's email confirms it. Then the account is gone (this
- * computer signed out, sync off here), or the date it will be with «Keep my account». One height
- * for every step, as the Supporter dialogs.
+ * «Delete account» (Google Play's rule, and the owner's), the phone's frames D2–D7 on a desktop: what
+ * is deleted and what stays — the library on this computer included — then when, only while paid
+ * time is left, then a code sent to the account's email and the one red button. Then the account is
+ * gone (signed out here, sync off), or the date it will be with «Keep my account». One height for
+ * every step, as the Supporter dialogs.
  */
 export function AccountDeletionDialog({ supporter, onClose }: { supporter: SupporterStatus; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const flow = useAccountDeletion({ supporter });
-  const { step, email, plan, canWait, waitUntil, when, setWhen, purpose, deleteAt, code, setCode, codeReady, error, busy, wait } = flow;
+  const { step, email, plan, waitUntil, when, setWhen, purpose, deleteAt, code, setCode, codeReady, error, paymentsFailed, busy, wait } = flow;
   const date = (iso: string | null) => (iso ? longDate(iso, i18n.language) : "");
   const sizingDate = date(new Date(Date.UTC(2027, 8, 30)).toISOString());
+  const footer = (children: ReactNode) => <footer className="mt-auto flex items-center justify-end gap-2 pt-5">{children}</footer>;
 
-  const aboutPanel = (failure: string | null, sizing: boolean) => {
-    const choose = canWait || sizing;
-    return (
-      <div className="flex flex-1 flex-col">
-        <p className="text-sm text-muted">{t("deleteAccount.intro", { email: sizing ? "someone.with.a.long.address@example.com" : email })}</p>
-        <ul className="mt-3 flex flex-col gap-1.5 text-sm">
-          {(sizing || stillCharges(plan)) && <Line>{t("deleteAccount.payments")}</Line>}
-          {(sizing || plan) && <Line>{t("deleteAccount.refund")}</Line>}
-          {(sizing || viaPlay(plan)) && <Line>{t("deleteAccount.paymentsPlay")}</Line>}
-          <Line>{t("deleteAccount.deleted")}</Line>
-          <Line>{t("deleteAccount.kept")}</Line>
-        </ul>
-        {choose && (
-          <div role="radiogroup" aria-label={sizing ? undefined : t("deleteAccount.when")} className="mt-4 flex flex-col gap-2">
-            <Choice checked={when === "now"} onSelect={() => setWhen("now")} name={t("deleteAccount.now")} hint={t("deleteAccount.nowHint")} />
-            <Choice
-              checked={when === "period_end"}
-              onSelect={() => setWhen("period_end")}
-              name={t("deleteAccount.periodEnd")}
-              hint={t("deleteAccount.periodEndHint", { date: sizing ? sizingDate : date(waitUntil) })}
-            />
-          </div>
-        )}
-        {failure && <FailureNote text={failure} live={!sizing} />}
-        <footer className="mt-auto flex items-center justify-end gap-2 pt-5">
+  const aboutPanel = (failure: string | null, sizing: boolean) => (
+    <div className="flex flex-1 flex-col">
+      <Group label={t("deleteAccount.deletedLabel")}>
+        <Item gone title={t("deleteAccount.account")} hint={sizing ? LONG_EMAIL : email} />
+        <Item gone title={t("deleteAccount.purchases")} hint={t("deleteAccount.purchasesHint")} />
+        <Item gone title={t("deleteAccount.sync")} hint={t("deleteAccount.syncHint")} />
+      </Group>
+      <Group label={t("deleteAccount.staysLabel")}>
+        <Item title={t("deleteAccount.library")} hint={t("deleteAccount.libraryHintComputer")} />
+        <Item title={t("deleteAccount.records")} hint={t("deleteAccount.recordsHint")} />
+      </Group>
+      {(plan || sizing) && (
+        <p className="mt-4 text-sm text-muted">
+          {[t("deleteAccount.payments"), capabilities.purchase === "play" || sizing ? t("deleteAccount.paymentsPlay") : null, t("deleteAccount.refund")]
+            .filter(Boolean)
+            .join(" ")}
+        </p>
+      )}
+      {failure && <FailureNote text={failure} live={!sizing} />}
+      {footer(
+        <>
           <Button variant="outline" size="lg" onClick={onClose}>
             {t("common.cancel")}
           </Button>
           <Button variant="primary" size="lg" autoFocus disabled={busy} onClick={flow.start}>
             {t("deleteAccount.continue")}
           </Button>
-        </footer>
+        </>,
+      )}
+    </div>
+  );
+
+  const whenPanel = (failure: string | null, sizing: boolean) => {
+    const until = sizing ? sizingDate : date(waitUntil);
+    return (
+      <div className="flex flex-1 flex-col">
+        <p className="text-sm text-muted">{t("deleteAccount.paidUntil", { date: until })}</p>
+        <div role="radiogroup" aria-label={sizing ? undefined : t("deleteAccount.whenTitle")} className="mt-4 flex flex-col gap-2">
+          <Choice checked={when === "now"} onSelect={() => setWhen("now")} name={t("deleteAccount.now")} hint={t("deleteAccount.nowHint")} />
+          <Choice
+            checked={when === "period_end"}
+            onSelect={() => setWhen("period_end")}
+            name={t("deleteAccount.periodEnd")}
+            hint={t("deleteAccount.periodEndHint", { date: until })}
+          />
+        </div>
+        <p className="mt-4 text-sm text-muted">{t("deleteAccount.eitherWay")}</p>
+        {failure && <FailureNote text={failure} live={!sizing} />}
+        {footer(
+          <>
+            <Button variant="outline" size="lg" onClick={flow.toAbout}>
+              {t("supporter.back")}
+            </Button>
+            <Button variant="primary" size="lg" autoFocus disabled={busy} onClick={flow.toCode}>
+              {t("deleteAccount.continue")}
+            </Button>
+          </>,
+        )}
       </div>
     );
   };
 
-  const codeText = (sizing: boolean) =>
-    sizing
-      ? t("deleteAccount.codeTextLater", { email: "someone.with.a.long.address@example.com", date: sizingDate })
-      : purpose === "keep"
-        ? t("deleteAccount.codeTextKeep", { email })
-        : when === "period_end"
-          ? t("deleteAccount.codeTextLater", { email, date: date(waitUntil) })
-          : t("deleteAccount.codeText", { email });
-
-  const codePanel = (failure: string | null, sizing: boolean) => (
-    <form
-      className="flex flex-1 flex-col"
-      onSubmit={(e) => {
-        e.preventDefault();
-        flow.confirm();
-      }}
-    >
-      <p className="text-sm text-muted">{codeText(sizing)}</p>
-      <div className="mt-4">
-        {sizing ? (
-          <div className="flex flex-col gap-1.5">
-            <p className="text-xs font-medium">{t("supporter.code")}</p>
-            <div className="field">&nbsp;</div>
-            {failure && <p className="text-xs">{failure}</p>}
-          </div>
-        ) : (
-          <Field label={t("supporter.code")} error={failure ?? undefined}>
-            {(id, describedBy) => (
-              <input
-                id={id}
-                aria-describedby={describedBy}
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                autoFocus
-                maxLength={7}
-                style={{ width: 180 }}
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                className={`field text-[15px] font-medium tracking-[2px] ${failure ? "border-danger" : ""}`}
-              />
-            )}
-          </Field>
+  const codePanel = (failure: string | null, sizing: boolean) => {
+    const keep = purpose === "keep" && !sizing;
+    return (
+      <form
+        className="flex flex-1 flex-col"
+        onSubmit={(e) => {
+          e.preventDefault();
+          flow.confirm();
+        }}
+      >
+        <p className="text-sm text-muted">{t(keep ? "deleteAccount.codeTextKeep" : "deleteAccount.codeText", { email: sizing ? LONG_EMAIL : email })}</p>
+        <div className="mt-4">
+          {sizing ? (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-xs font-medium">{t("supporter.code")}</p>
+              <div className="field">&nbsp;</div>
+              {failure && <p className="text-xs">{failure}</p>}
+            </div>
+          ) : (
+            <Field label={t("supporter.code")} error={failure ?? undefined}>
+              {(id, describedBy) => (
+                <input
+                  id={id}
+                  aria-describedby={describedBy}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  autoFocus
+                  maxLength={7}
+                  style={{ width: 180 }}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  className={`field text-[15px] font-medium tracking-[2px] ${failure ? "border-danger" : ""}`}
+                />
+              )}
+            </Field>
+          )}
+        </div>
+        <p className="mt-3 text-sm">
+          {wait > 0 ? (
+            <span className="text-subtle">{t("supporter.sendAgainIn", { time: `0:${String(wait).padStart(2, "0")}` })}</span>
+          ) : (
+            <button type="button" disabled={busy} onClick={flow.resend} className="font-medium text-accent hover:underline">
+              {t("supporter.sendAgain")}
+            </button>
+          )}
+        </p>
+        {footer(
+          <>
+            <Button variant="outline" size="lg" type="button" onClick={flow.back}>
+              {t("supporter.back")}
+            </Button>
+            {/* The one destructive action is red (D4), the owner's exception to red for errors. */}
+            <Button variant="primary" size="lg" type="submit" disabled={busy || !codeReady} className={keep ? "" : "!bg-danger !text-on-accent"}>
+              {keep ? t("deleteAccount.keep") : t("deleteAccount.delete")}
+            </Button>
+          </>,
         )}
-      </div>
-      <p className="mt-3 text-sm">
-        {wait > 0 ? (
-          <span className="text-subtle">{t("supporter.sendAgainIn", { time: `0:${String(wait).padStart(2, "0")}` })}</span>
-        ) : (
-          <button type="button" disabled={busy} onClick={flow.resend} className="font-medium text-accent hover:underline">
-            {t("supporter.sendAgain")}
-          </button>
-        )}
-      </p>
-      <footer className="mt-auto flex justify-end gap-2 pt-5">
-        <Button variant="outline" size="lg" type="button" onClick={flow.back}>
-          {t("supporter.back")}
-        </Button>
-        <Button variant="primary" size="lg" type="submit" disabled={busy || !codeReady}>
-          {purpose === "keep" ? t("deleteAccount.keep") : t("deleteAccount.delete")}
-        </Button>
-      </footer>
-    </form>
-  );
+      </form>
+    );
+  };
 
   const failedPanel = (failure: string | null, sizing: boolean) => (
     <div className="flex flex-1 flex-col">
-      {failure && <FailureNote text={failure} live={!sizing} first />}
-      <footer className="mt-auto flex justify-end gap-2 pt-5">
-        <Button variant="outline" size="lg" onClick={onClose}>
-          {t("common.close")}
-        </Button>
-        <Button variant="primary" size="lg" autoFocus disabled={busy} onClick={flow.retry}>
-          {t("common.retry")}
-        </Button>
-      </footer>
-    </div>
-  );
-
-  /** A result: its mark, its words, its actions. */
-  const resultPanel = (icon: typeof Check, text: string, actions: ReactNode, failure: string | null = null, sizing = false) => (
-    <div className="flex flex-1 flex-col items-center text-center">
-      <span className="mt-2 flex size-14 items-center justify-center rounded-full bg-secondary text-icon">
-        <Icon icon={icon} size={24} />
-      </span>
-      <p role={sizing ? undefined : "status"} className="mt-4 max-w-[400px] text-sm text-muted">
-        {text}
-      </p>
-      {failure && <FailureNote text={failure} live={!sizing} />}
-      <footer className="mt-auto flex w-full justify-end gap-2 pt-5">{actions}</footer>
+      {paymentsFailed || sizing ? (
+        <p role={sizing ? undefined : "alert"} className="text-sm text-muted">
+          {t("deleteAccount.failedText")}
+        </p>
+      ) : (
+        failure && <FailureNote text={failure} live first />
+      )}
+      {footer(
+        <>
+          <Button variant="outline" size="lg" onClick={onClose}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="primary" size="lg" autoFocus disabled={busy} onClick={flow.retry}>
+            {t("common.retry")}
+          </Button>
+        </>,
+      )}
     </div>
   );
 
@@ -159,12 +179,55 @@ export function AccountDeletionDialog({ supporter, onClose }: { supporter: Suppo
     </Button>
   );
 
+  const scheduledPanel = (failure: string | null, sizing: boolean) => {
+    const on = sizing ? sizingDate : date(deleteAt);
+    return (
+      <div className="flex flex-1 flex-col">
+        <p className="text-sm text-muted">{t("deleteAccount.scheduledLead")}</p>
+        {(plan || sizing) && (
+          <div className="mt-4 flex items-center gap-3.5 rounded-[10px] border border-border px-3.5 py-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-season-soft text-season">
+              <Heart size={20} fill="currentColor" aria-hidden />
+            </span>
+            <div className="min-w-0 text-xs leading-[17px]">
+              <p className="text-[15px] leading-5 font-semibold text-ink">
+                {t(plan?.interval === "five_years" ? "plan.fiveYears" : plan?.interval === "month" ? "plan.monthly" : "plan.yearly")}
+              </p>
+              <p className="truncate text-muted">{sizing ? LONG_EMAIL : email}</p>
+              <p className="text-muted">{t("deleteAccount.endsOn", { date: on })}</p>
+            </div>
+          </div>
+        )}
+        <p className="mt-4 text-sm text-muted">{t("deleteAccount.scheduledText")}</p>
+        {failure && <FailureNote text={failure} live={!sizing} />}
+        {footer(
+          <>
+            <Button variant="outline" size="lg" disabled={busy} onClick={flow.keep}>
+              {t("deleteAccount.keep")}
+            </Button>
+            {done}
+          </>,
+        )}
+      </div>
+    );
+  };
+
+  const textPanel = (text: string, sizing: boolean) => (
+    <div className="flex flex-1 flex-col">
+      <p role={sizing ? undefined : "status"} className="text-sm text-muted">
+        {text}
+      </p>
+      {footer(done)}
+    </div>
+  );
+
   const title = {
     about: t("deleteAccount.title"),
-    code: t("deleteAccount.codeTitle"),
-    failed: t("deleteAccount.failedTitle"),
+    when: t("deleteAccount.whenTitle"),
+    code: purpose === "keep" ? t("deleteAccount.keepCodeTitle") : t("deleteAccount.codeTitle"),
+    failed: paymentsFailed ? t("deleteAccount.failedTitle") : t("deleteAccount.notDeletedTitle"),
     deleted: t("deleteAccount.doneTitle"),
-    scheduled: t("deleteAccount.scheduledTitle"),
+    scheduled: t("deleteAccount.scheduledTitle", { date: date(deleteAt) }),
     kept: t("deleteAccount.keptTitle"),
   }[step];
 
@@ -175,23 +238,12 @@ export function AccountDeletionDialog({ supporter, onClose }: { supporter: Suppo
           {(state, sizing) => {
             const failure = sizing ? t("errors.detail.payments_not_stopped") : error;
             if (state === "about") return aboutPanel(failure, sizing);
+            if (state === "when") return whenPanel(failure, sizing);
             if (state === "code") return codePanel(failure, sizing);
             if (state === "failed") return failedPanel(failure, sizing);
-            if (state === "deleted") return resultPanel(Trash2, t("deleteAccount.doneText"), done, null, sizing);
-            if (state === "scheduled")
-              return resultPanel(
-                CalendarClock,
-                t("deleteAccount.scheduledText", { date: sizing ? sizingDate : date(deleteAt) }),
-                <>
-                  <Button variant="outline" size="lg" disabled={busy} onClick={flow.keep}>
-                    {t("deleteAccount.keep")}
-                  </Button>
-                  {done}
-                </>,
-                failure,
-                sizing,
-              );
-            return resultPanel(Check, t("deleteAccount.keptText", { date: sizing ? sizingDate : date(deleteAt) }), done, null, sizing);
+            if (state === "scheduled") return scheduledPanel(failure, sizing);
+            if (state === "deleted") return textPanel(t("deleteAccount.doneTextComputer"), sizing);
+            return textPanel(t("deleteAccount.keptText", { date: sizing ? sizingDate : date(deleteAt) }), sizing);
           }}
         </StatePanels>
       </div>
@@ -199,11 +251,27 @@ export function AccountDeletionDialog({ supporter, onClose }: { supporter: Suppo
   );
 }
 
-function Line({ children }: { children: ReactNode }) {
+/** «Deleted» or «Stays»: a small label over its lines. */
+function Group({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <li className="flex items-start gap-2">
-      <span aria-hidden className="mt-[7px] size-1.5 shrink-0 rounded-full bg-faint" />
-      {children}
+    <section className="mt-1 mb-3 last-of-type:mb-0">
+      <h3 className="text-2xs font-semibold text-subtle uppercase">{label}</h3>
+      <ul className="mt-2 flex flex-col gap-2.5">{children}</ul>
+    </section>
+  );
+}
+
+/** A thing deleted (a cross) or kept (a tick), with what it is. */
+function Item({ title, hint, gone = false }: { title: string; hint: string; gone?: boolean }) {
+  return (
+    <li className="flex items-center gap-3">
+      <span className={`flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary ${gone ? "text-icon" : "text-accent"}`}>
+        <Icon icon={gone ? X : Check} size={14} />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{title}</span>
+        <span className="block truncate text-xs leading-[17px] text-muted">{hint}</span>
+      </span>
     </li>
   );
 }

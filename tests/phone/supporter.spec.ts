@@ -588,46 +588,61 @@ test("the Play build: a plan bought through Paddle on a computer links to no Pad
   for (const name of ["Manage", "Manage in Google Play", "Switch to 5 years"]) await expect(plan.getByRole("button", { name, exact: true })).toHaveCount(0);
 });
 
-test("delete the account from the plan sheet: what happens, now or later, the code, deleted; sync off, the library stays", async ({ page }) => {
+const codeField = (sheetLocator: ReturnType<typeof sheet>) => sheetLocator.getByRole("textbox", { name: "Code" });
+
+test("delete the account from the plan sheet (D1–D5): what goes and what stays, when, the code, deleted; sync off", async ({ page }) => {
   await openPhone(page, { settings: SUPPORTER });
   const you = await openYou(page);
   await you.locator('[data-supporter="plan"]').click();
   await sheet(page, "plan").getByRole("button", { name: "Delete account…" }).click();
   const deletion = sheet(page, "deleteAccount");
   await expect(sheet(page, "plan")).toHaveCount(0);
-  await expect(deletion.getByRole("dialog", { name: "Delete account" })).toBeVisible();
-  await expect(deletion).toContainText("This deletes the Koona Pin account anna@example.com.");
-  await expect(deletion).toContainText("Payments stop at once.");
-  await expect(deletion).toContainText("Kept: your library on this device");
-  await expect(deletion).not.toContainText("Google Play");
-  await expect(deletion.getByRole("radio", { name: /^Now/ })).toHaveAttribute("aria-checked", "true");
-  await expect(deletion.getByRole("radio", { name: /At the end of the paid period/ })).toBeVisible();
+  await expect(deletion.getByRole("dialog", { name: "Delete your account?" })).toBeVisible();
+  for (const text of ["Deleted", "Your account", "anna@example.com", "Supporter and purchases", "Stays", "On this phone and on your computers", "Payment records"])
+    await expect(deletion).toContainText(text);
+  await expect(deletion).toContainText("Payments stop now. Time already paid for is not refunded, except as the refund policy allows.");
+  // Only the Play build cancels a Google Play subscription.
+  await expect(deletion).not.toContainText("We cancel your Google Play subscription");
   await deletion.getByRole("button", { name: "Continue" }).click();
-  await expect(deletion.getByRole("dialog", { name: "Confirm with a code" })).toContainText("Enter it to delete your account now.");
-  // The account's own email: no «Use another email».
+  await expect(deletion.getByRole("dialog", { name: "When should we delete it?" })).toBeVisible();
+  await expect(deletion.getByRole("radio", { name: /At the end of the paid period/ })).toHaveAttribute("aria-checked", "true");
+  await deletion.getByRole("radio", { name: /^Delete now/ }).click();
+  await deletion.getByRole("button", { name: "Continue" }).click();
+  await expect(deletion.getByRole("dialog", { name: "Confirm deletion" })).toContainText("We sent a 6-digit code to anna@example.com. Enter it to delete your account.");
+  // The account's own email: no «Use another email»; one red button.
   await expect(deletion.getByRole("button", { name: "Use another email" })).toHaveCount(0);
-  await deletion.getByRole("textbox", { name: "Code" }).fill("482913");
+  await expect(deletion.getByRole("button", { name: "Delete account" })).toHaveClass(/sp-danger/);
+  await codeField(deletion).fill("482913");
   await deletion.getByRole("button", { name: "Delete account" }).click();
-  await expect(deletion.getByRole("dialog", { name: "Account deleted" })).toContainText("your library stays on this device");
+  await expect(deletion.getByRole("dialog", { name: "Your account is deleted" })).toContainText(
+    "Your library stays on this phone and on your computers. You are signed out, and sync is off on this device.",
+  );
   await deletion.getByRole("button", { name: "Done" }).click();
   await expect(sheet(page, "deleteAccount")).toHaveCount(0);
   await expect((await openYou(page)).locator('[data-supporter="free"]')).toBeVisible();
   expect(await page.evaluate(async () => (await (await import("/src/services/api.ts")).api.getSyncStatus()).enabled)).toBe(false);
 });
 
-test("the Play build: Google Play subscriptions are stopped for you; deleting at the end of the period, then keeping the account", async ({ page }) => {
+test("the Play build: the Google Play subscription is cancelled for you; deleting at the end of the period (D6), keeping it; payments failing (D7)", async ({ page }) => {
   await openPhone(page, { capabilities: PLAY, settings: { ...SUPPORTER, "demo.store": "play" } });
   const you = await openYou(page);
   await you.locator('[data-supporter="plan"]').click();
   await sheet(page, "plan").getByRole("button", { name: "Delete account…" }).click();
   const deletion = sheet(page, "deleteAccount");
-  await expect(deletion).toContainText("Google Play subscriptions are cancelled for you: no need to cancel them in the Play Store.");
-  await deletion.getByRole("radio", { name: /At the end of the paid period/ }).click();
+  await expect(deletion).toContainText(
+    "Payments stop now. We cancel your Google Play subscription, so there is nothing to do in the Play Store. Time already paid for is not refunded, except as the refund policy allows.",
+  );
   await deletion.getByRole("button", { name: "Continue" }).click();
-  await deletion.getByRole("textbox", { name: "Code" }).fill("482913");
+  await deletion.getByRole("button", { name: "Continue" }).click();
+  await failOnce(page, "deleteAccount", "network", "Payments could not be stopped", "payments_not_stopped");
+  await codeField(deletion).fill("482913");
   await deletion.getByRole("button", { name: "Delete account" }).click();
-  const scheduled = deletion.getByRole("dialog", { name: "Deletion scheduled" });
-  await expect(scheduled).toContainText(/Your account will be deleted on \w+ \d+, \d{4}\./);
+  await expect(deletion.getByRole("dialog", { name: "Could not stop payments" })).toContainText("Nothing was deleted, and your account stays as it was.");
+  await deletion.getByRole("button", { name: "Try again" }).click();
+  const scheduled = deletion.getByRole("dialog", { name: /^Your account will be deleted on \w+ \d+, \d{4}$/ });
+  await expect(scheduled).toContainText("Supporter works until then.");
+  await expect(scheduled).toContainText("Supporter · yearly");
+  await expect(scheduled).toContainText(/Ends on \w+ \d+, \d{4}/);
   await scheduled.getByRole("button", { name: "Keep my account" }).click();
-  await expect(deletion.getByRole("dialog", { name: "Account kept" })).toContainText("Payments stay stopped");
+  await expect(deletion.getByRole("dialog", { name: "Your account stays" })).toContainText("Payments stay stopped");
 });
