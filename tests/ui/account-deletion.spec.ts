@@ -112,14 +112,18 @@ test("refusals: payments not stopped, a payment still processing, a paid period 
   await red(page).click();
   const failed = page.getByRole("dialog", { name: "Could not stop payments" });
   await expect(failed.getByRole("alert")).toHaveText("Nothing was deleted, and your account stays as it was. Check your connection and try again.");
-  await failOnce(page, "deleteAccount", "network", "A payment is still being processed", "payment_pending");
+  // Try again goes back to the red button: one more press to delete.
   await failed.getByRole("button", { name: "Try again" }).click();
+  await expect(step(page)).toHaveAttribute("data-delete-step", "confirm");
+  await failOnce(page, "deleteAccount", "network", "A payment is still being processed", "payment_pending");
+  await red(page).click();
   const pending = page.getByRole("dialog", { name: "Account not deleted" });
   await expect(pending.getByRole("alert")).toHaveText("A payment is still being processed. Try again later.");
   await expect(page.locator("[data-plan-row]")).toHaveAttribute("data-plan-row", "supporter");
   // The period ended meanwhile: deleting now is asked again, with its own red button.
   await failOnce(page, "deleteAccount", "invalid_request", "No paid time is left", "no_paid_time");
   await pending.getByRole("button", { name: "Try again" }).click();
+  await red(page).click();
   const confirm = page.getByRole("dialog", { name: "Confirm deletion" });
   await expect(confirm.getByRole("alert")).toHaveText("No paid time is left, so the account can only be deleted now.");
   await expect(confirm).toContainText("Your account will be deleted now. This can't be undone.");
@@ -173,8 +177,36 @@ test("a sign-in too old at the red button sends a new code by itself", async ({ 
   const code = page.getByRole("dialog", { name: "Check your email" });
   await expect(code).toContainText(/Send again in 0:\d\d/);
   await enterCode(page);
-  // After the code: the choice and the red button again, never a deletion by itself.
-  await expect(page.getByRole("dialog", { name: "When should we delete it?" })).toBeVisible();
+  // After the code: straight back to the red button with the choice made (the end of the period),
+  // never a deletion by itself.
+  await expect(page.getByRole("dialog", { name: "Confirm deletion" })).toContainText(/deleted on \w+ \d+, \d{4}/);
+  await red(page).click();
+  await expect(page.getByRole("dialog", { name: /^Your account will be deleted on/ })).toBeVisible();
+});
+
+test("a stale sign-in keeps «Delete now»: after the code, the red button for now", async ({ page }) => {
+  await openDeletion(page, "supporter", true);
+  await page.getByRole("dialog", { name: "Delete your account?" }).getByRole("button", { name: "Continue" }).click();
+  const when = page.getByRole("dialog", { name: "When should we delete it?" });
+  await when.getByRole("radio", { name: /^Delete now/ }).click();
+  await when.getByRole("button", { name: "Continue" }).click();
+  await failOnce(page, "deleteAccount", "invalid_request", "The sign-in is too old", "fresh_sign_in");
+  await red(page).click();
+  await enterCode(page);
+  await expect(page.getByRole("dialog", { name: "Confirm deletion" })).toContainText("Your account will be deleted now. This can't be undone.");
+});
+
+test("a deletion sent before a restart, its answer lost: the dialog opens on «We couldn't confirm the deletion»", async ({ page }) => {
+  await openDeletion(page, "supporter", true);
+  // `demo.deletionPending` is set before the page reads its supporter.
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.deletionPending", "on"));
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
+  await page.getByRole("dialog", { name: "Supporter" }).getByRole("button", { name: "Delete account…" }).click();
+  const unknown = page.getByRole("dialog", { name: "We couldn't confirm the deletion" });
+  await expect(unknown).toBeVisible();
+  await unknown.getByRole("button", { name: "Check again" }).click();
+  await expect(page.getByRole("dialog", { name: "Confirm deletion" }).getByRole("alert")).toHaveText("Your account is still there. You can try again.");
 });
 
 test("scheduled earlier: Keep needs a code when the sign-in is old; offline says so; «Delete now instead» confirms with the red button", async ({ page }) => {

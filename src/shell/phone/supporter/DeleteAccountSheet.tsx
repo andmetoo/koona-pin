@@ -28,7 +28,7 @@ export function DeleteAccountSheet(_: { props: DeleteAccountSheetProps }) {
   const { app } = usePhone();
   // The account as the sheet opened: signed out after the deletion, it still says what happened.
   const opened = useRef(app.supporter);
-  if (!opened.current?.email && !opened.current?.delete_at) return null;
+  if (!opened.current?.email && !opened.current?.delete_at && !opened.current?.deletion_pending) return null;
   return <DeleteBody supporter={opened.current} />;
 }
 

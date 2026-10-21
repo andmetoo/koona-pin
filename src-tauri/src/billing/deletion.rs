@@ -19,10 +19,9 @@
 
 use super::{access_token, call_raw, fresh_token, signed_out, Billing, Stored};
 use crate::error::{CommandError, ErrorCode, ErrorDetail};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
 use ts_rs::TS;
@@ -31,18 +30,54 @@ use ts_rs::TS;
 /// the 15 seconds of any other request.
 const DELETE_WAIT: Duration = Duration::from_secs(60);
 
-/// The account a `delete_account` request went out for in this run, its answer not known: only then
-/// may a session that no longer works be read as «most likely deleted» (`check_account_deletion`).
-static SENT: Mutex<Option<String>> = Mutex::new(None);
+/// A send not answered this long ago is no longer said: the server cleaned up long since.
+const SENT_KEPT: TimeDelta = TimeDelta::days(30);
 
-fn sent_for(email: Option<&str>) {
-    if let Ok(mut sent) = SENT.lock() {
-        *sent = email.map(str::to_string);
+/// A `delete_account` request that went out and whose answer did not come, kept in `account.json`
+/// (`Stored.deletion_sent`) over a restart and over a session that stopped working: only then may a
+/// 401 or a refused refresh be read as «most likely deleted» (`check_account_deletion`). Any answer
+/// of the server clears it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub(super) struct SentDeletion {
+    email: String,
+    at: DateTime<Utc>,
+}
+
+/// The pending send of the account here, or of one just signed out (its session gone, no other
+/// account signed in since).
+fn pending_of(stored: &Stored, now: DateTime<Utc>) -> Option<&SentDeletion> {
+    let sent = stored.deletion_sent.as_ref().filter(|sent| now - sent.at < SENT_KEPT)?;
+    match &stored.session {
+        Some(session) if session.email != sent.email => None,
+        _ => Some(sent),
     }
 }
 
-fn was_sent(email: &str) -> bool {
-    SENT.lock().is_ok_and(|sent| sent.as_deref() == Some(email))
+/// For the status: the email whose deletion's answer did not come.
+pub(super) fn pending(stored: &Stored, now: DateTime<Utc>) -> Option<String> {
+    pending_of(stored, now).map(|sent| sent.email.clone())
+}
+
+fn was_sent(app: &AppHandle, email: &str) -> bool {
+    pending_of(&app.state::<Billing>().get(), Utc::now()).is_some_and(|sent| sent.email == email)
+}
+
+/// Notes a send for `email`, or clears it (`None`) on an answer.
+fn sent_for(app: &AppHandle, email: Option<&str>) {
+    let sent = email.map(|email| SentDeletion { email: email.to_string(), at: Utc::now() });
+    if let Err(error) = app.state::<Billing>().update(app, |s| s.deletion_sent = sent) {
+        eprintln!("The deletion's send could not be noted: {}", error.message);
+    }
+}
+
+/// A 401, or a refused refresh, after a deletion for this account went out unanswered: the account
+/// may be gone, so not «signed out» but unknown, and «Check again» decides.
+fn maybe_gone(app: &AppHandle, email: &str, error: CommandError) -> CommandError {
+    if error.detail == Some(ErrorDetail::SignedOut) && was_sent(app, email) {
+        CommandError::detailed(ErrorCode::Network, ErrorDetail::DeletionUnknown, "The session no longer works after a deletion was sent")
+    } else {
+        error
+    }
 }
 
 /// When the account goes: now, or when the paid time left ends.
@@ -158,19 +193,20 @@ fn outcome_of(value: &Value) -> Option<DeleteOutcome> {
     Some(DeleteOutcome { status, delete_at })
 }
 
-/// After the server deleted the account: the account leaves this device as on Sign out, Play
-/// purchases not bound yet included (their secrets are their only claim).
-fn forget(stored: &mut Stored) {
-    *stored = Stored { sandbox: stored.sandbox, play: std::mem::take(&mut stored.play), ..Stored::default() };
-}
-
 /// The access token for a deletion action: signed in afresh by `code`, or the one here, which the
-/// server takes only within ten minutes of a sign-in by code.
+/// server takes only within ten minutes of a sign-in by code. Signed out after a deletion went out
+/// unanswered (the session stopped working, or ended here): `deletion_unknown`.
 async fn token(app: &AppHandle, code: Option<&str>) -> Result<(String, String), CommandError> {
-    let email = super::signed_in_email(app).ok_or_else(signed_out)?;
+    let Some(email) = super::signed_in_email(app) else {
+        let pending = pending(&app.state::<Billing>().get(), Utc::now());
+        return Err(match pending {
+            Some(email) => maybe_gone(app, &email, signed_out()),
+            None => signed_out(),
+        });
+    };
     let token = match code {
         Some(code) => super::sign_in_again(app, code).await?,
-        None => access_token(app).await?.ok_or_else(signed_out)?,
+        None => access_token(app).await?.ok_or_else(|| maybe_gone(app, &email, signed_out()))?,
     };
     Ok((email, token))
 }
@@ -208,12 +244,11 @@ async fn deleted(app: &AppHandle, email: &str) -> DeleteOutcome {
     if let Err(error) = billing.update(app, |s| {
         if s.same_account(email) {
             ours = true;
-            forget(s);
+            s.signed_out();
         }
     }) {
         eprintln!("The deleted account could not be forgotten here: {}", error.message);
     }
-    sent_for(None);
     // Sync's relay data went with the account: the client here stops (signed out, it could not
     // run anyway). Another account signed in meanwhile keeps its sync.
     if ours {
@@ -235,8 +270,10 @@ pub async fn send_account_code(app: AppHandle) -> Result<String, CommandError> {
 #[tauri::command]
 pub async fn get_account_deletion(app: AppHandle, code: Option<String>) -> Result<DeleteInfo, CommandError> {
     let (email, token) = token(&app, code.as_deref()).await?;
-    let value = ask(&app, json!({ "action": "delete_info" }), &token, None).await?;
+    let value = ask(&app, json!({ "action": "delete_info" }), &token, None).await.map_err(|error| maybe_gone(&app, &email, error))?;
     let info = info_of(&value).ok_or_else(|| unexpected("delete_info"))?;
+    // The account answered: a deletion sent earlier did not delete it.
+    sent_for(&app, None);
     keep_date(&app, &email, info.scheduled)?;
     Ok(info)
 }
@@ -251,14 +288,20 @@ pub async fn delete_account(app: AppHandle, when: DeleteWhen) -> Result<DeleteOu
         DeleteWhen::Now => "now",
         DeleteWhen::PeriodEnd => "period_end",
     };
-    sent_for(Some(&email));
+    // A 401 now, after an earlier send went unanswered, may be that send having deleted it.
+    let earlier = was_sent(&app, &email);
+    sent_for(&app, Some(&email));
     let value = match ask(&app, json!({ "action": "delete_account", "when": name }), &token, Some(DELETE_WAIT)).await {
         Ok(value) => value,
         Err(error) => {
-            let error = after_sending(error);
+            let error = if earlier && error.detail == Some(ErrorDetail::SignedOut) {
+                CommandError::detailed(ErrorCode::Network, ErrorDetail::DeletionUnknown, "The session no longer works after a deletion was sent")
+            } else {
+                after_sending(error)
+            };
             // Only an answer that did not come leaves the request possibly done.
             if error.detail != Some(ErrorDetail::DeletionUnknown) {
-                sent_for(None);
+                sent_for(&app, None);
             }
             return Err(error);
         }
@@ -267,7 +310,7 @@ pub async fn delete_account(app: AppHandle, when: DeleteWhen) -> Result<DeleteOu
     if outcome.status == DeleteState::Deleted {
         return Ok(deleted(&app, &email).await);
     }
-    sent_for(None);
+    sent_for(&app, None);
     keep_date(&app, &email, outcome.delete_at)?;
     Ok(outcome)
 }
@@ -278,16 +321,23 @@ pub async fn delete_account(app: AppHandle, when: DeleteWhen) -> Result<DeleteOu
 /// left as it is). Another account signed in meanwhile is left alone.
 #[tauri::command]
 pub async fn check_account_deletion(app: AppHandle) -> Result<DeleteOutcome, CommandError> {
-    let Some(email) = super::signed_in_email(&app) else {
+    let pending = pending(&app.state::<Billing>().get(), Utc::now());
+    let Some(email) = super::signed_in_email(&app).or(pending) else {
         return Err(signed_out());
     };
     let mut forced = false;
     loop {
-        let Some(token) = fresh_token(&app, forced).await? else {
-            // The refresh token is refused: `fresh_token` already signed this account out here
-            // (only while it is still the one here). Said neutrally, and only after a deletion was sent.
-            if was_sent(&email) {
-                sent_for(None);
+        let token = if super::signed_in_email(&app).is_some() { fresh_token(&app, forced).await? } else { None };
+        let Some(token) = token else {
+            // No session works any more (the refresh token refused, or it ended here before): said
+            // neutrally, and only after a deletion was sent for this account; this device is signed
+            // out as on Sign out. Another account signed in meanwhile is left alone.
+            if was_sent(&app, &email) {
+                app.state::<Billing>().update(&app, |s| {
+                    if s.session.is_none() || s.same_account(&email) {
+                        s.signed_out();
+                    }
+                })?;
                 return Ok(DeleteOutcome { status: DeleteState::SignedOut, delete_at: None });
             }
             return Err(signed_out());
@@ -306,7 +356,7 @@ pub async fn check_account_deletion(app: AppHandle) -> Result<DeleteOutcome, Com
         }
         if status.is_success() {
             let info = info_of(&value).ok_or_else(|| unexpected("delete_info"))?;
-            sent_for(None);
+            sent_for(&app, None);
             keep_date(&app, &email, info.scheduled)?;
             let status = if info.scheduled.is_some() { DeleteState::Scheduled } else { DeleteState::Active };
             return Ok(DeleteOutcome { status, delete_at: info.scheduled });
@@ -314,7 +364,7 @@ pub async fn check_account_deletion(app: AppHandle) -> Result<DeleteOutcome, Com
         return match refusal(status.as_u16(), &value).detail {
             // Too old for the action, but the account answered: it is still there.
             Some(ErrorDetail::FreshSignIn | ErrorDetail::ReviewAccount) => {
-                sent_for(None);
+                sent_for(&app, None);
                 Ok(DeleteOutcome { status: DeleteState::Active, delete_at: None })
             }
             _ => Err(refusal(status.as_u16(), &value)),
@@ -367,14 +417,28 @@ mod tests {
     }
 
     #[test]
-    fn only_a_deletion_sent_for_this_account_may_read_a_lost_session_as_most_likely_deleted() {
-        sent_for(None);
-        assert!(!was_sent("anna@example.com"), "nothing sent: a session that ends is only signed out");
-        sent_for(Some("anna@example.com"));
-        assert!(was_sent("anna@example.com"));
-        assert!(!was_sent("ben@example.com"), "another account signed in meanwhile");
-        sent_for(None);
-        assert!(!was_sent("anna@example.com"));
+    fn a_pending_send_is_the_account_s_here_or_just_signed_out_and_survives_the_file() {
+        let now: DateTime<Utc> = "2026-10-21T12:00:00Z".parse().unwrap();
+        let session = |email: &str| Session { access_token: "a".into(), refresh_token: "r".into(), expires_at: 0, email: email.into() };
+        let sent = SentDeletion { email: "anna@example.com".into(), at: now - TimeDelta::minutes(5) };
+        let mut stored = Stored { session: Some(session("anna@example.com")), deletion_sent: Some(sent.clone()), ..Stored::default() };
+        assert_eq!(pending(&stored, now).as_deref(), Some("anna@example.com"));
+        // Read back after a restart.
+        let read: Stored = serde_json::from_str(&serde_json::to_string(&stored).unwrap()).unwrap();
+        assert_eq!(read.deletion_sent, Some(sent.clone()));
+        // The session stopped working (the refresh refused): still said, for «Check again».
+        stored.session = None;
+        assert_eq!(pending(&stored, now).as_deref(), Some("anna@example.com"));
+        // Another account signed in since: not its business.
+        stored.session = Some(session("ben@example.com"));
+        assert_eq!(pending(&stored, now), None);
+        // Long ago: no longer said.
+        stored.session = Some(session("anna@example.com"));
+        assert_eq!(pending(&stored, now + TimeDelta::days(31)), None);
+        // Sign out forgets it with the account; the environment and unbound Play purchases stay.
+        stored.sandbox = true;
+        stored.signed_out();
+        assert_eq!((stored.deletion_sent.clone(), stored.session.is_none(), stored.sandbox), (None, true, true));
     }
 
     #[test]
@@ -402,7 +466,7 @@ mod tests {
             checked_at: Some(Utc::now()),
             ..Stored::default()
         };
-        forget(&mut stored);
+        stored.signed_out();
         assert!(stored.session.is_none() && stored.delete_at.is_none() && stored.checked_at.is_none());
         assert!(stored.sandbox, "the environment stays");
     }

@@ -1152,7 +1152,7 @@ mod tests {
         assert_eq!(read.play_outcome, None, "the outcome is this run's only");
         // As sign_out_supporter resets the file.
         let mut signed_out = stored.clone();
-        signed_out = Stored { sandbox: signed_out.sandbox, play: std::mem::take(&mut signed_out.play), ..Stored::default() };
+        signed_out.signed_out();
         assert!(signed_out.session.is_none());
         assert_eq!(signed_out.play, stored.play);
         // A file from before NP-154 reads with none.

@@ -231,6 +231,8 @@ function currentDemoSupporter(): SupporterStatus {
     plan_unknown: false,
     awaiting_sign_in: false,
     ...(kind === "deleting" && plan ? { delete_at: plan.valid_until } : {}),
+    // A deletion sent before a restart whose answer did not come (billing/deletion.rs, deletion_sent).
+    ...(demoSwitch("koonapin.demo.deletionPending") === "on" && plan ? { deletion_pending: "anna@example.com" } : {}),
   };
   return demoSupporter;
 }
@@ -494,6 +496,8 @@ async function demoDeletionInfo(code: string | null): Promise<DeleteInfo> {
   await demoFreshSignIn(code);
   const status = currentDemoSupporter();
   const waitUntil = status.plan && new Date(status.plan.valid_until).getTime() > Date.now() ? status.plan.valid_until : null;
+  // The account answered: a deletion sent earlier did not delete it.
+  if (status.deletion_pending) setDemoSupporter({ ...status, deletion_pending: undefined });
   return { email: status.email ?? "", can_wait: !!waitUntil, wait_until: waitUntil, scheduled: status.delete_at ?? null };
 }
 const noServer = () => {
@@ -2838,6 +2842,7 @@ export const demo = {
       setDemoSupporter({ ...status, email: null, plan: null, check_failed: false, plan_unknown: false, delete_at: undefined });
       return { status: "signed_out", delete_at: null };
     }
+    setDemoSupporter({ ...status, deletion_pending: undefined });
     return status.delete_at ? { status: "scheduled", delete_at: status.delete_at } : { status: "active", delete_at: null };
   },
   async keepAccount(code: string | null): Promise<DeleteOutcome> {

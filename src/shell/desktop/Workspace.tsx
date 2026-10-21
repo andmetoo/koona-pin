@@ -966,7 +966,8 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
           planUnknown={!!supporter?.plan_unknown}
           onClose={() => setSurface(null)}
           onSignIn={() => setSurface("signIn")}
-          onDelete={supporter?.email && !supporter.plan ? () => setSurface("deleteAccount") : undefined}
+          pendingEmail={supporter?.deletion_pending ?? null}
+          onDelete={(supporter?.email && !supporter.plan) || supporter?.deletion_pending ? () => setSurface("deleteAccount") : undefined}
         />
       )}
       {surface === "signIn" && (

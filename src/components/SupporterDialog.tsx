@@ -46,7 +46,10 @@ export function SupporterDialog({
   onClose,
   onSignIn,
   onDelete,
+  pendingEmail = null,
 }: {
+  /** Signed out with a deletion sent and not answered: its account, to check on it. */
+  pendingEmail?: string | null;
   /** Signed in without a plan: «Delete account…» on the account's line. */
   onDelete?: () => void;
   /** The subscription being switched to five years. */
@@ -123,12 +126,12 @@ export function SupporterDialog({
             )}
           </span>
         </p>
-      ) : email && onDelete && !sizing ? (
+      ) : (email || pendingEmail) && onDelete && !sizing ? (
         // Signed in without a plan: the account, and deleting it, quietly (as the plan's D1), in the
         // hint's place, so the dialog keeps its one height.
         <p className="mt-3 flex min-w-0 items-center gap-1.5 text-xs leading-[17px] text-muted" data-account-line>
-          <span className="truncate" title={email}>
-            {t("deleteAccount.signedInAs", { email })}
+          <span className="truncate" title={email ?? pendingEmail ?? ""}>
+            {email ? t("deleteAccount.signedInAs", { email }) : t("deleteAccount.unknownTitle")}
           </span>
           <span aria-hidden>·</span>
           <button type="button" onClick={onDelete} className="shrink-0 font-medium hover:text-ink">

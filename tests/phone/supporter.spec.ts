@@ -640,7 +640,9 @@ test("the Play build, a Google Play plan: cancelled for you; payments failing (D
   await failOnce(page, "deleteAccount", "network", "Payments could not be stopped", "payments_not_stopped");
   await deletion.getByRole("button", { name: "Delete account" }).click();
   await expect(deletion.getByRole("dialog", { name: "Could not stop payments" })).toContainText("Nothing was deleted, and your account stays as it was.");
+  // Try again goes back to the red button: one more press.
   await deletion.getByRole("button", { name: "Try again" }).click();
+  await deletion.getByRole("button", { name: "Delete account" }).click();
   const scheduled = deletion.getByRole("dialog", { name: /^Your account will be deleted on \w+ \d+, \d{4}$/ });
   await expect(scheduled).toContainText("Supporter works until then.");
   await expect(scheduled).toContainText("Supporter · yearly");

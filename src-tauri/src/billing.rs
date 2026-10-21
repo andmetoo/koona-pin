@@ -280,6 +280,10 @@ struct Stored {
     /// The account is deleted on this date unless kept (billing/deletion.rs): what the server said last.
     #[serde(default)]
     delete_at: Option<DateTime<Utc>>,
+    /// A `delete_account` request went out and its answer did not come (billing/deletion.rs): kept
+    /// over a restart and over a session that stopped working, so «Check again» can still tell.
+    #[serde(default)]
+    deletion_sent: Option<deletion::SentDeletion>,
 }
 
 /// A purchase started here: the secret the server knows by its hash, and the payment page.
@@ -293,6 +297,12 @@ struct Checkout {
 }
 
 impl Stored {
+    /// Signed out, as «Sign out» leaves the file: the environment stays, and Play purchases not bound
+    /// yet (NP-154), whose secrets are their only claim; the account and all of its state go.
+    fn signed_out(&mut self) {
+        *self = Stored { sandbox: self.sandbox, play: std::mem::take(&mut self.play), ..Stored::default() };
+    }
+
     /// Keeps the server's signed plan and what of it verifies for the account signed in here.
     fn keep_lease(&mut self, lease: Option<Lease>, key: &[u8]) {
         self.plan = match (&lease, &self.session) {
@@ -441,6 +451,11 @@ pub struct SupporterStatus {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional, type = "string")]
     pub delete_at: Option<DateTime<Utc>>,
+    /// The email of the account here (or just signed out) whose deletion was sent and not answered:
+    /// the deletion dialog opens on «We couldn't confirm the deletion».
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub deletion_pending: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -535,6 +550,7 @@ fn status(stored: &Stored, now: DateTime<Utc>) -> SupporterStatus {
         awaiting_sign_in: stored.awaiting_sign_in && stored.session.is_none(),
         play: stored.play_progress(),
         delete_at: stored.delete_at.filter(|_| stored.session.is_some()),
+        deletion_pending: deletion::pending(stored, now),
     }
 }
 
@@ -1176,7 +1192,7 @@ pub async fn sign_out_supporter(app: AppHandle) -> Result<SupporterStatus, Comma
     // finds no purchase.
     let _one_at_a_time = billing.claiming.lock().await;
     // Play purchases not bound yet stay: their secrets are their only claim (NP-154).
-    billing.update(&app, |s| *s = Stored { sandbox: s.sandbox, play: std::mem::take(&mut s.play), ..Stored::default() })
+    billing.update(&app, Stored::signed_out)
 }
 
 #[cfg(test)]

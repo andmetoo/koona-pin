@@ -28,8 +28,12 @@ export type DeleteStep = "about" | "code" | "when" | "confirm" | "failed" | "unk
 /** What the failed step says: payments not stopped (D7), a payment still processing, another refusal. */
 export type DeleteFailure = "payments" | "pending" | "other";
 
-/** What the code proves: deleting (after it, the choice), keeping a scheduled deletion, deleting it now instead. */
-type Purpose = "delete" | "keep" | "now";
+/**
+ * What the code proves: deleting (after it, the choice), keeping a scheduled deletion, deleting it now
+ * instead, or going back to the red button with the choice already made (`resume`: the sign-in was
+ * too old when it was pressed).
+ */
+type Purpose = "delete" | "keep" | "now" | "resume";
 
 /** The sentence about Google Play: only for a Google Play subscription, in the Play build (D2). */
 export const cancelsPlay = (plan: Plan | null) => capabilities.purchase === "play" && plan?.store === "play" && plan.interval !== "five_years";
@@ -69,8 +73,9 @@ export function useAccountDeletion({ supporter }: { supporter: SupporterStatus }
   // What the dialog opened with: signed out after a deletion, it still says whose account it was.
   const opened = useRef(supporter);
   const plan = opened.current.plan;
-  const email = opened.current.email ?? "";
-  const [step, setStep] = useState<DeleteStep>(supporter.delete_at ? "scheduled" : "about");
+  // A deletion sent and not answered (kept over a restart): the account of that send.
+  const email = opened.current.email ?? opened.current.deletion_pending ?? "";
+  const [step, setStep] = useState<DeleteStep>(supporter.deletion_pending ? "unknown" : supporter.delete_at ? "scheduled" : "about");
   const [deleteAt, setDeleteAt] = useState<string | null>(supporter.delete_at ?? null);
   // The server's word (delete_info), never the plan here: a payment that failed has no time to wait.
   const [canWait, setCanWait] = useState(false);
@@ -117,7 +122,14 @@ export function useAccountDeletion({ supporter }: { supporter: SupporterStatus }
   const take = (info: DeleteInfo, next: Purpose) => {
     setCanWait(info.can_wait);
     setWaitUntil(info.wait_until);
-    if (next === "now") {
+    if (next === "resume") {
+      // Back to the red button with the person's choice; one that no longer holds says so.
+      if (when === "period_end" && !info.can_wait) {
+        setWhen("now");
+        setError(t("errors.detail.no_paid_time"));
+      }
+      setStep("confirm");
+    } else if (next === "now") {
       setWhen("now");
       setStep("confirm");
     } else if (info.scheduled) {
@@ -136,7 +148,9 @@ export function useAccountDeletion({ supporter }: { supporter: SupporterStatus }
     run(
       async () => take(await api.getAccountDeletion(null), next),
       async (err) => {
-        if (toCommandError(err).detail === "fresh_sign_in") await codeAgain(next);
+        const detail = toCommandError(err).detail;
+        if (detail === "fresh_sign_in") await codeAgain(next);
+        else if (detail === "deletion_unknown") setStep("unknown");
         else setError(deletionFailure(err, t));
       },
     );
@@ -160,7 +174,7 @@ export function useAccountDeletion({ supporter }: { supporter: SupporterStatus }
       async () => outcome(await api.deleteAccount(when)),
       async (err) => {
         const detail = toCommandError(err).detail;
-        if (detail === "fresh_sign_in") await codeAgain(when === "now" && purpose === "now" ? "now" : "delete");
+        if (detail === "fresh_sign_in") await codeAgain("resume");
         else if (detail === "no_paid_time") {
           // The paid period ended meanwhile: deleting now is asked again, with its red button.
           setCanWait(false);
@@ -195,7 +209,13 @@ export function useAccountDeletion({ supporter }: { supporter: SupporterStatus }
   /** The code step's action: the server's answer with the new sign-in, then the next step. */
   const confirm = () => {
     if (purpose === "keep") return void keep(code);
-    void run(async () => take(await api.getAccountDeletion(code), purpose));
+    void run(
+      async () => take(await api.getAccountDeletion(code), purpose),
+      (err) => {
+        if (toCommandError(err).detail === "deletion_unknown") setStep("unknown");
+        else setError(deletionFailure(err, t));
+      },
+    );
   };
 
   /** The code as typed is whole: six digits. */
@@ -203,7 +223,7 @@ export function useAccountDeletion({ supporter }: { supporter: SupporterStatus }
   /** Back from a step to the one before it. */
   const back = () => {
     setError(null);
-    if (step === "code") setStep(purpose === "delete" ? "about" : "scheduled");
+    if (step === "code") setStep(purpose === "delete" ? "about" : purpose === "resume" ? "confirm" : "scheduled");
     else if (step === "confirm") setStep(purpose === "now" ? "scheduled" : canWait ? "when" : "about");
     else setStep("about");
   };
@@ -235,8 +255,11 @@ export function useAccountDeletion({ supporter }: { supporter: SupporterStatus }
     confirm,
     remove: () => void remove(),
     resend: () => void run(() => askCode(purpose)),
-    /** Try again on the failed step: the red action again. */
-    retry: () => void remove(),
+    /** Try again on the failed step: back to the red button, pressed once more to delete. */
+    retry: () => {
+      setError(null);
+      setStep("confirm");
+    },
     check: () => void check(),
     back,
     keep: () => void keep(null),

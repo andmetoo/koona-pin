@@ -37,4 +37,9 @@ play?: PlayProgress,
 /**
  * The account is deleted on this date unless kept (billing/deletion.rs).
  */
-delete_at?: string, };
+delete_at?: string, 
+/**
+ * The email of the account here (or just signed out) whose deletion was sent and not answered:
+ * the deletion dialog opens on «We couldn't confirm the deletion».
+ */
+deletion_pending?: string, };
