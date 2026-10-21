@@ -121,3 +121,18 @@ test("at an accessibility size a Settings name has the row: it does not wrap at 
   await expect(title).toBeVisible();
   expect(await title.evaluate(oneLine)).toBe(true);
 });
+
+// The dark app's opaque slab, without a reading theme: the raised colour, opaque, under battery
+// saver and Reduce Transparency alike (it must outrank the dark theme's translucent glass).
+for (const fallback of ["battery saver", "Reduce Transparency"] as const) {
+  test(`the dark app's glass under ${fallback} is the opaque raised slab`, async ({ page }) => {
+    if (fallback === "Reduce Transparency") {
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "reduce" }] });
+    }
+    await openPhone(page, { theme: "dark", system: { powerSave: fallback === "battery saver", lowRam: false, textScale: 1 } });
+    const pill = navPill(page);
+    expect(await backdrop(pill)).toBe("none");
+    expect(await background(pill)).toBe("rgb(38, 38, 36)");
+  });
+}
