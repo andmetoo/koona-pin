@@ -1346,7 +1346,9 @@
       "fresh_sign_in": "le code est trop ancien",
       "review_account": "c’est le compte de vérification de l’app",
       "no_paid_time": "il ne reste pas de temps payé",
-      "payments_not_stopped": "les paiements n’ont pas pu être arrêtés"
+      "payments_not_stopped": "les paiements n’ont pas pu être arrêtés",
+      "payment_pending": "un paiement est encore en cours de traitement",
+      "deletion_unknown": "la réponse n’est pas arrivée"
     },
     "code": {
       "not_found": "Cela n’existe plus — peut-être supprimé entre-temps.",
@@ -1383,7 +1385,9 @@
       "fresh_sign_in": "Il faut un code envoyé dans les 10 dernières minutes. Envoyez un nouveau code.",
       "review_account": "Ce compte sert à la vérification de l’app et ne peut pas être supprimé.",
       "no_paid_time": "Il ne reste pas de temps payé : le compte ne peut être supprimé que maintenant.",
-      "payments_not_stopped": "Impossible d’arrêter les paiements, rien n’a donc été supprimé. Réessayez."
+      "payments_not_stopped": "Impossible d’arrêter les paiements, rien n’a donc été supprimé. Réessayez.",
+      "payment_pending": "Un paiement est encore en cours de traitement. Réessayez plus tard.",
+      "deletion_unknown": "Nous ne savons pas encore si votre compte a été supprimé. Vérifiez de nouveau."
     }
   },
   "tray": {
@@ -1635,7 +1639,16 @@
     "failedTitle": "Impossible d’arrêter les paiements",
     "failedText": "Rien n’a été supprimé et votre compte reste tel quel. Vérifiez la connexion et réessayez.",
     "notDeletedTitle": "Compte non supprimé",
-    "scheduledLine": "Compte supprimé le {{date}}"
+    "scheduledLine": "Compte supprimé le {{date}}",
+    "codeTextContinue": "Nous avons envoyé un code à 6 chiffres à {{email}}. Saisissez-le pour continuer.",
+    "confirmNow": "Votre compte va être supprimé maintenant. C’est irréversible.",
+    "confirmLater": "Votre compte sera supprimé le {{date}}. Supporter fonctionne jusque-là.",
+    "stillThere": "Votre compte existe toujours. Rien n’a été supprimé.",
+    "unknownTitle": "Suppression non confirmée",
+    "unknownText": "La réponse n’est pas arrivée : nous ne savons pas encore si votre compte a été supprimé. Vérifiez de nouveau.",
+    "checkAgain": "Vérifier de nouveau",
+    "deleteNowInstead": "Supprimer maintenant",
+    "signedInAs": "Connecté en tant que {{email}}"
   },
   "plan": {
     "already": "Je suis déjà Supporter",

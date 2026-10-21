@@ -86,6 +86,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         billing::deletion::get_account_deletion,
         billing::deletion::delete_account,
         billing::deletion::keep_account,
+        billing::deletion::check_account_deletion,
         commercial::backup_folder::get_backup_folder,
         commercial::backup_folder::stop_backup_folder,
         commercial::sync::get_sync_status,

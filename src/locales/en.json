@@ -1268,7 +1268,9 @@
       "fresh_sign_in": "the code is too old",
       "review_account": "it is the app review account",
       "no_paid_time": "no paid time is left",
-      "payments_not_stopped": "the payments couldn't be stopped"
+      "payments_not_stopped": "the payments couldn't be stopped",
+      "payment_pending": "a payment is still being processed",
+      "deletion_unknown": "the answer didn't arrive"
     },
     "code": {
       "not_found": "It no longer exists — it may have been deleted meanwhile.",
@@ -1305,7 +1307,9 @@
       "fresh_sign_in": "This needs a code sent in the last 10 minutes. Send a new code.",
       "review_account": "This account is used for app review and can't be deleted.",
       "no_paid_time": "No paid time is left, so the account can only be deleted now.",
-      "payments_not_stopped": "Couldn't stop the payments, so nothing was deleted. Try again."
+      "payments_not_stopped": "Couldn't stop the payments, so nothing was deleted. Try again.",
+      "payment_pending": "A payment is still being processed. Try again later.",
+      "deletion_unknown": "We don't know yet whether your account was deleted. Check again."
     }
   },
   "tray": {
@@ -1532,7 +1536,16 @@
     "failedTitle": "Could not stop payments",
     "failedText": "Nothing was deleted, and your account stays as it was. Check your connection and try again.",
     "notDeletedTitle": "Account not deleted",
-    "scheduledLine": "Account will be deleted on {{date}}"
+    "scheduledLine": "Account will be deleted on {{date}}",
+    "codeTextContinue": "We sent a 6-digit code to {{email}}. Enter it to continue.",
+    "confirmNow": "Your account will be deleted now. This can't be undone.",
+    "confirmLater": "Your account will be deleted on {{date}}. Supporter works until then.",
+    "stillThere": "Your account is still there. Nothing was deleted.",
+    "unknownTitle": "We couldn't confirm the deletion",
+    "unknownText": "The answer didn't arrive, so we don't know yet whether your account was deleted. Check again to find out.",
+    "checkAgain": "Check again",
+    "deleteNowInstead": "Delete now instead",
+    "signedInAs": "Signed in as {{email}}"
   },
   "plan": {
     "already": "I'm already a Supporter",

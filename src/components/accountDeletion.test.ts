@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import i18n from "../i18n";
 import type { Plan, SupporterStatus } from "../types";
-import { paidTimeLeft } from "./accountDeletion";
+import { cancelsPlay } from "./accountDeletion";
 import { planState } from "./supporterFlow";
 
 const t = i18n.getFixedT("en");
@@ -27,11 +27,10 @@ const supporter = (more: Partial<SupporterStatus> = {}): SupporterStatus => ({
 });
 
 describe("deleting the account", () => {
-  it("offers to wait only while paid time is left", () => {
-    const now = Date.parse("2026-10-21T12:00:00Z");
-    expect(paidTimeLeft(plan(), now)).toBe(true);
-    expect(paidTimeLeft(plan({ valid_until: "2026-10-20T12:00:00Z" }), now)).toBe(false);
-    expect(paidTimeLeft(null, now)).toBe(false);
+  it("says Google Play subscriptions are cancelled only in the Play build", () => {
+    // Vitest runs as a desktop build (purchase "paddle"): never, even for a plan paid through Play.
+    expect(cancelsPlay(plan({ store: "play" }))).toBe(false);
+    expect(cancelsPlay(null)).toBe(false);
   });
 
   it("puts a scheduled deletion on the plan's line, after what needs doing", () => {

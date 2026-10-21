@@ -88,6 +88,10 @@ pub enum ErrorDetail {
     NoPaidTime,
     /// A subscription could not be cancelled, so nothing was deleted.
     PaymentsNotStopped,
+    /// A Google Play payment is still being processed, so nothing was deleted.
+    PaymentPending,
+    /// The deletion's answer did not come: whether the account was deleted is not known yet.
+    DeletionUnknown,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]

@@ -185,6 +185,9 @@ fn known_store<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Opti
 struct Answer {
     has_plan: bool,
     lease: Option<Lease>,
+    /// The account's scheduled deletion (`deletion`), none when there is none: a deletion scheduled
+    /// on the web or another device shows here, one kept there or ended by a new purchase goes.
+    delete_at: Option<DateTime<Utc>>,
 }
 
 impl Answer {
@@ -198,8 +201,9 @@ impl Answer {
             Some(lease) => Answer {
                 has_plan: value["plan"].is_object() || lease.is_object(),
                 lease: serde_json::from_value(lease.clone()).unwrap_or(None),
+                delete_at: value["delete_at"].as_str().and_then(|text| text.parse().ok()),
             },
-            None => Answer { has_plan: true, lease: None },
+            None => Answer { has_plan: true, lease: None, delete_at: None },
         }
     }
 }
@@ -313,6 +317,8 @@ impl Stored {
         } else {
             self.keep_lease(answer.lease, key);
             self.check_failed = false;
+            // The date is the server's: an answer without one clears it.
+            self.delete_at = answer.delete_at;
         }
     }
 
@@ -703,7 +709,7 @@ fn verify_refused(status: reqwest::StatusCode) -> Option<CommandError> {
 
 /// One action of the Edge Function `billing`; a server error is a failure.
 async fn call(app: &AppHandle, body: Value, token: Option<&str>) -> Result<(reqwest::StatusCode, Value), CommandError> {
-    let (status, value) = call_raw(app, body, token).await?;
+    let (status, value) = call_raw(app, body, token, None).await?;
     if status.is_server_error() {
         return Err(refused("billing", status));
     }
@@ -711,9 +717,13 @@ async fn call(app: &AppHandle, body: Value, token: Option<&str>) -> Result<(reqw
 }
 
 /// The action's answer whatever its status: a deletion's 502 says what failed ([`deletion`]).
-async fn call_raw(app: &AppHandle, body: Value, token: Option<&str>) -> Result<(reqwest::StatusCode, Value), CommandError> {
+/// `timeout` replaces the client's 15 seconds for an action that takes longer (deleting now).
+async fn call_raw(app: &AppHandle, body: Value, token: Option<&str>, timeout: Option<Duration>) -> Result<(reqwest::StatusCode, Value), CommandError> {
     let service = need_service()?;
     let mut request = client(app)?.post(format!("{}/functions/v1/billing", service.url)).json(&body);
+    if let Some(timeout) = timeout {
+        request = request.timeout(timeout);
+    }
     if let Some(token) = token {
         request = request.bearer_auth(token);
     }
@@ -1359,22 +1369,22 @@ mod tests {
     fn a_plan_the_server_names_but_that_does_not_verify_is_never_no_plan() {
         let (signed, key) = lease(PAYLOAD, 7);
         let mut stored = Stored { session: supporter("2027-10-11T12:00:00Z").session, ..Stored::default() };
-        stored.take_answer(Answer { has_plan: true, lease: Some(signed.clone()) }, &key, at("2026-10-12T12:00:00Z"));
+        stored.take_answer(Answer { has_plan: true, lease: Some(signed.clone()), delete_at: None }, &key, at("2026-10-12T12:00:00Z"));
         assert!(stored.plan.is_some() && !stored.check_failed);
         // The server names a plan, but the lease is missing or signed by another key: the plan here
         // stays and the check counts as failed.
-        stored.take_answer(Answer { has_plan: true, lease: None }, &key, at("2026-10-12T13:00:00Z"));
+        stored.take_answer(Answer { has_plan: true, lease: None, delete_at: None }, &key, at("2026-10-12T13:00:00Z"));
         assert!(stored.plan.is_some(), "kept");
         assert!(stored.check_failed);
         assert_eq!(stored.lease, Some(signed.clone()), "the lease that verified stays too");
-        stored.take_answer(Answer { has_plan: true, lease: Some(signed.clone()) }, &lease(PAYLOAD, 8).1, at("2026-10-12T14:00:00Z"));
+        stored.take_answer(Answer { has_plan: true, lease: Some(signed.clone()), delete_at: None }, &lease(PAYLOAD, 8).1, at("2026-10-12T14:00:00Z"));
         assert!(stored.plan.is_some() && stored.check_failed);
         // The server says there is none: Free.
-        stored.take_answer(Answer { has_plan: false, lease: None }, &key, at("2026-10-12T15:00:00Z"));
+        stored.take_answer(Answer { has_plan: false, lease: None, delete_at: None }, &key, at("2026-10-12T15:00:00Z"));
         assert!(stored.plan.is_none() && !stored.check_failed);
         assert!(!status(&stored, at("2026-10-12T15:00:00Z")).plan_unknown, "no plan, known");
         // Signed in with nothing known yet: not «no plan».
-        stored.take_answer(Answer { has_plan: true, lease: None }, &key, at("2026-10-12T16:00:00Z"));
+        stored.take_answer(Answer { has_plan: true, lease: None, delete_at: None }, &key, at("2026-10-12T16:00:00Z"));
         assert!(status(&stored, at("2026-10-12T16:00:00Z")).plan_unknown);
     }
 
@@ -1552,13 +1562,13 @@ mod tests {
         stored.add_checkout(checkout("year1", "2026-10-12T11:00:00Z", PlanInterval::Year));
         stored.add_checkout(checkout("month1", "2026-10-12T11:05:00Z", PlanInterval::Month));
         let session = supporter("2027-10-12T11:00:00Z").session.unwrap();
-        assert!(stored.signed_in_by("year1", session.clone(), Answer { has_plan: false, lease: None }, &plan_key(), at("2026-10-12T11:10:00Z")));
+        assert!(stored.signed_in_by("year1", session.clone(), Answer { has_plan: false, lease: None, delete_at: None }, &plan_key(), at("2026-10-12T11:10:00Z")));
         assert!(stored.same_account("anna@example.com"));
         assert_eq!(stored.checkouts.iter().map(|c| c.secret.as_str()).collect::<Vec<_>>(), ["month1"]);
         assert_eq!(stored.settled(), CheckoutState::Waiting, "month1 is still followed");
         // Sign out forgets every purchase: a «paid» that arrives after it signs nobody in.
         let mut signed_out = Stored { sandbox: stored.sandbox, ..Stored::default() };
-        assert!(!signed_out.signed_in_by("month1", session, Answer { has_plan: false, lease: None }, &plan_key(), at("2026-10-12T11:20:00Z")));
+        assert!(!signed_out.signed_in_by("month1", session, Answer { has_plan: false, lease: None, delete_at: None }, &plan_key(), at("2026-10-12T11:20:00Z")));
         assert!(signed_out.session.is_none());
         assert_eq!(signed_out.settled(), CheckoutState::None);
     }

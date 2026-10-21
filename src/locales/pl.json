@@ -1424,7 +1424,9 @@
       "fresh_sign_in": "kod jest za stary",
       "review_account": "to konto do recenzji aplikacji",
       "no_paid_time": "nie został opłacony czas",
-      "payments_not_stopped": "nie udało się zatrzymać płatności"
+      "payments_not_stopped": "nie udało się zatrzymać płatności",
+      "payment_pending": "płatność jest jeszcze przetwarzana",
+      "deletion_unknown": "odpowiedź nie dotarła"
     },
     "code": {
       "not_found": "To już nie istnieje — mogło zostać usunięte w międzyczasie.",
@@ -1461,7 +1463,9 @@
       "fresh_sign_in": "Potrzebny jest kod wysłany w ciągu ostatnich 10 minut. Wyślij nowy kod.",
       "review_account": "To konto służy do recenzji aplikacji i nie można go usunąć.",
       "no_paid_time": "Nie został opłacony czas, więc konto można usunąć tylko teraz.",
-      "payments_not_stopped": "Nie udało się zatrzymać płatności, więc nic nie zostało usunięte. Spróbuj ponownie."
+      "payments_not_stopped": "Nie udało się zatrzymać płatności, więc nic nie zostało usunięte. Spróbuj ponownie.",
+      "payment_pending": "Płatność jest jeszcze przetwarzana. Spróbuj później.",
+      "deletion_unknown": "Jeszcze nie wiemy, czy konto zostało usunięte. Sprawdź ponownie."
     }
   },
   "tray": {
@@ -1738,7 +1742,16 @@
     "failedTitle": "Nie udało się zatrzymać płatności",
     "failedText": "Nic nie zostało usunięte, a konto zostaje bez zmian. Sprawdź połączenie i spróbuj ponownie.",
     "notDeletedTitle": "Konto nie zostało usunięte",
-    "scheduledLine": "Konto zostanie usunięte {{date}}"
+    "scheduledLine": "Konto zostanie usunięte {{date}}",
+    "codeTextContinue": "Wysłaliśmy 6-cyfrowy kod na {{email}}. Wpisz go, aby kontynuować.",
+    "confirmNow": "Twoje konto zostanie teraz usunięte. Tego nie da się cofnąć.",
+    "confirmLater": "Twoje konto zostanie usunięte {{date}}. Do tego czasu Supporter działa.",
+    "stillThere": "Twoje konto nadal istnieje. Nic nie zostało usunięte.",
+    "unknownTitle": "Nie udało się potwierdzić usunięcia",
+    "unknownText": "Odpowiedź nie dotarła, więc jeszcze nie wiemy, czy konto zostało usunięte. Sprawdź ponownie.",
+    "checkAgain": "Sprawdź ponownie",
+    "deleteNowInstead": "Usuń od razu",
+    "signedInAs": "Zalogowano jako {{email}}"
   },
   "plan": {
     "already": "Już jestem Supporterem",

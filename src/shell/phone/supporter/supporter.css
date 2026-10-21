@@ -572,3 +572,24 @@
   flex: none;
   white-space: nowrap;
 }
+/* Signed in without a plan: the account's email and «Delete account…», quiet, under the perks. */
+.phone .sp-account-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 16px 4px 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ph-meta);
+}
+.phone .sp-account-email {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phone .sp-account-line .sp-sign-out {
+  margin-right: 0;
+  flex: none;
+}

@@ -1346,7 +1346,9 @@
       "fresh_sign_in": "el código es demasiado antiguo",
       "review_account": "es la cuenta de revisión de la app",
       "no_paid_time": "no queda tiempo pagado",
-      "payments_not_stopped": "no se pudieron detener los pagos"
+      "payments_not_stopped": "no se pudieron detener los pagos",
+      "payment_pending": "un pago aún se está procesando",
+      "deletion_unknown": "la respuesta no llegó"
     },
     "code": {
       "not_found": "Ya no existe; puede que se haya eliminado mientras tanto.",
@@ -1383,7 +1385,9 @@
       "fresh_sign_in": "Hace falta un código enviado en los últimos 10 minutos. Envía uno nuevo.",
       "review_account": "Esta cuenta se usa para revisar la app y no se puede eliminar.",
       "no_paid_time": "No queda tiempo pagado, así que la cuenta solo puede eliminarse ahora.",
-      "payments_not_stopped": "No se pudieron detener los pagos, así que no se eliminó nada. Inténtalo de nuevo."
+      "payments_not_stopped": "No se pudieron detener los pagos, así que no se eliminó nada. Inténtalo de nuevo.",
+      "payment_pending": "Un pago aún se está procesando. Inténtalo más tarde.",
+      "deletion_unknown": "Aún no sabemos si tu cuenta se eliminó. Vuelve a comprobarlo."
     }
   },
   "tray": {
@@ -1635,7 +1639,16 @@
     "failedTitle": "No se pudieron detener los pagos",
     "failedText": "No se eliminó nada y tu cuenta sigue como estaba. Revisa la conexión e inténtalo de nuevo.",
     "notDeletedTitle": "La cuenta no se eliminó",
-    "scheduledLine": "La cuenta se eliminará el {{date}}"
+    "scheduledLine": "La cuenta se eliminará el {{date}}",
+    "codeTextContinue": "Enviamos un código de 6 dígitos a {{email}}. Escríbelo para continuar.",
+    "confirmNow": "Tu cuenta se eliminará ahora. No se puede deshacer.",
+    "confirmLater": "Tu cuenta se eliminará el {{date}}. Supporter funciona hasta entonces.",
+    "stillThere": "Tu cuenta sigue ahí. No se eliminó nada.",
+    "unknownTitle": "No pudimos confirmar la eliminación",
+    "unknownText": "La respuesta no llegó, así que aún no sabemos si tu cuenta se eliminó. Vuelve a comprobarlo.",
+    "checkAgain": "Comprobar de nuevo",
+    "deleteNowInstead": "Eliminar ahora",
+    "signedInAs": "Sesión iniciada como {{email}}"
   },
   "plan": {
     "already": "Ya soy Supporter",

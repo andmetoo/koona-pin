@@ -45,7 +45,10 @@ export function SupporterDialog({
   upgrade,
   onClose,
   onSignIn,
+  onDelete,
 }: {
+  /** Signed in without a plan: «Delete account…» on the account's line. */
+  onDelete?: () => void;
   /** The subscription being switched to five years. */
   upgrade?: Plan;
   sandbox: boolean;
@@ -108,6 +111,18 @@ export function SupporterDialog({
         <p role="status" className="mt-3 flex gap-2 rounded-lg bg-amber-soft px-3 py-2.5 text-xs leading-[17px] text-on-amber-soft">
           <Icon icon={TriangleAlert} size={14} className="mt-px shrink-0" />
           {t("supporter.planUnknownNotice", { email })}
+        </p>
+      ) : email && onDelete && !sizing ? (
+        // Signed in without a plan: the account, and deleting it, quietly (as the plan's D1), in the
+        // hint's place, so the dialog keeps its one height.
+        <p className="mt-3 flex min-w-0 items-center gap-1.5 text-xs leading-[17px] text-muted" data-account-line>
+          <span className="truncate" title={email}>
+            {t("deleteAccount.signedInAs", { email })}
+          </span>
+          <span aria-hidden>·</span>
+          <button type="button" onClick={onDelete} className="shrink-0 font-medium hover:text-ink">
+            {t("deleteAccount.open")}
+          </button>
         </p>
       ) : (
         <p className="mt-3 text-xs leading-[17px] text-muted">{t("supporter.paddleHint")}</p>

@@ -1190,7 +1190,9 @@
       "fresh_sign_in": "コードが古すぎます",
       "review_account": "アプリ審査用のアカウントです",
       "no_paid_time": "支払い済み期間が残っていません",
-      "payments_not_stopped": "支払いを停止できませんでした"
+      "payments_not_stopped": "支払いを停止できませんでした",
+      "payment_pending": "支払いがまだ処理中です",
+      "deletion_unknown": "応答が届きませんでした"
     },
     "code": {
       "not_found": "もう存在しません。その間に削除された可能性があります。",
@@ -1227,7 +1229,9 @@
       "fresh_sign_in": "10 分以内に送られたコードが必要です。新しいコードを送ってください。",
       "review_account": "このアカウントはアプリ審査用のため、削除できません。",
       "no_paid_time": "支払い済み期間が残っていないため、アカウントは今すぐ削除するしかありません。",
-      "payments_not_stopped": "支払いを停止できなかったため、何も削除していません。もう一度お試しください。"
+      "payments_not_stopped": "支払いを停止できなかったため、何も削除していません。もう一度お試しください。",
+      "payment_pending": "支払いがまだ処理中です。しばらくしてからもう一度お試しください。",
+      "deletion_unknown": "アカウントが削除されたかどうかまだわかりません。もう一度確認してください。"
     }
   },
   "tray": {
@@ -1429,7 +1433,16 @@
     "failedTitle": "支払いを停止できませんでした",
     "failedText": "何も削除されておらず、アカウントはそのままです。接続を確認して、もう一度お試しください。",
     "notDeletedTitle": "アカウントは削除されていません",
-    "scheduledLine": "アカウントは {{date}} に削除されます"
+    "scheduledLine": "アカウントは {{date}} に削除されます",
+    "codeTextContinue": "{{email}} に 6 桁のコードを送りました。入力して続けてください。",
+    "confirmNow": "アカウントを今すぐ削除します。元に戻すことはできません。",
+    "confirmLater": "アカウントは {{date}} に削除されます。それまで Supporter は使えます。",
+    "stillThere": "アカウントはまだあります。何も削除されていません。",
+    "unknownTitle": "削除を確認できませんでした",
+    "unknownText": "応答が届かなかったため、アカウントが削除されたかどうかまだわかりません。もう一度確認してください。",
+    "checkAgain": "もう一度確認",
+    "deleteNowInstead": "今すぐ削除する",
+    "signedInAs": "{{email}} でサインイン中"
   },
   "plan": {
     "already": "すでに Supporter です",

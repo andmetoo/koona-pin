@@ -1346,7 +1346,9 @@
       "fresh_sign_in": "o código é antigo demais",
       "review_account": "é a conta de revisão do app",
       "no_paid_time": "não resta tempo pago",
-      "payments_not_stopped": "não foi possível parar os pagamentos"
+      "payments_not_stopped": "não foi possível parar os pagamentos",
+      "payment_pending": "um pagamento ainda está sendo processado",
+      "deletion_unknown": "a resposta não chegou"
     },
     "code": {
       "not_found": "Não existe mais — talvez tenha sido excluído nesse meio-tempo.",
@@ -1383,7 +1385,9 @@
       "fresh_sign_in": "É preciso um código enviado nos últimos 10 minutos. Envie um novo código.",
       "review_account": "Esta conta é usada na revisão do app e não pode ser excluída.",
       "no_paid_time": "Não resta tempo pago, então a conta só pode ser excluída agora.",
-      "payments_not_stopped": "Não foi possível parar os pagamentos, então nada foi excluído. Tente de novo."
+      "payments_not_stopped": "Não foi possível parar os pagamentos, então nada foi excluído. Tente de novo.",
+      "payment_pending": "Um pagamento ainda está sendo processado. Tente mais tarde.",
+      "deletion_unknown": "Ainda não sabemos se sua conta foi excluída. Verifique de novo."
     }
   },
   "tray": {
@@ -1635,7 +1639,16 @@
     "failedTitle": "Não foi possível parar os pagamentos",
     "failedText": "Nada foi excluído, e sua conta continua como estava. Verifique a conexão e tente de novo.",
     "notDeletedTitle": "Conta não excluída",
-    "scheduledLine": "A conta será excluída em {{date}}"
+    "scheduledLine": "A conta será excluída em {{date}}",
+    "codeTextContinue": "Enviamos um código de 6 dígitos para {{email}}. Digite-o para continuar.",
+    "confirmNow": "Sua conta será excluída agora. Isso não pode ser desfeito.",
+    "confirmLater": "Sua conta será excluída em {{date}}. O Supporter funciona até lá.",
+    "stillThere": "Sua conta ainda existe. Nada foi excluído.",
+    "unknownTitle": "Não conseguimos confirmar a exclusão",
+    "unknownText": "A resposta não chegou, então ainda não sabemos se sua conta foi excluída. Verifique de novo.",
+    "checkAgain": "Verificar de novo",
+    "deleteNowInstead": "Excluir agora",
+    "signedInAs": "Conectado como {{email}}"
   },
   "plan": {
     "already": "Já sou Supporter",

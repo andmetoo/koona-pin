@@ -336,13 +336,16 @@ const native = {
   verifySignInCode: (email: string, code: string) => call<SupporterStatus>("verify_sign_in_code", { email, code }),
   signOutSupporter: () => call<SupporterStatus>("sign_out_supporter"),
   // Deleting the account (billing/deletion.rs): each action needs a sign-in by email code within ten
-  // minutes; `code` signs in afresh first, null uses the sign-in here (`fresh_sign_in` when too old).
+  // minutes, which the server checks; `code` signs in afresh first, null tries the sign-in here
+  // (`fresh_sign_in` when it is too old, or one the server minted).
   /** A code to the account's email, which is returned. */
   sendAccountCode: () => call<string>("send_account_code"),
   /** What the server knows: paid time left, a deletion already scheduled. */
   getAccountDeletion: (code: string | null) => call<DeleteInfo>("get_account_deletion", { code }),
-  /** Now, or at the end of the paid period; deleted now, this device signs out and sync goes off. */
-  deleteAccount: (code: string | null, when: DeleteWhen) => call<DeleteOutcome>("delete_account", { code, when }),
+  /** Now, or at the end of the paid period, with the fresh sign-in here; deleted now, this device signs out and sync goes off. */
+  deleteAccount: (when: DeleteWhen) => call<DeleteOutcome>("delete_account", { when }),
+  /** After `deletion_unknown`: what became of the account; one the server no longer knows was deleted. */
+  checkAccountDeletion: () => call<DeleteOutcome>("check_account_deletion"),
   /** «Keep my account»: a scheduled deletion is cancelled; payments stay stopped. */
   keepAccount: (code: string | null) => call<DeleteOutcome>("keep_account", { code }),
   // Supporter through Google Play Billing (NP-154): registered in the Play build only, where

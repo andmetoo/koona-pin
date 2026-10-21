@@ -1346,7 +1346,9 @@
       "fresh_sign_in": "il codice è troppo vecchio",
       "review_account": "è l’account per la revisione dell’app",
       "no_paid_time": "non resta tempo pagato",
-      "payments_not_stopped": "non è stato possibile fermare i pagamenti"
+      "payments_not_stopped": "non è stato possibile fermare i pagamenti",
+      "payment_pending": "un pagamento è ancora in elaborazione",
+      "deletion_unknown": "la risposta non è arrivata"
     },
     "code": {
       "not_found": "Non esiste più: forse è stato eliminato nel frattempo.",
@@ -1383,7 +1385,9 @@
       "fresh_sign_in": "Serve un codice inviato negli ultimi 10 minuti. Invia un nuovo codice.",
       "review_account": "Questo account serve alla revisione dell’app e non può essere eliminato.",
       "no_paid_time": "Non resta tempo pagato, quindi l’account può essere eliminato solo ora.",
-      "payments_not_stopped": "Non è stato possibile fermare i pagamenti, quindi non è stato eliminato nulla. Riprova."
+      "payments_not_stopped": "Non è stato possibile fermare i pagamenti, quindi non è stato eliminato nulla. Riprova.",
+      "payment_pending": "Un pagamento è ancora in elaborazione. Riprova più tardi.",
+      "deletion_unknown": "Non sappiamo ancora se il tuo account è stato eliminato. Controlla di nuovo."
     }
   },
   "tray": {
@@ -1635,7 +1639,16 @@
     "failedTitle": "Impossibile fermare i pagamenti",
     "failedText": "Non è stato eliminato nulla e il tuo account resta com’era. Controlla la connessione e riprova.",
     "notDeletedTitle": "Account non eliminato",
-    "scheduledLine": "L’account sarà eliminato il {{date}}"
+    "scheduledLine": "L’account sarà eliminato il {{date}}",
+    "codeTextContinue": "Abbiamo inviato un codice di 6 cifre a {{email}}. Inseriscilo per continuare.",
+    "confirmNow": "Il tuo account sarà eliminato ora. Non si può annullare.",
+    "confirmLater": "Il tuo account sarà eliminato il {{date}}. Supporter funziona fino ad allora.",
+    "stillThere": "Il tuo account c’è ancora. Non è stato eliminato nulla.",
+    "unknownTitle": "Impossibile confermare l’eliminazione",
+    "unknownText": "La risposta non è arrivata, quindi non sappiamo ancora se il tuo account è stato eliminato. Controlla di nuovo.",
+    "checkAgain": "Controlla di nuovo",
+    "deleteNowInstead": "Elimina subito",
+    "signedInAs": "Accesso come {{email}}"
   },
   "plan": {
     "already": "Sono già Supporter",

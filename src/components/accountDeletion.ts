@@ -1,8 +1,9 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import type { DeleteWhen, Plan, SupporterStatus } from "../types";
+import type { DeleteInfo, DeleteOutcome, DeleteWhen, Plan, SupporterStatus } from "../types";
 import { api } from "../services/api";
+import { capabilities } from "../platform/capabilities";
 import { toCommandError } from "../services/errors";
 import { failureText, useResendWait } from "./supporterFlow";
 
@@ -10,27 +11,56 @@ import { failureText, useResendWait } from "./supporterFlow";
 // (./AccountDeletionDialog.tsx) and the phone's sheet (src/shell/phone/supporter) draw it.
 
 /**
- * The steps (frames D2–D7): what is deleted and what stays → when, only while paid time is left →
- * the code sent to the account's email → done (deleted), or the date it will be (scheduled) with
- * «Keep my account» → kept. `failed` is a deletion the server refused after the code (payments not
- * stopped, no connection): nothing was deleted, Try again.
+ * The steps (frames D2–D7):
+ * - `about`: what is deleted and what stays (D2). Its Continue asks the server with the sign-in
+ *   here: a fresh one goes on, an old one (or one the server minted) gets a code (`code`), the
+ *   review account hears at once that it is not deleted.
+ * - `when`: now or at the end of the paid period (D3), only when the server says paid time is left.
+ * - `confirm`: the one red «Delete account» (D4's button). Nothing is ever deleted from a Continue.
+ * - `deleted` (D5), `scheduled` (D6) with «Keep my account» and «Delete now instead», `kept`.
+ * - `failed`: the server refused and said so (payments not stopped, a payment still processing):
+ *   nothing was deleted (D7). `unknown`: the answer did not come, so «Check again» asks.
  */
-export type DeleteStep = "about" | "when" | "code" | "failed" | "deleted" | "scheduled" | "kept";
+export type DeleteStep = "about" | "code" | "when" | "confirm" | "failed" | "unknown" | "deleted" | "scheduled" | "kept";
 
-/** Paid time is left on this plan, so the account may stay until it ends (the server decides). */
-export const paidTimeLeft = (plan: Plan | null, now = Date.now()) => !!plan && new Date(plan.valid_until).getTime() > now;
+/** What the failed step says: payments not stopped (D7), a payment still processing, another refusal. */
+export type DeleteFailure = "payments" | "pending" | "other";
 
+/** What the code proves: deleting (after it, the choice), keeping a scheduled deletion, deleting it now instead. */
+type Purpose = "delete" | "keep" | "now";
 
-/** Errors a code step shows on its field: the code itself, or a sign-in too old for the server. */
+/** The sentence about Google Play: only for a Google Play subscription, in the Play build (D2). */
+export const cancelsPlay = (plan: Plan | null) => capabilities.purchase === "play" && plan?.store === "play" && plan.interval !== "five_years";
+
 /** What a failure says here: the deletion's own reasons first (payments is a server failure that has words). */
 function deletionFailure(error: unknown, t: TFunction): string {
   const detail = toCommandError(error).detail;
-  if (detail === "payments_not_stopped" || detail === "fresh_sign_in" || detail === "review_account" || detail === "no_paid_time")
+  if (
+    detail === "payments_not_stopped" ||
+    detail === "payment_pending" ||
+    detail === "fresh_sign_in" ||
+    detail === "review_account" ||
+    detail === "no_paid_time" ||
+    detail === "deletion_unknown"
+  )
     return t(`errors.detail.${detail}`);
   return failureText(error, t);
 }
 
-const onCodeStep = (detail: string | undefined) => detail === "wrong_code" || detail === "too_many_messages" || detail === "fresh_sign_in";
+/**
+ * Arrow keys move the choice of a radio group, as native radios do; the chosen one is the group's
+ * one Tab stop (`tabIndex` of each radio).
+ */
+export function radioKeys<T extends string>(values: readonly T[], current: T, choose: (value: T) => void) {
+  return (event: KeyboardEvent<HTMLElement>) => {
+    const step = event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : event.key === "ArrowUp" || event.key === "ArrowLeft" ? -1 : 0;
+    if (!step) return;
+    event.preventDefault();
+    const index = (values.indexOf(current) + step + values.length) % values.length;
+    choose(values[index]);
+    event.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]')[index]?.focus();
+  };
+}
 
 export function useAccountDeletion({ supporter }: { supporter: SupporterStatus }) {
   const { t } = useTranslation();
@@ -40,137 +70,139 @@ export function useAccountDeletion({ supporter }: { supporter: SupporterStatus }
   const email = opened.current.email ?? "";
   const [step, setStep] = useState<DeleteStep>(supporter.delete_at ? "scheduled" : "about");
   const [deleteAt, setDeleteAt] = useState<string | null>(supporter.delete_at ?? null);
-  const [canWait, setCanWait] = useState(() => paidTimeLeft(plan));
-  const [waitUntil, setWaitUntil] = useState<string | null>(plan?.valid_until ?? null);
-  // The end of the paid period is chosen first (D3): the person keeps what they paid for.
-  const [when, setWhen] = useState<DeleteWhen>(() => (paidTimeLeft(plan) ? "period_end" : "now"));
-  /** What the code is for: deleting, or keeping a scheduled deletion. */
-  const [purpose, setPurpose] = useState<"delete" | "keep">("delete");
+  // The server's word (delete_info), never the plan here: a payment that failed has no time to wait.
+  const [canWait, setCanWait] = useState(false);
+  const [waitUntil, setWaitUntil] = useState<string | null>(null);
+  const [when, setWhen] = useState<DeleteWhen>("now");
+  const [purpose, setPurpose] = useState<Purpose>("delete");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<DeleteFailure>("other");
   const [busy, setBusy] = useState(false);
-  /** The failed step is about payments or the connection (D7), not another refusal (the review account). */
-  const [paymentsFailed, setPaymentsFailed] = useState(false);
-  /** A code worked in this dialog: the next actions go without one until the server says otherwise. */
-  const verified = useRef(false);
   const { wait, countdown } = useResendWait();
 
-  const run = async (action: () => Promise<void>) => {
+  /** Runs one request with the step busy; a failure goes to `fail` (by default: said on this step). */
+  const run = async (action: () => Promise<void>, fail: (err: unknown) => void | Promise<void> = (err) => setError(deletionFailure(err, t))) => {
     setBusy(true);
     setError(null);
     try {
       await action();
     } catch (err) {
-      setError(deletionFailure(err, t));
+      await fail(err);
     } finally {
       setBusy(false);
     }
   };
 
   /** Sends a code for `next` and opens its step. */
-  const askCode = async (next: "delete" | "keep") => {
+  const askCode = async (next: Purpose) => {
     await api.sendAccountCode();
     setPurpose(next);
     setCode("");
     setStep("code");
     countdown();
   };
-
-  /** A failure after the code: on the code step when it is about the code, else the failed step. */
-  const failed = (err: unknown) => {
-    const failure = toCommandError(err);
-    const detail = failure.detail;
-    setPaymentsFailed(detail === "payments_not_stopped" || failure.code === "network");
-    if (detail === "fresh_sign_in") verified.current = false;
-    if (detail === "fresh_sign_in") setCode("");
-    if (detail === "no_paid_time") {
-      // The paid period ended meanwhile: back to the choice, now only.
-      setCanWait(false);
-      setWhen("now");
-      setStep("about");
-    } else if (!onCodeStep(detail)) setStep("failed");
-    else setStep("code");
-    setError(deletionFailure(err, t));
-  };
-
-  /** The server's answer with `code` (or the fresh sign-in already here), then the deletion. */
-  const proceed = async (withCode: string | null) => {
-    setBusy(true);
-    setError(null);
+  /** A sign-in too old: a new code is sent at once (said if even that fails). */
+  const codeAgain = async (next: Purpose) => {
     try {
-      const info = await api.getAccountDeletion(withCode);
-      verified.current = true;
-      if (info.scheduled) {
-        // Scheduled elsewhere already (the web form, another device): said, with «Keep my account».
-        setDeleteAt(info.scheduled);
-        setStep("scheduled");
-        return;
-      }
-      setCanWait(info.can_wait);
-      setWaitUntil(info.wait_until);
-      if (when === "period_end" && !info.can_wait) {
-        setWhen("now");
-        setStep("about");
-        setError(t("errors.detail.no_paid_time"));
-        return;
-      }
-      const outcome = await api.deleteAccount(null, when);
-      if (outcome.status === "deleted") setStep("deleted");
-      else {
-        setDeleteAt(outcome.delete_at);
-        setStep("scheduled");
-      }
+      await askCode(next);
     } catch (err) {
-      failed(err);
-    } finally {
-      setBusy(false);
+      setError(deletionFailure(err, t));
     }
   };
+
+  /** The server's answer about the account: what comes next for `next`. */
+  const take = (info: DeleteInfo, next: Purpose) => {
+    setCanWait(info.can_wait);
+    setWaitUntil(info.wait_until);
+    if (next === "now") {
+      setWhen("now");
+      setStep("confirm");
+    } else if (info.scheduled) {
+      // Scheduled elsewhere already (the web form, another device): said, with «Keep my account».
+      setDeleteAt(info.scheduled);
+      setStep("scheduled");
+    } else {
+      // The end of the paid period is chosen first (D3): the person keeps what they paid for.
+      setWhen(info.can_wait ? "period_end" : "now");
+      setStep(info.can_wait ? "when" : "confirm");
+    }
+  };
+
+  /** Asks the server with the sign-in here; a code first when it is too old. */
+  const ask = (next: Purpose) =>
+    run(
+      async () => take(await api.getAccountDeletion(null), next),
+      async (err) => {
+        if (toCommandError(err).detail === "fresh_sign_in") await codeAgain(next);
+        else setError(deletionFailure(err, t));
+      },
+    );
+
+  const outcome = (result: DeleteOutcome) => {
+    if (result.status === "deleted") setStep("deleted");
+    else if (result.status === "scheduled") {
+      setDeleteAt(result.delete_at);
+      setStep("scheduled");
+    } else {
+      // Still there and nothing scheduled: the choice again, to delete with its red button.
+      setStep("confirm");
+      setError(t("deleteAccount.stillThere"));
+    }
+  };
+
+  /** The red «Delete account»: the one place an account is deleted from. */
+  const remove = () =>
+    run(
+      async () => outcome(await api.deleteAccount(when)),
+      async (err) => {
+        const detail = toCommandError(err).detail;
+        if (detail === "fresh_sign_in") await codeAgain(when === "now" && purpose === "now" ? "now" : "delete");
+        else if (detail === "no_paid_time") {
+          // The paid period ended meanwhile: deleting now is asked again, with its red button.
+          setCanWait(false);
+          setWhen("now");
+          setStep("confirm");
+          setError(t("errors.detail.no_paid_time"));
+        } else if (detail === "deletion_unknown") setStep("unknown");
+        else {
+          setFailure(detail === "payments_not_stopped" ? "payments" : detail === "payment_pending" ? "pending" : "other");
+          setStep("failed");
+          setError(deletionFailure(err, t));
+        }
+      },
+    );
+
+  /** «Check again» after an answer that did not come. */
+  const check = () => run(async () => outcome(await api.checkAccountDeletion()));
 
   /** «Keep my account»: without a code while the sign-in is fresh, else after one. */
-  const keep = async (withCode: string | null) => {
-    setBusy(true);
-    setError(null);
-    try {
-      await api.keepAccount(withCode);
-      verified.current = true;
-      setStep("kept");
-    } catch (err) {
-      const detail = toCommandError(err).detail;
-      if (detail === "fresh_sign_in" && withCode === null) {
-        try {
-          await askCode("keep");
-        } catch (sendError) {
-          setError(failureText(sendError, t));
-        }
-      } else if (onCodeStep(detail)) {
-        setStep("code");
-        setError(deletionFailure(err, t));
-      } else setError(deletionFailure(err, t));
-    } finally {
-      setBusy(false);
-    }
+  const keep = (withCode: string | null) =>
+    run(
+      async () => {
+        await api.keepAccount(withCode);
+        setStep("kept");
+      },
+      async (err) => {
+        if (toCommandError(err).detail === "fresh_sign_in" && withCode === null) await codeAgain("keep");
+        else setError(deletionFailure(err, t));
+      },
+    );
+
+  /** The code step's action: the server's answer with the new sign-in, then the next step. */
+  const confirm = () => {
+    if (purpose === "keep") return void keep(code);
+    void run(async () => take(await api.getAccountDeletion(code), purpose));
   };
 
-  /** On to the code, or straight on after a code that already worked. */
-  const toCode = () => (verified.current ? void proceed(null) : void run(() => askCode("delete")));
-  /** «Continue» of what happens: when, while paid time is left (D3), else the code (D4). */
-  const start = () => {
-    setError(null);
-    if (canWait) setStep("when");
-    else toCode();
-  };
-  /** The code step's action. */
-  const confirm = () => void (purpose === "keep" ? keep(code) : proceed(code));
-  const resend = () => void run(() => askCode(purpose));
-  /** Try again on the failed step: the sign-in is likely still fresh; if not, a new code. */
-  const retry = () => void proceed(null);
   /** The code as typed is whole: six digits. */
   const codeReady = code.replace(/\D/g, "").length >= 6;
-  /** Leaves the code step for the one before it. */
+  /** Back from a step to the one before it. */
   const back = () => {
     setError(null);
-    setStep(purpose === "keep" ? "scheduled" : canWait ? "when" : "about");
+    if (step === "code") setStep(purpose === "delete" ? "about" : "scheduled");
+    else if (step === "confirm") setStep(purpose === "now" ? "scheduled" : canWait ? "when" : "about");
+    else setStep("about");
   };
 
   return {
@@ -187,20 +219,25 @@ export function useAccountDeletion({ supporter }: { supporter: SupporterStatus }
     setCode,
     codeReady,
     error,
-    paymentsFailed,
+    failure,
     busy,
     wait,
-    start,
-    toCode,
-    /** «Back» of the choice of when. */
-    toAbout: () => {
+    /** Continue of what happens (D2). */
+    start: () => void ask("delete"),
+    /** Continue of the choice (D3): the red confirmation. */
+    toConfirm: () => {
       setError(null);
-      setStep("about");
+      setStep("confirm");
     },
     confirm,
-    resend,
-    retry,
+    remove: () => void remove(),
+    resend: () => void run(() => askCode(purpose)),
+    /** Try again on the failed step: the red action again. */
+    retry: () => void remove(),
+    check: () => void check(),
     back,
     keep: () => void keep(null),
+    /** «Delete now instead» of a scheduled deletion. */
+    deleteNow: () => void ask("now"),
   };
 }

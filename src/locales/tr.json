@@ -1268,7 +1268,9 @@
       "fresh_sign_in": "kod çok eski",
       "review_account": "uygulama incelemesi hesabı",
       "no_paid_time": "ödenmiş süre kalmadı",
-      "payments_not_stopped": "ödemeler durdurulamadı"
+      "payments_not_stopped": "ödemeler durdurulamadı",
+      "payment_pending": "bir ödeme hâlâ işleniyor",
+      "deletion_unknown": "yanıt gelmedi"
     },
     "code": {
       "not_found": "Artık yok — bu arada silinmiş olabilir.",
@@ -1305,7 +1307,9 @@
       "fresh_sign_in": "Son 10 dakika içinde gönderilmiş bir kod gerekiyor. Yeni bir kod gönderin.",
       "review_account": "Bu hesap uygulama incelemesi için kullanılır ve silinemez.",
       "no_paid_time": "Ödenmiş süre kalmadı, bu yüzden hesap yalnızca şimdi silinebilir.",
-      "payments_not_stopped": "Ödemeler durdurulamadı, bu yüzden hiçbir şey silinmedi. Yeniden deneyin."
+      "payments_not_stopped": "Ödemeler durdurulamadı, bu yüzden hiçbir şey silinmedi. Yeniden deneyin.",
+      "payment_pending": "Bir ödeme hâlâ işleniyor. Daha sonra yeniden deneyin.",
+      "deletion_unknown": "Hesabınızın silinip silinmediğini henüz bilmiyoruz. Yeniden kontrol edin."
     }
   },
   "tray": {
@@ -1532,7 +1536,16 @@
     "failedTitle": "Ödemeler durdurulamadı",
     "failedText": "Hiçbir şey silinmedi ve hesabınız olduğu gibi duruyor. Bağlantınızı kontrol edip yeniden deneyin.",
     "notDeletedTitle": "Hesap silinmedi",
-    "scheduledLine": "Hesap {{date}} tarihinde silinecek"
+    "scheduledLine": "Hesap {{date}} tarihinde silinecek",
+    "codeTextContinue": "{{email}} adresine 6 haneli bir kod gönderdik. Devam etmek için kodu girin.",
+    "confirmNow": "Hesabınız şimdi silinecek. Bu geri alınamaz.",
+    "confirmLater": "Hesabınız {{date}} tarihinde silinecek. Supporter o zamana kadar çalışır.",
+    "stillThere": "Hesabınız hâlâ duruyor. Hiçbir şey silinmedi.",
+    "unknownTitle": "Silme doğrulanamadı",
+    "unknownText": "Yanıt gelmedi, bu yüzden hesabınızın silinip silinmediğini henüz bilmiyoruz. Yeniden kontrol edin.",
+    "checkAgain": "Yeniden kontrol et",
+    "deleteNowInstead": "Hemen sil",
+    "signedInAs": "{{email}} olarak oturum açık"
   },
   "plan": {
     "already": "Zaten Supporter’ım",

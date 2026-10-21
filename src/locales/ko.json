@@ -1190,7 +1190,9 @@
       "fresh_sign_in": "코드가 너무 오래되었습니다",
       "review_account": "앱 심사용 계정입니다",
       "no_paid_time": "남은 결제 기간이 없습니다",
-      "payments_not_stopped": "결제를 중지할 수 없었습니다"
+      "payments_not_stopped": "결제를 중지할 수 없었습니다",
+      "payment_pending": "결제가 아직 처리 중입니다",
+      "deletion_unknown": "응답이 오지 않았습니다"
     },
     "code": {
       "not_found": "더 이상 존재하지 않습니다. 그사이 삭제되었을 수 있습니다.",
@@ -1227,7 +1229,9 @@
       "fresh_sign_in": "최근 10분 안에 보낸 코드가 필요합니다. 새 코드를 보내세요.",
       "review_account": "이 계정은 앱 심사에 쓰이므로 삭제할 수 없습니다.",
       "no_paid_time": "남은 결제 기간이 없어 계정은 지금만 삭제할 수 있습니다.",
-      "payments_not_stopped": "결제를 중지할 수 없어 아무것도 삭제하지 않았습니다. 다시 시도하세요."
+      "payments_not_stopped": "결제를 중지할 수 없어 아무것도 삭제하지 않았습니다. 다시 시도하세요.",
+      "payment_pending": "결제가 아직 처리 중입니다. 나중에 다시 시도하세요.",
+      "deletion_unknown": "계정이 삭제되었는지 아직 알 수 없습니다. 다시 확인하세요."
     }
   },
   "tray": {
@@ -1429,7 +1433,16 @@
     "failedTitle": "결제를 중지할 수 없었습니다",
     "failedText": "아무것도 삭제되지 않았고 계정은 그대로입니다. 연결을 확인하고 다시 시도하세요.",
     "notDeletedTitle": "계정이 삭제되지 않음",
-    "scheduledLine": "계정 삭제 예정: {{date}}"
+    "scheduledLine": "계정 삭제 예정: {{date}}",
+    "codeTextContinue": "{{email}} 주소로 6자리 코드를 보냈습니다. 입력하고 계속하세요.",
+    "confirmNow": "계정이 지금 삭제됩니다. 되돌릴 수 없습니다.",
+    "confirmLater": "계정은 {{date}}에 삭제됩니다. 그때까지 Supporter를 사용할 수 있습니다.",
+    "stillThere": "계정이 아직 있습니다. 아무것도 삭제되지 않았습니다.",
+    "unknownTitle": "삭제를 확인할 수 없었습니다",
+    "unknownText": "응답이 오지 않아 계정이 삭제되었는지 아직 알 수 없습니다. 다시 확인하세요.",
+    "checkAgain": "다시 확인",
+    "deleteNowInstead": "지금 바로 삭제",
+    "signedInAs": "로그인 계정: {{email}}"
   },
   "plan": {
     "already": "이미 Supporter입니다",

@@ -1268,7 +1268,9 @@
       "fresh_sign_in": "der Code ist zu alt",
       "review_account": "es ist das Konto für die App-Prüfung",
       "no_paid_time": "keine bezahlte Zeit ist übrig",
-      "payments_not_stopped": "die Zahlungen konnten nicht beendet werden"
+      "payments_not_stopped": "die Zahlungen konnten nicht beendet werden",
+      "payment_pending": "eine Zahlung wird noch verarbeitet",
+      "deletion_unknown": "die Antwort kam nicht an"
     },
     "code": {
       "not_found": "Es existiert nicht mehr — vielleicht wurde es inzwischen gelöscht.",
@@ -1305,7 +1307,9 @@
       "fresh_sign_in": "Dafür ist ein Code aus den letzten 10 Minuten nötig. Senden Sie einen neuen Code.",
       "review_account": "Dieses Konto dient der App-Prüfung und kann nicht gelöscht werden.",
       "no_paid_time": "Es ist keine bezahlte Zeit übrig, daher kann das Konto nur jetzt gelöscht werden.",
-      "payments_not_stopped": "Die Zahlungen konnten nicht beendet werden, daher wurde nichts gelöscht. Versuchen Sie es erneut."
+      "payments_not_stopped": "Die Zahlungen konnten nicht beendet werden, daher wurde nichts gelöscht. Versuchen Sie es erneut.",
+      "payment_pending": "Eine Zahlung wird noch verarbeitet. Versuchen Sie es später erneut.",
+      "deletion_unknown": "Wir wissen noch nicht, ob Ihr Konto gelöscht wurde. Prüfen Sie es erneut."
     }
   },
   "tray": {
@@ -1532,7 +1536,16 @@
     "failedTitle": "Zahlungen konnten nicht beendet werden",
     "failedText": "Es wurde nichts gelöscht, Ihr Konto bleibt, wie es war. Prüfen Sie die Verbindung und versuchen Sie es erneut.",
     "notDeletedTitle": "Konto nicht gelöscht",
-    "scheduledLine": "Konto wird am {{date}} gelöscht"
+    "scheduledLine": "Konto wird am {{date}} gelöscht",
+    "codeTextContinue": "Wir haben einen 6-stelligen Code an {{email}} gesendet. Geben Sie ihn ein, um fortzufahren.",
+    "confirmNow": "Ihr Konto wird jetzt gelöscht. Das lässt sich nicht rückgängig machen.",
+    "confirmLater": "Ihr Konto wird am {{date}} gelöscht. Supporter funktioniert bis dahin.",
+    "stillThere": "Ihr Konto besteht noch. Es wurde nichts gelöscht.",
+    "unknownTitle": "Löschung nicht bestätigt",
+    "unknownText": "Die Antwort kam nicht an, daher wissen wir noch nicht, ob Ihr Konto gelöscht wurde. Prüfen Sie es erneut.",
+    "checkAgain": "Erneut prüfen",
+    "deleteNowInstead": "Stattdessen jetzt löschen",
+    "signedInAs": "Angemeldet als {{email}}"
   },
   "plan": {
     "already": "Ich bin schon Supporter",

@@ -1070,7 +1070,7 @@ mod tests {
     #[test]
     fn a_bound_purchase_brings_its_plan_for_the_account_it_was_asked_for() {
         let (signed, key) = lease("\"play\"");
-        let paid = || Verdict { state: PlayState::Paid, answer: Some(Answer { has_plan: true, lease: Some(signed.clone()) }) };
+        let paid = || Verdict { state: PlayState::Paid, answer: Some(Answer { has_plan: true, lease: Some(signed.clone()), delete_at: None }) };
         let now = at("2026-10-20T12:05:00Z");
         let mut stored = Stored { session: Some(anna()), ..Stored::default() };
         stored.add_play(checkout("s1", "2026-10-20T12:00:00Z"));
@@ -1090,7 +1090,7 @@ mod tests {
         // Already a Supporter: the plan they have, and Play refunds this purchase.
         let mut again = Stored { session: Some(anna()), ..Stored::default() };
         again.add_play(checkout("s2", "2026-10-20T12:00:00Z"));
-        let refunded = Verdict { state: PlayState::AlreadySupporter, answer: Some(Answer { has_plan: true, lease: Some(signed.clone()) }) };
+        let refunded = Verdict { state: PlayState::AlreadySupporter, answer: Some(Answer { has_plan: true, lease: Some(signed.clone()), delete_at: None }) };
         assert_eq!(again.take_play_answer("s2", refunded, Some("anna@example.com"), &key, now), Some(PlayState::AlreadySupporter));
         assert!(again.play.is_empty() && again.plan.is_some());
     }

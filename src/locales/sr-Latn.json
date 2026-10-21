@@ -1360,7 +1360,9 @@
       "fresh_sign_in": "kod je prestar",
       "review_account": "to je nalog za pregled aplikacije",
       "no_paid_time": "nije ostalo plaćenog vremena",
-      "payments_not_stopped": "plaćanja nije bilo moguće zaustaviti"
+      "payments_not_stopped": "plaćanja nije bilo moguće zaustaviti",
+      "payment_pending": "plaćanje se još obrađuje",
+      "deletion_unknown": "odgovor nije stigao"
     },
     "code": {
       "not_found": "Više ne postoji — možda je u međuvremenu obrisano.",
@@ -1397,7 +1399,9 @@
       "fresh_sign_in": "Potreban je kod poslat u poslednjih 10 minuta. Pošaljite novi kod.",
       "review_account": "Ovaj nalog služi za pregled aplikacije i ne može da se obriše.",
       "no_paid_time": "Nije ostalo plaćenog vremena, pa nalog može da se obriše samo sada.",
-      "payments_not_stopped": "Plaćanja nije bilo moguće zaustaviti, pa ništa nije obrisano. Pokušajte ponovo."
+      "payments_not_stopped": "Plaćanja nije bilo moguće zaustaviti, pa ništa nije obrisano. Pokušajte ponovo.",
+      "payment_pending": "Plaćanje se još obrađuje. Pokušajte kasnije.",
+      "deletion_unknown": "Još ne znamo da li je nalog obrisan. Proverite ponovo."
     }
   },
   "tray": {
@@ -1649,7 +1653,16 @@
     "failedTitle": "Plaćanja nije bilo moguće zaustaviti",
     "failedText": "Ništa nije obrisano i vaš nalog je ostao kakav je bio. Proverite vezu i pokušajte ponovo.",
     "notDeletedTitle": "Nalog nije obrisan",
-    "scheduledLine": "Nalog će biti obrisan {{date}}"
+    "scheduledLine": "Nalog će biti obrisan {{date}}",
+    "codeTextContinue": "Poslali smo šestocifreni kod na {{email}}. Unesite ga da biste nastavili.",
+    "confirmNow": "Vaš nalog će sada biti obrisan. To ne može da se poništi.",
+    "confirmLater": "Vaš nalog će biti obrisan {{date}}. Supporter radi do tada.",
+    "stillThere": "Vaš nalog je i dalje tu. Ništa nije obrisano.",
+    "unknownTitle": "Brisanje nije potvrđeno",
+    "unknownText": "Odgovor nije stigao, pa još ne znamo da li je nalog obrisan. Proverite ponovo.",
+    "checkAgain": "Proveri ponovo",
+    "deleteNowInstead": "Obriši odmah",
+    "signedInAs": "Prijavljeni ste kao {{email}}"
   },
   "plan": {
     "already": "Već sam Supporter",

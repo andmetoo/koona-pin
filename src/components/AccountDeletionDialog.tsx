@@ -1,32 +1,39 @@
 import type { ReactNode } from "react";
 import { Check, Heart, TriangleAlert, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { SupporterStatus } from "../types";
-import { capabilities } from "../platform/capabilities";
-import { useAccountDeletion, type DeleteStep } from "./accountDeletion";
+import type { DeleteWhen, SupporterStatus } from "../types";
+import { cancelsPlay, radioKeys, useAccountDeletion, type DeleteStep } from "./accountDeletion";
 import { Icon } from "./icons";
 import { longDate } from "./supporterFlow";
 import { Button } from "./ui/Button";
 import { Field, StatePanels } from "./ui/Controls";
 import { Dialog } from "./ui/Dialog";
 
-const STEPS = ["about", "when", "code", "failed", "deleted", "scheduled", "kept"] as const satisfies readonly DeleteStep[];
+const STEPS = ["about", "code", "when", "confirm", "failed", "unknown", "deleted", "scheduled", "kept"] as const satisfies readonly DeleteStep[];
+const TIMES = ["now", "period_end"] as const satisfies readonly DeleteWhen[];
 const LONG_EMAIL = "someone.with.a.long.address@example.com";
+/** The one destructive button is red (D4), the owner's exception to red for errors. */
+const RED = "!bg-danger !text-on-accent";
 
 /**
  * «Delete account» (Google Play's rule, and the owner's), the phone's frames D2–D7 on a desktop: what
- * is deleted and what stays — the library on this computer included — then when, only while paid
- * time is left, then a code sent to the account's email and the one red button. Then the account is
- * gone (signed out here, sync off), or the date it will be with «Keep my account». One height for
- * every step, as the Supporter dialogs.
+ * is deleted and what stays — the library on this computer included — then, with a sign-in by code
+ * when the one here is too old, when (only while the server says paid time is left), then the one
+ * red button. Then the account is gone (signed out here, sync off), or the date it will be with
+ * «Keep my account». One height for every step, as the Supporter dialogs.
  */
 export function AccountDeletionDialog({ supporter, onClose }: { supporter: SupporterStatus; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const flow = useAccountDeletion({ supporter });
-  const { step, email, plan, waitUntil, when, setWhen, purpose, deleteAt, code, setCode, codeReady, error, paymentsFailed, busy, wait } = flow;
+  const { step, email, plan, waitUntil, when, setWhen, purpose, deleteAt, code, setCode, codeReady, error, failure: failed, busy, wait } = flow;
   const date = (iso: string | null) => (iso ? longDate(iso, i18n.language) : "");
   const sizingDate = date(new Date(Date.UTC(2027, 8, 30)).toISOString());
   const footer = (children: ReactNode) => <footer className="mt-auto flex items-center justify-end gap-2 pt-5">{children}</footer>;
+  const backButton = (
+    <Button variant="outline" size="lg" type="button" onClick={flow.back}>
+      {t("supporter.back")}
+    </Button>
+  );
 
   const aboutPanel = (failure: string | null, sizing: boolean) => (
     <div className="flex flex-1 flex-col">
@@ -41,9 +48,7 @@ export function AccountDeletionDialog({ supporter, onClose }: { supporter: Suppo
       </Group>
       {(plan || sizing) && (
         <p className="mt-4 text-sm text-muted">
-          {[t("deleteAccount.payments"), capabilities.purchase === "play" || sizing ? t("deleteAccount.paymentsPlay") : null, t("deleteAccount.refund")]
-            .filter(Boolean)
-            .join(" ")}
+          {[t("deleteAccount.payments"), cancelsPlay(plan) || sizing ? t("deleteAccount.paymentsPlay") : null, t("deleteAccount.refund")].filter(Boolean).join(" ")}
         </p>
       )}
       {failure && <FailureNote text={failure} live={!sizing} />}
@@ -60,36 +65,6 @@ export function AccountDeletionDialog({ supporter, onClose }: { supporter: Suppo
     </div>
   );
 
-  const whenPanel = (failure: string | null, sizing: boolean) => {
-    const until = sizing ? sizingDate : date(waitUntil);
-    return (
-      <div className="flex flex-1 flex-col">
-        <p className="text-sm text-muted">{t("deleteAccount.paidUntil", { date: until })}</p>
-        <div role="radiogroup" aria-label={sizing ? undefined : t("deleteAccount.whenTitle")} className="mt-4 flex flex-col gap-2">
-          <Choice checked={when === "now"} onSelect={() => setWhen("now")} name={t("deleteAccount.now")} hint={t("deleteAccount.nowHint")} />
-          <Choice
-            checked={when === "period_end"}
-            onSelect={() => setWhen("period_end")}
-            name={t("deleteAccount.periodEnd")}
-            hint={t("deleteAccount.periodEndHint", { date: until })}
-          />
-        </div>
-        <p className="mt-4 text-sm text-muted">{t("deleteAccount.eitherWay")}</p>
-        {failure && <FailureNote text={failure} live={!sizing} />}
-        {footer(
-          <>
-            <Button variant="outline" size="lg" onClick={flow.toAbout}>
-              {t("supporter.back")}
-            </Button>
-            <Button variant="primary" size="lg" autoFocus disabled={busy} onClick={flow.toCode}>
-              {t("deleteAccount.continue")}
-            </Button>
-          </>,
-        )}
-      </div>
-    );
-  };
-
   const codePanel = (failure: string | null, sizing: boolean) => {
     const keep = purpose === "keep" && !sizing;
     return (
@@ -100,7 +75,7 @@ export function AccountDeletionDialog({ supporter, onClose }: { supporter: Suppo
           flow.confirm();
         }}
       >
-        <p className="text-sm text-muted">{t(keep ? "deleteAccount.codeTextKeep" : "deleteAccount.codeText", { email: sizing ? LONG_EMAIL : email })}</p>
+        <p className="text-sm text-muted">{t(keep ? "deleteAccount.codeTextKeep" : "deleteAccount.codeTextContinue", { email: sizing ? LONG_EMAIL : email })}</p>
         <div className="mt-4">
           {sizing ? (
             <div className="flex flex-col gap-1.5">
@@ -138,12 +113,9 @@ export function AccountDeletionDialog({ supporter, onClose }: { supporter: Suppo
         </p>
         {footer(
           <>
-            <Button variant="outline" size="lg" type="button" onClick={flow.back}>
-              {t("supporter.back")}
-            </Button>
-            {/* The one destructive action is red (D4), the owner's exception to red for errors. */}
-            <Button variant="primary" size="lg" type="submit" disabled={busy || !codeReady} className={keep ? "" : "!bg-danger !text-on-accent"}>
-              {keep ? t("deleteAccount.keep") : t("deleteAccount.delete")}
+            {backButton}
+            <Button variant="primary" size="lg" type="submit" disabled={busy || !codeReady}>
+              {keep ? t("deleteAccount.keep") : t("deleteAccount.continue")}
             </Button>
           </>,
         )}
@@ -151,9 +123,54 @@ export function AccountDeletionDialog({ supporter, onClose }: { supporter: Suppo
     );
   };
 
+  const whenPanel = (failure: string | null, sizing: boolean) => {
+    const until = sizing ? sizingDate : date(waitUntil);
+    return (
+      <div className="flex flex-1 flex-col">
+        <p className="text-sm text-muted">{t("deleteAccount.paidUntil", { date: until })}</p>
+        <div role="radiogroup" aria-label={sizing ? undefined : t("deleteAccount.whenTitle")} onKeyDown={radioKeys(TIMES, when, setWhen)} className="mt-4 flex flex-col gap-2">
+          <Choice checked={when === "now"} onSelect={() => setWhen("now")} name={t("deleteAccount.now")} hint={t("deleteAccount.nowHint")} />
+          <Choice
+            checked={when === "period_end"}
+            onSelect={() => setWhen("period_end")}
+            name={t("deleteAccount.periodEnd")}
+            hint={t("deleteAccount.periodEndHint", { date: until })}
+          />
+        </div>
+        <p className="mt-4 text-sm text-muted">{t("deleteAccount.eitherWay")}</p>
+        {failure && <FailureNote text={failure} live={!sizing} />}
+        {footer(
+          <>
+            {backButton}
+            <Button variant="primary" size="lg" autoFocus disabled={busy} onClick={flow.toConfirm}>
+              {t("deleteAccount.continue")}
+            </Button>
+          </>,
+        )}
+      </div>
+    );
+  };
+
+  const confirmPanel = (failure: string | null, sizing: boolean) => (
+    <div className="flex flex-1 flex-col">
+      <p className="text-sm text-muted">
+        {when === "period_end" && !sizing ? t("deleteAccount.confirmLater", { date: date(waitUntil) }) : t("deleteAccount.confirmNow")}
+      </p>
+      {failure && <FailureNote text={failure} live={!sizing} />}
+      {footer(
+        <>
+          {backButton}
+          <Button variant="primary" size="lg" disabled={busy} onClick={flow.remove} className={RED}>
+            {t("deleteAccount.delete")}
+          </Button>
+        </>,
+      )}
+    </div>
+  );
+
   const failedPanel = (failure: string | null, sizing: boolean) => (
     <div className="flex flex-1 flex-col">
-      {paymentsFailed || sizing ? (
+      {failed === "payments" || sizing ? (
         <p role={sizing ? undefined : "alert"} className="text-sm text-muted">
           {t("deleteAccount.failedText")}
         </p>
@@ -167,6 +184,25 @@ export function AccountDeletionDialog({ supporter, onClose }: { supporter: Suppo
           </Button>
           <Button variant="primary" size="lg" autoFocus disabled={busy} onClick={flow.retry}>
             {t("common.retry")}
+          </Button>
+        </>,
+      )}
+    </div>
+  );
+
+  const unknownPanel = (failure: string | null, sizing: boolean) => (
+    <div className="flex flex-1 flex-col">
+      <p role={sizing ? undefined : "status"} className="text-sm text-muted">
+        {t("deleteAccount.unknownText")}
+      </p>
+      {failure && <FailureNote text={failure} live={!sizing} />}
+      {footer(
+        <>
+          <Button variant="outline" size="lg" onClick={onClose}>
+            {t("common.close")}
+          </Button>
+          <Button variant="primary" size="lg" autoFocus disabled={busy} onClick={flow.check}>
+            {t("deleteAccount.checkAgain")}
           </Button>
         </>,
       )}
@@ -202,6 +238,9 @@ export function AccountDeletionDialog({ supporter, onClose }: { supporter: Suppo
         {failure && <FailureNote text={failure} live={!sizing} />}
         {footer(
           <>
+            <button type="button" disabled={busy} onClick={flow.deleteNow} className="mr-auto text-sm font-medium text-muted hover:text-ink">
+              {t("deleteAccount.deleteNowInstead")}
+            </button>
             <Button variant="outline" size="lg" disabled={busy} onClick={flow.keep}>
               {t("deleteAccount.keep")}
             </Button>
@@ -223,9 +262,11 @@ export function AccountDeletionDialog({ supporter, onClose }: { supporter: Suppo
 
   const title = {
     about: t("deleteAccount.title"),
+    code: purpose === "keep" ? t("deleteAccount.keepCodeTitle") : t("supporter.codeTitle"),
     when: t("deleteAccount.whenTitle"),
-    code: purpose === "keep" ? t("deleteAccount.keepCodeTitle") : t("deleteAccount.codeTitle"),
-    failed: paymentsFailed ? t("deleteAccount.failedTitle") : t("deleteAccount.notDeletedTitle"),
+    confirm: t("deleteAccount.codeTitle"),
+    failed: failed === "payments" ? t("deleteAccount.failedTitle") : t("deleteAccount.notDeletedTitle"),
+    unknown: t("deleteAccount.unknownTitle"),
     deleted: t("deleteAccount.doneTitle"),
     scheduled: t("deleteAccount.scheduledTitle", { date: date(deleteAt) }),
     kept: t("deleteAccount.keptTitle"),
@@ -238,9 +279,11 @@ export function AccountDeletionDialog({ supporter, onClose }: { supporter: Suppo
           {(state, sizing) => {
             const failure = sizing ? t("errors.detail.payments_not_stopped") : error;
             if (state === "about") return aboutPanel(failure, sizing);
-            if (state === "when") return whenPanel(failure, sizing);
             if (state === "code") return codePanel(failure, sizing);
+            if (state === "when") return whenPanel(failure, sizing);
+            if (state === "confirm") return confirmPanel(failure, sizing);
             if (state === "failed") return failedPanel(failure, sizing);
+            if (state === "unknown") return unknownPanel(failure, sizing);
             if (state === "scheduled") return scheduledPanel(failure, sizing);
             if (state === "deleted") return textPanel(t("deleteAccount.doneTextComputer"), sizing);
             return textPanel(t("deleteAccount.keptText", { date: sizing ? sizingDate : date(deleteAt) }), sizing);
@@ -285,13 +328,14 @@ function FailureNote({ text, live, first = false }: { text: string; live: boolea
   );
 }
 
-/** One of the two times, as the plans' cards are chosen. */
+/** One of the two times, as the plans' cards are chosen; the chosen one is the group's Tab stop. */
 function Choice({ checked, onSelect, name, hint }: { checked: boolean; onSelect: () => void; name: string; hint: string }) {
   return (
     <button
       type="button"
       role="radio"
       aria-checked={checked}
+      tabIndex={checked ? 0 : -1}
       onClick={onSelect}
       className={`flex items-start gap-2.5 rounded-[10px] px-3.5 py-2.5 text-left transition-colors duration-150 ${
         checked ? "bg-accent-soft shadow-[inset_0_0_0_1.5px_var(--np-accent)]" : "border border-border bg-card hover:bg-hover"

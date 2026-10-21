@@ -1190,7 +1190,9 @@
       "fresh_sign_in": "验证码太旧",
       "review_account": "这是应用审核账户",
       "no_paid_time": "没有剩余的已付时间",
-      "payments_not_stopped": "无法停止付款"
+      "payments_not_stopped": "无法停止付款",
+      "payment_pending": "有一笔付款仍在处理中",
+      "deletion_unknown": "没有收到回复"
     },
     "code": {
       "not_found": "它已不存在 — 可能在此期间被删除了。",
@@ -1227,7 +1229,9 @@
       "fresh_sign_in": "需要 10 分钟内发送的验证码。请发送新的验证码。",
       "review_account": "此账户用于应用审核，无法删除。",
       "no_paid_time": "没有剩余的已付时间，因此只能立即删除账户。",
-      "payments_not_stopped": "无法停止付款，因此没有删除任何内容。请重试。"
+      "payments_not_stopped": "无法停止付款，因此没有删除任何内容。请重试。",
+      "payment_pending": "有一笔付款仍在处理中。请稍后重试。",
+      "deletion_unknown": "我们还不知道你的账户是否已删除。请再次检查。"
     }
   },
   "tray": {
@@ -1429,7 +1433,16 @@
     "failedTitle": "无法停止付款",
     "failedText": "没有删除任何内容，你的账户保持原样。请检查网络连接后重试。",
     "notDeletedTitle": "账户未删除",
-    "scheduledLine": "账户将在 {{date}} 删除"
+    "scheduledLine": "账户将在 {{date}} 删除",
+    "codeTextContinue": "我们已向 {{email}} 发送 6 位验证码。输入后继续。",
+    "confirmNow": "你的账户将立即删除，此操作无法撤销。",
+    "confirmLater": "你的账户将在 {{date}} 删除。在此之前 Supporter 照常可用。",
+    "stillThere": "你的账户仍然存在，没有删除任何内容。",
+    "unknownTitle": "无法确认删除结果",
+    "unknownText": "没有收到回复，因此我们还不知道你的账户是否已删除。请再次检查。",
+    "checkAgain": "再次检查",
+    "deleteNowInstead": "改为立即删除",
+    "signedInAs": "已登录为 {{email}}"
   },
   "plan": {
     "already": "我已是 Supporter",

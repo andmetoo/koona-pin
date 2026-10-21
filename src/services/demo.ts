@@ -480,7 +480,7 @@ function demoBecomeHub(status: SyncStatus, others: (d: SyncDevice) => SyncDevice
   };
 }
 /** The preview's sign-in by code for deleting the account: fresh once a code worked. */
-let demoDeletionFresh = false;
+let demoDeletionFresh = demoSwitch("koonapin.demo.deletionFresh") === "on";
 async function demoFreshSignIn(code: string | null) {
   await new Promise((resolve) => setTimeout(resolve, 300));
   noServer();
@@ -2805,15 +2805,16 @@ export const demo = {
   },
   // Deleting the account (billing/deletion.rs): any code but 000000 signs in afresh, and the actions
   // after it go without one, as within the server's ten minutes; before a code they answer
-  // `fresh_sign_in`. Payments failing (`payments_not_stopped`) is the tests' failOnce.
+  // `fresh_sign_in`, unless `koonapin.demo.deletionFresh` is "on" (a sign-in by code minutes ago).
+  // Payments failing, an answer that does not come and the review account are the tests' failOnce.
   async sendAccountCode(): Promise<string> {
     await new Promise((resolve) => setTimeout(resolve, 300));
     noServer();
     return currentDemoSupporter().email ?? "anna@example.com";
   },
   getAccountDeletion: demoDeletionInfo,
-  async deleteAccount(code: string | null, when: DeleteWhen): Promise<DeleteOutcome> {
-    const info = await demoDeletionInfo(code);
+  async deleteAccount(when: DeleteWhen): Promise<DeleteOutcome> {
+    const info = await demoDeletionInfo(null);
     if (when === "period_end" && !info.can_wait) throw new CommandError("invalid_request", "No paid time is left to wait for", "no_paid_time");
     if (when === "now") {
       demoDeletionFresh = false;
@@ -2823,6 +2824,14 @@ export const demo = {
     }
     setDemoSupporter({ ...currentDemoSupporter(), delete_at: info.wait_until! });
     return { status: "scheduled", delete_at: info.wait_until };
+  },
+  /** The account is gone once signed out by the deletion; else still there, or scheduled. */
+  async checkAccountDeletion(): Promise<DeleteOutcome> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    noServer();
+    const status = currentDemoSupporter();
+    if (!status.email) return { status: "deleted", delete_at: null };
+    return status.delete_at ? { status: "scheduled", delete_at: status.delete_at } : { status: "active", delete_at: null };
   },
   async keepAccount(code: string | null): Promise<DeleteOutcome> {
     await demoFreshSignIn(code);
