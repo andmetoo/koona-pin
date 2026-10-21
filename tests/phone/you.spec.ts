@@ -161,13 +161,14 @@ test("on the Fold, Layout moves the controls to the other side, and it stays", a
 
 // The rows of Settings with a value: the name keeps its width, the value takes what is left. In
 // Russian a long name meets a long value (the first Android report, "Синхронизаци-я"); in English
-// and Japanese short names reach their 60 % cap beside short values ("Sync · Off").
+// and Japanese short names reach their 60 % cap beside short values ("Sync · Off"). Japanese has no
+// spaces and wraps between any two characters, so only the spaced languages check whole words.
 const SETTINGS_ROWS = [
-  { language: "ru", settings: "Настройки", demo: { "demo.supporter": "free" }, sync: "Синхронизация", value: "С Supporter" },
-  { language: "en", settings: "Settings", demo: { "demo.supporter": "supporter", "demo.sync": "off" }, sync: "Sync", value: "Off" },
-  { language: "ja", settings: "設定", demo: { "demo.supporter": "supporter", "demo.sync": "off" }, sync: "同期", value: "オフ" },
+  { language: "ru", settings: "Настройки", demo: { "demo.supporter": "free" }, sync: "Синхронизация", value: "С Supporter", spaced: true },
+  { language: "en", settings: "Settings", demo: { "demo.supporter": "supporter", "demo.sync": "off" }, sync: "Sync", value: "Off", spaced: true },
+  { language: "ja", settings: "設定", demo: { "demo.supporter": "supporter", "demo.sync": "off" }, sync: "同期", value: "オフ", spaced: false },
 ];
-for (const { language, settings, demo, sync, value } of SETTINGS_ROWS) {
+for (const { language, settings, demo, sync, value, spaced } of SETTINGS_ROWS) {
   test(`Settings rows in ${language}: names whole, values wrap between words and keep to the edge`, async ({ page }) => {
     await openPhone(page, { settings: { language, ...demo } });
     await page.locator("[data-account]").first().click();
@@ -204,6 +205,6 @@ for (const { language, settings, demo, sync, value } of SETTINGS_ROWS) {
     );
     expect(rows.length).toBeGreaterThan(4);
     const [{ valueToChevron }] = rows;
-    for (const row of rows) expect(row, row.name ?? "").toMatchObject({ nameOneLine: true, wordsWhole: true, chevronAtEdge: true, valueToChevron });
+    for (const row of rows) expect(row, row.name ?? "").toMatchObject({ nameOneLine: true, wordsWhole: spaced || row.wordsWhole, chevronAtEdge: true, valueToChevron });
   });
 }
