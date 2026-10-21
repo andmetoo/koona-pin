@@ -235,10 +235,21 @@
   right: 0;
 }
 
-/* In both, a value too long for its side of the row (a longer language) wraps, right-aligned, and
-   the name keeps its longest word whole. */
+/* In both, a value too long for its side of the row (a longer language) wraps, right-aligned:
+   the name keeps its width (up to 60 % of the row) and the value takes what is left, wrapping
+   between words, so neither breaks a word ("Синхронизаци-я" on a phone). Only a value word wider
+   than all that is left breaks, rather than push the chevron out of the row. At the
+   accessibility sizes the value goes under the name (phone.css) and the name has the row. */
 .phone :is(.ys-shelf, .st-shelf) .ph-shelf-text {
   min-width: min-content;
+}
+.phone:not([data-text-large]) :is(.ys-shelf, .st-shelf) .ph-shelf-row:has(> .ph-shelf-detail) > .ph-shelf-text {
+  flex: 0 0 auto;
+  max-width: 60%;
+}
+/* The room the name leaves goes before the value, so every value and chevron keep to the edge. */
+.phone:not([data-text-large]) :is(.ys-shelf, .st-shelf) .ph-shelf-detail {
+  margin-left: auto;
 }
 .phone :is(.ys-shelf, .st-shelf) .ph-shelf-detail {
   flex: 0 1 auto;

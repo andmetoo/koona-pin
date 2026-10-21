@@ -21,8 +21,8 @@ export function scaledSizes(scale: number) {
   return {
     row: Math.max(ROW_HEIGHT, Math.round(24 + 64 * scale)),
     label: Math.round(28 + 18 * scale),
-    /** A grid card beside its picture: insets, gaps, three lines of title and the meta. */
-    cardText: Math.round(34 + 78 * scale),
+    /** A grid card beside its picture: the meta, two lines of title and the gaps around them. */
+    cardText: Math.round(20 + 56 * scale),
   };
 }
 

@@ -2084,6 +2084,8 @@
       "font": "Font",
       "lockedHint": "Paper and Sepia come with Supporter.",
       "sync": "Sync",
+      "syncFree": "With Supporter",
+      "syncOff": "Off",
       "syncNow": "Sync now",
       "devices": "Devices",
       "thisDevice": "This device",

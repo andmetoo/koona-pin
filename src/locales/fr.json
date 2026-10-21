@@ -2213,6 +2213,8 @@
       "font": "Police",
       "lockedHint": "Papier et Sépia viennent avec Supporter.",
       "sync": "Synchronisation",
+      "syncFree": "Avec Supporter",
+      "syncOff": "Désactivée",
       "syncNow": "Synchroniser",
       "devices": "Appareils",
       "thisDevice": "Cet appareil",

@@ -158,3 +158,53 @@ test("on the Fold, Layout moves the controls to the other side, and it stays", a
   await page.reload();
   await expect(page.locator("[data-phone]")).toHaveAttribute("data-hand", "left");
 });
+
+// The rows of Settings with a value: the name keeps its width, the value takes what is left. In
+// Russian a long name meets a long value (the first Android report, "Синхронизаци-я"); in English
+// and Japanese short names reach their 60 % cap beside short values ("Sync · Off"). Japanese has no
+// spaces and wraps between any two characters, so only the spaced languages check whole words.
+const SETTINGS_ROWS = [
+  { language: "ru", settings: "Настройки", demo: { "demo.supporter": "free" }, sync: "Синхронизация", value: "С Supporter", spaced: true },
+  { language: "en", settings: "Settings", demo: { "demo.supporter": "supporter", "demo.sync": "off" }, sync: "Sync", value: "Off", spaced: true },
+  { language: "ja", settings: "設定", demo: { "demo.supporter": "supporter", "demo.sync": "off" }, sync: "同期", value: "オフ", spaced: false },
+];
+for (const { language, settings, demo, sync, value, spaced } of SETTINGS_ROWS) {
+  test(`Settings rows in ${language}: names whole, values wrap between words and keep to the edge`, async ({ page }) => {
+    await openPhone(page, { settings: { language, ...demo } });
+    await page.locator("[data-account]").first().click();
+    await page.getByRole("button", { name: settings, exact: true }).click();
+    const list = topScreen(page);
+    // The sync row's name already says it: its value is short.
+    await expect(list.locator(".ph-shelf-row", { hasText: sync }).first().locator(".ph-shelf-detail")).toHaveText(value);
+    const rows = await list.locator(".st-shelf .ph-shelf-row:has(> .ph-shelf-detail)").evaluateAll((all) =>
+      all.map((row) => {
+        const title = row.querySelector(".ph-shelf-title")!;
+        const detail = row.querySelector(".ph-shelf-detail")!;
+        // The value's longest word, laid out alone: the value is never narrower than it.
+        const probe = document.createElement("span");
+        probe.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap;font:inherit";
+        detail.append(probe);
+        const widest = Math.max(
+          ...(detail.textContent ?? "").trim().split(/\s+/).map((word) => {
+            probe.textContent = word;
+            return probe.getBoundingClientRect().width;
+          }),
+        );
+        probe.remove();
+        const line = parseFloat(getComputedStyle(title).lineHeight);
+        const chevron = row.lastElementChild!.getBoundingClientRect();
+        return {
+          name: title.textContent,
+          nameOneLine: title.getBoundingClientRect().height <= line + 1,
+          wordsWhole: detail.getBoundingClientRect().width + 0.5 >= widest,
+          // The chevron at the row's padding, the value beside it: the same on every row.
+          chevronAtEdge: Math.round(row.getBoundingClientRect().right - chevron.right) === Math.round(parseFloat(getComputedStyle(row).paddingRight)),
+          valueToChevron: Math.round(chevron.left - detail.getBoundingClientRect().right),
+        };
+      }),
+    );
+    expect(rows.length).toBeGreaterThan(4);
+    const [{ valueToChevron }] = rows;
+    for (const row of rows) expect(row, row.name ?? "").toMatchObject({ nameOneLine: true, wordsWhole: spaced || row.wordsWhole, chevronAtEdge: true, valueToChevron });
+  });
+}

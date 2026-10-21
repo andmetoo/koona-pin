@@ -315,13 +315,17 @@
   background: rgb(58 58 55 / 0.94);
 }
 
-/* The fallback: opaque paper and a hairline, the same radius, shadow and layout. For Reduce
+/* The fallback: an opaque slab and a hairline, the same radius, shadow and layout. For Reduce
    Transparency, a WebView without backdrop-filter, and `data-glass="flat"` on the root, which the
    shell sets for Android's battery saver and slow devices. The rules are spelled three times:
-   a selector cannot sit inside @media and @supports at once. */
+   a selector cannot sit inside @media and @supports at once. The slab is the raised token (paper
+   in light, a step above it in dark), so a screen that repaints the tokens (the reader's chosen
+   theme) repaints its glass too. Each block repeats the slab under `[data-theme="dark"]` with the
+   same value on purpose: the dark theme's translucent glass above is as specific as the plain
+   rule, and only the theme in the selector outranks it whatever the order. */
 .phone[data-glass="flat"] .ph-glass,
 .phone[data-glass="flat"] .ph-glass-sheet {
-  background: var(--ph-paper);
+  background: var(--ph-raised);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
@@ -334,9 +338,10 @@
 .phone[data-glass="flat"] .ph-glass-sheet::before {
   background: var(--ph-hairline);
 }
+/* The same slab: here to outrank the dark theme's glass (see above), not to change its colour. */
 [data-theme="dark"] .phone[data-glass="flat"] .ph-glass,
 [data-theme="dark"] .phone[data-glass="flat"] .ph-glass-sheet {
-  background: #262624;
+  background: var(--ph-raised);
 }
 [data-theme="dark"] .phone[data-glass="flat"] .ph-glass-toast {
   background: #3a3a37;
@@ -344,7 +349,7 @@
 @media (prefers-reduced-transparency: reduce) {
   .phone .ph-glass,
   .phone .ph-glass-sheet {
-    background: var(--ph-paper);
+    background: var(--ph-raised);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
@@ -357,9 +362,10 @@
   .phone .ph-glass-sheet::before {
     background: var(--ph-hairline);
   }
+  /* The same slab: here to outrank the dark theme's glass (see above), not to change its colour. */
   [data-theme="dark"] .phone .ph-glass,
   [data-theme="dark"] .phone .ph-glass-sheet {
-    background: #262624;
+    background: var(--ph-raised);
   }
   [data-theme="dark"] .phone .ph-glass-toast {
     background: #3a3a37;
@@ -368,7 +374,7 @@
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .phone .ph-glass,
   .phone .ph-glass-sheet {
-    background: var(--ph-paper);
+    background: var(--ph-raised);
   }
   .phone .ph-glass-toast {
     background: #2a2c27;
@@ -377,9 +383,10 @@
   .phone .ph-glass-sheet::before {
     background: var(--ph-hairline);
   }
+  /* The same slab: here to outrank the dark theme's glass (see above), not to change its colour. */
   [data-theme="dark"] .phone .ph-glass,
   [data-theme="dark"] .phone .ph-glass-sheet {
-    background: #262624;
+    background: var(--ph-raised);
   }
   [data-theme="dark"] .phone .ph-glass-toast {
     background: #3a3a37;

@@ -2213,6 +2213,8 @@
       "font": "Fonte",
       "lockedHint": "Papel e Sépia vêm com o Supporter.",
       "sync": "Sincronização",
+      "syncFree": "Com Supporter",
+      "syncOff": "Desligada",
       "syncNow": "Sincronizar agora",
       "devices": "Dispositivos",
       "thisDevice": "Este dispositivo",

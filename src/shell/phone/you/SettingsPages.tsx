@@ -96,7 +96,7 @@ export function SettingsList({ go }: { go: (page: SettingsPage) => void }) {
                   {card.kind === "on" ? card.title : summary.text}
                 </span>
               ) : (
-                t(card.kind === "free" ? "sync.withSupporter" : "phone.you.offTitle")
+                t(card.kind === "free" ? "phone.settings.syncFree" : "phone.settings.syncOff")
               )
             }
             chevron
