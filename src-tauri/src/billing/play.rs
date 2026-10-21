@@ -34,7 +34,9 @@ use tauri_plugin_koona_play as native;
 /// the server consumes once recorded, so it can be bought again.
 pub const SUBSCRIPTION: &str = "supporter";
 pub const MONTHLY: &str = "monthly";
-pub const YEARLY: &str = "yearly";
+/// The yearly base plan is `annual`: Play keeps a base plan's billing period once it is active, and
+/// the first two made for the year (`yearly`, `yearly-pin`) were saved as monthly and deactivated.
+pub const YEARLY: &str = "annual";
 pub const FIVE_YEARS: &str = "supporter_5_years";
 
 /// Play refunds a purchase not acknowledged within three days of its payment; a day more covers a
@@ -993,7 +995,7 @@ mod tests {
     #[test]
     fn each_plan_is_a_product_of_play() {
         assert_eq!(product_of(PlanInterval::Month), ("supporter", Some("monthly")));
-        assert_eq!(product_of(PlanInterval::Year), ("supporter", Some("yearly")));
+        assert_eq!(product_of(PlanInterval::Year), ("supporter", Some("annual")));
         assert_eq!(product_of(PlanInterval::FiveYears), ("supporter_5_years", None));
         let fresh = started(PlanInterval::FiveYears, Some("anna@example.com".into()), at("2026-10-20T12:00:00Z"));
         assert_eq!((fresh.product.as_str(), fresh.base_plan, fresh.token, fresh.state), ("supporter_5_years", None, None, None));
@@ -1172,7 +1174,7 @@ mod tests {
         };
         let offer = offer_of(
             &[
-            product("supporter", Some("yearly"), "€20.00", 20_000_000, Some("P1Y")),
+            product("supporter", Some("annual"), "€20.00", 20_000_000, Some("P1Y")),
             product("supporter", Some("monthly"), "€2.00", 2_000_000, Some("P1M")),
             product("supporter", Some("weekly"), "€1.00", 1_000_000, Some("P1W")),
             product("supporter_5_years", None, "€50.00", 50_000_000, None),
@@ -1188,7 +1190,7 @@ mod tests {
         assert!(!PlayOffer::default().available && !PlayOffer::default().suspended);
         assert!(offer_of(&[], true).suspended);
         // A base plan whose period is not what its card says is not offered.
-        let quarterly = offer_of(&[product("supporter", Some("monthly"), "€5.00", 5_000_000, Some("P3M")), product("supporter", Some("yearly"), "€20.00", 20_000_000, Some("P6M"))], false);
+        let quarterly = offer_of(&[product("supporter", Some("monthly"), "€5.00", 5_000_000, Some("P3M")), product("supporter", Some("annual"), "€20.00", 20_000_000, Some("P6M"))], false);
         assert_eq!((quarterly.month, quarterly.year), (None, None));
     }
 
