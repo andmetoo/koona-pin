@@ -1067,15 +1067,56 @@ fn keep_session(s: &mut Stored, session: Session) {
     s.sign_in(session, &plan_key());
 }
 
+/// The app store review's account: a code Supabase refused as wrong or expired is asked about
+/// once more at the server, which knows a single reviewer's email and its reusable code. Too many
+/// tries, no connection or the service down are not a wrong code and are said as they are.
+fn asks_review(error: &CommandError) -> bool {
+    error.detail == Some(ErrorDetail::WrongCode)
+}
+
+/// The server's `review_sign_in` answer: a session and its plan on a match (200, `paid`); None
+/// for its 404 and anything else, and the wrong code stays the answer.
+fn review_answer(status: reqwest::StatusCode, value: &Value) -> Option<(Session, Answer)> {
+    if !status.is_success() || value["status"] != "paid" {
+        return None;
+    }
+    Some((session_of(&value["session"])?, Answer::of(value)))
+}
+
+/// Asks `review_sign_in` with the email and the digits typed; None on no match or any failure.
+async fn review_session(app: &AppHandle, email: &str, code: &str) -> Option<(Session, Answer)> {
+    let digits: String = code.chars().filter(char::is_ascii_digit).collect();
+    let (status, value) = call(app, json!({ "action": "review_sign_in", "email": email.trim(), "code": digits }), None).await.ok()?;
+    review_answer(status, &value)
+}
+
 /// «Sign in»: the code from the email becomes a session and the plan.
 #[tauri::command]
 pub async fn verify_sign_in_code(app: AppHandle, email: String, code: String) -> Result<SupporterStatus, CommandError> {
-    let session = verified_session(&app, &email, &code).await?;
+    let (session, answer) = match verified_session(&app, &email, &code).await {
+        Ok(session) => (session, None),
+        Err(error) if asks_review(&error) => match review_session(&app, &email, &code).await {
+            Some((session, answer)) => (session, Some(answer)),
+            None => return Err(error),
+        },
+        Err(error) => return Err(error),
+    };
     let billing = app.state::<Billing>();
-    billing.update(&app, |s| keep_session(s, session))?;
+    let reviewed = answer.is_some();
+    billing.update(&app, |s| {
+        keep_session(s, session);
+        // As a paid claim: the plan in the same answer, taken as a plan check's.
+        if let Some(answer) = answer {
+            s.take_answer(answer, &plan_key(), Utc::now());
+        }
+    })?;
     // A Play purchase waiting for this sign-in is bound to the account now (NP-154); one that fails
     // here is asked about again when the app comes back to the screen.
     play::verify_waiting(&app).await;
+    // The review's answer carried its plan just now: asking again would only repeat it.
+    if reviewed {
+        return Ok(self::status(&billing.get(), Utc::now()));
+    }
     // Signed in whatever the plan check says: when it fails, the status says the plan is not known
     // yet (`plan_unknown`) and the background asks again within the hour.
     match check(&app, false).await {
@@ -1264,6 +1305,35 @@ mod tests {
         assert_eq!(detail(StatusCode::TOO_MANY_REQUESTS), Some(Some(ErrorDetail::TooManyMessages)));
         assert_eq!(detail(StatusCode::FORBIDDEN), Some(Some(ErrorDetail::WrongCode)), "an expired or wrong code");
         assert!(verify_refused(StatusCode::OK).is_none());
+    }
+
+    #[test]
+    fn only_a_wrong_code_is_asked_about_as_the_review_account() {
+        use reqwest::StatusCode;
+        let asks = |status| verify_refused(status).is_some_and(|e| asks_review(&e));
+        assert!(asks(StatusCode::FORBIDDEN), "a wrong or expired code");
+        assert!(asks(StatusCode::BAD_REQUEST));
+        assert!(!asks(StatusCode::TOO_MANY_REQUESTS), "too many tries");
+        assert!(!asks_review(&refused("auth verify", StatusCode::BAD_GATEWAY)), "the service down");
+        assert!(!asks_review(&CommandError::detailed(ErrorCode::Network, ErrorDetail::NoConnection, "offline")));
+    }
+
+    #[test]
+    fn the_review_account_signs_in_only_on_a_match() {
+        use reqwest::StatusCode;
+        let paid = json!({
+            "status": "paid",
+            "session": { "access_token": "a", "refresh_token": "r", "expires_at": 1_900_000_000, "email": "review@example.com" },
+            "plan": { "status": "active" },
+            "lease": { "payload": "{}", "signature": "c2ln" },
+        });
+        let (session, answer) = review_answer(StatusCode::OK, &paid).expect("a match signs in");
+        assert_eq!(session.email, "review@example.com");
+        assert!(answer.has_plan && answer.lease.is_some());
+        assert!(review_answer(StatusCode::NOT_FOUND, &json!({ "error": "review" })).is_none(), "no match");
+        assert!(review_answer(StatusCode::NOT_FOUND, &paid).is_none());
+        assert!(review_answer(StatusCode::OK, &json!({ "status": "paid" })).is_none(), "no session");
+        assert!(review_answer(StatusCode::OK, &Value::Null).is_none());
     }
 
     #[test]

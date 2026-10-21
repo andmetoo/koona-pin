@@ -2509,7 +2509,7 @@ dependencies = [
 
 [[package]]
 name = "koonapin"
-version = "2.12.0"
+version = "2.12.1"
 dependencies = [
  "base64 0.22.1",
  "chrono",
