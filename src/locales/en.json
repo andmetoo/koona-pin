@@ -1264,7 +1264,11 @@
       "wrong_code": "the code didn't work",
       "signed_out": "you were signed out",
       "update_needed": "sync needs a newer Koona Pin",
-      "purchases_waiting": "paid Google Play purchases are still waiting here"
+      "purchases_waiting": "paid Google Play purchases are still waiting here",
+      "fresh_sign_in": "the code is too old",
+      "review_account": "it is the app review account",
+      "no_paid_time": "no paid time is left",
+      "payments_not_stopped": "the payments couldn't be stopped"
     },
     "code": {
       "not_found": "It no longer exists — it may have been deleted meanwhile.",
@@ -1297,7 +1301,11 @@
       "wrong_code": "This code didn't work. Check it or send a new one.",
       "signed_out": "You were signed out. Open Support and choose «I'm already a Supporter» to sign in again.",
       "update_needed": "Sync needs a newer Koona Pin. Update the app, then try again.",
-      "purchases_waiting": "Paid Google Play purchases are still waiting to be confirmed on this phone. Finish them first, or wait until Google Play refunds them, before buying again."
+      "purchases_waiting": "Paid Google Play purchases are still waiting to be confirmed on this phone. Finish them first, or wait until Google Play refunds them, before buying again.",
+      "fresh_sign_in": "This needs a code sent in the last 10 minutes. Send a new code.",
+      "review_account": "This account is used for app review and can't be deleted.",
+      "no_paid_time": "No paid time is left, so the account can only be deleted now.",
+      "payments_not_stopped": "Couldn't stop the payments, so nothing was deleted. Try again."
     }
   },
   "tray": {
@@ -1479,6 +1487,36 @@
       "unreachable": "Can't reach {{path}}",
       "pickerTitle": "Folder for automatic backups"
     }
+  },
+  "deleteAccount": {
+    "open": "Delete account…",
+    "title": "Delete account",
+    "intro": "This deletes the Koona Pin account {{email}}.",
+    "payments": "Payments stop at once.",
+    "refund": "The paid time left is not refunded; refunds follow the refund policy only.",
+    "paymentsPlay": "Google Play subscriptions are cancelled for you: no need to cancel them in the Play Store.",
+    "deleted": "Deleted: the account, its Supporter plan and purchases, and sync between your devices.",
+    "kept": "Kept: your library on this device and its backups. Paddle and Google keep their own payment records.",
+    "when": "When",
+    "now": "Now",
+    "nowHint": "The paid time left is lost.",
+    "periodEnd": "At the end of the paid period",
+    "periodEndHint": "On {{date}}. Supporter works until then.",
+    "continue": "Continue",
+    "codeTitle": "Confirm with a code",
+    "codeText": "We sent a code to {{email}}. Enter it to delete your account now.",
+    "codeTextLater": "We sent a code to {{email}}. Enter it to delete your account on {{date}}.",
+    "codeTextKeep": "We sent a code to {{email}}. Enter it to keep your account.",
+    "delete": "Delete account",
+    "keep": "Keep my account",
+    "failedTitle": "Account not deleted",
+    "doneTitle": "Account deleted",
+    "doneText": "Your account is deleted and its payments are stopped. This device is signed out and sync is off here; your library stays on this device.",
+    "scheduledTitle": "Deletion scheduled",
+    "scheduledText": "Your account will be deleted on {{date}}. Supporter works until then; payments are already stopped.",
+    "keptTitle": "Account kept",
+    "keptText": "Your account stays. Payments stay stopped: Supporter ends on {{date}} unless you buy it again.",
+    "scheduledLine": "Account will be deleted on {{date}}"
   },
   "plan": {
     "already": "I'm already a Supporter",

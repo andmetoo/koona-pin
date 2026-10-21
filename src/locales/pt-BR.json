@@ -1342,7 +1342,11 @@
       "wrong_code": "o código não funcionou",
       "signed_out": "sua sessão foi encerrada",
       "update_needed": "a sincronização precisa de uma versão mais recente do Koona Pin",
-      "purchases_waiting": "há compras pagas do Google Play ainda aguardando aqui"
+      "purchases_waiting": "há compras pagas do Google Play ainda aguardando aqui",
+      "fresh_sign_in": "o código é antigo demais",
+      "review_account": "é a conta de revisão do app",
+      "no_paid_time": "não resta tempo pago",
+      "payments_not_stopped": "não foi possível parar os pagamentos"
     },
     "code": {
       "not_found": "Não existe mais — talvez tenha sido excluído nesse meio-tempo.",
@@ -1375,7 +1379,11 @@
       "wrong_code": "O código não funcionou. Confira ou peça um novo.",
       "signed_out": "Sua sessão foi encerrada. Abra “Apoiar” e escolha “Já sou Supporter” para entrar de novo.",
       "update_needed": "A sincronização precisa de uma versão mais recente do Koona Pin. Atualize o aplicativo e tente de novo.",
-      "purchases_waiting": "Há compras pagas do Google Play ainda aguardando confirmação neste telefone. Conclua-as primeiro, ou espere o Google Play reembolsá-las, antes de comprar de novo."
+      "purchases_waiting": "Há compras pagas do Google Play ainda aguardando confirmação neste telefone. Conclua-as primeiro, ou espere o Google Play reembolsá-las, antes de comprar de novo.",
+      "fresh_sign_in": "É preciso um código enviado nos últimos 10 minutos. Envie um novo código.",
+      "review_account": "Esta conta é usada na revisão do app e não pode ser excluída.",
+      "no_paid_time": "Não resta tempo pago, então a conta só pode ser excluída agora.",
+      "payments_not_stopped": "Não foi possível parar os pagamentos, então nada foi excluído. Tente de novo."
     }
   },
   "tray": {
@@ -1582,6 +1590,36 @@
       "unreachable": "Não foi possível acessar {{path}}",
       "pickerTitle": "Pasta para os backups automáticos"
     }
+  },
+  "deleteAccount": {
+    "open": "Excluir conta…",
+    "title": "Excluir conta",
+    "intro": "Isto exclui a conta do Koona Pin {{email}}.",
+    "payments": "Os pagamentos param na hora.",
+    "refund": "O tempo pago restante não é reembolsado; reembolsos seguem apenas a política de reembolso.",
+    "paymentsPlay": "Nós cancelamos as assinaturas do Google Play: não é preciso cancelá-las na Play Store.",
+    "deleted": "Excluídos: a conta, o plano Supporter e as compras dela, e a sincronização entre seus dispositivos.",
+    "kept": "Mantidos: sua biblioteca neste dispositivo e os backups dela. A Paddle e o Google guardam seus próprios registros de pagamento.",
+    "when": "Quando",
+    "now": "Agora",
+    "nowHint": "O tempo pago restante é perdido.",
+    "periodEnd": "No fim do período pago",
+    "periodEndHint": "Em {{date}}. O Supporter funciona até lá.",
+    "continue": "Continuar",
+    "codeTitle": "Confirmar com um código",
+    "codeText": "Enviamos um código para {{email}}. Digite-o para excluir sua conta agora.",
+    "codeTextLater": "Enviamos um código para {{email}}. Digite-o para excluir sua conta em {{date}}.",
+    "codeTextKeep": "Enviamos um código para {{email}}. Digite-o para manter sua conta.",
+    "delete": "Excluir conta",
+    "keep": "Manter minha conta",
+    "failedTitle": "Conta não excluída",
+    "doneTitle": "Conta excluída",
+    "doneText": "Sua conta foi excluída e os pagamentos dela pararam. Este dispositivo saiu da conta e a sincronização está desligada aqui; sua biblioteca fica neste dispositivo.",
+    "scheduledTitle": "Exclusão agendada",
+    "scheduledText": "Sua conta será excluída em {{date}}. O Supporter funciona até lá; os pagamentos já pararam.",
+    "keptTitle": "Conta mantida",
+    "keptText": "Sua conta continua. Os pagamentos continuam parados: o Supporter termina em {{date}}, a menos que você o compre de novo.",
+    "scheduledLine": "A conta será excluída em {{date}}"
   },
   "plan": {
     "already": "Já sou Supporter",

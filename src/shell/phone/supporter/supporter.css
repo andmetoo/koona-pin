@@ -537,3 +537,21 @@
   margin: 0 4px 2px;
   text-align: center;
 }
+
+/* Deleting the account: what happens, a dot to each line, on a card. */
+.phone .sp-delete-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 14px 16px 14px 32px;
+  list-style: disc;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--ph-body);
+}
+.phone .sp-delete-hint {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ph-meta);
+}

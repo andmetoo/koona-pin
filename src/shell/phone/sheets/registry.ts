@@ -7,6 +7,7 @@ import { FinishSheet } from "./FinishSheet";
 import { NewLinkSheet } from "./NewLinkSheet";
 import { ReaderLookSheet } from "./ReaderLookSheet";
 import { YouSheet } from "./YouSheet";
+import { DeleteAccountSheet } from "../supporter/DeleteAccountSheet";
 import { PlanSheet } from "../supporter/PlanSheet";
 import { SignInSheet } from "../supporter/SignInSheet";
 import { SupporterSheet } from "../supporter/SupporterSheet";
@@ -39,6 +40,8 @@ export const SHEETS = {
   signIn: SignInSheet,
   /** A Supporter's plan (`app.surface` "plan"). */
   plan: PlanSheet,
+  /** «Delete account…» of the plan and of the signed-in step (`app.surface` "deleteAccount"). */
+  deleteAccount: DeleteAccountSheet,
 };
 
 export type SheetKind = keyof typeof SHEETS;

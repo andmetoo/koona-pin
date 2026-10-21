@@ -33,4 +33,8 @@ awaiting_sign_in: boolean,
  * A purchase through Google Play here (NP-154): one waiting for its email, its code or a slow
  * payment, else how the last one in this run finished. Only the Play build has one.
  */
-play?: PlayProgress, };
+play?: PlayProgress, 
+/**
+ * The account is deleted on this date unless kept (billing/deletion.rs).
+ */
+delete_at?: string, };

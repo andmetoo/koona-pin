@@ -1342,7 +1342,11 @@
       "wrong_code": "el código no funcionó",
       "signed_out": "se cerró tu sesión",
       "update_needed": "la sincronización necesita una versión más reciente de Koona Pin",
-      "purchases_waiting": "hay compras de Google Play pagadas aún en espera aquí"
+      "purchases_waiting": "hay compras de Google Play pagadas aún en espera aquí",
+      "fresh_sign_in": "el código es demasiado antiguo",
+      "review_account": "es la cuenta de revisión de la app",
+      "no_paid_time": "no queda tiempo pagado",
+      "payments_not_stopped": "no se pudieron detener los pagos"
     },
     "code": {
       "not_found": "Ya no existe; puede que se haya eliminado mientras tanto.",
@@ -1375,7 +1379,11 @@
       "wrong_code": "El código no funcionó. Revísalo o pide uno nuevo.",
       "signed_out": "Se cerró tu sesión. Abre «Apoyar» y elige «Ya soy Supporter» para volver a entrar.",
       "update_needed": "La sincronización necesita una versión más reciente de Koona Pin. Actualiza la aplicación y vuelve a intentarlo.",
-      "purchases_waiting": "Hay compras de Google Play pagadas que aún esperan confirmación en este teléfono. Termínalas primero, o espera a que Google Play las reembolse, antes de volver a comprar."
+      "purchases_waiting": "Hay compras de Google Play pagadas que aún esperan confirmación en este teléfono. Termínalas primero, o espera a que Google Play las reembolse, antes de volver a comprar.",
+      "fresh_sign_in": "Hace falta un código enviado en los últimos 10 minutos. Envía uno nuevo.",
+      "review_account": "Esta cuenta se usa para revisar la app y no se puede eliminar.",
+      "no_paid_time": "No queda tiempo pagado, así que la cuenta solo puede eliminarse ahora.",
+      "payments_not_stopped": "No se pudieron detener los pagos, así que no se eliminó nada. Inténtalo de nuevo."
     }
   },
   "tray": {
@@ -1582,6 +1590,36 @@
       "unreachable": "No se puede acceder a {{path}}",
       "pickerTitle": "Carpeta para las copias automáticas"
     }
+  },
+  "deleteAccount": {
+    "open": "Eliminar cuenta…",
+    "title": "Eliminar cuenta",
+    "intro": "Esto elimina la cuenta de Koona Pin {{email}}.",
+    "payments": "Los pagos se detienen de inmediato.",
+    "refund": "El tiempo pagado restante no se reembolsa; los reembolsos siguen solo la política de reembolsos.",
+    "paymentsPlay": "Cancelamos por ti las suscripciones de Google Play: no hace falta cancelarlas en Play Store.",
+    "deleted": "Se elimina: la cuenta, su plan Supporter y sus compras, y la sincronización entre tus dispositivos.",
+    "kept": "Se conserva: tu biblioteca en este dispositivo y sus copias de seguridad. Paddle y Google conservan sus propios registros de pago.",
+    "when": "Cuándo",
+    "now": "Ahora",
+    "nowHint": "Se pierde el tiempo pagado restante.",
+    "periodEnd": "Al final del periodo pagado",
+    "periodEndHint": "El {{date}}. Supporter funciona hasta entonces.",
+    "continue": "Continuar",
+    "codeTitle": "Confirmar con un código",
+    "codeText": "Enviamos un código a {{email}}. Escríbelo para eliminar tu cuenta ahora.",
+    "codeTextLater": "Enviamos un código a {{email}}. Escríbelo para eliminar tu cuenta el {{date}}.",
+    "codeTextKeep": "Enviamos un código a {{email}}. Escríbelo para conservar tu cuenta.",
+    "delete": "Eliminar cuenta",
+    "keep": "Conservar mi cuenta",
+    "failedTitle": "La cuenta no se eliminó",
+    "doneTitle": "Cuenta eliminada",
+    "doneText": "Tu cuenta está eliminada y sus pagos detenidos. Este dispositivo cerró sesión y la sincronización está desactivada aquí; tu biblioteca se queda en este dispositivo.",
+    "scheduledTitle": "Eliminación programada",
+    "scheduledText": "Tu cuenta se eliminará el {{date}}. Supporter funciona hasta entonces; los pagos ya están detenidos.",
+    "keptTitle": "Cuenta conservada",
+    "keptText": "Tu cuenta se queda. Los pagos siguen detenidos: Supporter termina el {{date}} salvo que lo compres de nuevo.",
+    "scheduledLine": "La cuenta se eliminará el {{date}}"
   },
   "plan": {
     "already": "Ya soy Supporter",

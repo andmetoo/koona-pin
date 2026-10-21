@@ -1186,7 +1186,11 @@
       "wrong_code": "コードが正しくありません",
       "signed_out": "サインアウトされました",
       "update_needed": "同期には新しいバージョンの Koona Pin が必要です",
-      "purchases_waiting": "支払い済みの Google Play 購入がまだ待機中です"
+      "purchases_waiting": "支払い済みの Google Play 購入がまだ待機中です",
+      "fresh_sign_in": "コードが古すぎます",
+      "review_account": "アプリ審査用のアカウントです",
+      "no_paid_time": "支払い済み期間が残っていません",
+      "payments_not_stopped": "支払いを停止できませんでした"
     },
     "code": {
       "not_found": "もう存在しません。その間に削除された可能性があります。",
@@ -1219,7 +1223,11 @@
       "wrong_code": "コードが正しくありません。確認するか、新しいコードを送ってください。",
       "signed_out": "サインアウトされました。「応援する」を開き、「すでに Supporter です」を選んでもう一度サインインしてください。",
       "update_needed": "同期には新しいバージョンの Koona Pin が必要です。アプリを更新してから、もう一度お試しください。",
-      "purchases_waiting": "この端末には、確認を待っている支払い済みの Google Play 購入があります。もう一度購入する前に、それらを完了するか、Google Play による返金をお待ちください。"
+      "purchases_waiting": "この端末には、確認を待っている支払い済みの Google Play 購入があります。もう一度購入する前に、それらを完了するか、Google Play による返金をお待ちください。",
+      "fresh_sign_in": "10 分以内に送られたコードが必要です。新しいコードを送ってください。",
+      "review_account": "このアカウントはアプリ審査用のため、削除できません。",
+      "no_paid_time": "支払い済み期間が残っていないため、アカウントは今すぐ削除するしかありません。",
+      "payments_not_stopped": "支払いを停止できなかったため、何も削除していません。もう一度お試しください。"
     }
   },
   "tray": {
@@ -1376,6 +1384,36 @@
       "unreachable": "{{path}} にアクセスできません",
       "pickerTitle": "自動バックアップのフォルダー"
     }
+  },
+  "deleteAccount": {
+    "open": "アカウントを削除…",
+    "title": "アカウントを削除",
+    "intro": "Koona Pin のアカウント {{email}} を削除します。",
+    "payments": "支払いはすぐに停止します。",
+    "refund": "残りの支払い済み期間は返金されません。返金は返金ポリシーに従う場合のみです。",
+    "paymentsPlay": "Google Play の定期購入はこちらで解約します。Play ストアで解約する必要はありません。",
+    "deleted": "削除されるもの: アカウント、その Supporter プランと購入、デバイス間の同期。",
+    "kept": "残るもの: この端末のライブラリとそのバックアップ。Paddle と Google は自社の支払い記録を保管します。",
+    "when": "タイミング",
+    "now": "今すぐ",
+    "nowHint": "残りの支払い済み期間は失われます。",
+    "periodEnd": "支払い済み期間の終わりに",
+    "periodEndHint": "{{date}}。それまで Supporter は使えます。",
+    "continue": "続ける",
+    "codeTitle": "コードで確認",
+    "codeText": "{{email}} にコードを送りました。入力すると、アカウントを今すぐ削除します。",
+    "codeTextLater": "{{email}} にコードを送りました。入力すると、{{date}} にアカウントを削除します。",
+    "codeTextKeep": "{{email}} にコードを送りました。入力すると、アカウントを残します。",
+    "delete": "アカウントを削除",
+    "keep": "アカウントを残す",
+    "failedTitle": "アカウントは削除されていません",
+    "doneTitle": "アカウントを削除しました",
+    "doneText": "アカウントは削除され、支払いは停止しました。この端末はサインアウトし、ここでの同期はオフです。ライブラリはこの端末に残ります。",
+    "scheduledTitle": "削除を予約しました",
+    "scheduledText": "アカウントは {{date}} に削除されます。それまで Supporter は使えます。支払いはすでに停止しています。",
+    "keptTitle": "アカウントを残しました",
+    "keptText": "アカウントは残ります。支払いは停止したままです。再度購入しない限り、Supporter は {{date}} に終了します。",
+    "scheduledLine": "アカウントは {{date}} に削除されます"
   },
   "plan": {
     "already": "すでに Supporter です",

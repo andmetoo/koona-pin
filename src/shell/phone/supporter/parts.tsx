@@ -102,7 +102,8 @@ export function CodeForm({
   wait: number;
   onSubmit: () => void;
   onResend: () => void;
-  onAnotherEmail: () => void;
+  /** «Use another email»; none where the email is the account's own (deleting it). */
+  onAnotherEmail?: () => void;
 }) {
   const { t } = useTranslation();
   const noteId = useId();
@@ -166,9 +167,11 @@ export function CodeForm({
               {t("supporter.sendAgain")}
             </Button>
           )}
-          <Button kind="ghost" compact onClick={onAnotherEmail}>
-            {t("supporter.anotherEmail")}
-          </Button>
+          {onAnotherEmail && (
+            <Button kind="ghost" compact onClick={onAnotherEmail}>
+              {t("supporter.anotherEmail")}
+            </Button>
+          )}
         </p>
       )}
     </form>

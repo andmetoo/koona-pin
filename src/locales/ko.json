@@ -1186,7 +1186,11 @@
       "wrong_code": "코드가 맞지 않습니다",
       "signed_out": "로그아웃되었습니다",
       "update_needed": "동기화하려면 최신 버전의 Koona Pin이 필요합니다",
-      "purchases_waiting": "결제된 Google Play 구매가 아직 대기 중입니다"
+      "purchases_waiting": "결제된 Google Play 구매가 아직 대기 중입니다",
+      "fresh_sign_in": "코드가 너무 오래되었습니다",
+      "review_account": "앱 심사용 계정입니다",
+      "no_paid_time": "남은 결제 기간이 없습니다",
+      "payments_not_stopped": "결제를 중지할 수 없었습니다"
     },
     "code": {
       "not_found": "더 이상 존재하지 않습니다. 그사이 삭제되었을 수 있습니다.",
@@ -1219,7 +1223,11 @@
       "wrong_code": "코드가 맞지 않습니다. 확인하거나 새 코드를 받으세요.",
       "signed_out": "로그아웃되었습니다. '후원하기'를 열고 '이미 Supporter입니다'를 선택해 다시 로그인하세요.",
       "update_needed": "동기화하려면 최신 버전의 Koona Pin이 필요합니다. 앱을 업데이트한 다음 다시 시도하세요.",
-      "purchases_waiting": "이 휴대폰에 아직 확인을 기다리는 결제된 Google Play 구매가 있습니다. 다시 구매하기 전에 먼저 완료하거나 Google Play가 환불할 때까지 기다리세요."
+      "purchases_waiting": "이 휴대폰에 아직 확인을 기다리는 결제된 Google Play 구매가 있습니다. 다시 구매하기 전에 먼저 완료하거나 Google Play가 환불할 때까지 기다리세요.",
+      "fresh_sign_in": "최근 10분 안에 보낸 코드가 필요합니다. 새 코드를 보내세요.",
+      "review_account": "이 계정은 앱 심사에 쓰이므로 삭제할 수 없습니다.",
+      "no_paid_time": "남은 결제 기간이 없어 계정은 지금만 삭제할 수 있습니다.",
+      "payments_not_stopped": "결제를 중지할 수 없어 아무것도 삭제하지 않았습니다. 다시 시도하세요."
     }
   },
   "tray": {
@@ -1376,6 +1384,36 @@
       "unreachable": "{{path}}에 접근할 수 없습니다",
       "pickerTitle": "자동 백업 폴더"
     }
+  },
+  "deleteAccount": {
+    "open": "계정 삭제…",
+    "title": "계정 삭제",
+    "intro": "Koona Pin 계정({{email}})을 삭제합니다.",
+    "payments": "결제는 즉시 중지됩니다.",
+    "refund": "남은 결제 기간은 환불되지 않으며, 환불은 환불 정책에 따라서만 이루어집니다.",
+    "paymentsPlay": "Google Play 구독은 저희가 취소합니다. Play 스토어에서 취소할 필요가 없습니다.",
+    "deleted": "삭제되는 항목: 계정, 계정의 Supporter 플랜과 구매, 기기 간 동기화.",
+    "kept": "유지되는 항목: 이 기기의 라이브러리와 백업. Paddle과 Google은 자체 결제 기록을 보관합니다.",
+    "when": "시기",
+    "now": "지금",
+    "nowHint": "남은 결제 기간은 사라집니다.",
+    "periodEnd": "결제 기간이 끝날 때",
+    "periodEndHint": "{{date}}. 그때까지 Supporter를 사용할 수 있습니다.",
+    "continue": "계속",
+    "codeTitle": "코드로 확인",
+    "codeText": "{{email}} 주소로 코드를 보냈습니다. 코드를 입력하면 계정을 지금 삭제합니다.",
+    "codeTextLater": "{{email}} 주소로 코드를 보냈습니다. 코드를 입력하면 {{date}}에 계정을 삭제합니다.",
+    "codeTextKeep": "{{email}} 주소로 코드를 보냈습니다. 코드를 입력하면 계정을 유지합니다.",
+    "delete": "계정 삭제",
+    "keep": "계정 유지",
+    "failedTitle": "계정이 삭제되지 않음",
+    "doneTitle": "계정 삭제됨",
+    "doneText": "계정이 삭제되고 결제가 중지되었습니다. 이 기기는 로그아웃되었고 여기서 동기화는 꺼졌습니다. 라이브러리는 이 기기에 남아 있습니다.",
+    "scheduledTitle": "삭제 예약됨",
+    "scheduledText": "계정은 {{date}}에 삭제됩니다. 그때까지 Supporter를 사용할 수 있으며, 결제는 이미 중지되었습니다.",
+    "keptTitle": "계정 유지됨",
+    "keptText": "계정이 유지됩니다. 결제는 계속 중지된 상태입니다. 다시 구매하지 않으면 Supporter는 {{date}}에 끝납니다.",
+    "scheduledLine": "계정 삭제 예정: {{date}}"
   },
   "plan": {
     "already": "이미 Supporter입니다",

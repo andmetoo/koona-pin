@@ -1356,7 +1356,11 @@
       "wrong_code": "kod nije prošao",
       "signed_out": "odjavljeni ste",
       "update_needed": "za sinhronizaciju je potrebna novija verzija Koona Pin",
-      "purchases_waiting": "plaćene kupovine u Google Play-u još čekaju ovde"
+      "purchases_waiting": "plaćene kupovine u Google Play-u još čekaju ovde",
+      "fresh_sign_in": "kod je prestar",
+      "review_account": "to je nalog za pregled aplikacije",
+      "no_paid_time": "nije ostalo plaćenog vremena",
+      "payments_not_stopped": "plaćanja nije bilo moguće zaustaviti"
     },
     "code": {
       "not_found": "Više ne postoji — možda je u međuvremenu obrisano.",
@@ -1389,7 +1393,11 @@
       "wrong_code": "Kod nije prošao. Proverite ga ili zatražite novi.",
       "signed_out": "Odjavljeni ste. Otvorite „Podrži“ i izaberite „Već sam Supporter“ da biste se ponovo prijavili.",
       "update_needed": "Za sinhronizaciju je potrebna novija verzija Koona Pin. Ažurirajte aplikaciju i pokušajte ponovo.",
-      "purchases_waiting": "Plaćene kupovine u Google Play-u na ovom telefonu još čekaju potvrdu. Prvo ih završite ili sačekajte da ih Google Play refundira pre nego što ponovo kupite."
+      "purchases_waiting": "Plaćene kupovine u Google Play-u na ovom telefonu još čekaju potvrdu. Prvo ih završite ili sačekajte da ih Google Play refundira pre nego što ponovo kupite.",
+      "fresh_sign_in": "Potreban je kod poslat u poslednjih 10 minuta. Pošaljite novi kod.",
+      "review_account": "Ovaj nalog služi za pregled aplikacije i ne može da se obriše.",
+      "no_paid_time": "Nije ostalo plaćenog vremena, pa nalog može da se obriše samo sada.",
+      "payments_not_stopped": "Plaćanja nije bilo moguće zaustaviti, pa ništa nije obrisano. Pokušajte ponovo."
     }
   },
   "tray": {
@@ -1596,6 +1604,36 @@
       "unreachable": "Nema pristupa {{path}}",
       "pickerTitle": "Fascikla za automatske kopije"
     }
+  },
+  "deleteAccount": {
+    "open": "Obriši nalog…",
+    "title": "Obriši nalog",
+    "intro": "Ovo briše Koona Pin nalog {{email}}.",
+    "payments": "Plaćanja prestaju odmah.",
+    "refund": "Preostalo plaćeno vreme se ne vraća; povraćaj novca ide samo po pravilima o povraćaju.",
+    "paymentsPlay": "Google Play pretplate otkazujemo mi: ne morate da ih otkazujete u Play prodavnici.",
+    "deleted": "Briše se: nalog, njegov Supporter plan i kupovine, i sinhronizacija između vaših uređaja.",
+    "kept": "Ostaje: vaša biblioteka na ovom uređaju i njene rezervne kopije. Paddle i Google čuvaju svoje zapise o plaćanju.",
+    "when": "Kada",
+    "now": "Sada",
+    "nowHint": "Preostalo plaćeno vreme se gubi.",
+    "periodEnd": "Na kraju plaćenog perioda",
+    "periodEndHint": "{{date}}. Supporter radi do tada.",
+    "continue": "Nastavi",
+    "codeTitle": "Potvrdite kodom",
+    "codeText": "Poslali smo kod na {{email}}. Unesite ga da biste odmah obrisali nalog.",
+    "codeTextLater": "Poslali smo kod na {{email}}. Unesite ga da biste obrisali nalog {{date}}.",
+    "codeTextKeep": "Poslali smo kod na {{email}}. Unesite ga da biste zadržali nalog.",
+    "delete": "Obriši nalog",
+    "keep": "Zadrži moj nalog",
+    "failedTitle": "Nalog nije obrisan",
+    "doneTitle": "Nalog je obrisan",
+    "doneText": "Vaš nalog je obrisan, a plaćanja su zaustavljena. Ovaj uređaj je odjavljen i sinhronizacija je ovde isključena; vaša biblioteka ostaje na ovom uređaju.",
+    "scheduledTitle": "Brisanje je zakazano",
+    "scheduledText": "Vaš nalog će biti obrisan {{date}}. Supporter radi do tada; plaćanja su već zaustavljena.",
+    "keptTitle": "Nalog je zadržan",
+    "keptText": "Vaš nalog ostaje. Plaćanja ostaju zaustavljena: Supporter se završava {{date}} ako ga ponovo ne kupite.",
+    "scheduledLine": "Nalog će biti obrisan {{date}}"
   },
   "plan": {
     "already": "Već sam Supporter",

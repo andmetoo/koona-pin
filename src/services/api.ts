@@ -72,6 +72,9 @@ import {
   SupporterStatus,
   PlanInterval,
   CheckoutState,
+  DeleteInfo,
+  DeleteOutcome,
+  DeleteWhen,
   PlayOffer,
   PlayState,
   BackupFolder,
@@ -332,6 +335,16 @@ const native = {
   sendSignInCode: (email: string) => call<void>("send_sign_in_code", { email }),
   verifySignInCode: (email: string, code: string) => call<SupporterStatus>("verify_sign_in_code", { email, code }),
   signOutSupporter: () => call<SupporterStatus>("sign_out_supporter"),
+  // Deleting the account (billing/deletion.rs): each action needs a sign-in by email code within ten
+  // minutes; `code` signs in afresh first, null uses the sign-in here (`fresh_sign_in` when too old).
+  /** A code to the account's email, which is returned. */
+  sendAccountCode: () => call<string>("send_account_code"),
+  /** What the server knows: paid time left, a deletion already scheduled. */
+  getAccountDeletion: (code: string | null) => call<DeleteInfo>("get_account_deletion", { code }),
+  /** Now, or at the end of the paid period; deleted now, this device signs out and sync goes off. */
+  deleteAccount: (code: string | null, when: DeleteWhen) => call<DeleteOutcome>("delete_account", { code, when }),
+  /** «Keep my account»: a scheduled deletion is cancelled; payments stay stopped. */
+  keepAccount: (code: string | null) => call<DeleteOutcome>("keep_account", { code }),
   // Supporter through Google Play Billing (NP-154): registered in the Play build only, where
   // `capabilities.purchase` is "play". A purchase waiting here shows in `SupporterStatus.play`.
   /** Google Play's prices for the sheet; `available: false` where Play cannot sell (no Play Store). */

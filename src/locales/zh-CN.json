@@ -1186,7 +1186,11 @@
       "wrong_code": "验证码无效",
       "signed_out": "你已退出登录",
       "update_needed": "同步需要更新版本的 Koona Pin",
-      "purchases_waiting": "已付款的 Google Play 购买仍在等待中"
+      "purchases_waiting": "已付款的 Google Play 购买仍在等待中",
+      "fresh_sign_in": "验证码太旧",
+      "review_account": "这是应用审核账户",
+      "no_paid_time": "没有剩余的已付时间",
+      "payments_not_stopped": "无法停止付款"
     },
     "code": {
       "not_found": "它已不存在 — 可能在此期间被删除了。",
@@ -1219,7 +1223,11 @@
       "wrong_code": "验证码无效。请检查或重新获取。",
       "signed_out": "你已退出登录。请打开“支持”并选择“我已是 Supporter”重新登录。",
       "update_needed": "同步需要更新版本的 Koona Pin。请更新应用后重试。",
-      "purchases_waiting": "这部手机上仍有已付款的 Google Play 购买在等待确认。请先完成它们，或等待 Google Play 退款，然后再购买。"
+      "purchases_waiting": "这部手机上仍有已付款的 Google Play 购买在等待确认。请先完成它们，或等待 Google Play 退款，然后再购买。",
+      "fresh_sign_in": "需要 10 分钟内发送的验证码。请发送新的验证码。",
+      "review_account": "此账户用于应用审核，无法删除。",
+      "no_paid_time": "没有剩余的已付时间，因此只能立即删除账户。",
+      "payments_not_stopped": "无法停止付款，因此没有删除任何内容。请重试。"
     }
   },
   "tray": {
@@ -1376,6 +1384,36 @@
       "unreachable": "无法访问 {{path}}",
       "pickerTitle": "自动备份文件夹"
     }
+  },
+  "deleteAccount": {
+    "open": "删除账户…",
+    "title": "删除账户",
+    "intro": "这将删除 Koona Pin 账户 {{email}}。",
+    "payments": "付款会立即停止。",
+    "refund": "剩余的已付时间不予退款；退款仅依照退款政策。",
+    "paymentsPlay": "我们会为你取消 Google Play 订阅：无需在 Play 商店中取消。",
+    "deleted": "将删除：账户、其 Supporter 方案和购买记录，以及你设备之间的同步。",
+    "kept": "将保留：此设备上的资料库及其备份。Paddle 和 Google 会保留各自的付款记录。",
+    "when": "时间",
+    "now": "现在",
+    "nowHint": "剩余的已付时间将作废。",
+    "periodEnd": "在已付期限结束时",
+    "periodEndHint": "{{date}}。在此之前 Supporter 照常可用。",
+    "continue": "继续",
+    "codeTitle": "用验证码确认",
+    "codeText": "我们已向 {{email}} 发送验证码。输入后将立即删除你的账户。",
+    "codeTextLater": "我们已向 {{email}} 发送验证码。输入后将在 {{date}} 删除你的账户。",
+    "codeTextKeep": "我们已向 {{email}} 发送验证码。输入后将保留你的账户。",
+    "delete": "删除账户",
+    "keep": "保留我的账户",
+    "failedTitle": "账户未删除",
+    "doneTitle": "账户已删除",
+    "doneText": "你的账户已删除，付款已停止。此设备已退出登录，此处的同步已关闭；你的资料库仍保留在此设备上。",
+    "scheduledTitle": "已安排删除",
+    "scheduledText": "你的账户将在 {{date}} 删除。在此之前 Supporter 照常可用；付款已经停止。",
+    "keptTitle": "账户已保留",
+    "keptText": "你的账户会保留。付款仍保持停止：除非再次购买，Supporter 将在 {{date}} 结束。",
+    "scheduledLine": "账户将在 {{date}} 删除"
   },
   "plan": {
     "already": "我已是 Supporter",

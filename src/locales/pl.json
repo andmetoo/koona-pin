@@ -1420,7 +1420,11 @@
       "wrong_code": "kod nie zadziałał",
       "signed_out": "wylogowano cię",
       "update_needed": "synchronizacja wymaga nowszej wersji Koona Pin",
-      "purchases_waiting": "opłacone zakupy w Google Play wciąż tu czekają"
+      "purchases_waiting": "opłacone zakupy w Google Play wciąż tu czekają",
+      "fresh_sign_in": "kod jest za stary",
+      "review_account": "to konto do recenzji aplikacji",
+      "no_paid_time": "nie został opłacony czas",
+      "payments_not_stopped": "nie udało się zatrzymać płatności"
     },
     "code": {
       "not_found": "To już nie istnieje — mogło zostać usunięte w międzyczasie.",
@@ -1453,7 +1457,11 @@
       "wrong_code": "Kod nie zadziałał. Sprawdź go albo poproś o nowy.",
       "signed_out": "Wylogowano cię. Otwórz „Wesprzyj” i wybierz „Już jestem Supporterem”, aby zalogować się ponownie.",
       "update_needed": "Synchronizacja wymaga nowszej wersji Koona Pin. Zaktualizuj aplikację i spróbuj ponownie.",
-      "purchases_waiting": "Na tym telefonie opłacone zakupy w Google Play wciąż czekają na potwierdzenie. Najpierw je dokończ lub poczekaj, aż Google Play zwróci pieniądze, zanim kupisz ponownie."
+      "purchases_waiting": "Na tym telefonie opłacone zakupy w Google Play wciąż czekają na potwierdzenie. Najpierw je dokończ lub poczekaj, aż Google Play zwróci pieniądze, zanim kupisz ponownie.",
+      "fresh_sign_in": "Potrzebny jest kod wysłany w ciągu ostatnich 10 minut. Wyślij nowy kod.",
+      "review_account": "To konto służy do recenzji aplikacji i nie można go usunąć.",
+      "no_paid_time": "Nie został opłacony czas, więc konto można usunąć tylko teraz.",
+      "payments_not_stopped": "Nie udało się zatrzymać płatności, więc nic nie zostało usunięte. Spróbuj ponownie."
     }
   },
   "tray": {
@@ -1685,6 +1693,36 @@
       "unreachable": "Brak dostępu do {{path}}",
       "pickerTitle": "Folder na automatyczne kopie"
     }
+  },
+  "deleteAccount": {
+    "open": "Usuń konto…",
+    "title": "Usuń konto",
+    "intro": "To usuwa konto Koona Pin {{email}}.",
+    "payments": "Płatności zatrzymują się od razu.",
+    "refund": "Pozostały opłacony czas nie jest zwracany; zwroty tylko zgodnie z zasadami zwrotów.",
+    "paymentsPlay": "Subskrypcje Google Play anulujemy za Ciebie: nie musisz ich anulować w Sklepie Play.",
+    "deleted": "Usuwane: konto, jego plan Supporter i zakupy oraz synchronizacja między Twoimi urządzeniami.",
+    "kept": "Zostaje: Twoja biblioteka na tym urządzeniu i jej kopie zapasowe. Paddle i Google zachowują własne dane płatności.",
+    "when": "Kiedy",
+    "now": "Teraz",
+    "nowHint": "Pozostały opłacony czas przepada.",
+    "periodEnd": "Na koniec opłaconego okresu",
+    "periodEndHint": "{{date}}. Do tego czasu Supporter działa.",
+    "continue": "Dalej",
+    "codeTitle": "Potwierdź kodem",
+    "codeText": "Wysłaliśmy kod na {{email}}. Wpisz go, aby usunąć konto teraz.",
+    "codeTextLater": "Wysłaliśmy kod na {{email}}. Wpisz go, aby usunąć konto {{date}}.",
+    "codeTextKeep": "Wysłaliśmy kod na {{email}}. Wpisz go, aby zachować konto.",
+    "delete": "Usuń konto",
+    "keep": "Zachowaj moje konto",
+    "failedTitle": "Konto nie zostało usunięte",
+    "doneTitle": "Konto usunięte",
+    "doneText": "Twoje konto zostało usunięte, a płatności zatrzymane. To urządzenie jest wylogowane, a synchronizacja tutaj wyłączona; biblioteka zostaje na tym urządzeniu.",
+    "scheduledTitle": "Usunięcie zaplanowane",
+    "scheduledText": "Twoje konto zostanie usunięte {{date}}. Do tego czasu Supporter działa; płatności są już zatrzymane.",
+    "keptTitle": "Konto zachowane",
+    "keptText": "Twoje konto zostaje. Płatności pozostają zatrzymane: Supporter kończy się {{date}}, chyba że kupisz go ponownie.",
+    "scheduledLine": "Konto zostanie usunięte {{date}}"
   },
   "plan": {
     "already": "Już jestem Supporterem",

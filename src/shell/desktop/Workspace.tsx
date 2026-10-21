@@ -36,6 +36,7 @@ import { ReadingMode } from "../../components/reader/ReadingMode";
 import { ReadingSheet } from "../../components/reader/ReadingSheet";
 import { SettingsPage } from "../../components/settings/SettingsPage";
 import { PlanDialog, SignInDialog, SupporterDialog } from "../../components/SupporterDialog";
+import { AccountDeletionDialog } from "../../components/AccountDeletionDialog";
 import { Button } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
 import { Kbd } from "../../components/ui/Hint";
@@ -967,7 +968,11 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
           onSignIn={() => setSurface("signIn")}
         />
       )}
-      {surface === "signIn" && <SignInDialog onClose={() => setSurface(null)} onPlans={() => setSurface("supporter")} />}
+      {surface === "signIn" && (
+        <SignInDialog onClose={() => setSurface(null)} onPlans={() => setSurface("supporter")} onDelete={() => setSurface("deleteAccount")} />
+      )}
+      {/* Kept open after the account is gone: it says so, signed out. */}
+      {surface === "deleteAccount" && supporter && <AccountDeletionDialog supporter={supporter} onClose={() => setSurface(null)} />}
       {surface === "plan" && supporter?.plan && (
         <PlanDialog
           supporter={supporter}
@@ -981,6 +986,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
             setUpgradeFrom(supporter.plan);
             setSurface("upgrade");
           }}
+          onDelete={() => setSurface("deleteAccount")}
           sync={sync}
           onSync={() => setSurface("sync")}
         />

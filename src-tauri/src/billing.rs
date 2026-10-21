@@ -13,6 +13,7 @@
 //! purchase comes first, the email given after it claims it, and the server binds it once the code
 //! from that email has signed in.
 
+pub mod deletion;
 pub mod play;
 
 use crate::error::{CommandError, ErrorCode, ErrorDetail};
@@ -272,6 +273,9 @@ struct Stored {
     /// The Play purchase the sheet follows in this run: the one bought last, or claimed by an email.
     #[serde(skip)]
     play_followed: Option<String>,
+    /// The account is deleted on this date unless kept (billing/deletion.rs): what the server said last.
+    #[serde(default)]
+    delete_at: Option<DateTime<Utc>>,
 }
 
 /// A purchase started here: the secret the server knows by its hash, and the payment page.
@@ -354,6 +358,10 @@ impl Stored {
     /// A new sign-in: the session, and of the signed plan kept here only what is this account's.
     /// Another account's lease is dropped, never shown, nor sent to the sync relay, as this one's.
     fn sign_in(&mut self, session: Session, key: &[u8]) {
+        // A deletion scheduled for another account is not this one's.
+        if !self.same_account(&session.email) {
+            self.delete_at = None;
+        }
         self.session = Some(session);
         let kept = self.lease.take();
         self.keep_lease(kept, key);
@@ -423,6 +431,10 @@ pub struct SupporterStatus {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub play: Option<play::PlayProgress>,
+    /// The account is deleted on this date unless kept (billing/deletion.rs).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "string")]
+    pub delete_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -516,6 +528,7 @@ fn status(stored: &Stored, now: DateTime<Utc>) -> SupporterStatus {
         plan_unknown: stored.session.is_some() && stored.plan.is_none() && stored.check_failed,
         awaiting_sign_in: stored.awaiting_sign_in && stored.session.is_none(),
         play: stored.play_progress(),
+        delete_at: stored.delete_at.filter(|_| stored.session.is_some()),
     }
 }
 
@@ -688,8 +701,17 @@ fn verify_refused(status: reqwest::StatusCode) -> Option<CommandError> {
     }
 }
 
-/// One action of the Edge Function `billing`.
+/// One action of the Edge Function `billing`; a server error is a failure.
 async fn call(app: &AppHandle, body: Value, token: Option<&str>) -> Result<(reqwest::StatusCode, Value), CommandError> {
+    let (status, value) = call_raw(app, body, token).await?;
+    if status.is_server_error() {
+        return Err(refused("billing", status));
+    }
+    Ok((status, value))
+}
+
+/// The action's answer whatever its status: a deletion's 502 says what failed ([`deletion`]).
+async fn call_raw(app: &AppHandle, body: Value, token: Option<&str>) -> Result<(reqwest::StatusCode, Value), CommandError> {
     let service = need_service()?;
     let mut request = client(app)?.post(format!("{}/functions/v1/billing", service.url)).json(&body);
     if let Some(token) = token {
@@ -698,9 +720,6 @@ async fn call(app: &AppHandle, body: Value, token: Option<&str>) -> Result<(reqw
     let response = request.send().await.map_err(offline)?;
     let status = response.status();
     let value = response.json::<Value>().await.unwrap_or(Value::Null);
-    if status.is_server_error() {
-        return Err(refused("billing", status));
-    }
     Ok((status, value))
 }
 

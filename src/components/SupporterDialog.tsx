@@ -333,7 +333,7 @@ function PlanCard({
  * plan (it ended or was cancelled), the dialog says so instead of closing as if nothing happened;
  * «See plans» there only where the build sells Supporter.
  */
-export function SignInDialog({ onClose, onPlans }: { onClose: () => void; onPlans: () => void }) {
+export function SignInDialog({ onClose, onPlans, onDelete }: { onClose: () => void; onPlans: () => void; onDelete?: () => void }) {
   const { t } = useTranslation();
   const { step, setStep, email, setEmail, code, setCode, error, busy, wait, send, verify, retry, signOut, anotherEmail, unknown, codeReady } = useSignIn({ onClose });
 
@@ -348,9 +348,16 @@ export function SignInDialog({ onClose, onPlans }: { onClose: () => void; onPlan
         </p>
       )}
       <footer className="mt-auto flex items-center justify-end gap-2 pt-5">
-        <button type="button" disabled={busy} onClick={() => void signOut()} className="mr-auto text-sm font-medium text-muted hover:text-ink">
-          {t("plan.signOut")}
-        </button>
+        <span className="mr-auto flex items-center gap-3">
+          <button type="button" disabled={busy} onClick={() => void signOut()} className="text-sm font-medium text-muted hover:text-ink">
+            {t("plan.signOut")}
+          </button>
+          {onDelete && !sizing && (
+            <button type="button" disabled={busy} onClick={onDelete} className="text-sm font-medium text-muted hover:text-ink">
+              {t("deleteAccount.open")}
+            </button>
+          )}
+        </span>
         <Button variant="outline" size="lg" onClick={onClose}>
           {t("common.close")}
         </Button>
@@ -600,6 +607,7 @@ export function PlanDialog({
   onBadge,
   onClose,
   onUpgrade,
+  onDelete,
   sync,
   onSync,
 }: {
@@ -614,6 +622,8 @@ export function PlanDialog({
   onClose: () => void;
   /** «Switch to 5 years», offered while a subscription renews. */
   onUpgrade?: () => void;
+  /** «Delete account…»: its dialog instead of this one. */
+  onDelete?: () => void;
 }) {
   const { t } = useTranslation();
   const { status, tone, action: kind, busy, error, setError, offerSwitch, act, signOut } = usePlan({ supporter, onClose, onUpgrade });
@@ -704,14 +714,16 @@ export function PlanDialog({
           })}
         </ul>
         <footer className="mt-6 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={signOut}
-            className="mr-auto text-sm font-medium text-muted hover:text-ink"
-          >
-            {t("plan.signOut")}
-          </button>
+          <span className="mr-auto flex items-center gap-3">
+            <button type="button" disabled={busy} onClick={signOut} className="text-sm font-medium text-muted hover:text-ink">
+              {t("plan.signOut")}
+            </button>
+            {onDelete && (
+              <button type="button" disabled={busy} onClick={onDelete} className="text-sm font-medium text-muted hover:text-ink">
+                {t("deleteAccount.open")}
+              </button>
+            )}
+          </span>
           {action}
         </footer>
       </div>

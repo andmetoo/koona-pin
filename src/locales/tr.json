@@ -1264,7 +1264,11 @@
       "wrong_code": "kod işe yaramadı",
       "signed_out": "oturumunuz kapandı",
       "update_needed": "eşitleme için Koona Pin'in daha yeni bir sürümü gerekiyor",
-      "purchases_waiting": "ödenmiş Google Play satın almaları burada hâlâ bekliyor"
+      "purchases_waiting": "ödenmiş Google Play satın almaları burada hâlâ bekliyor",
+      "fresh_sign_in": "kod çok eski",
+      "review_account": "uygulama incelemesi hesabı",
+      "no_paid_time": "ödenmiş süre kalmadı",
+      "payments_not_stopped": "ödemeler durdurulamadı"
     },
     "code": {
       "not_found": "Artık yok — bu arada silinmiş olabilir.",
@@ -1297,7 +1301,11 @@
       "wrong_code": "Kod işe yaramadı. Kontrol edin ya da yenisini isteyin.",
       "signed_out": "Oturumunuz kapandı. Yeniden giriş yapmak için \"Destekleyin\"i açıp \"Zaten Supporter'ım\"ı seçin.",
       "update_needed": "Eşitleme için Koona Pin'in daha yeni bir sürümü gerekiyor. Uygulamayı güncelleyip yeniden deneyin.",
-      "purchases_waiting": "Bu telefonda ödenmiş Google Play satın almaları hâlâ onay bekliyor. Yeniden satın almadan önce bunları tamamlayın ya da Google Play'in iade etmesini bekleyin."
+      "purchases_waiting": "Bu telefonda ödenmiş Google Play satın almaları hâlâ onay bekliyor. Yeniden satın almadan önce bunları tamamlayın ya da Google Play'in iade etmesini bekleyin.",
+      "fresh_sign_in": "Son 10 dakika içinde gönderilmiş bir kod gerekiyor. Yeni bir kod gönderin.",
+      "review_account": "Bu hesap uygulama incelemesi için kullanılır ve silinemez.",
+      "no_paid_time": "Ödenmiş süre kalmadı, bu yüzden hesap yalnızca şimdi silinebilir.",
+      "payments_not_stopped": "Ödemeler durdurulamadı, bu yüzden hiçbir şey silinmedi. Yeniden deneyin."
     }
   },
   "tray": {
@@ -1479,6 +1487,36 @@
       "unreachable": "{{path}} konumuna erişilemiyor",
       "pickerTitle": "Otomatik yedekler için klasör"
     }
+  },
+  "deleteAccount": {
+    "open": "Hesabı sil…",
+    "title": "Hesabı sil",
+    "intro": "Bu işlem {{email}} Koona Pin hesabını siler.",
+    "payments": "Ödemeler hemen durur.",
+    "refund": "Kalan ödenmiş süre iade edilmez; iadeler yalnızca iade politikasına göre yapılır.",
+    "paymentsPlay": "Google Play aboneliklerini sizin için biz iptal ederiz: Play Store'da iptal etmeniz gerekmez.",
+    "deleted": "Silinenler: hesap, hesabın Supporter planı ve satın almaları, cihazlarınız arasındaki eşitleme.",
+    "kept": "Kalanlar: bu cihazdaki kitaplığınız ve yedekleri. Paddle ve Google kendi ödeme kayıtlarını saklar.",
+    "when": "Ne zaman",
+    "now": "Şimdi",
+    "nowHint": "Kalan ödenmiş süre kaybolur.",
+    "periodEnd": "Ödenmiş dönemin sonunda",
+    "periodEndHint": "{{date}} tarihinde. Supporter o zamana kadar çalışır.",
+    "continue": "Devam",
+    "codeTitle": "Kodla onaylayın",
+    "codeText": "{{email}} adresine bir kod gönderdik. Hesabınızı şimdi silmek için kodu girin.",
+    "codeTextLater": "{{email}} adresine bir kod gönderdik. Hesabınızı {{date}} tarihinde silmek için kodu girin.",
+    "codeTextKeep": "{{email}} adresine bir kod gönderdik. Hesabınızı korumak için kodu girin.",
+    "delete": "Hesabı sil",
+    "keep": "Hesabımı koru",
+    "failedTitle": "Hesap silinmedi",
+    "doneTitle": "Hesap silindi",
+    "doneText": "Hesabınız silindi ve ödemeleri durduruldu. Bu cihazda oturum kapatıldı ve eşitleme kapalı; kitaplığınız bu cihazda kalır.",
+    "scheduledTitle": "Silme planlandı",
+    "scheduledText": "Hesabınız {{date}} tarihinde silinecek. Supporter o zamana kadar çalışır; ödemeler zaten durduruldu.",
+    "keptTitle": "Hesap korundu",
+    "keptText": "Hesabınız kalıyor. Ödemeler durdurulmuş olarak kalır: yeniden satın almazsanız Supporter {{date}} tarihinde sona erer.",
+    "scheduledLine": "Hesap {{date}} tarihinde silinecek"
   },
   "plan": {
     "already": "Zaten Supporter’ım",

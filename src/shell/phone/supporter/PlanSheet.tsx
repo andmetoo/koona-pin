@@ -106,6 +106,9 @@ function PlanBody({ supporter }: { supporter: NonNullable<ReturnType<typeof useP
             <Button kind="ghost" compact disabled={busy} className="sp-sign-out sp-sign-out-under" onClick={signOut}>
               {t("plan.signOut")}
             </Button>
+            <Button kind="ghost" compact disabled={busy} className="sp-sign-out sp-sign-out-under" onClick={() => setSurface("deleteAccount")}>
+              {t("deleteAccount.open")}
+            </Button>
           </div>
         ) : (
         <div className="sp-footer">
@@ -121,6 +124,9 @@ function PlanBody({ supporter }: { supporter: NonNullable<ReturnType<typeof useP
             </Button>
             {main}
           </div>
+          <Button kind="ghost" compact disabled={busy} className="sp-sign-out sp-sign-out-under" onClick={() => setSurface("deleteAccount")}>
+            {t("deleteAccount.open")}
+          </Button>
         </div>
         )
       }

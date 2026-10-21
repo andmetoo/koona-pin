@@ -1342,7 +1342,11 @@
       "wrong_code": "le code n’a pas fonctionné",
       "signed_out": "vous avez été déconnecté",
       "update_needed": "la synchronisation nécessite une version plus récente de Koona Pin",
-      "purchases_waiting": "des achats Google Play payés attendent encore ici"
+      "purchases_waiting": "des achats Google Play payés attendent encore ici",
+      "fresh_sign_in": "le code est trop ancien",
+      "review_account": "c’est le compte de vérification de l’app",
+      "no_paid_time": "il ne reste pas de temps payé",
+      "payments_not_stopped": "les paiements n’ont pas pu être arrêtés"
     },
     "code": {
       "not_found": "Cela n’existe plus — peut-être supprimé entre-temps.",
@@ -1375,7 +1379,11 @@
       "wrong_code": "Ce code n’a pas fonctionné. Vérifiez-le ou demandez-en un nouveau.",
       "signed_out": "Vous avez été déconnecté. Ouvrez « Soutenir » et choisissez « Je suis déjà Supporter » pour vous reconnecter.",
       "update_needed": "La synchronisation nécessite une version plus récente de Koona Pin. Mettez l’application à jour, puis réessayez.",
-      "purchases_waiting": "Des achats Google Play payés attendent encore d’être confirmés sur ce téléphone. Terminez-les d’abord, ou attendez que Google Play les rembourse, avant d’acheter à nouveau."
+      "purchases_waiting": "Des achats Google Play payés attendent encore d’être confirmés sur ce téléphone. Terminez-les d’abord, ou attendez que Google Play les rembourse, avant d’acheter à nouveau.",
+      "fresh_sign_in": "Il faut un code envoyé dans les 10 dernières minutes. Envoyez un nouveau code.",
+      "review_account": "Ce compte sert à la vérification de l’app et ne peut pas être supprimé.",
+      "no_paid_time": "Il ne reste pas de temps payé : le compte ne peut être supprimé que maintenant.",
+      "payments_not_stopped": "Impossible d’arrêter les paiements, rien n’a donc été supprimé. Réessayez."
     }
   },
   "tray": {
@@ -1582,6 +1590,36 @@
       "unreachable": "Impossible d'accéder à {{path}}",
       "pickerTitle": "Dossier des sauvegardes automatiques"
     }
+  },
+  "deleteAccount": {
+    "open": "Supprimer le compte…",
+    "title": "Supprimer le compte",
+    "intro": "Cela supprime le compte Koona Pin {{email}}.",
+    "payments": "Les paiements s’arrêtent immédiatement.",
+    "refund": "Le temps payé restant n’est pas remboursé ; les remboursements suivent uniquement la politique de remboursement.",
+    "paymentsPlay": "Nous résilions pour vous les abonnements Google Play : inutile de les résilier dans le Play Store.",
+    "deleted": "Supprimés : le compte, son offre Supporter et ses achats, ainsi que la synchronisation entre vos appareils.",
+    "kept": "Conservés : votre bibliothèque sur cet appareil et ses sauvegardes. Paddle et Google gardent leurs propres justificatifs de paiement.",
+    "when": "Quand",
+    "now": "Maintenant",
+    "nowHint": "Le temps payé restant est perdu.",
+    "periodEnd": "À la fin de la période payée",
+    "periodEndHint": "Le {{date}}. Supporter fonctionne jusque-là.",
+    "continue": "Continuer",
+    "codeTitle": "Confirmer avec un code",
+    "codeText": "Nous avons envoyé un code à {{email}}. Saisissez-le pour supprimer votre compte maintenant.",
+    "codeTextLater": "Nous avons envoyé un code à {{email}}. Saisissez-le pour supprimer votre compte le {{date}}.",
+    "codeTextKeep": "Nous avons envoyé un code à {{email}}. Saisissez-le pour garder votre compte.",
+    "delete": "Supprimer le compte",
+    "keep": "Garder mon compte",
+    "failedTitle": "Compte non supprimé",
+    "doneTitle": "Compte supprimé",
+    "doneText": "Votre compte est supprimé et ses paiements sont arrêtés. Cet appareil est déconnecté et la synchronisation y est désactivée ; votre bibliothèque reste sur cet appareil.",
+    "scheduledTitle": "Suppression programmée",
+    "scheduledText": "Votre compte sera supprimé le {{date}}. Supporter fonctionne jusque-là ; les paiements sont déjà arrêtés.",
+    "keptTitle": "Compte conservé",
+    "keptText": "Votre compte reste. Les paiements restent arrêtés : Supporter prend fin le {{date}}, sauf si vous l’achetez de nouveau.",
+    "scheduledLine": "Compte supprimé le {{date}}"
   },
   "plan": {
     "already": "Je suis déjà Supporter",

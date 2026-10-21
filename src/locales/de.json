@@ -1264,7 +1264,11 @@
       "wrong_code": "der Code hat nicht funktioniert",
       "signed_out": "Sie wurden abgemeldet",
       "update_needed": "die Synchronisierung braucht eine neuere Version von Koona Pin",
-      "purchases_waiting": "bezahlte Google-Play-Käufe warten hier noch"
+      "purchases_waiting": "bezahlte Google-Play-Käufe warten hier noch",
+      "fresh_sign_in": "der Code ist zu alt",
+      "review_account": "es ist das Konto für die App-Prüfung",
+      "no_paid_time": "keine bezahlte Zeit ist übrig",
+      "payments_not_stopped": "die Zahlungen konnten nicht beendet werden"
     },
     "code": {
       "not_found": "Es existiert nicht mehr — vielleicht wurde es inzwischen gelöscht.",
@@ -1297,7 +1301,11 @@
       "wrong_code": "Der Code hat nicht funktioniert. Prüfen Sie ihn oder fordern Sie einen neuen an.",
       "signed_out": "Sie wurden abgemeldet. Öffnen Sie „Unterstützen“ und wählen Sie „Ich bin schon Supporter“, um sich erneut anzumelden.",
       "update_needed": "Für die Synchronisierung ist eine neuere Version von Koona Pin nötig. Aktualisieren Sie die App und versuchen Sie es erneut.",
-      "purchases_waiting": "Bezahlte Google-Play-Käufe warten auf diesem Telefon noch auf ihre Bestätigung. Schließen Sie sie zuerst ab oder warten Sie, bis Google Play sie erstattet, bevor Sie erneut kaufen."
+      "purchases_waiting": "Bezahlte Google-Play-Käufe warten auf diesem Telefon noch auf ihre Bestätigung. Schließen Sie sie zuerst ab oder warten Sie, bis Google Play sie erstattet, bevor Sie erneut kaufen.",
+      "fresh_sign_in": "Dafür ist ein Code aus den letzten 10 Minuten nötig. Senden Sie einen neuen Code.",
+      "review_account": "Dieses Konto dient der App-Prüfung und kann nicht gelöscht werden.",
+      "no_paid_time": "Es ist keine bezahlte Zeit übrig, daher kann das Konto nur jetzt gelöscht werden.",
+      "payments_not_stopped": "Die Zahlungen konnten nicht beendet werden, daher wurde nichts gelöscht. Versuchen Sie es erneut."
     }
   },
   "tray": {
@@ -1479,6 +1487,36 @@
       "unreachable": "{{path}} ist nicht erreichbar",
       "pickerTitle": "Ordner für automatische Sicherungen"
     }
+  },
+  "deleteAccount": {
+    "open": "Konto löschen…",
+    "title": "Konto löschen",
+    "intro": "Damit wird das Koona-Pin-Konto {{email}} gelöscht.",
+    "payments": "Zahlungen enden sofort.",
+    "refund": "Die verbleibende bezahlte Zeit wird nicht erstattet; Erstattungen gibt es nur nach den Erstattungsregeln.",
+    "paymentsPlay": "Google-Play-Abos kündigen wir für Sie: Sie müssen sie nicht im Play Store kündigen.",
+    "deleted": "Gelöscht werden: das Konto, sein Supporter-Plan und seine Käufe sowie die Synchronisierung zwischen Ihren Geräten.",
+    "kept": "Bleibt: Ihre Bibliothek auf diesem Gerät und ihre Sicherungen. Paddle und Google behalten ihre eigenen Zahlungsbelege.",
+    "when": "Wann",
+    "now": "Jetzt",
+    "nowHint": "Die verbleibende bezahlte Zeit verfällt.",
+    "periodEnd": "Am Ende des bezahlten Zeitraums",
+    "periodEndHint": "Am {{date}}. Supporter funktioniert bis dahin.",
+    "continue": "Weiter",
+    "codeTitle": "Mit einem Code bestätigen",
+    "codeText": "Wir haben einen Code an {{email}} gesendet. Geben Sie ihn ein, um Ihr Konto jetzt zu löschen.",
+    "codeTextLater": "Wir haben einen Code an {{email}} gesendet. Geben Sie ihn ein, um Ihr Konto am {{date}} zu löschen.",
+    "codeTextKeep": "Wir haben einen Code an {{email}} gesendet. Geben Sie ihn ein, um Ihr Konto zu behalten.",
+    "delete": "Konto löschen",
+    "keep": "Konto behalten",
+    "failedTitle": "Konto nicht gelöscht",
+    "doneTitle": "Konto gelöscht",
+    "doneText": "Ihr Konto ist gelöscht und seine Zahlungen sind beendet. Dieses Gerät ist abgemeldet und die Synchronisierung hier ausgeschaltet; Ihre Bibliothek bleibt auf diesem Gerät.",
+    "scheduledTitle": "Löschung geplant",
+    "scheduledText": "Ihr Konto wird am {{date}} gelöscht. Supporter funktioniert bis dahin; die Zahlungen sind bereits beendet.",
+    "keptTitle": "Konto bleibt",
+    "keptText": "Ihr Konto bleibt. Die Zahlungen bleiben beendet: Supporter endet am {{date}}, wenn Sie es nicht erneut kaufen.",
+    "scheduledLine": "Konto wird am {{date}} gelöscht"
   },
   "plan": {
     "already": "Ich bin schon Supporter",
