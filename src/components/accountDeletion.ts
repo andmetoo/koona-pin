@@ -20,8 +20,10 @@ import { failureText, useResendWait } from "./supporterFlow";
  * - `deleted` (D5), `scheduled` (D6) with «Keep my account» and «Delete now instead», `kept`.
  * - `failed`: the server refused and said so (payments not stopped, a payment still processing):
  *   nothing was deleted (D7). `unknown`: the answer did not come, so «Check again» asks.
+ * - `signedOut`: asked again, the session here no longer worked after a deletion was sent: this
+ *   device is signed out, and the account is most likely gone — said so, never as D5.
  */
-export type DeleteStep = "about" | "code" | "when" | "confirm" | "failed" | "unknown" | "deleted" | "scheduled" | "kept";
+export type DeleteStep = "about" | "code" | "when" | "confirm" | "failed" | "unknown" | "signedOut" | "deleted" | "scheduled" | "kept";
 
 /** What the failed step says: payments not stopped (D7), a payment still processing, another refusal. */
 export type DeleteFailure = "payments" | "pending" | "other";
@@ -141,6 +143,7 @@ export function useAccountDeletion({ supporter }: { supporter: SupporterStatus }
 
   const outcome = (result: DeleteOutcome) => {
     if (result.status === "deleted") setStep("deleted");
+    else if (result.status === "signed_out") setStep("signedOut");
     else if (result.status === "scheduled") {
       setDeleteAt(result.delete_at);
       setStep("scheduled");

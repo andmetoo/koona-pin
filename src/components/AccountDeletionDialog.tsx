@@ -9,7 +9,7 @@ import { Button } from "./ui/Button";
 import { Field, StatePanels } from "./ui/Controls";
 import { Dialog } from "./ui/Dialog";
 
-const STEPS = ["about", "code", "when", "confirm", "failed", "unknown", "deleted", "scheduled", "kept"] as const satisfies readonly DeleteStep[];
+const STEPS = ["about", "code", "when", "confirm", "failed", "unknown", "signedOut", "deleted", "scheduled", "kept"] as const satisfies readonly DeleteStep[];
 const TIMES = ["now", "period_end"] as const satisfies readonly DeleteWhen[];
 const LONG_EMAIL = "someone.with.a.long.address@example.com";
 /** The one destructive button is red (D4), the owner's exception to red for errors. */
@@ -267,6 +267,7 @@ export function AccountDeletionDialog({ supporter, onClose }: { supporter: Suppo
     confirm: t("deleteAccount.codeTitle"),
     failed: failed === "payments" ? t("deleteAccount.failedTitle") : t("deleteAccount.notDeletedTitle"),
     unknown: t("deleteAccount.unknownTitle"),
+    signedOut: t("deleteAccount.signedOutTitle"),
     deleted: t("deleteAccount.doneTitle"),
     scheduled: t("deleteAccount.scheduledTitle", { date: date(deleteAt) }),
     kept: t("deleteAccount.keptTitle"),
@@ -286,6 +287,7 @@ export function AccountDeletionDialog({ supporter, onClose }: { supporter: Suppo
             if (state === "unknown") return unknownPanel(failure, sizing);
             if (state === "scheduled") return scheduledPanel(failure, sizing);
             if (state === "deleted") return textPanel(t("deleteAccount.doneTextComputer"), sizing);
+            if (state === "signedOut") return textPanel(t("deleteAccount.signedOutText"), sizing);
             return textPanel(t("deleteAccount.keptText", { date: sizing ? sizingDate : date(deleteAt) }), sizing);
           }}
         </StatePanels>

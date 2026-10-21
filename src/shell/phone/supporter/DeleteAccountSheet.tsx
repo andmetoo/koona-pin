@@ -273,7 +273,7 @@ function DeleteBody({ supporter }: { supporter: NonNullable<ReturnType<typeof us
   }
 
   const deleted = step === "deleted";
-  const title = deleted ? t("deleteAccount.doneTitle") : t("deleteAccount.keptTitle");
+  const title = deleted ? t("deleteAccount.doneTitle") : step === "signedOut" ? t("deleteAccount.signedOutTitle") : t("deleteAccount.keptTitle");
   return (
     <Sheet
       label={title}
@@ -286,7 +286,11 @@ function DeleteBody({ supporter }: { supporter: NonNullable<ReturnType<typeof us
       }
     >
       <p role="status" className="sp-text" data-delete-step={step}>
-        {deleted ? t("deleteAccount.doneTextPhone") : t("deleteAccount.keptText", { date: date(deleteAt) })}
+        {deleted
+          ? t("deleteAccount.doneTextPhone")
+          : step === "signedOut"
+            ? t("deleteAccount.signedOutText")
+            : t("deleteAccount.keptText", { date: date(deleteAt) })}
       </p>
     </Sheet>
   );

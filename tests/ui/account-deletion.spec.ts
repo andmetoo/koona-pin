@@ -127,7 +127,7 @@ test("refusals: payments not stopped, a payment still processing, a paid period 
   await expect(page.getByRole("dialog", { name: "Your account is deleted" })).toBeVisible();
 });
 
-test("an answer that did not come: unknown, never «nothing was deleted»; Check again finds the account still there, or gone", async ({ page }) => {
+test("an answer that did not come: unknown, never «nothing was deleted»; Check again finds the account still there, or signs out neutrally", async ({ page }) => {
   await openDeletion(page, "supporter", true);
   await page.getByRole("dialog", { name: "Delete your account?" }).getByRole("button", { name: "Continue" }).click();
   await page.getByRole("dialog", { name: "When should we delete it?" }).getByRole("radio", { name: /^Delete now/ }).click();
@@ -139,13 +139,19 @@ test("an answer that did not come: unknown, never «nothing was deleted»; Check
   await expect(shown(page)).not.toContainText("Nothing was deleted");
   await unknown.getByRole("button", { name: "Check again" }).click();
   const confirm = page.getByRole("dialog", { name: "Confirm deletion" });
-  await expect(confirm.getByRole("alert")).toHaveText("Your account is still there. Nothing was deleted.");
-  // Again, and this time the server deleted it before the answer was lost.
+  await expect(confirm.getByRole("alert")).toHaveText("Your account is still there. You can try again.");
+  // Again, and this time the session no longer works when asked: signed out here, said neutrally —
+  // never «deleted», and sync is left as it was (only the server's `deleted` turns it off).
   await failOnce(page, "deleteAccount", "network", "operation timed out", "deletion_unknown");
   await red(page).click();
-  await page.evaluate(async () => void (await (await import("/src/services/api.ts")).api.signOutSupporter()));
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.deletionGone", "on"));
   await page.getByRole("dialog", { name: "We couldn't confirm the deletion" }).getByRole("button", { name: "Check again" }).click();
-  await expect(page.getByRole("dialog", { name: "Your account is deleted" })).toBeVisible();
+  const signedOut = page.getByRole("dialog", { name: "You're signed out" });
+  await expect(signedOut).toContainText("You're signed out. If the deletion went through, your account is gone — sign in to check.");
+  await expect(page.getByRole("dialog", { name: "Your account is deleted" })).toHaveCount(0);
+  expect(await page.evaluate(async () => (await (await import("/src/services/api.ts")).api.getSyncStatus()).enabled)).toBe(true);
+  await signedOut.getByRole("button", { name: "Done" }).click();
+  await expect(page.locator("[data-plan-row]")).toHaveAttribute("data-plan-row", "free");
 });
 
 test("the review account hears at once that it is not deleted; no code is sent", async ({ page }) => {
@@ -208,4 +214,15 @@ test("signed in without a plan: the Support dialog shows the account and «Delet
   await expect(page.getByRole("dialog", { name: "Confirm deletion" })).toContainText("deleted now");
   await red(page).click();
   await expect(page.getByRole("dialog", { name: "Your account is deleted" })).toBeVisible();
+});
+
+test("signed in while the plan couldn't be checked: «Delete account…» stays in the notice", async ({ page }) => {
+  await openApp(page, { settings: { "demo.supporter": "free" } });
+  await page.evaluate(async () => void (await (await import("/src/services/api.ts")).api.verifySignInCode("unknown@example.com", "482913")));
+  await page.locator("[data-plan-row]").click();
+  const support = page.getByRole("dialog", { name: "Support Koona Pin" });
+  const notice = support.getByRole("status");
+  await expect(notice).toContainText("couldn't be checked yet");
+  await notice.getByRole("button", { name: "Delete account…" }).click();
+  await expect(page.getByRole("dialog", { name: "Delete your account?" })).toBeVisible();
 });

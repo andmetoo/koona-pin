@@ -2825,12 +2825,19 @@ export const demo = {
     setDemoSupporter({ ...currentDemoSupporter(), delete_at: info.wait_until! });
     return { status: "scheduled", delete_at: info.wait_until };
   },
-  /** The account is gone once signed out by the deletion; else still there, or scheduled. */
+  /**
+   * Still there, or scheduled; `koonapin.demo.deletionGone` "on" stands for a deletion that went
+   * through with its answer lost: the session no longer works, so this device is signed out.
+   */
   async checkAccountDeletion(): Promise<DeleteOutcome> {
     await new Promise((resolve) => setTimeout(resolve, 300));
     noServer();
     const status = currentDemoSupporter();
-    if (!status.email) return { status: "deleted", delete_at: null };
+    if (!status.email) throw new CommandError("invalid_request", "Not signed in", "signed_out");
+    if (demoSwitch("koonapin.demo.deletionGone") === "on") {
+      setDemoSupporter({ ...status, email: null, plan: null, check_failed: false, plan_unknown: false, delete_at: undefined });
+      return { status: "signed_out", delete_at: null };
+    }
     return status.delete_at ? { status: "scheduled", delete_at: status.delete_at } : { status: "active", delete_at: null };
   },
   async keepAccount(code: string | null): Promise<DeleteOutcome> {

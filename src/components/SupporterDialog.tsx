@@ -110,7 +110,18 @@ export function SupporterDialog({
         // Signed in, but the plan could not be checked: a Supporter must not buy it twice.
         <p role="status" className="mt-3 flex gap-2 rounded-lg bg-amber-soft px-3 py-2.5 text-xs leading-[17px] text-on-amber-soft">
           <Icon icon={TriangleAlert} size={14} className="mt-px shrink-0" />
-          {t("supporter.planUnknownNotice", { email })}
+          <span>
+            {t("supporter.planUnknownNotice", { email })}
+            {/* The account can still be deleted from here (its line gave way to this notice). */}
+            {onDelete && (
+              <>
+                {" "}
+                <button type="button" onClick={onDelete} className="font-medium underline-offset-2 hover:underline">
+                  {t("deleteAccount.open")}
+                </button>
+              </>
+            )}
+          </span>
         </p>
       ) : email && onDelete && !sizing ? (
         // Signed in without a plan: the account, and deleting it, quietly (as the plan's D1), in the

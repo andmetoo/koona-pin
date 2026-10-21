@@ -13,13 +13,16 @@
 //!
 //! Deleting now waits up to a minute for the server. An answer that does not come (a timeout, a
 //! dropped connection, a server error) leaves the result unknown, never «nothing was deleted»:
-//! [`check_account_deletion`] asks again, and an account the server no longer knows was deleted.
+//! [`check_account_deletion`] asks again. Only the server's `deleted` answer counts as deleted and
+//! turns sync off; a session that no longer works after a deletion was sent is said neutrally (signed
+//! out here, the account most likely gone), since a session revoked another way looks the same.
 
-use super::{access_token, call_raw, signed_out, Billing, Stored};
+use super::{access_token, call_raw, fresh_token, signed_out, Billing, Stored};
 use crate::error::{CommandError, ErrorCode, ErrorDetail};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
 use ts_rs::TS;
@@ -27,6 +30,20 @@ use ts_rs::TS;
 /// Deleting now cancels subscriptions at Paddle and Google, then deletes the account: longer than
 /// the 15 seconds of any other request.
 const DELETE_WAIT: Duration = Duration::from_secs(60);
+
+/// The account a `delete_account` request went out for in this run, its answer not known: only then
+/// may a session that no longer works be read as «most likely deleted» (`check_account_deletion`).
+static SENT: Mutex<Option<String>> = Mutex::new(None);
+
+fn sent_for(email: Option<&str>) {
+    if let Ok(mut sent) = SENT.lock() {
+        *sent = email.map(str::to_string);
+    }
+}
+
+fn was_sent(email: &str) -> bool {
+    SENT.lock().is_ok_and(|sent| sent.as_deref() == Some(email))
+}
 
 /// When the account goes: now, or when the paid time left ends.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -64,6 +81,10 @@ pub enum DeleteState {
     Kept,
     /// Asked after an answer that did not come: the account is still there, nothing scheduled.
     Active,
+    /// Asked after an answer that did not come: the session here no longer works, so this device is
+    /// signed out. The deletion most likely went through, but a session revoked another way looks
+    /// the same: not `Deleted`, and sync is left as it is.
+    SignedOut,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, TS)]
@@ -183,17 +204,22 @@ async fn deleted(app: &AppHandle, email: &str) -> DeleteOutcome {
     let billing = app.state::<Billing>();
     // After a claim already asking, as Sign out.
     let _one_at_a_time = billing.claiming.lock().await;
+    let mut ours = false;
     if let Err(error) = billing.update(app, |s| {
         if s.same_account(email) {
+            ours = true;
             forget(s);
         }
     }) {
         eprintln!("The deleted account could not be forgotten here: {}", error.message);
     }
+    sent_for(None);
     // Sync's relay data went with the account: the client here stops (signed out, it could not
-    // run anyway).
-    if let Err(error) = crate::commercial::sync::disable_sync(app.clone()) {
-        eprintln!("Sync could not be turned off after the account was deleted: {}", error.message);
+    // run anyway). Another account signed in meanwhile keeps its sync.
+    if ours {
+        if let Err(error) = crate::commercial::sync::disable_sync(app.clone()) {
+            eprintln!("Sync could not be turned off after the account was deleted: {}", error.message);
+        }
     }
     DeleteOutcome { status: DeleteState::Deleted, delete_at: None }
 }
@@ -225,41 +251,74 @@ pub async fn delete_account(app: AppHandle, when: DeleteWhen) -> Result<DeleteOu
         DeleteWhen::Now => "now",
         DeleteWhen::PeriodEnd => "period_end",
     };
-    let value = ask(&app, json!({ "action": "delete_account", "when": name }), &token, Some(DELETE_WAIT)).await.map_err(after_sending)?;
+    sent_for(Some(&email));
+    let value = match ask(&app, json!({ "action": "delete_account", "when": name }), &token, Some(DELETE_WAIT)).await {
+        Ok(value) => value,
+        Err(error) => {
+            let error = after_sending(error);
+            // Only an answer that did not come leaves the request possibly done.
+            if error.detail != Some(ErrorDetail::DeletionUnknown) {
+                sent_for(None);
+            }
+            return Err(error);
+        }
+    };
     let outcome = outcome_of(&value).filter(|o| o.status != DeleteState::Kept).ok_or_else(|| after_sending(unexpected("delete_account")))?;
     if outcome.status == DeleteState::Deleted {
         return Ok(deleted(&app, &email).await);
     }
+    sent_for(None);
     keep_date(&app, &email, outcome.delete_at)?;
     Ok(outcome)
 }
 
-/// After an answer that did not come: asks the server what became of the account. An account it no
-/// longer knows (401) was deleted, and goes from here as after `deleted`; a sign-in too old means
-/// it is still there.
+/// After an answer that did not come: asks the server what became of the account. Never «deleted»
+/// on its own word: a 401 gets one forced refresh and a second ask, and only a refresh then refused,
+/// after a deletion was sent from here, says this device is signed out (`SignedOut`, neutrally, sync
+/// left as it is). Another account signed in meanwhile is left alone.
 #[tauri::command]
 pub async fn check_account_deletion(app: AppHandle) -> Result<DeleteOutcome, CommandError> {
     let Some(email) = super::signed_in_email(&app) else {
-        return Ok(DeleteOutcome { status: DeleteState::Deleted, delete_at: None });
+        return Err(signed_out());
     };
-    // A refresh token the server refuses: the account was deleted with its sessions.
-    let Some(token) = access_token(&app).await? else {
-        return Ok(deleted(&app, &email).await);
-    };
-    let (status, value) = call_raw(&app, json!({ "action": "delete_info" }), Some(&token), None).await?;
-    if status.as_u16() == 401 {
-        return Ok(deleted(&app, &email).await);
-    }
-    if status.is_success() {
-        let info = info_of(&value).ok_or_else(|| unexpected("delete_info"))?;
-        keep_date(&app, &email, info.scheduled)?;
-        let status = if info.scheduled.is_some() { DeleteState::Scheduled } else { DeleteState::Active };
-        return Ok(DeleteOutcome { status, delete_at: info.scheduled });
-    }
-    match refusal(status.as_u16(), &value).detail {
-        // Too old for the action, but the account answered: it is still there.
-        Some(ErrorDetail::FreshSignIn | ErrorDetail::ReviewAccount) => Ok(DeleteOutcome { status: DeleteState::Active, delete_at: None }),
-        _ => Err(refusal(status.as_u16(), &value)),
+    let mut forced = false;
+    loop {
+        let Some(token) = fresh_token(&app, forced).await? else {
+            // The refresh token is refused: `fresh_token` already signed this account out here
+            // (only while it is still the one here). Said neutrally, and only after a deletion was sent.
+            if was_sent(&email) {
+                sent_for(None);
+                return Ok(DeleteOutcome { status: DeleteState::SignedOut, delete_at: None });
+            }
+            return Err(signed_out());
+        };
+        if super::signed_in_email(&app).as_deref() != Some(email.as_str()) {
+            return Err(signed_out());
+        }
+        let (status, value) = call_raw(&app, json!({ "action": "delete_info" }), Some(&token), None).await?;
+        if status.as_u16() == 401 {
+            if forced {
+                // A token just refreshed is refused: still not known.
+                return Err(CommandError::detailed(ErrorCode::Network, ErrorDetail::DeletionUnknown, "The session was refused after a refresh"));
+            }
+            forced = true;
+            continue;
+        }
+        if status.is_success() {
+            let info = info_of(&value).ok_or_else(|| unexpected("delete_info"))?;
+            sent_for(None);
+            keep_date(&app, &email, info.scheduled)?;
+            let status = if info.scheduled.is_some() { DeleteState::Scheduled } else { DeleteState::Active };
+            return Ok(DeleteOutcome { status, delete_at: info.scheduled });
+        }
+        return match refusal(status.as_u16(), &value).detail {
+            // Too old for the action, but the account answered: it is still there.
+            Some(ErrorDetail::FreshSignIn | ErrorDetail::ReviewAccount) => {
+                sent_for(None);
+                Ok(DeleteOutcome { status: DeleteState::Active, delete_at: None })
+            }
+            _ => Err(refusal(status.as_u16(), &value)),
+        };
     }
 }
 
@@ -305,6 +364,17 @@ mod tests {
         assert_eq!(after_sending(timeout).detail, Some(ErrorDetail::DeletionUnknown), "a timeout: the server may have finished");
         let never_sent = CommandError::detailed(ErrorCode::Network, ErrorDetail::NoConnection, "connect error");
         assert_eq!(after_sending(never_sent).detail, Some(ErrorDetail::NoConnection), "no connection opened: nothing was sent");
+    }
+
+    #[test]
+    fn only_a_deletion_sent_for_this_account_may_read_a_lost_session_as_most_likely_deleted() {
+        sent_for(None);
+        assert!(!was_sent("anna@example.com"), "nothing sent: a session that ends is only signed out");
+        sent_for(Some("anna@example.com"));
+        assert!(was_sent("anna@example.com"));
+        assert!(!was_sent("ben@example.com"), "another account signed in meanwhile");
+        sent_for(None);
+        assert!(!was_sent("anna@example.com"));
     }
 
     #[test]
