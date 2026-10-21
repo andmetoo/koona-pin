@@ -77,31 +77,41 @@ test("1.5 is not an accessibility size yet; 1.8 is, and a row's value goes under
   expect(under).toEqual({ below: true, aligned: true });
 });
 
-/** Whether `node`'s text runs to one line: no taller than its line height, and no word broken. */
+/** Whether `node`'s text runs to one line: it is no taller than its line height. */
 const oneLine = (node: Element) => node.getBoundingClientRect().height <= parseFloat(getComputedStyle(node).lineHeight) + 1;
 
-test("the reader's chosen theme repaints the flat glass: White in a dark app on battery saver", async ({ page }) => {
-  await openPhone(page, { theme: "dark", system: { powerSave: true, lowRam: false, textScale: 1 } });
-  const screen = page.locator("[data-screen]:not([hidden])").last();
-  await screen.locator("[data-bookmark-id]").first().click();
-  const reader = page.locator("[data-screen]:not([hidden])").last();
-  await expect(reader).toHaveAttribute("data-route");
-  await reader.getByRole("button", { name: "Text and theme" }).click();
-  await page.locator('[data-sheet-kind="readerLook"]').getByRole("radio", { name: "White" }).click();
-  await expect(reader).toHaveAttribute("data-page", "light");
-  // The circles' slab is the page's raised colour, not the dark app's: their dark icons show.
-  const colours = await reader.evaluate((node) => {
-    const probe = document.createElement("div");
-    probe.style.background = "var(--ph-raised)";
-    node.append(probe);
-    const raised = getComputedStyle(probe).backgroundColor;
-    probe.remove();
-    const circle = node.querySelector(".rd-bar .ph-glass")!;
-    return { raised, circle: getComputedStyle(circle).backgroundColor };
+// A reading theme of the other tone than the app's, under each opaque fallback: the circles take
+// the page's raised slab (an opaque colour the look sets), not the app's slab nor translucent glass.
+const OPAQUE = [
+  { name: "battery saver: White in a dark app", app: "dark" as const, powerSave: true, reduce: false, theme: "White", page: "light" },
+  { name: "Reduce Transparency: Dark in a light app", app: "light" as const, powerSave: false, reduce: true, theme: "Dark", page: "dark" },
+];
+for (const { name, app, powerSave, reduce, theme, page: tone } of OPAQUE) {
+  test(`the reader's chosen theme repaints the opaque glass, ${name}`, async ({ page }) => {
+    if (reduce) {
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "reduce" }] });
+    }
+    await openPhone(page, { theme: app, system: { powerSave, lowRam: false, textScale: 1 } });
+    await page.locator("[data-screen]:not([hidden])").last().locator("[data-bookmark-id]").first().click();
+    const reader = page.locator("[data-screen]:not([hidden])").last();
+    await expect(reader).toHaveAttribute("data-route");
+    await reader.getByRole("button", { name: "Text and theme" }).click();
+    await page.locator('[data-sheet-kind="readerLook"]').getByRole("radio", { name: theme }).click();
+    await expect(reader).toHaveAttribute("data-page", tone);
+    const colours = await reader.evaluate((node) => {
+      const probe = document.createElement("div");
+      probe.style.background = "var(--ph-raised)";
+      node.append(probe);
+      const raised = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return { raised, circle: getComputedStyle(node.querySelector(".rd-bar .ph-glass")!).backgroundColor };
+    });
+    expect(colours.circle).toBe(colours.raised);
+    // Opaque: no alpha in it (translucent glass reads rgba).
+    expect(colours.circle).toMatch(/^rgb\(/);
   });
-  expect(colours.circle).toBe(colours.raised);
-  expect(colours.circle).not.toBe("rgb(38, 38, 36)");
-});
+}
 
 test("at an accessibility size a Settings name has the row: it does not wrap at 60 %", async ({ page }) => {
   await openPhone(page, { system: { powerSave: false, lowRam: false, textScale: 1.8 }, settings: { language: "ru" } });

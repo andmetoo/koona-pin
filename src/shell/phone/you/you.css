@@ -244,8 +244,12 @@
   min-width: min-content;
 }
 .phone:not([data-text-large]) :is(.ys-shelf, .st-shelf) .ph-shelf-row:has(> .ph-shelf-detail) > .ph-shelf-text {
-  flex: 1 0 auto;
+  flex: 0 0 auto;
   max-width: 60%;
+}
+/* The room the name leaves goes before the value, so every value and chevron keep to the edge. */
+.phone:not([data-text-large]) :is(.ys-shelf, .st-shelf) .ph-shelf-detail {
+  margin-left: auto;
 }
 .phone :is(.ys-shelf, .st-shelf) .ph-shelf-detail {
   flex: 0 1 auto;
