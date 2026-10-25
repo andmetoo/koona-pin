@@ -99,7 +99,7 @@ export const playUnavailable = (offer: PlayOffer | null) => !!offer && (!offer.a
 
 /**
  * The badge of a card, only where Play's prices make it true: «Save 44%» for a year at most 56% of
- * twelve months' price; «Best value» for Lifetime below four yearly payments. Prices in another
+ * twelve months' price; «Best value» for the one-time purchase below four yearly payments. Prices in another
  * currency than the yearly one say nothing.
  */
 export function playBadge(value: PlanInterval, offer: PlayOffer | null, t: TFunction): string | null {

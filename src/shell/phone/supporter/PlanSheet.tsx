@@ -20,8 +20,8 @@ export type PlanSheetProps = Record<string, never>;
  * the plan, the email and the plan's state on one line, the perks — sync leading to its dialog, the
  * reading themes, the heart with its switch — and sign out. Its action is the shared plan's
  * (components/supporterFlow.ts): Manage or Update card in Paddle's portal for a Paddle subscription,
- * Try again when the plan could not be checked, nothing for Lifetime, paid once; "Switch to
- * Lifetime". Where the build does not sell through Paddle (the Play build) the sheet links to no
+ * Try again when the plan could not be checked, nothing for the one-time purchase; "Pay
+ * once". Where the build does not sell through Paddle (the Play build) the sheet links to no
  * Paddle page at all: no portal, no switch, and a Paddle plan's lines name none — a neutral line
  * says the plan is managed where it was started. A plan paid through Google Play (`store` "play",
  * NP-154) has "Manage in Google Play", or "Fix payment in Google Play" when a renewal failed: Google

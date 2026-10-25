@@ -8,7 +8,7 @@ import type { Store } from "./Store";
  */
 export type Plan = { status: PlanStatus, interval: PlanInterval | null, 
 /**
- * The end of the paid period; none for Lifetime, which has no end (a Play license tester's
+ * The end of the paid period; none for the one-time purchase, which has no end (a Play license tester's
  * test purchase of it has its one day).
  */
 valid_until: string | null, renews_at: string | null, 

@@ -70,10 +70,10 @@ describe("the Supporter card's line", () => {
     expect(planLine(plan({ status: "canceling", renews_at: null }), t, "en-GB")).toBe("Thank you · yearly plan, ends 9 Oct 2027");
   });
 
-  it("says Lifetime is paid once, a test day until when, and what needs the person", () => {
-    expect(planLine(plan({ interval: "lifetime", valid_until: null, renews_at: null }), t, "en-GB")).toBe("Thank you · Lifetime, paid once");
+  it("says the one-time purchase has no end date, a test day until when, and what needs the person", () => {
+    expect(planLine(plan({ interval: "lifetime", valid_until: null, renews_at: null }), t, "en-GB")).toBe("Thank you · one-time purchase, no end date");
     // A license tester's test purchase on Play: one day.
-    expect(planLine(plan({ interval: "lifetime", renews_at: null }), t, "en-GB")).toBe("Thank you · Lifetime, until 9 Oct 2027");
+    expect(planLine(plan({ interval: "lifetime", renews_at: null }), t, "en-GB")).toBe("Thank you · one-time purchase, until 9 Oct 2027");
     expect(planLine(plan({ interval: "lifetime", also_renews: true }), t, "en-GB")).toBe(t("supporter.alsoRenews"));
     expect(planLine(plan({ status: "past_due" }), t, "en-GB")).toBe(t("supporter.pastDue"));
     // Where nothing is sold: no card to update, no Manage.

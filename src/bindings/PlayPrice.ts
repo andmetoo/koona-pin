@@ -13,6 +13,6 @@ price: string, currency: string,
  */
 micros: number, 
 /**
- * ISO 8601 (`P1M`, `P1Y`) for a subscription; none for Lifetime, paid once.
+ * ISO 8601 (`P1M`, `P1Y`) for a subscription; none for the one-time purchase.
  */
 period: string | null, };

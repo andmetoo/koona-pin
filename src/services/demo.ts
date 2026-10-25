@@ -212,7 +212,7 @@ function demoPlanOf(kind: string | null): SupporterStatus["plan"] {
   if (kind === "canceling" || kind === "deleting") return { ...plan, status: "canceling", interval: "year", valid_until: inDays(20), renews_at: null, offline_until: inDays(30) };
   if (kind === "past_due") return { ...plan, status: "past_due", interval: "month", valid_until: inDays(20), renews_at: inDays(20), offline_until: inDays(27) };
   if (kind === "offline") return { ...plan, status: "active", interval: "year", valid_until: inDays(-2), renews_at: inDays(-2), offline_until: inDays(5) };
-  // Supporter · Lifetime, paid once, with no end; `lifetime_renewing` while a subscription still renews too.
+  // Supporter's one-time purchase, with no end; `lifetime_renewing` while a subscription still renews too.
   const lifetime = { status: "active", interval: "lifetime", valid_until: null, renews_at: null, offline_until: inDays(30) } as const;
   if (kind === "lifetime") return { ...lifetime, also_renews: false };
   if (kind === "lifetime_renewing") return { ...lifetime, also_renews: true };
@@ -257,7 +257,7 @@ function demoPlayVerdict(interval: PlanInterval): PlayState {
   return state;
 }
 const demoPlayPrice = (price: string, micros: number, period: string | null) => ({ price, currency: "EUR", micros, period });
-/** The plan of the last purchase started: Lifetime, paid once, becomes that plan. */
+/** The plan of the last purchase started: the one-time purchase becomes that plan. */
 let demoBought: PlanInterval | null = null;
 
 /** Backups to a folder (commercial/backup_folder.rs): `koonapin.demo.backupFolder` = `unreachable` starts with a folder that cannot be reached. */
@@ -495,7 +495,7 @@ async function demoFreshSignIn(code: string | null) {
 async function demoDeletionInfo(code: string | null): Promise<DeleteInfo> {
   await demoFreshSignIn(code);
   const status = currentDemoSupporter();
-  // Lifetime has no end to wait for, as the server says (koona-services `paidUntil`).
+  // The one-time purchase has no end to wait for, as the server says (koona-services `paidUntil`).
   const until = status.plan?.valid_until ?? null;
   const waitUntil = until && new Date(until).getTime() > Date.now() ? until : null;
   // The account answered: a deletion sent earlier did not delete it.

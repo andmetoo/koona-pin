@@ -32,7 +32,7 @@ const PERKS = ["sync", "backups", "reading", "badge"] as const;
  * height for all three (NP-118). The payment page asks for the email and the card; the server makes
  * the account from that email and the app is signed in as soon as the payment is seen.
  *
- * With `upgrade`, a subscription's «Switch to Lifetime»: only Lifetime, which starts when its
+ * With `upgrade`, a subscription's «Pay once»: only the one-time purchase, which starts when its
  * paid period ends; the server then cancels the subscription at that end.
  */
 export function SupporterDialog({
@@ -51,7 +51,7 @@ export function SupporterDialog({
   pendingEmail?: string | null;
   /** Signed in without a plan: «Delete account…» on the account's line. */
   onDelete?: () => void;
-  /** The subscription being switched to Lifetime. */
+  /** The subscription being switched to the one-time purchase. */
   upgrade?: Plan;
   sandbox: boolean;
   email: string | null;
@@ -157,7 +157,7 @@ export function SupporterDialog({
     </div>
   );
 
-  // «Switch to Lifetime» (sheet 45): Lifetime and when it starts, nothing to choose.
+  // «Pay once» (sheet 45): the one-time purchase and when it starts, nothing to choose.
   // The amount waits for Paddle's answer, in the text too: no dollars turning into euros.
   const upgradePanel = (plan: Plan, failure: string | null, sizing: boolean) => {
     const price = shown?.lifetime;
@@ -319,7 +319,7 @@ function PlanCard({
   name: string;
   price: ReactNode;
   badge: string | null;
-  /** Across both columns: Supporter · Lifetime under the two subscriptions. */
+  /** Across both columns: the one-time purchase under the two subscriptions. */
   wide?: boolean;
 }) {
   const className = `flex flex-col gap-1.5 rounded-[10px] px-3.5 py-3 text-left transition-colors duration-150 ${wide ? "col-span-2" : ""} ${
@@ -648,7 +648,7 @@ export function PlanDialog({
   badge: boolean;
   onBadge: (shown: boolean) => void;
   onClose: () => void;
-  /** «Switch to Lifetime», offered while a subscription renews. */
+  /** «Pay once», offered while a subscription renews. */
   onUpgrade?: () => void;
   /** «Delete account…»: its dialog instead of this one. */
   onDelete?: () => void;
@@ -683,7 +683,7 @@ export function PlanDialog({
         {t("plan.manage")} ↗
       </Button>
     );
-  // A subscription that renews can become Lifetime, paid once, from the end of its period.
+  // A subscription that renews can become the one-time purchase from the end of its period.
   if (offerSwitch && kind === "manage")
     action = (
       <>

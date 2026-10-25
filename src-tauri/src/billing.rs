@@ -103,7 +103,7 @@ pub enum PlanStatus {
     Canceling,
 }
 
-/// What can be bought, and what the plan is: a subscription, or Supporter · Lifetime, paid once,
+/// What can be bought, and what the plan is: a subscription, or Supporter's one-time purchase, paid once,
 /// which never renews and never ends.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
@@ -131,7 +131,7 @@ pub enum Store {
 pub struct Plan {
     pub status: PlanStatus,
     pub interval: Option<PlanInterval>,
-    /// The end of the paid period; none for Lifetime, which has no end (a Play license tester's
+    /// The end of the paid period; none for the one-time purchase, which has no end (a Play license tester's
     /// test purchase of it has its one day).
     #[ts(type = "string | null")]
     pub valid_until: Option<DateTime<Utc>>,
@@ -474,7 +474,7 @@ pub struct Price {
 pub struct SupporterPrices {
     pub month: Price,
     pub year: Price,
-    /// Supporter · Lifetime, paid once; None while the server does not sell it.
+    /// Supporter's one-time purchase, paid once; None while the server does not sell it.
     #[serde(default)]
     pub lifetime: Option<Price>,
 }
@@ -1529,7 +1529,7 @@ mod tests {
 
     #[test]
     fn lifetime_paid_once_comes_signed_without_an_end() {
-        // As koona-services signs Supporter · Lifetime: no end, no renewal.
+        // As koona-services signs Supporter's one-time purchase: no end, no renewal.
         let payload = r#"{"v":1,"email":"anna@example.com","plan":{"plan":"supporter","status":"active","interval":"lifetime","valid_until":null,"renews_at":null,"also_renews":true},"issued_at":"2026-10-12T12:00:00.000Z","offline_until":"2026-11-11T12:00:00.000Z"}"#;
         let (signed, key) = lease(payload, 7);
         let plan = plan_of(&signed, "anna@example.com", &key).unwrap();

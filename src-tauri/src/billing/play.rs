@@ -30,7 +30,7 @@ use ts_rs::TS;
 #[cfg(any(test, play))]
 use tauri_plugin_koona_play as native;
 
-/// Play's ids (Play Console): the subscription and its base plans, and Supporter · Lifetime, which
+/// Play's ids (Play Console): the subscription and its base plans, and Supporter's one-time purchase, which
 /// the server consumes once recorded (the server, not Play, keeps the plan).
 pub const SUBSCRIPTION: &str = "supporter";
 pub const MONTHLY: &str = "monthly";
@@ -115,7 +115,7 @@ pub struct PlayPrice {
     pub currency: String,
     /// The price in millionths of `currency`.
     pub micros: i64,
-    /// ISO 8601 (`P1M`, `P1Y`) for a subscription; none for Lifetime, paid once.
+    /// ISO 8601 (`P1M`, `P1Y`) for a subscription; none for the one-time purchase.
     pub period: Option<String>,
 }
 
@@ -1227,7 +1227,7 @@ mod tests {
         
         assert_eq!(owned_elsewhere(None, true), PlayState::Suspended);
         assert_eq!(owned_elsewhere(Some(PlanStore::Play), true), PlayState::Suspended);
-        // Suspended: the subscription, on hold or paused; never Lifetime, paid once.
+        // Suspended: the subscription, on hold or paused; never the one-time purchase.
         let held = |products: &[&str], suspended| Purchase { products: products.iter().map(|p| p.to_string()).collect(), suspended, ..purchase("t", None, PurchaseState::Purchased) };
         assert!(suspended_of(&[held(&["supporter"], false), held(&["supporter"], true)]));
         assert!(!suspended_of(&[held(&["supporter"], false)]));

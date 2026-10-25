@@ -26,7 +26,7 @@ export function failureText(error: unknown, t: TFunction): string {
 export const POLL_MS = 3000;
 /**
  * Shown when Paddle's own prices cannot be had and none are remembered (Р-64, 2026-10-25: $1.49 a
- * month, $9.99 a year; $29.99 once for Lifetime).
+ * month, $9.99 a year; $29.99 once for the one-time purchase).
  */
 export const FALLBACK: SupporterPrices = {
   month: { price_id: "", total: "$1.49", currency: "USD" },
@@ -45,7 +45,7 @@ function rememberedPrices(): SupporterPrices | null {
   try {
     const kept = JSON.parse(storedValue(PRICES_KEY) ?? "null") as RememberedPrices | null;
     const fresh = kept && Date.now() - kept.at < PRICES_KEPT_MS && kept.at <= Date.now();
-    // Kept before Lifetime was sold (five years then, under another key), the prices say nothing
+    // Kept before the one-time purchase was sold (five years then, under another key), the prices say nothing
     // about it (no key, not null): forgotten, or its card would appear only once Paddle answers.
     const complete = kept?.prices?.month?.total && kept.prices.year?.total && "lifetime" in kept.prices;
     return fresh && complete ? kept.prices : null;
@@ -105,7 +105,7 @@ const unanswered = (s: PurchaseStep) => s === "plans" || s === "waiting";
  * The purchase (sheet 45): the plan → the payment in the browser → thank you, or «Payment received»
  * with a sign-in when the email of the payment already had an account. The payment page asks for the
  * email and the card; the server makes the account from that email and the app is signed in as soon
- * as the payment is seen. With `upgrade`, a subscription's «Switch to Lifetime»: only Lifetime.
+ * as the payment is seen. With `upgrade`, a subscription's «Pay once»: only the one-time purchase.
  */
 export function useSupporterPurchase({
   email,
@@ -175,7 +175,7 @@ export function useSupporterPurchase({
             // paid, the purchase is gone here but the plan is already in place.
             const status = await api.getSupporterStatus();
             if (!alive) return;
-            // A subscriber switching to Lifetime has a plan all along: only Lifetime counts.
+            // A subscriber switching to the one-time purchase has a plan all along: only it counts.
             if (upgrade ? status.plan?.interval === "lifetime" : status.plan) {
               setPaidEmail(status.email);
               setStep("thanks");
@@ -209,7 +209,7 @@ export function useSupporterPurchase({
 
   // Nothing remembered and no answer yet: the cards keep their room with no price in it.
   const shown = prices ?? (pricesFailed ? FALLBACK : null);
-  // Lifetime, paid once, while the server sells it: its card waits for the prices too.
+  // The one-time purchase, while the server sells it: its card waits for the prices too.
   const lifetimeSold = !shown || !!shown.lifetime;
   const plans = lifetimeSold ? (["year", "month", "lifetime"] as const) : (["year", "month"] as const);
   // Chosen before Paddle's answer said they are not sold: back to the yearly plan, never a hidden choice.
@@ -314,7 +314,7 @@ export const planLink = (action: PlanAction): "portal" | "play" | null =>
 
 /**
  * The plan's state on its one line and the action beside it (sheet 45): a renewal, no renewal, a
- * failed payment, a plan that could not be checked, Lifetime paid once. A plan paid through
+ * failed payment, a plan that could not be checked, the one-time purchase. A plan paid through
  * Google Play is managed there.
  */
 export function planState(supporter: SupporterStatus, t: TFunction, language: string): { status: string; tone: "muted" | "danger" | "amber"; action: PlanAction } {
@@ -350,7 +350,7 @@ function planStateOf(supporter: SupporterStatus, t: TFunction, language: string)
 }
 
 /**
- * The Supporter's plan (sheet 45): its state, its action, «Switch to Lifetime» where it is offered,
+ * The Supporter's plan (sheet 45): its state, its action, «Pay once» where it is offered,
  * and sign out. The plan is asked of the server when it opens and each time the window comes back
  * into focus, as after «Manage».
  */
@@ -359,10 +359,10 @@ export function usePlan({ supporter, onClose, onUpgrade }: { supporter: Supporte
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const plan = supporter.plan;
-  // «Switch to Lifetime» only for a renewing subscription, only where the build sells through
+  // «Pay once» only for a renewing subscription, only where the build sells through
   // Paddle (a phone's store build does not), never for a plan paid through Google Play (the switch
   // is Paddle's), and only while the server sells them: the prices remembered this week say so,
-  // Paddle is asked only without them, and never for a plan that cannot switch (Lifetime,
+  // Paddle is asked only without them, and never for a plan that cannot switch (the one-time purchase,
   // canceling, past due).
   const renewing =
     !!(plan?.renews_at && plan.status === "active" && plan.interval !== "lifetime" && plan.store !== "play") && capabilities.purchase === "paddle";

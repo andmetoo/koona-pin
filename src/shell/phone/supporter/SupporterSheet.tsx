@@ -230,7 +230,7 @@ function PurchaseSheet() {
 /**
  * The sheet of the Play build (NP-154): "I'm already a Supporter" first, so a Supporter does not
  * buy again; the perks; the plans at Google Play's prices, each with its own button, and under them
- * what a subscription does (it renews until cancelled in Google Play; Lifetime is paid once).
+ * what a subscription does (it renews until cancelled in Google Play; the one-time purchase is paid once).
  * After Play's sheet, the server's verdict leads on: thanks; the email that claims the purchase and
  * the code sent to it; a slow payment; a Supporter buying again; a purchase that belongs to another
  * account; a failure under the plans. A purchase still waiting when the sheet opens resumes its step.

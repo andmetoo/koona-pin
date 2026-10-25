@@ -70,7 +70,7 @@ describe("the Play purchase's steps", () => {
 });
 
 describe("the Play plans", () => {
-  it("are the yearly first, the monthly, Lifetime; only those Play sells once it answers", () => {
+  it("are the yearly first, the monthly, the one-time purchase; only those Play sells once it answers", () => {
     expect(playPlans(null)).toEqual(["year", "month", "lifetime"]);
     expect(playPlans(offer())).toEqual(["year", "month", "lifetime"]);
     expect(playPlans(offer({ lifetime: null }))).toEqual(["year", "month"]);
@@ -95,7 +95,7 @@ describe("the Play plans", () => {
     expect(playBadge("year", offer(), t)).toBe("Save 44%");
     expect(playBadge("lifetime", offer(), t)).toBe("Best value");
     expect(playBadge("month", offer(), t)).toBeNull();
-    // A yearly price above 56% of twelve months, Lifetime at four years' renewals or more.
+    // A yearly price above 56% of twelve months, the one-time purchase at four years' renewals or more.
     expect(playBadge("year", offer({ year: price("€10.99", 10_990_000, "P1Y") }), t)).toBeNull();
     expect(playBadge("lifetime", offer({ lifetime: price("€39.96", 39_960_000, null) }), t)).toBeNull();
     // Another currency, or no prices yet: nothing to compare.

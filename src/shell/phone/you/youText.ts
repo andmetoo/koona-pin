@@ -13,8 +13,8 @@ const day = (iso: string, language: string) => new Date(iso).toLocaleDateString(
 
 /**
  * The Supporter card's second line from the plan as kept: "Thank you · yearly plan, renews 9 Oct
- * 2027", "… ends 3 Nov 2026" when it does not renew, "… Lifetime, paid once" for Lifetime;
- * a renewal that failed and a subscription still renewing beside Lifetime say so, as the plan
+ * 2027", "… ends 3 Nov 2026" when it does not renew, "… one-time purchase, no end date" for the one-time purchase;
+ * a renewal that failed and a subscription still renewing beside the one-time purchase say so, as the plan
  * dialog does. Where the build sells nothing (`sells` false: the store build until NP-154) those two
  * say so without sending anyone to update a card or to Manage: no way to pay is named. A plan paid
  * through Google Play (NP-154) sends the person to Google Play, which the plan sheet links to.
