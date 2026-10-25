@@ -149,10 +149,13 @@ export function Menu({
         const all = buttons();
         const index = all.indexOf(document.activeElement as HTMLButtonElement);
         if (e.target === field.current) {
-          // In the field the keys type; the arrows go down to the list, Enter takes the first.
+          // In the field the keys type; the arrows go down to the list, Enter takes the first
+          // found: with nothing typed it picks nothing, the field having focus as the menu opens.
           if (e.key === "ArrowDown") focusItem(0);
           else if (e.key === "ArrowUp") focusItem(-1);
-          else if (e.key === "Enter" && items[0] && all[0]) select(items[0], all[0]);
+          else if (e.key === "Enter") {
+            if (query.trim() && items[0] && all[0]) select(items[0], all[0]);
+          }
           else if (e.key === "Escape" || e.key === "Tab") close(e.key === "Tab" ? "outside" : "escape");
           else return e.stopPropagation();
         } else if (e.key === "ArrowDown") focusItem(index + 1);

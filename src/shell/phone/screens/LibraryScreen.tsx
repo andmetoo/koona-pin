@@ -164,7 +164,7 @@ export function LibraryScreen({ section, hidden }: { section: "all" | "reading";
         Ag
       </span>
       {/* Reading counts the page it shows, as its switch does. */}
-      <Header title={title} meta={t("phone.library.count", { count: reading ? (page === "read" ? done : unread) : typeof chip === "number" && sub?.item.id === chip ? sub.total : app.sectionCount })} />
+      <Header title={title} meta={t("phone.library.count", { count: reading ? (page === "read" ? done : unread) : app.sectionCount })} />
       <div className="lib-tools">
         <button type="button" className="ph-search ph-hit lib-search" onClick={() => stack.push({ name: "search" })}>
           <PhIcon icon={Search} at="field" />

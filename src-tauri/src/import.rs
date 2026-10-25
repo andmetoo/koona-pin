@@ -268,40 +268,73 @@ pub fn parse(html: &str, now: DateTime<Utc>) -> Parsed {
 
 /// The library's collections as the import finds and makes them (2.19.0).
 struct Collections {
-    /// Every collection by its folded name: its id and parent. Names are
-    /// unique across the library.
-    by_name: HashMap<String, (i64, Option<i64>)>,
+    /// Every collection by its folded name: its id. Names are unique across
+    /// the library.
+    by_name: HashMap<String, i64>,
     names: HashMap<i64, String>,
+    parents: HashMap<i64, Option<i64>>,
     /// Where each folder of the file already landed: (parent, folded name).
     placed: HashMap<(Option<i64>, String), i64>,
-    /// A folder (its folded path) whose links of an earlier import sit in a
-    /// collection of its name somewhere else: the person moved it since.
+    /// A folder (its folded path) whose links of an earlier import sit in the
+    /// collection made of it somewhere else, or that is the parent of one: the
+    /// person moved it since.
     moved: HashMap<Vec<String>, i64>,
 }
 
+/// Whether `name` is one the import gives `folder` (folded both): its own,
+/// "Docs (Work)", "Docs (Work) 2" or "Docs 2".
+fn made_of(name: &str, folder: &str) -> bool {
+    let Some(rest) = name.strip_prefix(folder) else { return false };
+    let number = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
+    let Some(rest) = rest.strip_prefix(' ') else { return rest.is_empty() };
+    match rest.strip_prefix('(') {
+        None => number(rest),
+        Some(inside) => match inside.rfind(')') {
+            Some(close) if close > 0 => {
+                let after = &inside[close + 1..];
+                after.is_empty() || after.strip_prefix(' ').is_some_and(number)
+            }
+            _ => false,
+        },
+    }
+}
+
 impl Collections {
-    fn load(conn: &Connection, links: &[ImportLink]) -> rusqlite::Result<Collections> {
-        let mut known = Collections { by_name: HashMap::new(), names: HashMap::new(), placed: HashMap::new(), moved: HashMap::new() };
+    /// `sits[i]` is the collection the library keeps `links[i]` in, for a
+    /// link it has.
+    fn load(conn: &Connection, links: &[ImportLink], sits: &[Option<(bool, Option<i64>)>]) -> rusqlite::Result<Collections> {
+        let mut known = Collections {
+            by_name: HashMap::new(),
+            names: HashMap::new(),
+            parents: HashMap::new(),
+            placed: HashMap::new(),
+            moved: HashMap::new(),
+        };
         let rows = conn
             .prepare("SELECT id, name, parent_id FROM collections")?
             .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, Option<i64>>(2)?)))?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         for (id, name, parent) in rows {
-            known.by_name.insert(db::fold(&name), (id, parent));
+            known.by_name.insert(db::fold(&name), id);
             known.names.insert(id, name);
+            known.parents.insert(id, parent);
         }
-        let mut sits = conn.prepare("SELECT collection_id FROM bookmarks WHERE url = ?1")?;
-        for link in links.iter().filter(|l| !l.path.is_empty()) {
-            let key: Vec<String> = link.path.iter().map(|f| db::fold(f)).collect();
-            if known.moved.contains_key(&key) {
-                continue;
-            }
-            let Some(Some(id)) = sits.query_row([&link.url], |r| r.get::<_, Option<i64>>(0)).optional()? else { continue };
-            // Its own name, or one the import made of it: «Docs (Work)», «Docs 2».
-            let folder = &key[key.len() - 1];
-            let name = known.names.get(&id).map(|n| db::fold(n)).unwrap_or_default();
-            if name == *folder || name.starts_with(&format!("{folder} ")) {
-                known.moved.insert(key, id);
+        for (link, sits) in links.iter().zip(sits) {
+            let Some((_, Some(mut id))) = *sits else { continue };
+            let mut key: Vec<String> = link.path.iter().map(|f| db::fold(f)).collect();
+            // The folder, then the folders above it while the collections above
+            // still carry their names: a moved parent is found by its children.
+            while let Some(folder) = key.last() {
+                let name = known.names.get(&id).map(|n| db::fold(n)).unwrap_or_default();
+                if known.moved.contains_key(&key) || !made_of(&name, folder) {
+                    break;
+                }
+                known.moved.insert(key.clone(), id);
+                key.pop();
+                match known.parents.get(&id).copied().flatten() {
+                    Some(up) => id = up,
+                    None => break,
+                }
             }
         }
         Ok(known)
@@ -309,9 +342,8 @@ impl Collections {
 
     /// The level of a collection, 1 at the top; a loop synced in ends it.
     fn depth(&self, id: i64) -> usize {
-        let parents: HashMap<i64, Option<i64>> = self.by_name.values().copied().collect();
         let mut line = vec![id];
-        while let Some(&Some(up)) = line.last().and_then(|x| parents.get(x)) {
+        while let Some(&Some(up)) = line.last().and_then(|x| self.parents.get(x)) {
             if line.contains(&up) {
                 break;
             }
@@ -360,11 +392,12 @@ impl Collections {
                 (n, None) => format!("{folder} {}", n + 1),
             };
             match self.by_name.get(&db::fold(&name)) {
-                Some(&(id, at)) if at == parent => return Ok(id),
+                Some(&id) if self.parents.get(&id) == Some(&parent) => return Ok(id),
                 Some(_) => continue,
                 None => {
                     let created = db::create_collection_under(conn, &name, parent, None, None)?;
-                    self.by_name.insert(db::fold(&name), (created.id, parent));
+                    self.by_name.insert(db::fold(&name), created.id);
+                    self.parents.insert(created.id, parent);
                     self.names.insert(created.id, created.name);
                     summary.collections.push(db::collection_path(conn, created.id)?.join("/"));
                     return Ok(created.id);
@@ -399,19 +432,18 @@ pub fn import(
     }
     summary.skipped = parsed.skipped.iter().take(SKIPPED_LISTED).cloned().collect();
 
-    let mut collections = Collections::load(&tx, &parsed.links)?;
+    // Each link once: in the trash, where the library keeps it, or new. The
+    // file names every address once (`Repeated`), so this holds to the end.
+    let sits: Vec<Option<(bool, Option<i64>)>> = {
+        let mut known = tx.prepare("SELECT deleted_at IS NOT NULL, collection_id FROM bookmarks WHERE url = ?1")?;
+        parsed.links.iter().map(|l| known.query_row([&l.url], |r| Ok((r.get(0)?, r.get(1)?))).optional()).collect::<rusqlite::Result<_>>()?
+    };
+    let mut collections = Collections::load(&tx, &parsed.links, &sits)?;
     let tags_before: i64 = tx.query_row("SELECT count(*) FROM tags", [], |r| r.get(0))?;
     let triaged_at = (!to_inbox).then(|| now.clone());
     let total = parsed.links.len();
     for (index, link) in parsed.links.iter().enumerate() {
-        let existing = tx
-            .query_row(
-                "SELECT deleted_at IS NOT NULL FROM bookmarks WHERE url = ?1",
-                [&link.url],
-                |r| r.get::<_, bool>(0),
-            )
-            .optional()?;
-        match existing {
+        match sits[index].map(|(trash, _)| trash) {
             Some(true) => summary.in_trash += 1,
             Some(false) => summary.existing += 1,
             None => {
@@ -734,6 +766,47 @@ mod tests {
         // Docs inside Docs: the third level is named after its parent.
         assert_eq!(run(&["Home", "Docs", "Docs"], "https://f.example/").collections, ["Home/Docs/Docs (Docs)"]);
         assert_eq!(path("Docs (Docs)"), ["Home", "Docs", "Docs (Docs)"]);
+    }
+
+    #[test]
+    fn the_names_an_import_gives_a_folder() {
+        for name in ["docs", "docs 2", "docs (work)", "docs (work) 3", "docs (a (b))"] {
+            assert!(made_of(name, "docs"), "{name}");
+        }
+        for name in ["docs archive", "docsy", "docs ()", "docs (work) x", "docs 2b", "my docs"] {
+            assert!(!made_of(name, "docs"), "{name}");
+        }
+    }
+
+    /// A link the person filed in a collection of their own is no sign that
+    /// its folder moved there.
+    #[test]
+    fn a_link_moved_into_a_collection_of_another_name_leaves_its_folder_be() {
+        let c = database();
+        let run = |html: &str| import(&c, &parse(html, now()), false, |_, _| {}).unwrap();
+        run(&folder_html(&["Docs"], "https://a.example/"));
+        let archive = db::create_collection(&c, "Docs archive", None, None).unwrap().id;
+        let a: i64 = c.query_row("SELECT id FROM bookmarks WHERE url = 'https://a.example/'", [], |r| r.get(0)).unwrap();
+        c.execute("UPDATE bookmarks SET collection_id = ?1 WHERE id = ?2", [archive, a]).unwrap();
+        run(&[folder_html(&["Docs"], "https://a.example/"), folder_html(&["Docs"], "https://b.example/")].concat());
+        let b: String = c.query_row("SELECT c.name FROM bookmarks b JOIN collections c ON c.id = b.collection_id WHERE url = 'https://b.example/'", [], |r| r.get(0)).unwrap();
+        assert_eq!(b, "Docs");
+    }
+
+    /// A moved parent is found by its children's links, also for a new link
+    /// of its own.
+    #[test]
+    fn a_moved_parent_is_found_by_its_children() {
+        let c = database();
+        let run = |html: &str| import(&c, &parse(html, now()), false, |_, _| {}).unwrap();
+        run(&folder_html(&["Work", "Docs"], "https://a.example/"));
+        let work: i64 = c.query_row("SELECT id FROM collections WHERE name = 'Work'", [], |r| r.get(0)).unwrap();
+        let projects = db::create_collection(&c, "Projects", None, None).unwrap().id;
+        db::move_collection(&c, work, Some(projects), None).unwrap();
+        let again = run(&[folder_html(&["Work", "Docs"], "https://a.example/"), folder_html(&["Work"], "https://w.example/")].concat());
+        assert!(again.collections.is_empty(), "{:?}", again.collections);
+        let w: i64 = c.query_row("SELECT collection_id FROM bookmarks WHERE url = 'https://w.example/'", [], |r| r.get(0)).unwrap();
+        assert_eq!(w, work);
     }
 
     /// A folder the person moved since the last import is where its links

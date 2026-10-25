@@ -2091,11 +2091,12 @@ pub fn delete_collection(conn: &Connection, id: i64) -> Result<()> {
                 let hi = others.iter().filter(|k| **k > key).min();
                 spread(lo.map(String::as_str), hi.map(String::as_str), children.len()).into_iter().map(Some).collect()
             }
-            // An unplaced parent stands among its unplaced siblings by name:
-            // the children take its spot there, in their own order, and the
-            // siblings get keys where they need them to keep theirs (2.19.0).
-            // With no keys anywhere, by name as before.
-            None if !others.is_empty() || children.iter().any(|c| c.1.as_deref().is_some_and(valid)) => {
+            // An unplaced parent stands among its unplaced siblings by name.
+            // Children the person ordered take its spot there in that order:
+            // the siblings get keys where they need them, as on a first move
+            // among them (2.19.0). Unordered children join the unplaced
+            // siblings by name, and nobody else is written.
+            None if children.iter().any(|c| c.1.as_deref().is_some_and(valid)) => {
                 let siblings: Vec<(i64, Option<String>)> = tx
                     .prepare(&format!("SELECT id, position_key FROM collections WHERE parent_id IS ?1 ORDER BY {SIBLING_ORDER}"))?
                     .query_map([parent], |r| Ok((r.get(0)?, r.get(1)?)))?
@@ -3665,9 +3666,22 @@ mod tests {
         let add = |name: &str, parent: Option<i64>| create_collection_in(&mixed, name, parent, None, None).unwrap().id;
         let (_, _, q, _) = (add("A", None), add("M", None), add("Q", None), add("Z", None));
         add("K", Some(q));
-        mixed.execute("UPDATE collections SET position_key = CASE name WHEN 'A' THEN 'V' ELSE NULL END", []).unwrap();
+        add("J", Some(q));
+        // A placed; K before J by hand under Q; M, Q and Z by name.
+        mixed.execute("UPDATE collections SET position_key = CASE name WHEN 'A' THEN 'V' WHEN 'K' THEN 'M' WHEN 'J' THEN 'T' ELSE NULL END", []).unwrap();
         delete_collection(&mixed, q).unwrap();
-        assert_eq!(tree(&mixed).into_iter().map(|t| t.0).collect::<Vec<_>>(), ["A", "M", "K", "Z"].map(String::from), "K in Q's spot");
+        assert_eq!(tree(&mixed).into_iter().map(|t| t.0).collect::<Vec<_>>(), ["A", "M", "K", "J", "Z"].map(String::from), "K, J in Q's spot");
+        // Children never ordered join the unplaced siblings by name; nobody else gets a key.
+        let plain = setup_test_db();
+        plain.execute("DELETE FROM collections", []).unwrap();
+        let add = |name: &str, parent: Option<i64>| create_collection_in(&plain, name, parent, None, None).unwrap().id;
+        let (_, _, q, _) = (add("A", None), add("M", None), add("Q", None), add("Z", None));
+        add("B", Some(q));
+        plain.execute("UPDATE collections SET position_key = CASE name WHEN 'A' THEN 'V' ELSE NULL END", []).unwrap();
+        delete_collection(&plain, q).unwrap();
+        assert_eq!(tree(&plain).into_iter().map(|t| t.0).collect::<Vec<_>>(), ["A", "B", "M", "Z"].map(String::from));
+        let keyed: i64 = plain.query_row("SELECT count(*) FROM collections WHERE position_key IS NOT NULL", [], |r| r.get(0)).unwrap();
+        assert_eq!(keyed, 1, "only A");
         let empty = setup_test_db();
         empty.execute("DELETE FROM collections", []).unwrap();
         let made = |name: &str, parent: Option<i64>| create_collection_in(&empty, name, parent, None, None).unwrap().id;

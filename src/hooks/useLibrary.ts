@@ -451,7 +451,20 @@ export function useLibrary(
       const filters = filtersRef.current;
       const list = seq.current;
       let found: Set<number> | null = null;
-      if (filters.search.trim() || fresh.some((c) => !!c.bookmark && unsure(c.bookmark, filters))) {
+      // Under a search the database answers for the whole list; otherwise only for the few in a
+      // collection the catalog does not know yet, one by one, as a single change asks.
+      const doubtful = filters.search.trim() ? [] : fresh.flatMap((c) => (c.bookmark && unsure(c.bookmark, filters) ? [c.bookmark.id] : []));
+      if (doubtful.length) {
+        try {
+          const pages = await Promise.all(doubtful.map((id) => api.getBookmarks(filters, { id, limit: 1 })));
+          found = new Set(pages.flatMap((page) => page.items.map((b) => b.id)));
+        } catch {
+          if (alive.current && list === seq.current) void refresh();
+          return;
+        }
+        if (!alive.current || list !== seq.current) return;
+      }
+      if (filters.search.trim()) {
         try {
           found = new Set(await api.getBookmarkIds(filters));
         } catch {
@@ -465,7 +478,12 @@ export function useLibrary(
       const latest = fresh.filter((c) => revisions.current.get(c.id) === c.revision);
       for (const c of latest) {
         const b = c.bookmark;
-        apply(c, !!b && (unsure(b, filters) || matchesFilters(b, filters, scopeOf(filters))) && (!found || found.has(b.id)), false);
+        const shown = !b
+          ? false
+          : unsure(b, filters)
+            ? !!found?.has(b.id)
+            : matchesFilters(b, filters, scopeOf(filters)) && (!filters.search.trim() || !!found?.has(b.id));
+        apply(c, shown, false);
       }
       catalogSoon();
     });
