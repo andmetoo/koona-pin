@@ -819,6 +819,8 @@ async fn fresh_token(app: &AppHandle, force: bool) -> Result<Option<String>, Com
         billing.update(app, |s| {
             if same(s) {
                 s.session = None;
+                // As Sign out: a repeat said for that session is not the next one's.
+                s.paid_again = false;
             }
         })?;
         return Ok(None);

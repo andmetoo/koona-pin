@@ -130,7 +130,8 @@ export function useSupporterPurchase({
   // The one-time purchase bought again, which the server refunds (billing.rs `paid_again`): the
   // last steps say so instead of «thank you» or «sign in to see your plan». Known before a step
   // shows, so its title never changes under the person's eyes.
-  const [again, setAgain] = useState(paidAgain);
+  // Seeded only for «Payment received» it opens on: elsewhere the step shows the status's own flag.
+  const [again, setAgain] = useState(awaitingSignIn && paidAgain);
   // The app follows a purchase by itself (billing.rs, start) and may see it before this dialog
   // asks: what it found moves the open dialog on, from the plans or the waiting step.
   useEffect(() => {
@@ -148,10 +149,11 @@ export function useSupporterPurchase({
     if (unknownAtOpen.current) void api.refreshSupporter(true).catch(() => {});
   }, []);
   const [paidEmail, setPaidEmail] = useState(email);
-  // A repeat this dialog already said («Payment received» turned into it) stays said: the sign-in
-  // by code that follows clears the app's flag, as it may be another account's.
+  // A repeat this dialog said on «Payment received» stays said when the plan arrives there: the
+  // sign-in by code that follows clears the app's flag, as it may be another account's. From any
+  // other step only the status's flag counts.
   const thank = (status: SupporterStatus | null) => {
-    setAgain((said) => said || !!status?.paid_again);
+    setAgain((said) => !!status?.paid_again || (stepNow.current === "signIn" && said));
     setStep((s) => (unanswered(s) || s === "signIn" ? "thanks" : s));
   };
   useEffect(() => {
