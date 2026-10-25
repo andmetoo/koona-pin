@@ -1,15 +1,16 @@
-import { type CSSProperties, useEffect, useRef, useState } from "react";
-import { Check, FolderPlus, Sparkles } from "lucide-react";
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { Check, ChevronDown, ChevronRight, FolderPlus, Sparkles } from "lucide-react";
 import { api } from "../../../services/api";
-import { collectionColor } from "../../../services/collections";
+import { buildTree, pathPrefix } from "../../../services/collectionTree";
 import { describeError } from "../../../services/errors";
 import type { Suggestion } from "../../../types";
 import { usePhone } from "../PhoneContext";
 import { Button } from "../ui/buttons";
 import { SearchField } from "../ui/controls";
+import { CollectionGlyph } from "../ui/CollectionGlyph";
 import { PhIcon } from "../ui/icons";
 import { Sheet, useCloseSheet } from "../ui/Sheet";
-import { type Choice, firstChoice, isNew, matching, newName, toggle } from "./editingLogic";
+import { type Choice, firstChoice, isNew, matching, newName, pickerRows, toggle } from "./editingLogic";
 import "./editing.css";
 
 /**
@@ -29,7 +30,9 @@ export type CollectionPickerProps = {
 /**
  * C1 File into collection: a detached sheet. A find-or-create field; for one link the
  * suggestion of the app (`suggest_collection`, as triage's: where the site's other links mostly
- * lie) on an accent-soft row; every collection with its count and a round check; New collection.
+ * lie) on an accent-soft row; every collection with its count and a round check, as an indented
+ * tree whose parents fold (N9; a search lists the matches flat, with their paths); New collection
+ * (at the top level).
  * A bookmark has one collection, so the choice is single (a radio group); the chosen one tapped
  * again leaves it without one.
  */
@@ -52,6 +55,14 @@ export function CollectionPicker({ props }: { props: CollectionPickerProps }) {
   const [busy, setBusy] = useState(false);
   /** "New collection" was tapped with the field empty: the field asks for the name. */
   const [naming, setNaming] = useState(false);
+  /** The parents the person closed: the list starts with everything open (2.19.0). */
+  const [folded, setFolded] = useState<ReadonlySet<number>>(new Set());
+  const fold = (id: number) =>
+    setFolded((was) => {
+      const next = new Set(was);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
 
   useEffect(() => {
     if (one === null) return;
@@ -81,7 +92,11 @@ export function CollectionPicker({ props }: { props: CollectionPickerProps }) {
   const suggested = suggestion && collections.find((c) => c.id === suggestion.collection_id);
   const found = matching(collections, query);
   const showSuggested = !!suggested && found.includes(suggested);
-  const rest = found.filter((c) => c !== suggested || !showSuggested);
+  // The suggestion's own row moves up to the suggestion, as before, unless it has children to hold.
+  const rows = pickerRows(collections, { query, folded, chosen: typeof choice === "number" ? choice : null }).filter(
+    (r) => !showSuggested || r.collection !== suggested || r.hasChildren,
+  );
+  const roots = useMemo(() => buildTree(collections), [collections]);
   const typedName = newName(collections, query);
 
   const done = async () => {
@@ -151,9 +166,12 @@ export function CollectionPicker({ props }: { props: CollectionPickerProps }) {
           <>
             <h3 className="cp-label">{t("phone.collectionPicker.suggested")}</h3>
             <button type="button" role="radio" aria-checked={choice === suggested.id} className="cp-suggested" onClick={() => pick(suggested.id)}>
-              <span className="ph-chip-dot" style={{ "--dot": collectionColor(suggested.id) } as CSSProperties} />
+              <CollectionGlyph collection={suggested} />
               <span className="cp-text">
-                <b data-user-text>{suggested.name}</b>
+                <b data-user-text>
+                  <span className="cp-path">{pathPrefix(roots, suggested.id)}</span>
+                  {suggested.name}
+                </b>
                 <span className="cp-why">
                   <PhIcon icon={Sparkles} size={12} strokeWidth={1.4} />
                   {t("phone.collectionPicker.suggestedWhy", { count: suggestion.count, filed: suggestion.filed })}
@@ -163,17 +181,32 @@ export function CollectionPicker({ props }: { props: CollectionPickerProps }) {
             </button>
           </>
         )}
-        {(rest.length > 0 || !showSuggested) && <h3 className="cp-label">{t("phone.collectionPicker.all")}</h3>}
+        {(rows.length > 0 || !showSuggested) && <h3 className="cp-label">{t("phone.collectionPicker.all")}</h3>}
         <div className="ph-shelf cp-shelf">
-          {rest.map((c) => (
-            <button key={c.id} type="button" role="radio" aria-checked={choice === c.id} className="cp-row" onClick={() => pick(c.id)}>
-              <span className="ph-chip-dot" style={{ "--dot": collectionColor(c.id) } as CSSProperties} />
-              <span className="cp-name" data-user-text>
-                {c.name}
-              </span>
-              <span className="cp-count">{c.count ?? ""}</span>
-              <CheckMark />
-            </button>
+          {rows.map((r) => (
+            <div key={r.collection.id} className="cp-line" style={{ "--depth": r.depth } as CSSProperties}>
+              {r.hasChildren && (
+                <button
+                  type="button"
+                  className="cp-fold"
+                  aria-expanded={r.open}
+                  aria-disabled={r.locked || undefined}
+                  aria-label={t("phone.collectionPicker.fold", { name: r.collection.name })}
+                  onClick={() => !r.locked && fold(r.collection.id)}
+                >
+                  <PhIcon icon={r.open ? ChevronDown : ChevronRight} size={14} strokeWidth={1.75} />
+                </button>
+              )}
+              <button type="button" role="radio" aria-checked={choice === r.collection.id} className="cp-row" onClick={() => pick(r.collection.id)}>
+                <CollectionGlyph collection={r.collection} />
+                <span className="cp-name" data-user-text>
+                  {r.prefix && <span className="cp-path">{r.prefix}</span>}
+                  {r.collection.name}
+                </span>
+                <span className="cp-count">{r.collection.count === null ? "" : r.total}</span>
+                <CheckMark />
+              </button>
+            </div>
           ))}
           {query.trim() && !found.length && !typedName && <p className="cp-empty">{t("phone.collectionPicker.nothing")}</p>}
           {typedName ? (

@@ -22,7 +22,8 @@ in_trash: number, not_web: number, invalid: number, repeated: number,
  */
 skipped: Array<SkippedLink>, 
 /**
- * Collections the import created, in the order of the file.
+ * Collections the import created, in the order of the file, a nested
+ * one with its path: "Work/Docs" (2.19.0).
  */
 collections: Array<string>, 
 /**

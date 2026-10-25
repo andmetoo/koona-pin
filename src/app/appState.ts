@@ -19,6 +19,7 @@ import { notificationsOf } from "./notifications";
 import { type NoticeTiming, useNotices, useUndo } from "./notices";
 import { useReading } from "./reading";
 import { isNarrowed, sectionCount, sectionName } from "./sections";
+import { buildTree, findNode } from "../services/collectionTree";
 import { useAppSettings, useLibraryHealth, useSupporter } from "./status";
 import { useSurfaces } from "./surfaces";
 
@@ -151,7 +152,8 @@ export function useAppState(desktop: DesktopStatus | null, { noticeTiming }: { n
     counts,
     collection,
     section,
-    sectionCount: sectionCount(filters, counts, collection),
+    // A collection counts what is inside it too, unless «Only this collection» (2.19.0).
+    sectionCount: sectionCount(filters, counts, collection && { count: filters.onlyCollection ? collection.count : (findNode(buildTree(library.collections), collection.id)?.total ?? collection.count) }),
     narrowed: isNarrowed(filters),
     notifications,
     clearNotifications,

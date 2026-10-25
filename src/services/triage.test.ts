@@ -81,7 +81,7 @@ describe("triage", () => {
   });
 
   it("puts the suggestion under key 1 and the rest in sidebar order", () => {
-    const collection = (id: number) => ({ id, name: `К${id}`, color: null, icon: null, count: 0, created_at: "" });
+    const collection = (id: number) => ({ id, name: `К${id}`, color: null, icon: null, count: 0, created_at: "", parent_id: null });
     const collections = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(collection);
     const ids = (suggestion: Parameters<typeof collectionKeys>[1]) => collectionKeys(collections, suggestion).map((c) => c.id);
     expect(ids(null)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);

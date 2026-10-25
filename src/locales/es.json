@@ -1,5 +1,7 @@
 {
-  "language": { "name": "Español" },
+  "language": {
+    "name": "Español"
+  },
   "common": {
     "ctrl": "Ctrl",
     "shift": "Mayús",
@@ -10,7 +12,8 @@
     "open": "Abrir",
     "retry": "Reintentar",
     "ok": "Entendido",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "done": "Listo"
   },
   "window": {
     "demo": "Demo en el navegador",
@@ -26,7 +29,6 @@
     "collections": "Colecciones",
     "newCollection": "Nueva colección",
     "noCollections": "Aún no hay colecciones",
-    "deleteCollection": "Eliminar la colección {{name}}",
     "tags": "Etiquetas",
     "moreTags_one": "+ {{count}} más",
     "moreTags_many": "+ {{count}} más",
@@ -38,7 +40,38 @@
     "tagsDrop": "Etiquetas — suelta sobre una etiqueta para añadirla",
     "dropNewCollection": "Nueva colección con la selección",
     "moveCollection": "Mover",
-    "collectionMoved": "{{name}}: posición {{position}} de {{count}}"
+    "movedInto": "{{name}} movida a {{parent}}, posición {{position}} de {{count}}",
+    "movedTop": "{{name}} movida al nivel superior, posición {{position}} de {{count}}",
+    "collectionMenu": "{{name}}: más",
+    "rename": "Cambiar nombre",
+    "renameField": "Nuevo nombre de {{name}}",
+    "style": "Icono y color…",
+    "newInside": "Nueva colección dentro",
+    "moveTo": "Mover a",
+    "topLevel": "Nivel superior",
+    "moveKeys": "Alt ← → ↑ ↓ la mueven en la barra lateral",
+    "tooDeep": "Las colecciones llegan como máximo a tres niveles",
+    "deleteMenu": "Eliminar…",
+    "dropInto": "Dentro de {{name}}",
+    "dropIntoAfter": "Dentro de {{name}}, después de {{after}}",
+    "dropIntoFirst": "Dentro de {{name}}, la primera",
+    "dropTopAfter": "Nivel superior, después de {{after}}",
+    "dropTopFirst": "Nivel superior, la primera"
+  },
+  "collectionStyle": {
+    "label": "Icono y color de {{name}}",
+    "title": "Icono y color",
+    "colour": "Color",
+    "icon": "Icono",
+    "emoji": "O escribe un emoji",
+    "dot": "Usar un punto",
+    "colours": {
+      "terracotta": "Terracota",
+      "green": "Verde",
+      "ochre": "Ocre",
+      "blue": "Azul",
+      "lilac": "Lila"
+    }
   },
   "drag": {
     "more_one": "y {{count}} marcador más",
@@ -174,6 +207,7 @@
     "isFavorite": "En favoritos",
     "moveTo": "Mover a una colección",
     "noCollection": "Sin colección",
+    "findCollection": "Buscar una colección",
     "addTag": "Añadir etiqueta…",
     "refresh": "Actualizar vista previa",
     "delete": "Mover a la papelera",
@@ -314,7 +348,7 @@
     "library": "Biblioteca",
     "inbox": "Bandeja de entrada",
     "destinationHint": "Biblioteca: ordenados en el acto. Bandeja de entrada: esperan a que los ordenes, detrás de los enlaces guardados desde el navegador.",
-    "rule": "Las carpetas de primer nivel se convierten en colecciones; las carpetas anidadas, en etiquetas. Barra de marcadores, Otros marcadores y Móvil no son carpetas propias: sus enlaces se quedan sin colección.",
+    "rule": "Las carpetas se convierten en colecciones, hasta tres niveles; las carpetas más profundas, en etiquetas. Barra de marcadores, Otros marcadores y Móvil no son carpetas propias: sus enlaces se quedan sin colección.",
     "cancel": "Cancelar",
     "run": "Importar",
     "running": "Importando…",
@@ -537,6 +571,8 @@
       "collection_missing_name": "la colección {{index}} no tiene nombre",
       "collection_repeated_name": "la colección {{index}} repite un nombre ({{detail}})",
       "collection_bad_date": "la colección {{index}} tiene una fecha ilegible ({{detail}})",
+      "collection_unknown_parent": "la colección {{index}} está en una colección que la copia no tiene",
+      "collection_loop": "la colección {{index}} está dentro de sí misma",
       "tag_missing_name": "la etiqueta {{index}} no tiene nombre",
       "tag_repeated_name": "la etiqueta {{index}} repite un nombre ({{detail}})",
       "tag_bad_date": "la etiqueta {{index}} tiene una fecha ilegible ({{detail}})"
@@ -546,11 +582,14 @@
     "title": "Nueva colección",
     "name": "Nombre",
     "placeholder": "Por ejemplo, el próximo proyecto",
-    "create": "Crear colección"
+    "create": "Crear colección",
+    "titleInside": "Nueva colección en {{name}}"
   },
   "confirm": {
     "deleteCollection": "¿Eliminar la colección?",
     "deleteCollectionText": "Los marcadores de «{{name}}» se quedan en la biblioteca sin colección.",
+    "deleteCollectionChild": "{{name}} sube un nivel, con todo lo que contiene.",
+    "deleteCollectionChildren": "{{names}} suben un nivel, con todo lo que contienen.",
     "delete": "Eliminar",
     "emptyTrash": "¿Vaciar la papelera?",
     "emptyTrashText_one": "{{count}} marcador se eliminará definitivamente. No se puede deshacer y no volverá con Restaurar.",
@@ -1152,11 +1191,23 @@
     "size": "Tamaño del texto",
     "sizeValue": "{{size}} px",
     "column": "Columna",
-    "columns": { "narrow": "Estrecha", "medium": "Media", "wide": "Ancha" },
+    "columns": {
+      "narrow": "Estrecha",
+      "medium": "Media",
+      "wide": "Ancha"
+    },
     "theme": "Tema",
-    "themes": { "white": "Blanco", "dark": "Oscuro", "paper": "Papel", "sepia": "Sepia" },
+    "themes": {
+      "white": "Blanco",
+      "dark": "Oscuro",
+      "paper": "Papel",
+      "sepia": "Sepia"
+    },
     "font": "Fuente",
-    "fonts": { "serif": "Serif", "sans": "Sans" },
+    "fonts": {
+      "serif": "Serif",
+      "sans": "Sans"
+    },
     "supporterHint": "Papel y Sepia —",
     "supporterLink": "Supporter",
     "locked": "{{name}}, con Supporter"
@@ -1204,7 +1255,9 @@
     "damagedLatest": "La biblioteca está dañada, así que los cambios no se guardan y los enlaces del navegador esperan en la extensión. Restaura la última copia buena: {{when}}.",
     "restore": "Restaurar…",
     "openBackups": "Abrir la carpeta de copias de seguridad",
-    "movedAside": "La biblioteca de una versión de prueba anterior no encaja con el nuevo esquema. Se guardó como {{path}} y se creó una biblioteca nueva."
+    "movedAside": "La biblioteca de una versión de prueba anterior no encaja con el nuevo esquema. Se guardó como {{path}} y se creó una biblioteca nueva.",
+    "onlyCollection": "Solo esta colección",
+    "insideCollection": "Dentro de {{name}}"
   },
   "groups": {
     "today": "Hoy",
@@ -1333,6 +1386,9 @@
       "internal": "algo salió mal ({{message}})",
       "empty_tag": "la etiqueta está vacía",
       "empty_collection_name": "el nombre está vacío",
+      "collection_name_taken": "otra colección tiene este nombre",
+      "collection_too_deep": "las colecciones llegan como máximo a tres niveles",
+      "collection_inside_itself": "una colección no puede ir dentro de sí misma",
       "empty_title": "el título está vacío",
       "bookmark_gone": "el marcador ya no existe",
       "not_in_trash": "el marcador no está en la papelera",
@@ -1373,6 +1429,9 @@
       "server_missing": "Falta una parte de Koona Pin (koonapin-mcp). Reinstala Koona Pin.",
       "empty_tag": "Escribe una etiqueta.",
       "empty_collection_name": "Escribe un nombre para la colección.",
+      "collection_name_taken": "Otra colección ya tiene este nombre.",
+      "collection_too_deep": "Las colecciones llegan como máximo a tres niveles.",
+      "collection_inside_itself": "Una colección no puede ir dentro de sí misma ni de una colección que contiene.",
       "empty_title": "El título no puede estar vacío.",
       "bookmark_gone": "Este marcador ya no existe.",
       "not_in_trash": "Este marcador no está en la papelera.",
@@ -2158,6 +2217,8 @@
       "grid": "Cuadrícula",
       "filters": "Filtros",
       "all": "Todos",
+      "allIn": "Todo en {{name}}",
+      "inside": "Dentro de {{name}}",
       "favorite": "Favorito",
       "newLinks_one": "{{count, number}} enlace nuevo",
       "newLinks_many": "{{count, number}} de enlaces nuevos",
@@ -2348,6 +2409,7 @@
       "suggested": "Sugerida",
       "suggestedWhy": "{{count, number}} de {{filed, number}} enlaces de este sitio",
       "all": "Todas las colecciones",
+      "fold": "Dentro de {{name}}",
       "nothing": "Ninguna colección con ese nombre",
       "new": "Nueva colección",
       "newNamed": "Nueva colección «{{name}}»"

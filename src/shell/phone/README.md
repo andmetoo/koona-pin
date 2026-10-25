@@ -110,7 +110,7 @@ import { selection, impactLight, impactMedium, success } from "../../platform/ha
 | `NavPill`, `AccountCluster` | Used by the shell; `accountState.ts` maps Supporter and sync |
 | `CircleButton` | `kind` glass (over content), clear, flat, well, accent, ink |
 | `Button` | `kind` primary (one per screen), clear, soft, ink, ghost; `compact` 44 |
-| `Chip` | `active`, `dot` (`collectionColor(id)`), `suggested`, `large` (40, triage) |
+| `Chip` | `active`, `dot` (`collectionTint(c)`), `glyph` (`CollectionGlyph`: icon, emoji or dot), `suggested`, `large` (40, triage) |
 | `Segmented`, `SearchField`, `Field`, `Toggle`, `Checkbox` | Controls |
 | `Shelf`, `ShelfRow` | One paper surface per section; rows with inset hairlines |
 | `Progress` | Pill track, "5 of 12" |

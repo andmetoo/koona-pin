@@ -291,6 +291,58 @@
   height: 1px;
   background: var(--ph-line);
 }
+/* N9 (2.19.0): a row is a line with its fold chevron over the row's left padding, apart from the
+   icon (a `code` icon's brackets read as one glyph with a chevron that touches it); the tree indents
+   20 a level (the depth is capped by the list), the hairline starts at the name. */
+.phone .cp-line {
+  position: relative;
+  display: flex;
+}
+.phone .cp-line .cp-row {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  padding-left: calc(26px + var(--depth, 0) * 20px);
+}
+.phone .cp-line + .cp-line::before,
+.phone .cp-line + .cp-row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: calc(44px + var(--depth, 0) * 20px);
+  right: 0;
+  height: 1px;
+  background: var(--ph-line);
+}
+.phone .cp-line + .cp-row::before {
+  left: 44px;
+}
+.phone .cp-fold {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  bottom: 0;
+  left: calc(2px + var(--depth, 0) * 20px);
+  display: flex;
+  width: 20px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ph-meta);
+}
+/* An ancestor of the chosen collection stays open. */
+.phone .cp-fold[aria-disabled] {
+  color: var(--ph-faint);
+}
+.phone .cp-path {
+  font-weight: 400;
+  color: var(--ph-meta);
+}
+.phone .cp-suggested .cp-path {
+  color: var(--ph-on-accent-soft);
+}
 .phone .cp-row:active,
 .phone .cp-suggested:active {
   background: var(--ph-well);
@@ -306,6 +358,7 @@
 }
 .phone .cp-count {
   flex: 1;
+  text-align: right; /* N9: the count beside the check */
   font-size: 13px;
   line-height: 18px;
   color: var(--ph-meta);

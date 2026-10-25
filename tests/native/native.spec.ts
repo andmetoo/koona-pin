@@ -710,12 +710,15 @@ test("import of the three browsers' files: folders into collections in SQLite, t
       const counts = await invoke("get_counts");
       return { chrome, edge, firefox, again, collections, counts };
     }, files);
-    expect(result.chrome).toMatchObject({ added: 7, not_web: 2, repeated: 1, collections: ["Работа", "Чтение"], tags: 2 });
-    expect(result.edge).toMatchObject({ added: 4, not_web: 1, invalid: 1, collections: ["Design"] });
-    expect(result.firefox).toMatchObject({ added: 7, not_web: 1, collections: ["Mozilla Firefox", "Recipes", "Reading"] });
+    // Nested folders are nested collections since 2.19.0, not tags.
+    expect(result.chrome).toMatchObject({ added: 7, not_web: 2, repeated: 1, collections: ["Работа", "Работа/Rust", "Работа/Rust/Async", "Чтение"], tags: 0 });
+    expect(result.edge).toMatchObject({ added: 4, not_web: 1, invalid: 1, collections: ["Design", "Design/Fonts"] });
+    expect(result.firefox).toMatchObject({ added: 7, not_web: 1, collections: ["Mozilla Firefox", "Recipes", "Recipes/Desserts", "Reading"] });
     expect(result.again).toMatchObject({ added: 0, existing: 7, collections: [], tags: 0 });
-    // Edge's «работа» landed in Chrome's «Работа».
-    expect(result.collections).toEqual(expect.arrayContaining(["Работа:4", "Чтение:1", "Design:2", "Recipes:2", "Reading:1"]));
+    // Edge's «работа» landed in Chrome's «Работа»; counts are each collection's own.
+    expect(result.collections).toEqual(
+      expect.arrayContaining(["Работа:2", "Rust:1", "Async:1", "Чтение:1", "Design:1", "Fonts:1", "Recipes:1", "Desserts:1", "Reading:1"]),
+    );
     expect(result.counts).toMatchObject({ total: 18, inbox: 7, inbox_imported: 7 });
     await page.getByRole("button", { name: "Inbox 7", exact: true }).click();
     await expect(page.getByRole("region", { name: "New bookmarks" })).toContainText(/7 new in Inbox\s*From the import\./);

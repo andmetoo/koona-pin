@@ -142,6 +142,8 @@ export type ViewMode = "grid" | "dense" | "list";
 export interface FilterState {
   search: string;
   collectionId: number | null;
+  /** The collection without what is inside it (2.19.0): «Only this collection» in its header. */
+  onlyCollection: boolean;
   tag: string | null;
   domain: string | null;
   onlyFavorites: boolean;

@@ -12,6 +12,7 @@ const filters = (extra: Partial<FilterState> = {}): FilterState => ({
   tag: null,
   domain: null,
   collectionId: null,
+  onlyCollection: false,
   onlyFavorites: false,
   onlyInbox: false,
   onlyTrash: false,

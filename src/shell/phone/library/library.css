@@ -55,6 +55,59 @@
 .phone .lib-chips {
   margin-top: 14px;
 }
+/* N8 (2.19.0): the second row, under the chosen collection: the corner arrow, then "All" in the
+   accent-soft tone (active: the same, a little stronger), then the children. */
+.phone .lib-chips-sub {
+  align-items: center;
+  margin-top: 8px;
+}
+.phone .lib-chips-arrow {
+  flex: none;
+  margin: 0 -2px 0 4px;
+  color: var(--ph-meta);
+}
+.phone .lib-chips-sub .ph-chip {
+  height: 32px;
+  padding: 0 12px;
+}
+.phone .lib-chips-sub .ph-chip[data-all] {
+  background: var(--ph-accent-soft);
+  color: var(--ph-on-accent-soft);
+  box-shadow: none;
+}
+.phone .lib-chips-sub .ph-chip[data-all][data-active] {
+  background: var(--ph-accent-soft);
+  box-shadow: inset 0 0 0 1.25px color-mix(in srgb, var(--ph-accent) 55%, transparent);
+}
+.phone .lib-chips-sub .ph-chip[data-active]:not([data-all]) {
+  background: var(--ph-ink-button);
+  color: var(--ph-on-ink-button);
+}
+.phone .lib-chip-count {
+  color: var(--ph-meta);
+  font-weight: 400;
+}
+.phone .ph-chip[data-active]:not([data-all]) .lib-chip-count {
+  color: color-mix(in srgb, var(--ph-on-ink-button) 70%, transparent);
+}
+
+/* A collection's mark (CollectionGlyph): the icon in its colour, an emoji, or the dot. An active
+   chip draws its icon in ink. */
+.phone .ph-glyph {
+  flex: none;
+  color: var(--dot);
+}
+.phone .ph-glyph-emoji {
+  display: inline-flex;
+  width: 16px;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  color: inherit;
+}
+.phone .ph-chip[data-active] svg.ph-glyph {
+  color: inherit;
+}
 /* SW3–SW4: Reading's To read and Read in the chips' place, the whole width, 40 tall. */
 .phone .lib-pages {
   margin-top: 14px;

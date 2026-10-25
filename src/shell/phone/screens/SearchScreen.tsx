@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { initialFilters } from "../../../app/sections";
 import { useLibrary } from "../../../hooks/useLibrary";
-import { collectionColor } from "../../../services/collections";
+import { collectionTint } from "../../../services/collections";
 import { describeError } from "../../../services/errors";
 import { feedName, listFeedItems } from "../../../services/feeds";
 import type { Bookmark, FeedItem } from "../../../types";
@@ -74,7 +74,11 @@ export function SearchScreen({ hidden }: { hidden: boolean }) {
   const more = scope !== "library" && posts.next !== null;
   const count = bookmarkCount + postCount;
 
-  const collections = useMemo(() => new Set(app.library.collections.map((c) => c.id)), [app.library.collections]);
+  const collections = useMemo(() => new Map(app.library.collections.map((c) => [c.id, c])), [app.library.collections]);
+  const dotOf = (b: Bookmark) => {
+    const c = b.collection_id === null ? undefined : collections.get(b.collection_id);
+    return c ? collectionTint(c) : null;
+  };
   const stackRef = useRef(stack);
   stackRef.current = stack;
   const onOpen = useCallback((b: Bookmark) => stackRef.current.openBookmark(b.id), []);
@@ -147,7 +151,7 @@ export function SearchScreen({ hidden }: { hidden: boolean }) {
             r.kind === "bookmark" ? (
               <BookmarkRow
                 bookmark={r.bookmark}
-                dot={r.bookmark.collection_id !== null && collections.has(r.bookmark.collection_id) ? collectionColor(r.bookmark.collection_id) : null}
+                dot={dotOf(r.bookmark)}
                 language={i18n.language}
                 favorite={favorite}
                 onOpen={onOpen}

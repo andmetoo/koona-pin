@@ -5,7 +5,8 @@ import { Bookmark, Collection, FeedDestination } from "../../types";
 import { api } from "../../services/api";
 import { describeError } from "../../services/errors";
 import { shortcut } from "../../services/keys";
-import { collectionColor } from "../../services/collections";
+import { collectionTint } from "../../services/collections";
+import { buildTree, pathPrefix } from "../../services/collectionTree";
 import { siteName } from "../../services/cover";
 import { suggestFrom } from "../../services/triage";
 import { carriesLink, Destination, domainOf, draftBookmark, linkFrom, previewedBookmark, samePage, typedLink, webLink } from "../../services/addLink";
@@ -198,6 +199,7 @@ export function AddSheet({
   const known = lookup && !lookup.loading && lookup.url === href ? lookup : null;
   const existing = saved ?? known?.existing ?? null;
   const suggested = known?.suggested ?? null;
+  const tree = buildTree(collections);
   const live = (id: number | null | undefined) => (id != null && collections.some((c) => c.id === id) ? id : null);
   const collection = picked !== undefined ? live(picked) : (live(initialCollection) ?? live(suggested));
   const inbox = destination === "inbox";
@@ -514,8 +516,10 @@ export function AddSheet({
                           // A second click on the chosen one leaves the link without a collection.
                           onClick={() => setPicked(on ? null : c.id)}
                         >
-                          <Dot color={collectionColor(c.id)} className="size-[7px]" />
+                          <Dot color={collectionTint(c)} className="size-[7px]" />
                           <span className="max-w-[160px] truncate" data-user-text>
+                            {/* Inside another, its path first, muted (2.19.0). */}
+                            {pathPrefix(tree, c.id) && <span className="opacity-60">{pathPrefix(tree, c.id)}</span>}
                             {c.name}
                           </span>
                         </button>

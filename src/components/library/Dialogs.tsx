@@ -762,10 +762,13 @@ export function RestoreDialog({
 /** `initial` — the name offered for «Новая коллекция из выбранного» in a narrow window (NP-029). */
 export function CollectionDialog({
   initial = "",
+  title,
   onCreate,
   onClose,
 }: {
   initial?: string;
+  /** «New collection in Development» (2.19.0); «New collection» by default. */
+  title?: string;
   onCreate: (name: string) => Promise<void>;
   onClose: () => void;
 }) {
@@ -773,7 +776,7 @@ export function CollectionDialog({
   const { busy, error, run } = useAction();
   const [name, setName] = useState(initial);
   return (
-    <Dialog title={t("collection.title")} onClose={() => !busy && onClose()} width={400}>
+    <Dialog title={title ?? t("collection.title")} onClose={() => !busy && onClose()} width={400}>
       <form
         className="flex flex-col gap-4"
         onSubmit={(e) => {
@@ -800,12 +803,15 @@ export function CollectionDialog({
 export function ConfirmDialog({
   title,
   text,
+  more,
   confirm,
   onConfirm,
   onClose,
 }: {
   title: string;
   text: string;
+  /** A second paragraph: what else happens (2.19.0, a collection's children move up). */
+  more?: string;
   confirm: string;
   onConfirm: () => Promise<void>;
   onClose: () => void;
@@ -815,7 +821,10 @@ export function ConfirmDialog({
   return (
     <Dialog title={title} onClose={() => !busy && onClose()} width={400}>
       <div className="flex flex-col gap-4">
-        <p className="text-sm text-muted [overflow-wrap:anywhere]">{text}</p>
+        <div className="flex flex-col gap-2 text-sm text-muted [overflow-wrap:anywhere]">
+          <p>{text}</p>
+          {more && <p>{more}</p>}
+        </div>
         <Failure error={error} reserve />
         <Footer>
           <Button disabled={busy} onClick={onClose}>

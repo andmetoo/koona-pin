@@ -4,7 +4,7 @@ import { BookOpen, Folder, Heart, Layers, Plus, Rss, Tag as TagIcon, Trash2 } fr
 import { useTranslation } from "react-i18next";
 import { Collection } from "../../types";
 import { dropHint, RowDragItem, rowDropLabel, rowLine } from "../../services/drag";
-import { collectionColor } from "../../services/collections";
+import { collectionTint } from "../../services/collections";
 import { SelectionDrag } from "../../hooks/useSelectionDrag";
 import { Icon } from "../icons";
 import { Dot } from "../ui/Controls";
@@ -91,7 +91,7 @@ export function RowStack({
       <div aria-hidden className="absolute top-2.5 left-2 flex h-9 max-w-60 items-center gap-2 rounded-lg border border-border bg-card px-2.5 shadow-[0_8px_20px_rgb(0_0_0/0.15)]">
         <span className="flex size-4 shrink-0 items-center justify-center text-icon">
           {item.kind === "collection" ? (
-            <Dot color={collectionColor(item.collection.id)} />
+            <Dot color={collectionTint(item.collection)} />
           ) : (
             <Icon icon={item.kind === "tag" ? TagIcon : Rss} size={13} />
           )}

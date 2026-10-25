@@ -75,7 +75,7 @@ test("language: English by default, switches without a restart, «System» follo
   // A new install speaks English whatever the system says (NP-085); the demo library is created in it.
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.getByText("Ten principles for good design")).toBeVisible();
-  await expect(page.getByRole("button", { name: "To read 1" })).toBeVisible();
+  await expect(page.getByRole("treeitem", { name: "To read 1" })).toBeVisible();
   // The first change saves it: switching to Russian later keeps the English library.
   await page.locator('[data-bookmark-id="4"]').hover();
   await page.locator('[data-bookmark-id="4"]').getByRole("button", { name: "Add to favorites" }).click();
@@ -96,7 +96,7 @@ test("language: English by default, switches without a restart, «System» follo
   await page.evaluate(() => localStorage.removeItem("koonapin.demo.v4"));
   await page.reload();
   await expect(page.getByText("Десять принципов хорошего дизайна")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Прочитать 1" })).toBeVisible();
+  await expect(page.getByRole("treeitem", { name: "Прочитать 1" })).toBeVisible();
 });
 test("incoming capture preserves reading position until explicitly revealed", async ({ page }) => {
   // A short window, so the six cards scroll.
@@ -197,7 +197,7 @@ test("inbox: new links wait there until a decision, triage Esc goes back to it, 
   await expect(page.getByRole("heading", { name: "All sorted" })).toBeVisible();
 });
 test("trash: delete without a dialog, undo, restore with every field, a link saved again comes back", async ({ page }) => {
-  const nav = (name: string) => page.getByRole("button", { name, exact: true });
+  const nav = (name: string) => page.getByRole("button", { name, exact: true }).or(page.getByRole("treeitem", { name, exact: true }));
   const cards = page.locator("[data-bookmark-id]");
   const toast = page.locator(".fixed[role=status]");
   // The context menu works on a card and on a row alike.
@@ -282,7 +282,7 @@ test("trash: delete without a dialog, undo, restore with every field, a link sav
   await expect(page.getByRole("heading", { name: "Trash is empty" })).toBeVisible();
 });
 test("trash: deleting for good asks first, «Keep» keeps it, emptying takes the rest", async ({ page }) => {
-  const nav = (name: string) => page.getByRole("button", { name, exact: true });
+  const nav = (name: string) => page.getByRole("button", { name, exact: true }).or(page.getByRole("treeitem", { name, exact: true }));
   const cards = page.locator("[data-bookmark-id]");
   const toast = page.locator(".fixed[role=status]");
   for (const id of [1, 2, 3]) {
@@ -326,7 +326,7 @@ test("trash: deleting for good asks first, «Keep» keeps it, emptying takes the
   await expect(nav("Trash 0")).toBeVisible();
 });
 test("undo: Ctrl Z takes actions back one by one, a decision returns to the inbox, a later change wins", async ({ page }) => {
-  const nav = (name: string) => page.getByRole("button", { name, exact: true });
+  const nav = (name: string) => page.getByRole("button", { name, exact: true }).or(page.getByRole("treeitem", { name, exact: true }));
   const card = (id: number) => page.locator(`[data-bookmark-id="${id}"]`);
   const toast = page.locator(".fixed[role=status]");
   const alert = page.locator(".fixed[role=alert]");
@@ -388,7 +388,7 @@ test("undo: Ctrl Z takes actions back one by one, a decision returns to the inbo
   await expect(nav("Trash 0")).toBeVisible();
 });
 test("triage: every key, a failed decision, undo, a new link, the end and back to the library", async ({ page }) => {
-  const nav = (name: string) => page.getByRole("button", { name, exact: true });
+  const nav = (name: string) => page.getByRole("button", { name, exact: true }).or(page.getByRole("treeitem", { name, exact: true }));
   const heading = page.getByRole("heading", { level: 1 });
   const title = page.locator("[data-triage-card] h2");
   const toast = page.locator(".fixed[role=status]");
@@ -744,7 +744,7 @@ test("import: browser folders become collections and tags, the report gives reas
 
   const report = page.getByRole("dialog", { name: "Import finished" });
   await expect(report.getByRole("status")).toHaveText("7 bookmarks added to Library");
-  await expect(report).toContainText("2 new collections: Работа, Чтение · 2 new tags");
+  await expect(report).toContainText("4 new collections: Работа, Rust and 2 more");
   await expect(report).toContainText("Skipped3");
   await expect(report).toContainText("Repeated within the file1");
   await report.getByRole("button", { name: "Show the skipped addresses" }).click();
@@ -752,12 +752,12 @@ test("import: browser folders become collections and tags, the report gives reas
   await report.getByRole("button", { name: "Done" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
-  // Top-level folder → collection, nested folders → tags, the browser's date kept.
-  await page.getByRole("button", { name: /^Работа 3/ }).click();
+  // Folders → collections three levels deep (2.19.0), the browser's date kept.
+  await expect(page.getByRole("treeitem", { name: /^Async 1/ })).toHaveAttribute("aria-level", "3");
+  await page.getByRole("treeitem", { name: /^Работа 3/ }).click();
   await page.getByRole("button", { name: "List", exact: true }).click();
   const tokio = page.locator("[data-bookmark-id]", { hasText: "Tokio" });
-  await expect(tokio.getByRole("button", { name: "rust" })).toBeVisible();
-  await expect(tokio.getByRole("button", { name: "async" })).toBeVisible();
+  await expect(tokio.locator("[data-collection]")).toContainText("Async");
   await expect(tokio.locator("time")).toHaveAttribute("datetime", "2023-07-22T04:31:40.000Z");
 
   // Again: nothing new, nothing changed.
@@ -885,7 +885,7 @@ test("restore: merge adds what is missing with its state and keeps what is there
   await expect(report).toContainText("Of them in Trash1");
   await expect(report).toContainText("Already in the library — left as they were1");
   await report.getByRole("button", { name: "Done" }).click();
-  await expect(page.getByRole("button", { name: /^Restored 1/ })).toBeVisible();
+  await expect(page.getByRole("treeitem", { name: /^Restored 1/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Inbox 3/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Trash 1/ })).toBeVisible();
 
@@ -955,7 +955,7 @@ test("duplicates: the section groups the same page, the main one is chosen, merg
     await page.getByRole("button", { name: "Save link" }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
   };
-  const nav = (name: string) => page.getByRole("complementary").getByRole("button", { name, exact: true });
+  const nav = (name: string) => page.getByRole("complementary").getByRole("button", { name, exact: true }).or(page.getByRole("complementary").getByRole("treeitem", { name, exact: true }));
   // No duplicates: no sidebar entry; the menu «⋯» still leads to the section.
   await expect(page.getByRole("complementary").getByRole("button", { name: /^Duplicates/ })).toHaveCount(0);
   await add("http://vitsoe.com/rw/about/good-design/?utm_source=mail");
@@ -1287,7 +1287,7 @@ test("collections: a drag puts one in another place, Esc and a drop outside chan
   await expect(row("Development")).toBeFocused();
   await page.keyboard.press("Alt+ArrowUp");
   expect(await names()).toEqual(["Development", "Design", "To read", "Inspiration"]);
-  await expect(sidebar.locator("[aria-live=polite]")).toHaveText("Development: place 1 of 4");
+  await expect(sidebar.locator("[aria-live=polite]")).toHaveText("Development moved to the top level, 1 of 4");
 
   // The menus follow the sidebar: «Move to collection» of a card.
   await page.locator('[data-bookmark-id="2"]').hover();
@@ -1485,14 +1485,14 @@ test("bulk actions: move, tag and star as one action each, undone whole; Del to 
   await expect(notice(page, "3 bookmarks moved to «Development»")).toBeVisible();
   await expect(bar.getByRole("status")).toHaveText("3 selected");
   // «Interfaces…» was there already: counted in the notice, not changed.
-  await expect(page.getByRole("button", { name: /^Development/ })).toContainText("3");
+  await expect(page.getByRole("treeitem", { name: /^Development/ })).toContainText("3");
   // A decision sorts the inbox one out of the inbox, as a single edit does.
   await expect(page.getByRole("button", { name: /^Inbox/ })).toContainText("1");
   await page.screenshot({ path: "test-results/bulk-moved-1440.png" });
   // Ctrl Z takes back the two it changed, the inbox included.
   await page.keyboard.press("ControlOrMeta+z");
   await expect(notice(page, "Undone for 2 bookmarks")).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Development/ })).toContainText("1");
+  await expect(page.getByRole("treeitem", { name: /^Development/ })).toContainText("1");
   await expect(page.getByRole("button", { name: /^Inbox/ })).toContainText("2");
 
   // «Tag»: a field with the library's tags; Enter adds the typed one to every selected.
@@ -1534,7 +1534,7 @@ test("bulk actions: move, tag and star as one action each, undone whole; Del to 
   await page.getByRole("menuitem", { name: "Inspiration" }).click();
   const alert = page.getByRole("alert");
   await expect(alert).toHaveText(/Couldn't move 3 bookmarks to «Inspiration»: the library is busy\. Nothing changed\./);
-  await expect(page.getByRole("button", { name: /^Inspiration/ })).toContainText("2");
+  await expect(page.getByRole("treeitem", { name: /^Inspiration/ })).toContainText("2");
   await expect(bar.getByRole("status")).toHaveText("3 selected");
   await page.screenshot({ path: "test-results/bulk-failed-1440.png" });
   await alert.getByRole("button", { name: "Try again" }).click();
@@ -1648,7 +1648,7 @@ test("bulk actions: a new collection from the selection, export of the selected,
   await name.fill("Picked");
   await name.press("Enter");
   await expect(notice(page, "2 bookmarks moved to «Picked»")).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Picked/ })).toContainText("2");
+  await expect(page.getByRole("treeitem", { name: /^Picked/ })).toContainText("2");
 
   // Export: the formats of the «⋯» menu, the selected only.
   await bar.getByRole("button", { name: "Export" }).click();
@@ -1723,7 +1723,7 @@ test("drag: the selection onto a collection, a tag and the trash; the hint names
 
   // From the preview of a selected card onto «Development»: the stack, the targets, the hint.
   const preview = page.locator("[data-bookmark-id][data-selected] [data-preview]").first();
-  await dragOver(page, preview, sidebar.getByRole("button", { name: /^Development/ }));
+  await dragOver(page, preview, sidebar.getByRole("treeitem", { name: /^Development/ }));
   await expect(dropHint(page)).toHaveText("Move 3 to “Development”");
   await expect(page.locator("[data-drag-stack]")).toContainText("and 2 more bookmarks");
   await expect(page.locator("[data-dragging] [data-selected]").first()).toHaveCSS("opacity", "0.45");
@@ -1734,13 +1734,13 @@ test("drag: the selection onto a collection, a tag and the trash; the hint names
   await page.mouse.up();
   await expect(notice(page, "3 bookmarks moved to «Development»")).toBeVisible();
   await expect(page.locator("[data-drag-stack]")).toHaveCount(0);
-  await expect(sidebar.getByRole("button", { name: /^Development/ })).toContainText("3");
+  await expect(sidebar.getByRole("treeitem", { name: /^Development/ })).toContainText("3");
   // The drop did not open the card it started on, and the selection stays.
   expect(await opened(page)).toEqual([]);
   await expect(bar.getByRole("status")).toHaveText("3 selected");
   await page.keyboard.press("ControlOrMeta+z");
   await expect(notice(page, "Undone for 2 bookmarks")).toBeVisible();
-  await expect(sidebar.getByRole("button", { name: /^Development/ })).toContainText("1");
+  await expect(sidebar.getByRole("treeitem", { name: /^Development/ })).toContainText("1");
 
   // Every tag is a target while dragging, the hidden ones too; the hint follows the pointer.
   const tags = sidebar.locator('[data-drop^="tag:"]');
@@ -1820,13 +1820,13 @@ test("drag: Esc and a drop outside a target change nothing; an unselected card s
   const selected = page.locator("[data-bookmark-id][data-selected]").first();
 
   // Esc ends the drag only: no action, the selection stays.
-  await dragOver(page, selected.locator("[data-preview]"), sidebar.getByRole("button", { name: /^Inspiration/ }));
+  await dragOver(page, selected.locator("[data-preview]"), sidebar.getByRole("treeitem", { name: /^Inspiration/ }));
   await expect(dropHint(page)).toHaveText("Move 2 to “Inspiration”");
   await page.keyboard.press("Escape");
   await expect(page.locator("[data-drag-stack]")).toHaveCount(0);
   await page.mouse.up();
   await expect(bar.getByRole("status")).toHaveText("2 selected");
-  await expect(sidebar.getByRole("button", { name: /^Inspiration/ })).toContainText("2");
+  await expect(sidebar.getByRole("treeitem", { name: /^Inspiration/ })).toContainText("2");
   await expect(page.locator("[data-dragging]")).toHaveCount(0);
 
   // Released over the list: nothing happens.
@@ -1861,7 +1861,7 @@ test("drag: Esc and a drop outside a target change nothing; an unselected card s
   await name.fill("Dragged");
   await name.press("Enter");
   await expect(notice(page, "2 bookmarks moved to «Dragged»")).toBeVisible();
-  await expect(sidebar.getByRole("button", { name: /^Dragged/ })).toContainText("2");
+  await expect(sidebar.getByRole("treeitem", { name: /^Dragged/ })).toContainText("2");
 });
 
 test("drag in a narrow window: collection dots and the trash of the strip are targets; the trash section does not drag", async ({ page }) => {
@@ -1916,13 +1916,13 @@ test("bulk actions on 1 000 bookmarks keep the loaded pages and the scroll posit
   await page.getByRole("menuitem", { name: "To read" }).click();
   await expect(notice(page, "1000 bookmarks moved to «To read»")).toBeVisible();
   expect(Date.now() - started).toBeLessThan(2000);
-  await expect(page.getByRole("button", { name: /^To read/ })).toContainText("1000");
+  await expect(page.getByRole("treeitem", { name: /^To read/ })).toContainText("1000");
   // Merged in place: no page was read again, the list did not jump.
   await expect(list).toHaveAttribute("data-loaded", "200");
   expect(Math.abs((await scroll.evaluate((el) => el.scrollTop)) - top)).toBeLessThan(2);
   await page.keyboard.press("ControlOrMeta+z");
   await expect(notice(page, "Undone for 1000 bookmarks")).toBeVisible();
-  await expect(page.getByRole("button", { name: /^To read/ })).toContainText("0");
+  await expect(page.getByRole("treeitem", { name: /^To read/ })).toContainText("0");
   await expect(list).toHaveAttribute("data-loaded", "200");
 });
 
@@ -1934,7 +1934,7 @@ test("a click on a domain filters by site; Esc clears the search; nothing found 
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
 
   const search = page.getByRole("textbox", { name: "Search the library" });
-  await page.getByRole("button", { name: /^Inspiration/ }).click();
+  await page.getByRole("treeitem", { name: /^Inspiration/ }).click();
   await search.fill("typography");
   await expect(page.getByRole("heading", { name: "Nothing in “Inspiration” matches “typography”" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toContainText("0 of 2");

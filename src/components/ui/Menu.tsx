@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronRight, LucideIcon } from "lucide-react";
+import { Check, ChevronRight, LucideIcon, Search } from "lucide-react";
 import { Icon } from "../icons";
 import { isMac, shortcut } from "../../services/keys";
 import { safeArea } from "../../platform/safeArea";
@@ -9,6 +9,12 @@ export interface MenuItem {
   id: string;
   label: string;
   icon?: LucideIcon;
+  /** Drawn in place of `icon` or `dot`: a collection's own mark (2.19.0). */
+  leading?: ReactNode;
+  /** Levels of a tree, 16 px each (2.19.0): collections inside collections. */
+  indent?: number;
+  /** Muted before the label: the path of a collection found by a search, «Development › Web › » (2.19.0). */
+  prefix?: string;
   /** Key shown on the right, 11 px. */
   keys?: string;
   /** Second line under the label. */
@@ -23,11 +29,21 @@ export interface MenuItem {
   disabledHint?: string;
   onSelect?: () => void;
   submenu?: MenuEntry[];
+  /** The submenu's width; 232 px by default. */
+  submenuWidth?: number;
 }
-export type MenuEntry = MenuItem | { heading: string } | "separator";
+/**
+ * A field on top of a long list (2.19.0, frame N7): while it holds a query,
+ * `results` stand in place of every entry after it.
+ */
+export interface MenuSearch {
+  search: { label: string; results: (query: string) => MenuEntry[] };
+}
+export type MenuEntry = MenuItem | { heading: string } | { hint: ReactNode } | MenuSearch | "separator";
 export type CloseReason = "escape" | "selected" | "outside";
 
 const isItem = (entry: MenuEntry): entry is MenuItem => typeof entry === "object" && "id" in entry;
+const isSearch = (entry: MenuEntry): entry is MenuSearch => typeof entry === "object" && "search" in entry;
 
 /**
  * A menu at a point or next to a rectangle (frames 06 and 15): arrows move,
@@ -56,10 +72,15 @@ export function Menu({
   trigger?: Element | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const field = useRef<HTMLInputElement>(null);
   const returnTo = useRef<HTMLElement | null>(null);
   const [position, setPosition] = useState({ left: -9999, top: -9999 });
   const [open, setOpen] = useState<{ id: string; rect: DOMRect } | null>(null);
-  const items = entries.filter(isItem);
+  const [query, setQuery] = useState("");
+  const searchAt = entries.findIndex(isSearch);
+  const search = searchAt >= 0 ? (entries[searchAt] as MenuSearch) : null;
+  const shown = search && query.trim() ? [...entries.slice(0, searchAt + 1), ...search.search.results(query)] : entries;
+  const items = shown.filter(isItem);
 
   useLayoutEffect(() => {
     // Once: a repeated effect (StrictMode) would see the focused menu item.
@@ -75,7 +96,9 @@ export function Menu({
     if (left + width > maxRight) left = nested ? rect.left - width - 4 : maxRight - width;
     if (top + menu.height > maxBottom) top = Math.max(minTop, (nested ? rect.bottom + 6 : rect.top - 6) - menu.height);
     setPosition({ left: Math.max(minLeft, left), top });
-    focusItem(0);
+    // A list with a search field starts in the field: typing narrows it at once.
+    if (field.current) field.current.focus();
+    else focusItem(0);
   }, []);
 
   useEffect(() => {
@@ -93,7 +116,8 @@ export function Menu({
     };
   }, []);
 
-  const buttons = () => Array.from(ref.current?.querySelectorAll<HTMLButtonElement>("[role=menuitem], [role=menuitemradio]") ?? []);
+  const buttons = () =>
+    Array.from(ref.current?.querySelectorAll<HTMLButtonElement>(":scope > [role=menuitem], :scope > [role=menuitemradio]") ?? []);
   function focusItem(index: number) {
     const all = buttons();
     if (!all.length) return;
@@ -124,9 +148,18 @@ export function Menu({
       onKeyDown={(e) => {
         const all = buttons();
         const index = all.indexOf(document.activeElement as HTMLButtonElement);
-        if (e.key === "ArrowDown") focusItem(index + 1);
-        else if (e.key === "ArrowUp") focusItem(index - 1);
-        else if (e.key === "Home") focusItem(0);
+        if (e.target === field.current) {
+          // In the field the keys type; the arrows go down to the list, Enter takes the first.
+          if (e.key === "ArrowDown") focusItem(0);
+          else if (e.key === "ArrowUp") focusItem(-1);
+          else if (e.key === "Enter" && items[0] && all[0]) select(items[0], all[0]);
+          else if (e.key === "Escape" || e.key === "Tab") close(e.key === "Tab" ? "outside" : "escape");
+          else return e.stopPropagation();
+        } else if (e.key === "ArrowDown") focusItem(index + 1);
+        else if (e.key === "ArrowUp") {
+          if (index === 0 && field.current) field.current.focus();
+          else focusItem(index - 1);
+        } else if (e.key === "Home") focusItem(0);
         else if (e.key === "End") focusItem(-1);
         else if (e.key === "Escape" || (nested && e.key === "ArrowLeft")) close("escape");
         else if (e.key === "Tab") close("outside");
@@ -141,16 +174,40 @@ export function Menu({
           const pressed = mod ? shortcut(key) : e.ctrlKey || e.metaKey ? null : key;
           const own = (e.target as Element).closest("[role=menu]") === ref.current;
           const match = own && pressed !== null && pressed !== "Enter" && items.findIndex((item) => item.keys === pressed && !item.disabled);
-          if (match === false || match < 0) return;
+          if (match === false || match < 0) {
+            // Letters typed in a list with a field go to the field (2.19.0).
+            if (own && field.current && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) field.current.focus();
+            return;
+          }
           select(items[match], all[match]);
         }
         e.preventDefault();
         e.stopPropagation();
       }}
     >
-      {entries.map((entry, i) =>
+      {shown.map((entry, i) =>
         entry === "separator" ? (
           <div key={`s${i}`} role="separator" className="mx-[9px] my-[5px] h-px bg-line" />
+        ) : isSearch(entry) ? (
+          <label key="search" className="mb-1 flex h-[30px] items-center gap-2 rounded-lg border border-border bg-card px-2 focus-within:border-accent">
+            <Icon icon={Search} size={14} className="text-subtle" />
+            <input
+              ref={field}
+              type="search"
+              aria-label={entry.search.label}
+              placeholder={entry.search.label}
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setOpen(null);
+              }}
+              className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-subtle [&::-webkit-search-cancel-button]:appearance-none"
+            />
+          </label>
+        ) : "hint" in entry ? (
+          <div key={`n${i}`} className="px-[9px] pt-1.5 pb-1 text-2xs text-subtle">
+            {entry.hint}
+          </div>
         ) : !isItem(entry) ? (
           <div key={`h${i}`} className="px-[9px] pt-1.5 pb-1 text-2xs font-semibold tracking-[0.08em] uppercase text-subtle">
             {entry.heading}
@@ -171,9 +228,12 @@ export function Menu({
               if (entry.submenu && !entry.disabled) setOpen({ id: entry.id, rect: e.currentTarget.getBoundingClientRect() });
               else if (open) setOpen(null);
             }}
+            style={entry.indent ? { paddingLeft: 9 + 16 * entry.indent } : undefined}
             className={`flex min-h-[30px] w-full items-center gap-2.5 rounded-lg px-[9px] py-1.5 text-left outline-none transition-colors duration-100 focus-visible:bg-hover hover:bg-hover ${entry.disabled ? "text-subtle" : ""}`}
           >
-            {entry.dot ? (
+            {entry.leading ? (
+              entry.leading
+            ) : entry.dot ? (
               <span className="flex size-4 items-center justify-center">
                 <span className="size-2 rounded-full" style={{ background: entry.dot }} />
               </span>
@@ -181,7 +241,10 @@ export function Menu({
               <Icon icon={entry.icon} className={entry.disabled ? "text-faint" : "text-icon"} />
             ) : null}
             <span className="min-w-0 flex-1">
-              <span className="block truncate">{entry.label}</span>
+              <span className="block truncate">
+                {entry.prefix && <span className="text-subtle">{entry.prefix}</span>}
+                {entry.label}
+              </span>
               {entry.description && <span className="block text-xs text-subtle">{entry.description}</span>}
             </span>
             {entry.checked && <Icon icon={Check} className="text-accent" />}
@@ -200,7 +263,7 @@ export function Menu({
               entries={parent.submenu}
               anchor={open.rect}
               label={parent.label}
-              width={232}
+              width={parent.submenuWidth ?? 232}
               onClose={(reason) => {
                 setOpen(null);
                 // Picking in the submenu or leaving it closes the whole menu.

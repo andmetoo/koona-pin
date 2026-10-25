@@ -13,7 +13,7 @@
 
 use crate::apply::Ctx;
 use crate::model::{Clock, FieldChange};
-use crate::store::{self, Stored, Table, BOOKMARKS, COLLECTION, COLLECTIONS, FEEDS, LINK, TAGS, UNIQUE};
+use crate::store::{self, Stored, Table, BOOKMARKS, COLLECTION, COLLECTIONS, FEEDS, LINK, PARENT, TAGS, UNIQUE};
 use crate::Result;
 use rusqlite::params;
 use rusqlite::types::Value;
@@ -131,6 +131,18 @@ impl Ctx<'_> {
                      WHERE collection_id = ?1",
                 )?
                 .execute(params![loser, survivor, self.now])?;
+            // Its children go into the survivor too (schema 15), each a move of ours; a loop
+            // this makes is undone after the batch (`Ctx::untangle`).
+            let children: Vec<i64> = self
+                .conn
+                .prepare_cached("SELECT id FROM collections WHERE parent_id = ?1 AND id <> ?2")?
+                .query_map(params![loser, survivor], |r| r.get(0))?
+                .collect::<rusqlite::Result<_>>()?;
+            for child in children {
+                self.write(t, child, PARENT, &Value::Integer(survivor))?;
+                let clock = self.stamp()?;
+                store::set_clock(self.conn, t.code, child, PARENT as i64, clock)?;
+            }
         } else if t.code == FEEDS.code {
             // Nothing refers to a feed in the library: its posts live in each device's cache,
             // keyed by uid, and the loser's go with it (NP-130).
@@ -225,6 +237,16 @@ impl Ctx<'_> {
         } else if t.code == COLLECTIONS.code {
             // The bookmarks in the old collection are now in the arriving one: a move of ours.
             self.restamp_members(other)?;
+            // So are its children (schema 15): their parent is another uid on the wire now.
+            let children: Vec<i64> = self
+                .conn
+                .prepare_cached("SELECT id FROM collections WHERE parent_id = ?1")?
+                .query_map([other], |r| r.get(0))?
+                .collect::<rusqlite::Result<_>>()?;
+            for child in children {
+                let clock = self.stamp()?;
+                store::set_clock(self.conn, t.code, child, PARENT as i64, clock)?;
+            }
             Vec::new()
         } else if t.code == FEEDS.code {
             // Nothing in the library refers to a feed; its old uid is gone on this device, and

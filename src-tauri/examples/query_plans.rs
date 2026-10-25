@@ -112,6 +112,8 @@ fn main() {
     scenario(&mut conn, "list: inbox", list(db::BookmarkQuery { only_inbox: true, since: since.clone(), ..Default::default() }));
     scenario(&mut conn, "list: favorites", list(db::BookmarkQuery { only_favorites: true, since: since.clone(), ..Default::default() }));
     scenario(&mut conn, "list: collection", list(db::BookmarkQuery { collection_id: Some(2), since: since.clone(), ..Default::default() }));
+    // Its own bookmarks only (2.19.0); the one above reads its subtree's too.
+    scenario(&mut conn, "list: collection only", list(db::BookmarkQuery { collection_id: Some(2), only_collection: true, since: since.clone(), ..Default::default() }));
     scenario(&mut conn, "list: common tag", list(db::BookmarkQuery { tag: Some("rust".into()), since: since.clone(), ..Default::default() }));
     scenario(&mut conn, "list: rare tag", list(db::BookmarkQuery { tag: Some("редкий".into()), since: since.clone(), ..Default::default() }));
     scenario(&mut conn, "list: site", list(db::BookmarkQuery { domain: Some("github.com".into()), since: since.clone(), ..Default::default() }));

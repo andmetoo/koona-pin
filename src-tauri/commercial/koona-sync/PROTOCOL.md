@@ -372,7 +372,7 @@ The entities and their synced field names (`src/model.rs`):
 
 | `entity` | Fields | Since schema |
 |----------|--------|--------------|
-| `collection` | `name`, `color`, `icon`, `position` | 10 |
+| `collection` | `name`, `color`, `icon`, `position`; `parent` (the uid of the collection it sits in, or null for the top level) | 10; 15 |
 | `tag` | `name` | 10 |
 | `bookmark` | `url`, `title`, `description`, `image_url`, `favicon_url`, `notes`, `is_favorite`, `collection` (a collection's uid or null), `triaged_at`, `deleted_at`, `source`, `source_name`, `created_at`; `reading_at`, `reading_progress`, `read_at`; `site_name` | 10; 11; 13 |
 | `link` | a tag's uid, value `true`/`false`; the group's `uid` is the bookmark's | 10 |
@@ -384,6 +384,13 @@ with `merged_into`. A `feed` is the subscription only: its posts, read marks and
 travel. `destination` is any string; a receiver keeps one it doesn't know as it came. A `feed`
 group reaches a schema-13 peer as an unknown `entity`; that peer has already paused at the newer
 `hello` (Versions, below).
+
+A collection's `parent` may name a collection later in the same batch: the receiver resolves the
+parents after every collection of the batch. A parent it has never seen leaves the collection
+where it is (a new one at the top level) and counts as deferred; a purged parent puts it at the
+top level. When merged moves make a loop (A in B, B in A), the collection in the loop whose
+`parent` clock is the oldest moves to the top level, written as the receiver's own change. A tree
+deeper than the app allows is kept as it came.
 
 **Batches.** An answer is one or more `changes` messages in order; every batch carries the same
 `covers` and only the final one has `last: true`. The receiver applies each batch as it arrives

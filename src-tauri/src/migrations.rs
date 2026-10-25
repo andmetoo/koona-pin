@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 /// The newest schema this build understands. A library with a larger
 /// `user_version` is not opened at all.
-pub const SCHEMA_VERSION: i64 = 14;
+pub const SCHEMA_VERSION: i64 = 15;
 /// "NPIN" in the database header; a file without it is not a library of
 /// this schema line (Р-10, point 11).
 pub const APPLICATION_ID: i32 = 0x4E50_494E;
@@ -452,6 +452,33 @@ fn sync_feeds(tx: &Transaction) -> HookResult {
     Ok(())
 }
 
+/// Schema 15 (2.19.0): nested collections. `parent_id` is the collection
+/// it sits in (none: the top level); `position_key` orders siblings now.
+/// `db::delete_collection` moves the children up before the row goes, so
+/// `ON DELETE SET NULL` only acts on a delete the sync engine applies for
+/// another device: the children land at the top level, as they do where
+/// the parent was purged. `color` holds one of the five palette names from
+/// now on (`db::PALETTE`); the hex colours of older builds go, and those
+/// collections take their colour by id as before. The hook gives the sync
+/// capture trigger the new field (`koona_sync::SCHEMA_15`, commercial).
+pub(crate) const SCHEMA_15: &str = "ALTER TABLE collections ADD COLUMN parent_id INTEGER REFERENCES collections(id) ON DELETE SET NULL;
+CREATE INDEX idx_collections_parent ON collections(parent_id);
+";
+
+/// See [`SCHEMA_15`]. The colours are cleared while the collections have no
+/// capture trigger, so a library with sync on records nothing: every device
+/// runs the same step on its own copy.
+fn nest_collections(tx: &Transaction) -> HookResult {
+    tx.execute_batch("DROP TRIGGER IF EXISTS sync_collections_update;")?;
+    tx.execute(
+        "UPDATE collections SET color = NULL
+         WHERE color IS NOT NULL AND color NOT IN ('terracotta', 'green', 'ochre', 'blue', 'lilac')",
+        [],
+    )?;
+    tx.execute_batch(koona_sync::SCHEMA_15)?;
+    Ok(())
+}
+
 /// The places of schema 7 as keys, in the sidebar's order: by place, then
 /// the collections never moved by name in the language of the sort keys.
 /// When none was ever moved, none gets a key: they keep following the
@@ -572,6 +599,7 @@ pub fn steps() -> Vec<M<'static>> {
         M::up(SCHEMA_12),
         M::up_with_hook(SCHEMA_13, sync_site_name),
         M::up_with_hook(SCHEMA_14, sync_feeds),
+        M::up_with_hook(SCHEMA_15, nest_collections),
     ]
 }
 
@@ -860,7 +888,8 @@ mod tests {
         };
         // The sidebar's order as schema 9 read it, and as it is read now.
         let order_9 = |conn: &Connection| rows(conn, "SELECT name FROM collections ORDER BY position IS NULL, position, np_sort_key(name), id");
-        let order = |conn: &Connection| db::get_collections(conn).unwrap().into_iter().map(|c| format!("{:?}", c.name)).collect::<Vec<_>>();
+        // As `db::get_collections` read it at schema 10, before the tree of schema 15.
+        let order = |conn: &Connection| rows(conn, "SELECT name FROM collections ORDER BY position_key IS NULL, position_key, np_sort_key(name), id");
         let objects = |conn: &Connection| {
             let changed = "name IN ('bookmarks', 'collections', 'tombstones') OR (type = 'trigger' AND name LIKE 'bookmarks_%')";
             [
@@ -1144,7 +1173,8 @@ mod tests {
         };
         let (objects_before, data_before) = (objects(&conn), data(&conn));
 
-        migrate(&mut conn, Some(&folder.join("backups"))).unwrap();
+        let to_14 = Migrations::new(steps().into_iter().take(14).collect());
+        migrate_with(&to_14, 14, &mut conn, Some(&folder.join("backups"))).unwrap();
         assert_eq!(user_version(&conn).unwrap(), 14);
         assert!(folder.join("backups/koonapin.before-v14.db").exists());
         let check: String = conn.query_row("PRAGMA integrity_check", [], |r| r.get(0)).unwrap();
@@ -1191,7 +1221,8 @@ mod tests {
         fixtures::finish(conn);
         let mut conn = Connection::open(&path).unwrap();
         library::configure(&conn).unwrap();
-        match migrate(&mut conn, Some(&folder.join("backups"))) {
+        let to_14 = Migrations::new(steps().into_iter().take(14).collect());
+        match migrate_with(&to_14, 14, &mut conn, Some(&folder.join("backups"))) {
             Err(MigrationError::Failed { version: 14, error, .. }) => assert!(error.contains("tombstones"), "{error}"),
             other => panic!("expected a refusal, got {other:?}"),
         }
@@ -1199,13 +1230,68 @@ mod tests {
         assert!(!table_exists(&conn, "feeds").unwrap());
     }
 
-    /// The columns of schemas 11 and 13 the engine's tests add (`koona-sync/tests/schema11.sql`,
-    /// `schema13.sql`) are the ones these steps add.
+    /// Schema 15 (2.19.0): a library of schema 14 with data and sync on keeps
+    /// every row and object (but the collections, which gain `parent_id` and
+    /// its index, and their capture trigger), all at the top level; a colour
+    /// that is not a palette name goes, a palette one stays; the step records
+    /// nothing, and a move afterwards records the parent.
     #[test]
-    fn the_engine_tests_schemas_11_and_13_as_the_app_makes_them() {
+    fn schema_15_nests_collections_and_keeps_everything_else() {
+        let folder = folder("schema-15");
+        let path = folder.join("koonapin.db");
+        let conn = fixtures::fresh_at(&path, 14);
+        fixtures::generated(&conn, 2_000, 15);
+        conn.execute("INSERT INTO collections (uid, name, color, created_at) VALUES ('u4', 'Green', 'green', 'x'), ('u5', 'Odd', 'purple', 'x')", []).unwrap();
+        conn.execute("INSERT INTO tombstones (uid, kind, deleted_at, purged_at) VALUES ('gone', 'collection', 'x', 'x')", []).unwrap();
+        fixtures::finish(conn);
+        let mut conn = Connection::open(&path).unwrap();
+        library::configure(&conn).unwrap();
+        koona_sync::attach(&conn, uuid::Uuid::new_v4()).unwrap();
+        let objects = |conn: &Connection| {
+            rows(conn, "SELECT type, name, sql FROM sqlite_schema WHERE name NOT IN ('collections', 'sync_collections_update', 'idx_collections_parent') ORDER BY name")
+        };
+        let data = |conn: &Connection| {
+            ["bookmarks", "tags", "bookmark_tags", "app_settings", "tombstones", "offline_copies", "feeds", "sync_vector"]
+                .iter()
+                .flat_map(|t| rows(conn, &format!("SELECT * FROM {t} ORDER BY rowid")))
+                .collect::<Vec<_>>()
+        };
+        let kept = |conn: &Connection| rows(conn, "SELECT id, uid, name, icon, created_at, position_key FROM collections ORDER BY id");
+        let (objects_before, data_before, kept_before) = (objects(&conn), data(&conn), kept(&conn));
+        assert_eq!(rows(&conn, "SELECT color FROM collections ORDER BY id"), ["\"#6366f1\"", "\"#ec4899\"", "\"#10b981\"", "\"green\"", "\"purple\""]);
+
+        migrate(&mut conn, Some(&folder.join("backups"))).unwrap();
+        assert_eq!(user_version(&conn).unwrap(), 15);
+        assert!(folder.join("backups/koonapin.before-v15.db").exists());
+        let check: String = conn.query_row("PRAGMA integrity_check", [], |r| r.get(0)).unwrap();
+        assert_eq!(check, "ok");
+        assert!(rows(&conn, "PRAGMA foreign_key_check").is_empty());
+        assert_eq!(objects(&conn), objects_before, "no other index, view, table or trigger changed");
+        assert_eq!(data(&conn), data_before, "every row as it was, nothing recorded");
+        assert_eq!(kept(&conn), kept_before);
+        assert_eq!(rows(&conn, "SELECT count(*) FROM sync_clock"), ["Integer(0)"], "the colours recorded nothing");
+        assert_eq!(rows(&conn, "SELECT color FROM collections ORDER BY id"), ["Null", "Null", "Null", r#""green""#, "Null"]);
+        assert_eq!(rows(&conn, "SELECT count(*) FROM collections WHERE parent_id IS NOT NULL"), ["Integer(0)"]);
+        let plan = rows(&conn, "EXPLAIN QUERY PLAN SELECT id FROM collections WHERE parent_id = 1");
+        assert!(plan.iter().any(|p| p.contains("idx_collections_parent")), "{plan:?}");
+
+        // A move records the moved one's place (field 3) and parent (field 4), nothing else.
+        let clocks = |conn: &Connection| rows(conn, "SELECT row, field FROM sync_clock WHERE entity = 0 ORDER BY row, field");
+        db::move_collection(&conn, 2, Some(1), None).unwrap();
+        assert_eq!(clocks(&conn), ["Integer(2) | Integer(3)", "Integer(2) | Integer(4)"]);
+        // Deleting a parent for another device (the engine's delete): the child goes to the top level.
+        conn.execute("DELETE FROM collections WHERE id = 1", []).unwrap();
+        assert_eq!(rows(&conn, "SELECT parent_id FROM collections WHERE id = 2"), ["Null"]);
+    }
+
+    /// The columns of schemas 11, 13 and 15 the engine's tests add (`koona-sync/tests/schema11.sql`,
+    /// `schema13.sql`, `schema15.sql`) are the ones these steps add.
+    #[test]
+    fn the_engine_tests_schemas_11_13_and_15_as_the_app_makes_them() {
         for (name, file, step) in [
             ("schema11.sql", include_str!("../commercial/koona-sync/tests/schema11.sql"), SCHEMA_11),
             ("schema13.sql", include_str!("../commercial/koona-sync/tests/schema13.sql"), SCHEMA_13),
+            ("schema15.sql", include_str!("../commercial/koona-sync/tests/schema15.sql"), SCHEMA_15),
         ] {
             let columns: String = file.lines().skip_while(|l| l.starts_with("--")).map(|l| format!("{l}\n")).collect();
             assert_eq!(columns, step, "{name}");

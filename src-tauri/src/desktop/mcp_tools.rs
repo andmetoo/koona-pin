@@ -93,7 +93,7 @@ pub const TOOLS: [Spec; 8] = [
     Spec {
         name: COLLECTIONS,
         title: "List collections",
-        description: "The collections of the library with their ids and how many bookmarks each holds. Use the id to search in a collection or to move a bookmark into it.",
+        description: "The collections of the library, each followed by the ones inside it, with their ids, the id of the collection each sits in (parent_id, null at the top level) and how many bookmarks each holds itself. Use the id to search in a collection, which includes the collections inside it, or to move a bookmark into it.",
         writes: false,
         idempotent: true,
     },

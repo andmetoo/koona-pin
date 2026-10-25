@@ -116,6 +116,7 @@ const toQuery = (
 ): BookmarkQuery => ({
   search: filters.search?.trim() || undefined,
   collection_id: filters.collectionId ?? undefined,
+  only_collection: filters.onlyCollection ?? false,
   tag: filters.tag || undefined,
   domain: filters.domain || undefined,
   only_favorites: filters.onlyFavorites ?? false,
@@ -199,12 +200,14 @@ const native = {
   /** The selection in the trash, for good: how many went. */
   deleteForeverMany: (ids: number[]) => call<number>("delete_forever_many", { ids }),
   emptyTrash: () => call<number>("empty_trash"),
-  createCollection: (name: string, color?: string, icon?: string) =>
-    call<Collection>("create_collection", {
-      name,
-      color: color ?? null,
-      icon: icon ?? null,
-    }),
+  /** A new collection inside `parent` (none: the top level, 2.19.0); it follows its siblings by name. */
+  createCollection: (name: string, parent: number | null = null) => call<Collection>("create_collection", { name, parent }),
+  /** Into `parent` (none: the top level), before its child `before` (none: last); a loop or a fourth level is refused (2.19.0). */
+  moveCollection: (id: number, parent: number | null, before: number | null) => call<void>("move_collection", { id, parent, before }),
+  /** «Rename» or `F2` in the sidebar (2.19.0): a name taken, in any case, is refused. */
+  renameCollection: (id: number, name: string) => call<void>("rename_collection", { id, name }),
+  /** «Icon and colour» (2.19.0): a palette name, a Lucide name or an emoji; none: by id, a dot. */
+  setCollectionStyle: (id: number, color: string | null, icon: string | null) => call<void>("set_collection_style", { id, color, icon }),
   /** «Обновить превью»: the page read again for its picture and icon (NP-087). */
   refreshPreview: (id: number) => call<Bookmark>("refresh_preview", { id }),
   /** A new library's first collections, named in the interface's language; once (NP-085). */
@@ -214,8 +217,6 @@ const native = {
     call<StarterLibrary>("create_starter_library", { names, links }),
   /** The starter links still in the library: triage names them (NP-117). */
   getStarterLinks: () => call<number[]>("get_starter_links"),
-  /** The sidebar's order after a move: every collection's id, first to last (NP-114). */
-  reorderCollections: (ids: number[]) => call<void>("reorder_collections", { ids }),
   /** «Title A–Z» and «Site A–Z» compare in this language; true when the keys were written anew (NP-114). */
   setSortLanguage: (language: string) => call<boolean>("set_sort_language", { language }),
   deleteCollection: async (id: number) => {

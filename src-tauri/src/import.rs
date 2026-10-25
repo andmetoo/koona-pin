@@ -1,8 +1,19 @@
 //! Import of a browser bookmarks file (NP-031, Р-10 point 4): the Netscape
-//! HTML that Chrome, Edge and Firefox export. Top-level folders become
-//! collections, nested folders tags; the browser's own roots (bookmarks bar,
-//! other bookmarks, mobile) are not folders of their own. The whole file is
-//! written in one transaction: an error leaves the library as it was.
+//! HTML that Chrome, Edge and Firefox export. Folders become nested
+//! collections down to [`db::MAX_DEPTH`] levels (2.19.0; before that only the
+//! top level did); the names of folders deeper than that become tags, and
+//! Firefox's own tags stay tags. The browser's own roots (bookmarks bar,
+//! other bookmarks, mobile) are not folders of their own.
+//!
+//! A folder reuses the collection of its name (case aside) that sits in the
+//! same place, inside the collection its parent folder became. Names are
+//! unique across the library, so a name taken in another place is made
+//! "Docs (Home)" after the parent it lands under, then "Docs (Home) 2"…; a
+//! top-level one has no parent to name and gets "Docs 2". The same file again
+//! finds the collections it made under those names.
+//!
+//! The whole file is written in one transaction: an error leaves the library
+//! as it was.
 
 use crate::db::{self, Source};
 use chrono::{DateTime, Datelike, TimeZone, Utc};
@@ -18,7 +29,9 @@ use url::Url;
 pub struct ImportLink {
     pub url: String,
     pub title: String,
-    pub collection: Option<String>,
+    /// The folders it sits in, outermost first, at most [`db::MAX_DEPTH`];
+    /// empty: no collection.
+    pub path: Vec<String>,
     pub tags: Vec<String>,
     /// When the browser saved it (`ADD_DATE`), in the library's format.
     pub added_at: Option<String>,
@@ -65,7 +78,8 @@ pub struct ImportSummary {
     pub repeated: u32,
     /// The first skipped links, for «Show the skipped addresses».
     pub skipped: Vec<SkippedLink>,
-    /// Collections the import created, in the order of the file.
+    /// Collections the import created, in the order of the file, a nested
+    /// one with its path: "Work/Docs" (2.19.0).
     pub collections: Vec<String>,
     /// Tags the import created.
     pub tags: u32,
@@ -227,17 +241,23 @@ pub fn parse(html: &str, now: DateTime<Utc>) -> Parsed {
             parsed.skipped.push(SkippedLink { address: url, reason: SkipReason::Repeated });
             continue;
         }
-        let mut folders = link.path.iter().enumerate().filter_map(|(depth, f)| {
-            let root = if firefox { f.toolbar || f.unfiled } else { chrome && depth == 0 };
-            (!root && !f.name.trim().is_empty()).then(|| f.name.trim().to_owned())
-        });
-        let collection = folders.next();
-        let mut tags: Vec<String> = folders.chain(link.tags).map(|t| t.trim().to_lowercase()).filter(|t| !t.is_empty()).collect();
+        let mut folders: Vec<String> = link
+            .path
+            .iter()
+            .enumerate()
+            .filter_map(|(depth, f)| {
+                let root = if firefox { f.toolbar || f.unfiled } else { chrome && depth == 0 };
+                (!root && !f.name.trim().is_empty()).then(|| f.name.trim().to_owned())
+            })
+            .collect();
+        // What the tree cannot hold becomes tags, as every nested folder did before.
+        let deeper = folders.split_off(folders.len().min(db::MAX_DEPTH));
+        let mut tags: Vec<String> = deeper.into_iter().chain(link.tags).map(|t| t.trim().to_lowercase()).filter(|t| !t.is_empty()).collect();
         let mut unique = HashSet::new();
         tags.retain(|t| unique.insert(t.clone()));
         parsed.links.push(ImportLink {
             title: link.title,
-            collection,
+            path: folders,
             tags,
             added_at: link.add_date.and_then(|d| parse_time(&d, now)),
             url,
@@ -246,12 +266,83 @@ pub fn parse(html: &str, now: DateTime<Utc>) -> Parsed {
     parsed
 }
 
+/// The library's collections as the import finds and makes them (2.19.0).
+struct Collections {
+    /// Every collection by its folded name: its id and parent. Names are
+    /// unique across the library.
+    by_name: HashMap<String, (i64, Option<i64>)>,
+    names: HashMap<i64, String>,
+    /// Where each folder of the file already landed: (parent, folded name).
+    placed: HashMap<(Option<i64>, String), i64>,
+}
+
+impl Collections {
+    fn load(conn: &Connection) -> rusqlite::Result<Collections> {
+        let mut known = Collections { by_name: HashMap::new(), names: HashMap::new(), placed: HashMap::new() };
+        let rows = conn
+            .prepare("SELECT id, name, parent_id FROM collections")?
+            .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, Option<i64>>(2)?)))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        for (id, name, parent) in rows {
+            known.by_name.insert(db::fold(&name), (id, parent));
+            known.names.insert(id, name);
+        }
+        Ok(known)
+    }
+
+    /// The collection the last folder of `path` stands for, made with the
+    /// ones above it when the library lacks them.
+    fn at(&mut self, conn: &Connection, path: &[String], summary: &mut ImportSummary) -> rusqlite::Result<i64> {
+        let mut parent = None;
+        for folder in path {
+            let key = (parent, db::fold(folder));
+            let id = match self.placed.get(&key) {
+                Some(&id) => id,
+                None => {
+                    let id = self.find_or_make(conn, folder, parent, summary)?;
+                    self.placed.insert(key, id);
+                    id
+                }
+            };
+            parent = Some(id);
+        }
+        Ok(parent.expect("a link with a collection has a folder"))
+    }
+
+    /// The names a folder may have in turn: its own, then after the parent,
+    /// then numbered. The first one a collection of this place has is the
+    /// folder's; the first one nobody has is made.
+    fn find_or_make(&mut self, conn: &Connection, folder: &str, parent: Option<i64>, summary: &mut ImportSummary) -> rusqlite::Result<i64> {
+        let parent_name = parent.and_then(|p| self.names.get(&p)).cloned();
+        for attempt in 0.. {
+            let name = match (attempt, &parent_name) {
+                (0, _) => folder.to_owned(),
+                (1, Some(up)) => format!("{folder} ({up})"),
+                (n, Some(up)) => format!("{folder} ({up}) {n}"),
+                (n, None) => format!("{folder} {}", n + 1),
+            };
+            match self.by_name.get(&db::fold(&name)) {
+                Some(&(id, at)) if at == parent => return Ok(id),
+                Some(_) => continue,
+                None => {
+                    let created = db::create_collection_under(conn, &name, parent, None, None)?;
+                    self.by_name.insert(db::fold(&name), (created.id, parent));
+                    self.names.insert(created.id, created.name);
+                    summary.collections.push(db::collection_path(conn, created.id)?.join("/"));
+                    return Ok(created.id);
+                }
+            }
+        }
+        unreachable!("the names run out before the attempts do")
+    }
+}
+
 /// Saves the links in one transaction. A link already in the library keeps
 /// everything the user set; one in the trash stays there. A collection is
-/// created only when a new bookmark lands in it, and an existing one with
-/// the same name (case aside) is reused. `progress(done, total)` is called
-/// as links are written. Metadata is not fetched: an import of thousands
-/// must not start thousands of requests.
+/// created only when a new bookmark lands in it or below it (2.19.0), and an
+/// existing one with the same name (case aside) in the same place is reused.
+/// `progress(done, total)` is called as links are written. Metadata is not
+/// fetched: an import of thousands must not start thousands of requests.
 pub fn import(
     conn: &Connection,
     parsed: &Parsed,
@@ -270,10 +361,7 @@ pub fn import(
     }
     summary.skipped = parsed.skipped.iter().take(SKIPPED_LISTED).cloned().collect();
 
-    let mut collections: HashMap<String, i64> = tx
-        .prepare("SELECT id, name FROM collections")?
-        .query_map([], |r| Ok((db::fold(&r.get::<_, String>(1)?), r.get(0)?)))?
-        .collect::<rusqlite::Result<_>>()?;
+    let mut collections = Collections::load(&tx)?;
     let tags_before: i64 = tx.query_row("SELECT count(*) FROM tags", [], |r| r.get(0))?;
     let triaged_at = (!to_inbox).then(|| now.clone());
     let total = parsed.links.len();
@@ -289,17 +377,9 @@ pub fn import(
             Some(true) => summary.in_trash += 1,
             Some(false) => summary.existing += 1,
             None => {
-                let collection_id = match &link.collection {
-                    None => None,
-                    Some(name) => Some(match collections.get(&db::fold(name)) {
-                        Some(&id) => id,
-                        None => {
-                            let created = db::create_collection(&tx, name, None, None)?;
-                            collections.insert(db::fold(name), created.id);
-                            summary.collections.push(created.name);
-                            created.id
-                        }
-                    }),
+                let collection_id = match link.path.is_empty() {
+                    true => None,
+                    false => Some(collections.at(&tx, &link.path, &mut summary)?),
                 };
                 let title = if link.title.is_empty() { &link.url } else { &link.title };
                 tx.execute(
@@ -354,12 +434,12 @@ mod tests {
     fn now() -> DateTime<Utc> {
         Utc.with_ymd_and_hms(2026, 10, 4, 12, 0, 0).unwrap()
     }
-    /// (url, collection, tags) of every link, in file order.
-    fn placed(parsed: &Parsed) -> Vec<(&str, Option<&str>, Vec<&str>)> {
+    /// (url, collection path, tags) of every link, in file order.
+    fn placed(parsed: &Parsed) -> Vec<(&str, Vec<&str>, Vec<&str>)> {
         parsed
             .links
             .iter()
-            .map(|l| (l.url.as_str(), l.collection.as_deref(), l.tags.iter().map(String::as_str).collect()))
+            .map(|l| (l.url.as_str(), l.path.iter().map(String::as_str).collect(), l.tags.iter().map(String::as_str).collect()))
             .collect()
     }
     fn skipped(parsed: &Parsed) -> Vec<(&str, SkipReason)> {
@@ -367,18 +447,18 @@ mod tests {
     }
 
     #[test]
-    fn chrome_roots_are_not_folders_top_level_ones_are_collections_nested_ones_tags() {
+    fn chrome_roots_are_not_folders_the_user_s_folders_are_nested_collections() {
         let parsed = parse(CHROME, now());
         assert_eq!(
             placed(&parsed),
             vec![
-                ("https://news.ycombinator.com/", None, vec![]),
-                ("https://github.com/", Some("Работа"), vec![]),
-                ("https://doc.rust-lang.org/book/", Some("Работа"), vec!["rust"]),
-                ("https://tokio.rs/", Some("Работа"), vec!["rust", "async"]),
-                ("https://habr.com/ru/articles/", None, vec![]),
-                ("https://example.com/long-read", Some("Чтение"), vec![]),
-                ("https://m.example.com/", None, vec![]),
+                ("https://news.ycombinator.com/", vec![], vec![]),
+                ("https://github.com/", vec!["Работа"], vec![]),
+                ("https://doc.rust-lang.org/book/", vec!["Работа", "Rust"], vec![]),
+                ("https://tokio.rs/", vec!["Работа", "Rust", "Async"], vec![]),
+                ("https://habr.com/ru/articles/", vec![], vec![]),
+                ("https://example.com/long-read", vec!["Чтение"], vec![]),
+                ("https://m.example.com/", vec![], vec![]),
             ]
         );
         assert_eq!(
@@ -399,10 +479,10 @@ mod tests {
         assert_eq!(
             placed(&parsed),
             vec![
-                ("https://learn.microsoft.com/", None, vec![]),
-                ("https://www.figma.com/", Some("Design"), vec![]),
-                ("https://rsms.me/inter/", Some("Design"), vec!["fonts"]),
-                ("https://linear.app/", Some("работа"), vec![]),
+                ("https://learn.microsoft.com/", vec![], vec![]),
+                ("https://www.figma.com/", vec!["Design"], vec![]),
+                ("https://rsms.me/inter/", vec!["Design", "Fonts"], vec![]),
+                ("https://linear.app/", vec!["работа"], vec![]),
             ]
         );
         assert_eq!(
@@ -420,13 +500,13 @@ mod tests {
         assert_eq!(
             placed(&parsed),
             vec![
-                ("https://www.mozilla.org/en-US/firefox/central/", None, vec![]),
-                ("https://support.mozilla.org/en-US/products/firefox", Some("Mozilla Firefox"), vec![]),
-                ("https://cooking.example/borscht", Some("Recipes"), vec!["soup", "beets"]),
-                ("https://cooking.example/syrniki", Some("Recipes"), vec!["desserts", "breakfast"]),
-                ("https://developer.mozilla.org/", None, vec![]),
-                ("https://example.org/essay", Some("Reading"), vec![]),
-                ("https://example.net/unfiled", None, vec!["later"]),
+                ("https://www.mozilla.org/en-US/firefox/central/", vec![], vec![]),
+                ("https://support.mozilla.org/en-US/products/firefox", vec!["Mozilla Firefox"], vec![]),
+                ("https://cooking.example/borscht", vec!["Recipes"], vec!["soup", "beets"]),
+                ("https://cooking.example/syrniki", vec!["Recipes", "Desserts"], vec!["breakfast"]),
+                ("https://developer.mozilla.org/", vec![], vec![]),
+                ("https://example.org/essay", vec!["Reading"], vec![]),
+                ("https://example.net/unfiled", vec![], vec!["later"]),
             ]
         );
         assert_eq!(skipped(&parsed), vec![("place:sort=8&maxResults=10", SkipReason::NotWeb)]);
@@ -443,11 +523,24 @@ mod tests {
         assert_eq!(
             placed(&parsed),
             vec![
-                ("https://a.example/", Some("Shelf"), vec![]),
-                ("https://b.example/", Some("Shelf"), vec!["deep"]),
-                ("https://c.example/", None, vec![]),
+                ("https://a.example/", vec!["Shelf"], vec![]),
+                ("https://b.example/", vec!["Shelf", "Deep"], vec![]),
+                ("https://c.example/", vec![], vec![]),
             ]
         );
+    }
+
+    /// Three levels are collections; the names of the folders below become
+    /// tags, lower case, ahead of the link's own tags.
+    #[test]
+    fn folders_deeper_than_the_tree_become_tags() {
+        let parsed = parse(
+            r#"<DL><DT><H3>One</H3><DL><DT><H3>Two</H3><DL><DT><H3>Three</H3><DL><DT><H3>Four</H3><DL><DT><H3>Five</H3><DL>
+               <DT><A HREF="https://deep.example/" TAGS="Own">Deep</A></DL></DL></DL></DL></DL></DL>"#,
+            now(),
+        );
+        assert_eq!(placed(&parsed), vec![("https://deep.example/", vec!["One", "Two", "Three"], vec!["four", "five", "own"])]);
+        assert_eq!(db::MAX_DEPTH, 3);
     }
 
     #[test]
@@ -470,9 +563,9 @@ mod tests {
         let summary = import(&c, &parse(CHROME, now()), false, |_, _| {}).unwrap();
         assert_eq!(
             (summary.added, summary.existing, summary.in_trash, summary.not_web, summary.invalid, summary.repeated, summary.tags),
-            (7, 0, 0, 2, 0, 1, 2)
+            (7, 0, 0, 2, 0, 1, 0)
         );
-        assert_eq!(summary.collections, ["Работа", "Чтение"]);
+        assert_eq!(summary.collections, ["Работа", "Работа/Rust", "Работа/Rust/Async", "Чтение"]);
         // The ids of the new bookmarks, for the refresh of their previews.
         let created: Vec<i64> = c.prepare("SELECT id FROM bookmarks ORDER BY id").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
         assert_eq!(summary.created, created);
@@ -484,12 +577,27 @@ mod tests {
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
             )
             .unwrap();
-        assert_eq!(collection.as_deref(), Some("Работа"));
+        assert_eq!(collection.as_deref(), Some("Async"));
+        let work: i64 = c.query_row("SELECT id FROM collections WHERE name = 'Работа'", [], |r| r.get(0)).unwrap();
+        let async_id: i64 = c.query_row("SELECT id FROM collections WHERE name = 'Async'", [], |r| r.get(0)).unwrap();
+        assert_eq!(db::collection_path(&c, async_id).unwrap(), ["Работа", "Rust", "Async"]);
+        assert_eq!(db::collection_subtree(&c, work).unwrap().len(), 3);
         assert_eq!(created_at, "2023-07-22T04:31:40.000Z", "the browser's save date");
         assert!(triaged_at.is_some(), "the library: sorted");
         assert_eq!(source, "import");
-        let tokio = db::get_bookmarks(&c, &db::BookmarkQuery { search: Some("tokio".into()), ..Default::default() }).unwrap();
-        assert_eq!(tokio.items[0].tags.as_deref(), Some(&["rust".to_string(), "async".to_string()][..]));
+        // The parent shows its own link and those of the collections inside it.
+        let inside = db::get_bookmarks(&c, &db::BookmarkQuery { collection_id: Some(work), ..Default::default() }).unwrap();
+        assert_eq!(inside.items.len(), 3);
+    }
+
+    #[test]
+    fn firefox_tags_stay_tags_and_a_folder_a_level_below_the_top_is_a_collection() {
+        let c = database();
+        let summary = import(&c, &parse(FIREFOX, now()), false, |_, _| {}).unwrap();
+        assert_eq!(summary.collections, ["Mozilla Firefox", "Recipes", "Recipes/Desserts", "Reading"]);
+        assert_eq!(summary.tags, 4, "soup, beets, breakfast, later");
+        let syrniki = db::get_bookmarks(&c, &db::BookmarkQuery { search: Some("syrniki".into()), ..Default::default() }).unwrap();
+        assert_eq!(syrniki.items[0].tags.as_deref(), Some(&["breakfast".to_string()][..]));
     }
 
     #[test]
@@ -539,13 +647,74 @@ mod tests {
         import(&c, &parse(CHROME, now()), false, |_, _| {}).unwrap();
         // Edge has «работа» in lower case: Chrome's «Работа» takes the link.
         let summary = import(&c, &parse(EDGE, now()), false, |_, _| {}).unwrap();
-        assert_eq!(summary.collections, ["Design"]);
+        assert_eq!(summary.collections, ["Design", "Design/Fonts"]);
         let names: Vec<String> = c.prepare("SELECT name FROM collections ORDER BY id LIMIT -1 OFFSET ?1").unwrap().query_map([seeded], |r| r.get(0)).unwrap().collect::<Result<_, _>>().unwrap();
-        assert_eq!(names, ["Работа", "Чтение", "Design"], "no «Пустая»: no link landed there");
+        assert_eq!(names, ["Работа", "Rust", "Async", "Чтение", "Design", "Fonts"], "no «Пустая»: no link landed there");
         let linear: String = c
             .query_row("SELECT c.name FROM bookmarks b JOIN collections c ON c.id = b.collection_id WHERE url = 'https://linear.app/'", [], |r| r.get(0))
             .unwrap();
         assert_eq!(linear, "Работа");
+    }
+
+    fn folder_html(path: &[&str], url: &str) -> String {
+        let open: String = path.iter().map(|f| format!("<DT><H3>{f}</H3><DL>")).collect();
+        format!("<DL>{open}<DT><A HREF=\"{url}\">Link</A>{}</DL>", "</DL>".repeat(path.len()))
+    }
+
+    /// Collections are reused in the same place only; a name taken elsewhere
+    /// is made after the parent, then numbered; the same file finds them again.
+    #[test]
+    fn a_name_taken_in_another_place_becomes_name_parent_then_numbered() {
+        let c = database();
+        let home = db::create_collection(&c, "Home", None, None).unwrap();
+        db::create_collection_under(&c, "Docs", Some(home.id), None, None).unwrap();
+        let path = |name: &str| {
+            let id: i64 = c.query_row("SELECT id FROM collections WHERE name = ?1", [name], |r| r.get(0)).unwrap();
+            db::collection_path(&c, id).unwrap()
+        };
+        let run = |folders: &[&str], url: &str| import(&c, &parse(&folder_html(folders, url), now()), false, |_, _| {}).unwrap();
+
+        // «Docs» is Home's: under Work it is «Docs (Work)»; the same place again reuses it.
+        assert_eq!(run(&["Work", "Docs"], "https://a.example/").collections, ["Work", "Work/Docs (Work)"]);
+        assert_eq!(path("Docs (Work)"), ["Work", "Docs (Work)"]);
+        let again = run(&["work", "docs"], "https://b.example/");
+        assert!(again.collections.is_empty(), "{:?}", again.collections);
+        // Inside Home, case aside, it is the existing one.
+        assert!(run(&["HOME", "docs"], "https://c.example/").collections.is_empty());
+        let docs_in_home: i64 = c.query_row("SELECT count(*) FROM bookmarks b JOIN collections c ON c.id = b.collection_id WHERE c.name = 'Docs'", [], |r| r.get(0)).unwrap();
+        assert_eq!(docs_in_home, 1);
+        // A top-level «Docs» has no parent to name: «Docs 2», found again by the next import.
+        assert_eq!(run(&["Docs"], "https://d.example/").collections, ["Docs 2"]);
+        assert!(run(&["docs"], "https://d2.example/").collections.is_empty());
+        // «Docs (Team)» is taken under Work: under Team the folder is numbered.
+        let work = path("Work");
+        assert_eq!(work, ["Work"]);
+        let work_id: i64 = c.query_row("SELECT id FROM collections WHERE name = 'Work'", [], |r| r.get(0)).unwrap();
+        db::create_collection(&c, "Team", None, None).unwrap();
+        db::create_collection_under(&c, "Docs (Team)", Some(work_id), None, None).unwrap();
+        assert_eq!(run(&["Team", "Docs"], "https://e.example/").collections, ["Team/Docs (Team) 2"]);
+        // Docs inside Docs: the third level is named after its parent.
+        assert_eq!(run(&["Home", "Docs", "Docs"], "https://f.example/").collections, ["Home/Docs/Docs (Docs)"]);
+        assert_eq!(path("Docs (Docs)"), ["Home", "Docs", "Docs (Docs)"]);
+    }
+
+    /// A parent is made for a child that gets a new bookmark; folders whose
+    /// links are all in the library already leave nothing behind.
+    #[test]
+    fn a_parent_is_made_for_its_child_but_only_when_a_new_link_lands_below() {
+        let c = database();
+        let before: i64 = c.query_row("SELECT count(*) FROM collections", [], |r| r.get(0)).unwrap();
+        let first = import(&c, &parse(&folder_html(&["A", "B", "C"], "https://a.example/"), now()), false, |_, _| {}).unwrap();
+        assert_eq!(first.collections, ["A", "A/B", "A/B/C"]);
+        let none = import(&c, &parse(&folder_html(&["X", "Y"], "https://a.example/"), now()), false, |_, _| {}).unwrap();
+        assert!((none.added, none.collections.len()) == (0, 0) && none.existing == 1);
+        let count: i64 = c.query_row("SELECT count(*) FROM collections", [], |r| r.get(0)).unwrap();
+        assert_eq!(count, before + 3);
+        // A new link in a folder that exists, below one that does not.
+        let later = import(&c, &parse(&folder_html(&["a", "b", "c"], "https://b.example/"), now()), false, |_, _| {}).unwrap();
+        assert!(later.collections.is_empty());
+        let in_c: i64 = c.query_row("SELECT count(*) FROM bookmarks WHERE collection_id = (SELECT id FROM collections WHERE name = 'C')", [], |r| r.get(0)).unwrap();
+        assert_eq!(in_c, 2);
     }
 
     #[test]

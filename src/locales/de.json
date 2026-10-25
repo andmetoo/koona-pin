@@ -1,5 +1,7 @@
 {
-  "language": { "name": "Deutsch" },
+  "language": {
+    "name": "Deutsch"
+  },
   "common": {
     "ctrl": "Strg",
     "shift": "Umschalt",
@@ -10,7 +12,8 @@
     "open": "Öffnen",
     "retry": "Erneut versuchen",
     "ok": "Verstanden",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "done": "Fertig"
   },
   "window": {
     "demo": "Demo im Browser",
@@ -26,7 +29,6 @@
     "collections": "Sammlungen",
     "newCollection": "Neue Sammlung",
     "noCollections": "Noch keine Sammlungen",
-    "deleteCollection": "Sammlung {{name}} löschen",
     "tags": "Tags",
     "moreTags_one": "+ {{count}} weiterer",
     "moreTags_other": "+ {{count}} weitere",
@@ -37,7 +39,38 @@
     "tagsDrop": "Tags — auf einem Tag ablegen, um ihn hinzuzufügen",
     "dropNewCollection": "Neue Sammlung aus der Auswahl",
     "moveCollection": "Verschieben",
-    "collectionMoved": "{{name}}: Platz {{position}} von {{count}}"
+    "movedInto": "{{name}} nach {{parent}} verschoben, Platz {{position}} von {{count}}",
+    "movedTop": "{{name}} auf die oberste Ebene verschoben, Platz {{position}} von {{count}}",
+    "collectionMenu": "{{name}}: mehr",
+    "rename": "Umbenennen",
+    "renameField": "Neuer Name für {{name}}",
+    "style": "Symbol und Farbe…",
+    "newInside": "Neue Sammlung darin",
+    "moveTo": "Verschieben nach",
+    "topLevel": "Oberste Ebene",
+    "moveKeys": "Alt ← → ↑ ↓ verschiebt sie in der Seitenleiste",
+    "tooDeep": "Sammlungen gehen höchstens drei Ebenen tief",
+    "deleteMenu": "Löschen…",
+    "dropInto": "In {{name}}",
+    "dropIntoAfter": "In {{name}}, nach {{after}}",
+    "dropIntoFirst": "In {{name}}, an erster Stelle",
+    "dropTopAfter": "Oberste Ebene, nach {{after}}",
+    "dropTopFirst": "Oberste Ebene, an erster Stelle"
+  },
+  "collectionStyle": {
+    "label": "Symbol und Farbe von {{name}}",
+    "title": "Symbol und Farbe",
+    "colour": "Farbe",
+    "icon": "Symbol",
+    "emoji": "Oder ein Emoji eingeben",
+    "dot": "Punkt verwenden",
+    "colours": {
+      "terracotta": "Terrakotta",
+      "green": "Grün",
+      "ochre": "Ocker",
+      "blue": "Blau",
+      "lilac": "Flieder"
+    }
   },
   "drag": {
     "more_one": "und {{count}} weiteres Lesezeichen",
@@ -164,6 +197,7 @@
     "isFavorite": "In Favoriten",
     "moveTo": "In Sammlung verschieben",
     "noCollection": "Keine Sammlung",
+    "findCollection": "Sammlung suchen",
     "addTag": "Tag hinzufügen…",
     "refresh": "Vorschau aktualisieren",
     "delete": "In den Papierkorb",
@@ -297,7 +331,7 @@
     "library": "Bibliothek",
     "inbox": "Eingang",
     "destinationHint": "Bibliothek: sofort einsortiert. Eingang: Sie warten auf das Sortieren, hinter den aus dem Browser gespeicherten Links.",
-    "rule": "Ordner der obersten Ebene werden zu Sammlungen, Unterordner zu Tags. Lesezeichenleiste, Weitere Lesezeichen und Mobil sind keine eigenen Ordner: Ihre Links erhalten keine Sammlung.",
+    "rule": "Ordner werden zu Sammlungen, bis zu drei Ebenen tief; tiefere Ordner werden zu Tags. Lesezeichenleiste, Weitere Lesezeichen und Mobil sind keine eigenen Ordner: Ihre Links erhalten keine Sammlung.",
     "cancel": "Abbrechen",
     "run": "Importieren",
     "running": "Wird importiert…",
@@ -496,6 +530,8 @@
       "collection_missing_name": "Sammlung {{index}} hat keinen Namen",
       "collection_repeated_name": "Sammlung {{index}} wiederholt einen Namen ({{detail}})",
       "collection_bad_date": "Sammlung {{index}} hat ein unlesbares Datum ({{detail}})",
+      "collection_unknown_parent": "Sammlung {{index}} liegt in einer Sammlung, die die Kopie nicht enthält",
+      "collection_loop": "Sammlung {{index}} liegt in sich selbst",
       "tag_missing_name": "Tag {{index}} hat keinen Namen",
       "tag_repeated_name": "Tag {{index}} wiederholt einen Namen ({{detail}})",
       "tag_bad_date": "Tag {{index}} hat ein unlesbares Datum ({{detail}})"
@@ -505,11 +541,14 @@
     "title": "Neue Sammlung",
     "name": "Name",
     "placeholder": "Zum Beispiel das nächste Projekt",
-    "create": "Sammlung erstellen"
+    "create": "Sammlung erstellen",
+    "titleInside": "Neue Sammlung in {{name}}"
   },
   "confirm": {
     "deleteCollection": "Sammlung löschen?",
     "deleteCollectionText": "Die Lesezeichen von „{{name}}“ bleiben ohne Sammlung in der Bibliothek.",
+    "deleteCollectionChild": "{{name}} rückt eine Ebene nach oben, samt allem darin.",
+    "deleteCollectionChildren": "{{names}} rücken eine Ebene nach oben, samt allem darin.",
     "delete": "Löschen",
     "emptyTrash": "Papierkorb leeren?",
     "emptyTrashText_one": "{{count}} Lesezeichen wird endgültig gelöscht. Das lässt sich nicht rückgängig machen, und es kommt auch mit Wiederherstellen nicht zurück.",
@@ -1075,11 +1114,23 @@
     "size": "Textgröße",
     "sizeValue": "{{size}} px",
     "column": "Spalte",
-    "columns": { "narrow": "Schmal", "medium": "Mittel", "wide": "Breit" },
+    "columns": {
+      "narrow": "Schmal",
+      "medium": "Mittel",
+      "wide": "Breit"
+    },
     "theme": "Design",
-    "themes": { "white": "Weiß", "dark": "Dunkel", "paper": "Papier", "sepia": "Sepia" },
+    "themes": {
+      "white": "Weiß",
+      "dark": "Dunkel",
+      "paper": "Papier",
+      "sepia": "Sepia"
+    },
     "font": "Schrift",
-    "fonts": { "serif": "Serif", "sans": "Sans" },
+    "fonts": {
+      "serif": "Serif",
+      "sans": "Sans"
+    },
     "supporterHint": "Papier und Sepia —",
     "supporterLink": "Supporter",
     "locked": "{{name}}, mit Supporter"
@@ -1126,7 +1177,9 @@
     "damagedLatest": "Die Bibliothek ist beschädigt, daher werden Änderungen nicht gespeichert und Links aus dem Browser warten in der Erweiterung. Stellen Sie die letzte gute Kopie wieder her — {{when}}.",
     "restore": "Wiederherstellen…",
     "openBackups": "Sicherungsordner öffnen",
-    "movedAside": "Die Bibliothek einer früheren Testversion passt nicht zum neuen Schema. Sie wurde als {{path}} aufbewahrt, und eine neue Bibliothek wurde erstellt."
+    "movedAside": "Die Bibliothek einer früheren Testversion passt nicht zum neuen Schema. Sie wurde als {{path}} aufbewahrt, und eine neue Bibliothek wurde erstellt.",
+    "onlyCollection": "Nur diese Sammlung",
+    "insideCollection": "In {{name}}"
   },
   "groups": {
     "today": "Heute",
@@ -1255,6 +1308,9 @@
       "internal": "etwas ist schiefgelaufen ({{message}})",
       "empty_tag": "der Tag ist leer",
       "empty_collection_name": "der Name ist leer",
+      "collection_name_taken": "eine andere Sammlung hat diesen Namen",
+      "collection_too_deep": "Sammlungen gehen höchstens drei Ebenen tief",
+      "collection_inside_itself": "eine Sammlung kann nicht in sich selbst liegen",
       "empty_title": "der Titel ist leer",
       "bookmark_gone": "das Lesezeichen gibt es nicht mehr",
       "not_in_trash": "das Lesezeichen ist nicht im Papierkorb",
@@ -1295,6 +1351,9 @@
       "server_missing": "Ein Teil von Koona Pin (koonapin-mcp) fehlt. Installieren Sie Koona Pin neu.",
       "empty_tag": "Geben Sie einen Tag ein.",
       "empty_collection_name": "Geben Sie einen Namen für die Sammlung ein.",
+      "collection_name_taken": "Eine andere Sammlung hat bereits diesen Namen.",
+      "collection_too_deep": "Sammlungen gehen höchstens drei Ebenen tief.",
+      "collection_inside_itself": "Eine Sammlung kann nicht in sich selbst oder in einer ihrer Sammlungen liegen.",
       "empty_title": "Der Titel darf nicht leer sein.",
       "bookmark_gone": "Dieses Lesezeichen gibt es nicht mehr.",
       "not_in_trash": "Dieses Lesezeichen ist nicht im Papierkorb.",
@@ -2038,6 +2097,8 @@
       "grid": "Raster",
       "filters": "Filter",
       "all": "Alle",
+      "allIn": "Alle in {{name}}",
+      "inside": "In {{name}}",
       "favorite": "Favorit",
       "newLinks_one": "{{count, number}} neuer Link",
       "newLinks_other": "{{count, number}} neue Links",
@@ -2218,6 +2279,7 @@
       "suggested": "Vorgeschlagen",
       "suggestedWhy": "{{count, number}} von {{filed, number}} Links dieser Website",
       "all": "Alle Sammlungen",
+      "fold": "In {{name}}",
       "nothing": "Keine Sammlung mit diesem Namen",
       "new": "Neue Sammlung",
       "newNamed": "Neue Sammlung „{{name}}“"

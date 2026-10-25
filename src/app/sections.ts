@@ -2,10 +2,10 @@ import type { TFunction } from "i18next";
 import type { Collection, FilterState, LibraryCounts } from "../types";
 
 /** One section of the library: All, Inbox, Favorites, Reading, Offline, Trash or a collection. */
-export type Section = Partial<Pick<FilterState, "collectionId" | "onlyFavorites" | "onlyInbox" | "onlyTrash" | "onlyReading" | "read" | "onlyOffline">>;
+export type Section = Partial<Pick<FilterState, "collectionId" | "onlyCollection" | "onlyFavorites" | "onlyInbox" | "onlyTrash" | "onlyReading" | "read" | "onlyOffline">>;
 
 /** Every section off: what `navigate` starts from. */
-export const noSection = { collectionId: null, onlyFavorites: false, onlyInbox: false, onlyTrash: false, onlyReading: false, read: null, onlyOffline: false };
+export const noSection = { collectionId: null, onlyCollection: false, onlyFavorites: false, onlyInbox: false, onlyTrash: false, onlyReading: false, read: null, onlyOffline: false };
 
 export const initialFilters: FilterState = {
   search: "",
@@ -32,7 +32,7 @@ export function sectionName(filters: FilterState, collection: Collection | undef
 }
 
 /** How many bookmarks the section holds, before a search, a tag or a site narrows it. */
-export function sectionCount(filters: FilterState, counts: LibraryCounts, collection: Collection | undefined): number {
+export function sectionCount(filters: FilterState, counts: LibraryCounts, collection: Pick<Collection, "count"> | undefined): number {
   return filters.onlyTrash
     ? counts.trash
     : filters.onlyInbox

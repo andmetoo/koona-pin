@@ -1,6 +1,7 @@
 use crate::journal::Journal;
 use rusqlite::{params, Connection, OptionalExtension, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 #[cfg(desktop)]
 use std::path::PathBuf;
 use std::sync::{atomic::{AtomicBool, Ordering}, Mutex};
@@ -62,15 +63,23 @@ pub struct Bookmark {
 pub struct Collection {
     pub id: i64,
     pub name: String,
+    /// A palette name: terracotta, green, ochre, blue or lilac; none:
+    /// coloured by its id (2.19.0).
     pub color: Option<String>,
+    /// A Lucide name of the collections' icon set, or an emoji; none: a dot (2.19.0).
     pub icon: Option<String>,
+    /// Its own bookmarks outside the trash; the interface adds the
+    /// descendants' for a parent (2.19.0).
     pub count: Option<i64>,
     pub created_at: String,
-    /// Where the person put it in the sidebar (NP-114); none until the first
-    /// move, and for a collection made since: those follow by name.
+    /// Where the person put it among its siblings (NP-114, 2.19.0): its rank
+    /// among the siblings placed by hand; none until the first move, and for
+    /// a collection made since: those follow by name.
     #[ts(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub position: Option<i64>,
+    /// The collection it sits in; none at the top level (schema 15).
+    pub parent_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -424,8 +433,12 @@ pub enum BookmarkSort {
 pub struct BookmarkQuery {
     #[ts(optional)]
     pub search: Option<String>,
+    /// The collection and everything inside it (2.19.0).
     #[ts(optional)]
     pub collection_id: Option<i64>,
+    /// Only the collection's own bookmarks, not its descendants' (2.19.0).
+    #[serde(default)]
+    pub only_collection: bool,
     #[ts(optional)]
     pub tag: Option<String>,
     #[ts(optional)]
@@ -844,7 +857,18 @@ fn query_filter(query: &BookmarkQuery) -> (String, &'static str, Vec<rusqlite::t
         values.push(id.into());
     }
     if let Some(collection) = query.collection_id {
-        filter.push_str(" AND b.collection_id = ?");
+        if query.only_collection {
+            filter.push_str(" AND b.collection_id = ?");
+        } else {
+            // A parent shows its descendants' bookmarks too (2.19.0): the few
+            // ids of the subtree first, then `idx_bookmarks_collection` per id.
+            // UNION, not UNION ALL: a loop synced in meanwhile still ends.
+            filter.push_str(
+                " AND b.collection_id IN (WITH RECURSIVE subtree(id) AS (SELECT ?
+                   UNION SELECT c.id FROM collections c JOIN subtree s ON c.parent_id = s.id)
+                   SELECT id FROM subtree)",
+            );
+        }
         values.push(collection.into());
     }
     if let Some(domain) = &query.domain {
@@ -1496,53 +1520,224 @@ pub fn purge_trash(conn: &Connection, which: Purge) -> Result<Vec<(i64, i64)>> {
     Ok(gone)
 }
 
-/// In the sidebar's order (NP-114): where the person put them, then those
-/// never moved by name in the language of the sort keys. The place is a
-/// fractional key since schema 10 (Р-68); `position` is the collection's
-/// rank among the placed ones, as the interface sorts them.
+/// Collections nest at most this deep; the top level is 1 (2.19.0). Sync
+/// may still bring a deeper tree: it is kept, the interface draws the
+/// deeper levels at the third.
+pub const MAX_DEPTH: usize = 3;
+
+/// The colours of a collection (2.19.0): the names of the palette's tokens
+/// (`--np-<name>`), so a theme decides how each looks.
+pub const PALETTE: [&str; 5] = ["terracotta", "green", "ochre", "blue", "lilac"];
+
+/// The Lucide icons a collection may have (2.19.0); any other icon is an emoji.
+pub const ICONS: [&str; 40] = [
+    "folder", "code", "palette", "book-open", "briefcase", "house", "heart", "star", "bookmark", "music",
+    "film", "camera", "gamepad-2", "plane", "map-pin", "shopping-cart", "utensils", "coffee", "dumbbell",
+    "graduation-cap", "flask-conical", "cpu", "wrench", "newspaper", "globe", "lightbulb", "pen-tool", "rocket",
+    "leaf", "paw-print", "car", "wallet", "chart-line", "calendar", "users", "gift", "bot", "terminal", "cloud",
+    "sun",
+];
+
+/// An icon of [`ICONS`], or an emoji: a short text with at least one
+/// character outside ASCII and nothing invisible (2.19.0).
+pub fn valid_icon(icon: &str) -> bool {
+    ICONS.contains(&icon)
+        || (icon.len() <= 16 && !icon.is_ascii() && !icon.chars().any(|c| c.is_control() || c.is_whitespace()))
+}
+
+/// Why a change of the collections was refused (2.19.0).
+#[derive(Debug)]
+pub enum CollectionError {
+    Sql(rusqlite::Error),
+    /// The collection, its new parent or the sibling to land before is not there.
+    NotFound,
+    /// Into itself or into one of its own descendants.
+    Cycle,
+    /// The tree would be deeper than [`MAX_DEPTH`].
+    TooDeep,
+    /// `before` is not a child of the new parent.
+    NotASibling,
+    EmptyName,
+    /// Another collection has the name, in any case.
+    NameTaken,
+    /// A colour outside [`PALETTE`] or an icon [`valid_icon`] refuses.
+    InvalidStyle,
+}
+
+impl From<rusqlite::Error> for CollectionError {
+    fn from(e: rusqlite::Error) -> Self {
+        CollectionError::Sql(e)
+    }
+}
+
+impl std::fmt::Display for CollectionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CollectionError::Sql(e) => write!(f, "{e}"),
+            CollectionError::NotFound => write!(f, "The collection no longer exists"),
+            CollectionError::Cycle => write!(f, "A collection cannot go inside itself"),
+            CollectionError::TooDeep => write!(f, "Collections nest at most {MAX_DEPTH} levels deep"),
+            CollectionError::NotASibling => write!(f, "The collection to land before is elsewhere"),
+            CollectionError::EmptyName => write!(f, "Enter a collection name"),
+            CollectionError::NameTaken => write!(f, "Another collection has this name"),
+            CollectionError::InvalidStyle => write!(f, "Not a colour or icon of a collection"),
+        }
+    }
+}
+
+/// Siblings in the sidebar's order (NP-114): where the person put them,
+/// then those never moved by name in the language of the sort keys.
+const SIBLING_ORDER: &str = "position_key IS NULL, position_key, np_sort_key(name), id";
+
+/// Every collection's parent: the checks of a move and of a new collection.
+struct Forest(HashMap<i64, Option<i64>>);
+
+impl Forest {
+    fn load(conn: &Connection) -> Result<Forest> {
+        conn.prepare("SELECT id, parent_id FROM collections")?
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<Result<_>>()
+            .map(Forest)
+    }
+
+    fn contains(&self, id: i64) -> bool {
+        self.0.contains_key(&id)
+    }
+
+    /// `id` and its ancestors, nearest first; a loop synced in ends it.
+    fn line(&self, id: i64) -> Vec<i64> {
+        let mut line = Vec::new();
+        let mut at = Some(id);
+        while let Some(x) = at.filter(|x| self.contains(*x) && !line.contains(x)) {
+            line.push(x);
+            at = self.0[&x];
+        }
+        line
+    }
+
+    /// 1 at the top level.
+    fn depth(&self, id: i64) -> usize {
+        self.line(id).len()
+    }
+
+    /// The levels of `id`'s subtree, itself included: 1 without children.
+    fn height(&self, id: i64) -> usize {
+        self.0
+            .keys()
+            .filter_map(|&x| self.line(x).iter().position(|&a| a == id).map(|at| at + 1))
+            .max()
+            .unwrap_or(1)
+    }
+}
+
+/// The rows in tree order (2.19.0): each collection, then its children in
+/// the sidebar's order, depth-first. `rows` come in [`SIBLING_ORDER`]. A
+/// collection whose parent is missing, or that a loop synced in cuts off,
+/// is listed at the top level.
+fn pre_order<T>(rows: Vec<T>, id: impl Fn(&T) -> i64, parent: impl Fn(&T) -> Option<i64>) -> Vec<T> {
+    let ids: std::collections::HashSet<i64> = rows.iter().map(&id).collect();
+    let mut children: HashMap<Option<i64>, Vec<usize>> = HashMap::new();
+    for (at, row) in rows.iter().enumerate() {
+        let up = parent(row).filter(|p| ids.contains(p) && *p != id(row));
+        children.entry(up).or_default().push(at);
+    }
+    let mut order = Vec::with_capacity(rows.len());
+    let mut seen = vec![false; rows.len()];
+    let roots: Vec<usize> = children.get(&None).cloned().unwrap_or_default();
+    // Then whatever the roots did not reach: a loop.
+    for start in roots.into_iter().chain(0..rows.len()) {
+        let mut stack = vec![start];
+        while let Some(at) = stack.pop() {
+            if std::mem::replace(&mut seen[at], true) {
+                continue;
+            }
+            order.push(at);
+            if let Some(kids) = children.get(&Some(id(&rows[at]))) {
+                stack.extend(kids.iter().rev().filter(|&&k| !seen[k]));
+            }
+        }
+    }
+    let mut rows: Vec<Option<T>> = rows.into_iter().map(Some).collect();
+    order.into_iter().filter_map(|at| rows[at].take()).collect()
+}
+
+/// In the sidebar's order (NP-114), as a tree (2.19.0): each collection
+/// followed by its children, depth-first; siblings where the person put
+/// them, then those never moved by name in the language of the sort keys.
+/// The place is a fractional key among siblings since schema 15 (Р-68);
+/// `position` is the rank among the placed siblings. `count` is the
+/// collection's own bookmarks.
 pub fn get_collections(conn: &Connection) -> Result<Vec<Collection>> {
+    // [`SIBLING_ORDER`] with the table named: `id` is the bookmarks' too.
     let mut stmt = conn.prepare(
-        "SELECT c.id, c.name, c.color, c.icon, c.created_at, COUNT(b.id) as count, c.position_key IS NOT NULL
+        "SELECT c.id, c.name, c.color, c.icon, c.created_at, COUNT(b.id) as count, c.position_key IS NOT NULL, c.parent_id
          FROM collections c
          LEFT JOIN bookmarks b ON c.id = b.collection_id AND b.deleted_at IS NULL
          GROUP BY c.id
          ORDER BY c.position_key IS NULL, c.position_key, np_sort_key(c.name), c.id",
     )?;
-
-    let mut placed = 0;
-    let rows = stmt.query_map([], |row| {
-        Ok(Collection {
-            id: row.get(0)?,
-            name: row.get(1)?,
-            color: row.get(2)?,
-            icon: row.get(3)?,
-            created_at: row.get(4)?,
-            count: Some(row.get(5)?),
-            position: row.get::<_, bool>(6)?.then_some(0),
-        })
-    })?;
-
-    let mut cols = Vec::new();
-    for r in rows {
-        let mut collection = r?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(Collection {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                color: row.get(2)?,
+                icon: row.get(3)?,
+                created_at: row.get(4)?,
+                count: Some(row.get(5)?),
+                position: row.get::<_, bool>(6)?.then_some(0),
+                parent_id: row.get(7)?,
+            })
+        })?
+        .collect::<Result<Vec<_>>>()?;
+    let mut placed: HashMap<Option<i64>, i64> = HashMap::new();
+    let mut cols = pre_order(rows, |c| c.id, |c| c.parent_id);
+    for collection in &mut cols {
         if collection.position.is_some() {
-            collection.position = Some(placed);
-            placed += 1;
+            let rank = placed.entry(collection.parent_id).or_default();
+            collection.position = Some(*rank);
+            *rank += 1;
         }
-        cols.push(collection);
     }
     Ok(cols)
 }
 
-/// The sidebar's order after a move (NP-114): `ids` from first to last, the
-/// interface sends all of them. One left out keeps the place it had (a
-/// collection made meanwhile has none and stays at the end); unknown ids
-/// change nothing. Only the keys that must change are written: a move writes
-/// the moved collection's key between its neighbours (Р-68), the first move
-/// in a library gives every listed collection one. One transaction.
+/// The ids of a collection's subtree in tree order, itself first; empty
+/// for an unknown id (2.19.0). The bookmarks a parent shows, a list made
+/// from it.
+pub fn collection_subtree(conn: &Connection, id: i64) -> Result<Vec<i64>> {
+    let rows: Vec<(i64, Option<i64>)> = conn
+        .prepare(&format!("SELECT id, parent_id FROM collections ORDER BY {SIBLING_ORDER}"))?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<Result<_>>()?;
+    let forest = Forest(rows.iter().copied().collect());
+    Ok(pre_order(rows, |r| r.0, |r| r.1)
+        .into_iter()
+        .map(|r| r.0)
+        .filter(|&x| forest.line(x).contains(&id))
+        .collect())
+}
+
+/// The names from the top level down to the collection, itself last
+/// ("Work", "Docs"); empty for an unknown id (2.19.0). The CSV export
+/// joins them with "/".
+pub fn collection_path(conn: &Connection, id: i64) -> Result<Vec<String>> {
+    let names: HashMap<i64, String> = conn
+        .prepare("SELECT id, name FROM collections")?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<Result<_>>()?;
+    let forest = Forest::load(conn)?;
+    Ok(forest.line(id).iter().rev().filter_map(|x| names.get(x).cloned()).collect())
+}
+
+/// Siblings in the order given, `ids` from first to last (NP-114): one left
+/// out keeps its place, unknown ids change nothing; only the keys that must
+/// change are written (Р-68). The interface moves one collection at a time
+/// with [`move_collection`] since 2.19.0; restoring a backup still orders a
+/// whole level at once.
 pub fn reorder_collections(conn: &Connection, ids: &[i64]) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
-    let keys: std::collections::HashMap<i64, Option<String>> = tx
+    let keys: HashMap<i64, Option<String>> = tx
         .prepare("SELECT id, position_key FROM collections")?
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
         .collect::<Result<_>>()?;
@@ -1558,18 +1753,95 @@ pub fn reorder_collections(conn: &Connection, ids: &[i64]) -> Result<()> {
     tx.commit()
 }
 
+/// Whether another collection than `except` has the name, in any case.
+fn name_taken(conn: &Connection, name: &str, except: Option<i64>) -> Result<bool> {
+    let wanted = name.to_lowercase();
+    let names: Vec<(i64, String)> = conn
+        .prepare("SELECT id, name FROM collections")?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<Result<_>>()?;
+    Ok(names.iter().any(|(id, n)| Some(*id) != except && n.to_lowercase() == wanted))
+}
+
+/// A colour of [`PALETTE`] and a [`valid_icon`], or none for either.
+fn check_style(color: Option<&str>, icon: Option<&str>) -> std::result::Result<(), CollectionError> {
+    match (color.is_none_or(|c| PALETTE.contains(&c)), icon.is_none_or(valid_icon)) {
+        (true, true) => Ok(()),
+        _ => Err(CollectionError::InvalidStyle),
+    }
+}
+
+/// A new collection at the top level, unchecked: the import, a list and
+/// the starters name theirs themselves. The interface's own goes through
+/// [`create_collection_in`].
 pub fn create_collection(
     conn: &Connection,
     name: &str,
     color: Option<&str>,
     icon: Option<&str>,
 ) -> Result<Collection> {
+    insert_collection(conn, name, None, color, icon)
+}
+
+/// The same inside `parent`, unchecked: the import of a browser's folders
+/// names and places its own (2.19.0).
+pub(crate) fn create_collection_under(
+    conn: &Connection,
+    name: &str,
+    parent: Option<i64>,
+    color: Option<&str>,
+    icon: Option<&str>,
+) -> Result<Collection> {
+    insert_collection(conn, name, parent, color, icon)
+}
+
+/// «New collection», at the top level or inside `parent` (2.19.0): the
+/// name trimmed, not empty, not another collection's in any case; no
+/// deeper than [`MAX_DEPTH`].
+pub fn create_collection_in(
+    conn: &Connection,
+    name: &str,
+    parent: Option<i64>,
+    color: Option<&str>,
+    icon: Option<&str>,
+) -> std::result::Result<Collection, CollectionError> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(CollectionError::EmptyName);
+    }
+    check_style(color, icon)?;
+    let tx = conn.unchecked_transaction()?;
+    if name_taken(&tx, name, None)? {
+        return Err(CollectionError::NameTaken);
+    }
+    if let Some(parent) = parent {
+        let forest = Forest::load(&tx)?;
+        if !forest.contains(parent) {
+            return Err(CollectionError::NotFound);
+        }
+        if forest.depth(parent) + 1 > MAX_DEPTH {
+            return Err(CollectionError::TooDeep);
+        }
+    }
+    let made = insert_collection(&tx, name, parent, color, icon)?;
+    tx.commit()?;
+    Ok(made)
+}
+
+fn insert_collection(
+    conn: &Connection,
+    name: &str,
+    parent: Option<i64>,
+    color: Option<&str>,
+    icon: Option<&str>,
+) -> Result<Collection> {
     let now = now();
-    // After the moved ones: a new collection appears at the end (NP-114). In
-    // a library never ordered by hand it has no key and goes by its name.
+    // After the moved siblings: a new collection appears at the end of its
+    // parent (NP-114). Among siblings never ordered by hand it has no key
+    // and goes by its name.
     let (last, placed): (Option<String>, i64) = conn.query_row(
-        "SELECT max(position_key), count(position_key) FROM collections",
-        [],
+        "SELECT max(position_key), count(position_key) FROM collections WHERE parent_id IS ?1",
+        [parent],
         |r| Ok((r.get(0)?, r.get(1)?)),
     )?;
     let key = last.map(|last| match crate::position_keys::valid(&last) {
@@ -1578,8 +1850,9 @@ pub fn create_collection(
         false => format!("{last}V"),
     });
     conn.execute(
-        "INSERT INTO collections (uid, name, color, icon, created_at, position_key) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![new_uid(), name, color, icon, now, key],
+        "INSERT INTO collections (uid, name, color, icon, created_at, position_key, parent_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![new_uid(), name, color, icon, now, key, parent],
     )?;
     let id = conn.last_insert_rowid();
     Ok(Collection {
@@ -1590,14 +1863,122 @@ pub fn create_collection(
         count: Some(0),
         created_at: now,
         position: key.map(|_| placed),
+        parent_id: parent,
     })
+}
+
+/// A drag in the sidebar, `Alt ← → ↑ ↓` or «Move to» (2.19.0): `id` goes
+/// into `parent` (none: the top level), before its child `before` (none:
+/// after the last). Refused: an unknown collection, a parent inside the
+/// moved one, a tree deeper than [`MAX_DEPTH`], a `before` elsewhere.
+/// Only the moved collection is written, its parent and a key between its
+/// new neighbours (Р-68), so two devices that move different collections
+/// both keep their move. Siblings never ordered by hand have no keys to go
+/// between: the first move among them gives each one a key.
+pub fn move_collection(
+    conn: &Connection,
+    id: i64,
+    parent: Option<i64>,
+    before: Option<i64>,
+) -> std::result::Result<(), CollectionError> {
+    use crate::position_keys::{between, reorder, valid};
+    let tx = conn.unchecked_transaction()?;
+    let forest = Forest::load(&tx)?;
+    if !forest.contains(id) || parent.is_some_and(|p| !forest.contains(p)) {
+        return Err(CollectionError::NotFound);
+    }
+    if parent.is_some_and(|p| forest.line(p).contains(&id)) {
+        return Err(CollectionError::Cycle);
+    }
+    if parent.map_or(0, |p| forest.depth(p)) + forest.height(id) > MAX_DEPTH {
+        return Err(CollectionError::TooDeep);
+    }
+    let mut siblings: Vec<(i64, Option<String>)> = tx
+        .prepare(&format!("SELECT id, position_key FROM collections WHERE parent_id IS ?1 ORDER BY {SIBLING_ORDER}"))?
+        .query_map([parent], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<Result<_>>()?;
+    let was = siblings.iter().position(|s| s.0 == id);
+    if let Some(at) = was {
+        siblings.remove(at);
+    }
+    let at = match before {
+        None => siblings.len(),
+        Some(before) => siblings.iter().position(|s| s.0 == before).ok_or(CollectionError::NotASibling)?,
+    };
+    if was == Some(at) {
+        return Ok(());
+    }
+    // Between the neighbours' keys; an unplaced next one follows all placed.
+    let key = |at: usize| siblings.get(at).and_then(|s| s.1.as_deref());
+    let lo = match at.checked_sub(1) {
+        None => Some(None),
+        Some(prev) => key(prev).filter(|k| valid(k)).map(Some),
+    };
+    let hi = key(at);
+    let fits = match (lo, hi) {
+        (Some(lo), None) => Some((lo, None)),
+        (Some(lo), Some(hi)) if valid(hi) && lo.is_none_or(|lo| lo < hi) => Some((lo, Some(hi))),
+        _ => None,
+    };
+    match fits {
+        Some((lo, hi)) => {
+            tx.execute(
+                "UPDATE collections SET parent_id = ?1, position_key = ?2 WHERE id = ?3",
+                params![parent, between(lo, hi), id],
+            )?;
+        }
+        None => {
+            tx.execute("UPDATE collections SET parent_id = ?1 WHERE id = ?2", params![parent, id])?;
+            siblings.insert(at, (id, None));
+            let current: Vec<Option<&str>> = siblings.iter().map(|s| s.1.as_deref()).collect();
+            let mut place = tx.prepare("UPDATE collections SET position_key = ?1 WHERE id = ?2")?;
+            for (i, key) in reorder(&current) {
+                place.execute(params![key, siblings[i].0])?;
+            }
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+/// «Rename» (2.19.0): the name trimmed, not empty, not another
+/// collection's in any case.
+pub fn rename_collection(conn: &Connection, id: i64, name: &str) -> std::result::Result<(), CollectionError> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(CollectionError::EmptyName);
+    }
+    let tx = conn.unchecked_transaction()?;
+    if name_taken(&tx, name, Some(id))? {
+        return Err(CollectionError::NameTaken);
+    }
+    if tx.execute("UPDATE collections SET name = ?1 WHERE id = ?2", params![name, id])? == 0 {
+        return Err(CollectionError::NotFound);
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+/// «Icon and colour» (2.19.0): a colour of [`PALETTE`] and an icon
+/// [`valid_icon`] takes; none for either: by id, a dot.
+pub fn set_collection_style(
+    conn: &Connection,
+    id: i64,
+    color: Option<&str>,
+    icon: Option<&str>,
+) -> std::result::Result<(), CollectionError> {
+    check_style(color, icon)?;
+    if conn.execute("UPDATE collections SET color = ?1, icon = ?2 WHERE id = ?3", params![color, icon, id])? == 0 {
+        return Err(CollectionError::NotFound);
+    }
+    Ok(())
 }
 
 /// Colour and icon of each starter collection, in the order of their names.
 const STARTERS: [(&str, &str); 3] = [
-    ("#6366f1", "code"),
-    ("#ec4899", "palette"),
-    ("#10b981", "book-open"),
+    ("blue", "code"),
+    ("terracotta", "palette"),
+    ("green", "book-open"),
 ];
 
 /// A new library waits for its first collections (`starter_collections` in
@@ -1682,10 +2063,42 @@ pub fn starter_link_ids(conn: &Connection) -> Result<Vec<i64>> {
         .collect()
 }
 
-/// Bookmarks stay in the library without a collection.
+/// Bookmarks stay in the library without a collection. Its children move
+/// up to its parent, with everything inside them, and take its place among
+/// the siblings, keys between its neighbours' (2.19.0); among siblings
+/// never ordered by hand they go by name.
 pub fn delete_collection(conn: &Connection, id: i64) -> Result<()> {
+    use crate::position_keys::{spread, valid};
     let tx = conn.unchecked_transaction()?;
     let now = now();
+    let place: Option<(Option<i64>, Option<String>)> = tx
+        .query_row("SELECT parent_id, position_key FROM collections WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))
+        .optional()?;
+    let children: Vec<i64> = tx
+        .prepare(&format!("SELECT id FROM collections WHERE parent_id = ?1 ORDER BY {SIBLING_ORDER}"))?
+        .query_map([id], |r| r.get(0))?
+        .collect::<Result<_>>()?;
+    if let (Some((parent, key)), false) = (place, children.is_empty()) {
+        let keys: Vec<Option<String>> = match key.filter(|k| valid(k)) {
+            Some(key) => {
+                let others: Vec<String> = tx
+                    .prepare("SELECT position_key FROM collections WHERE parent_id IS ?1 AND id <> ?2 AND position_key IS NOT NULL")?
+                    .query_map(params![parent, id], |r| r.get(0))?
+                    .collect::<Result<Vec<String>>>()?
+                    .into_iter()
+                    .filter(|k| valid(k))
+                    .collect();
+                let lo = others.iter().filter(|k| **k < key).max();
+                let hi = others.iter().filter(|k| **k > key).min();
+                spread(lo.map(String::as_str), hi.map(String::as_str), children.len()).into_iter().map(Some).collect()
+            }
+            None => vec![None; children.len()],
+        };
+        let mut up = tx.prepare("UPDATE collections SET parent_id = ?1, position_key = ?2 WHERE id = ?3")?;
+        for (child, key) in children.iter().zip(keys) {
+            up.execute(params![parent, key, child])?;
+        }
+    }
     tx.execute(
         "UPDATE bookmarks SET collection_id=NULL,revision=revision+1,updated_at=?1 WHERE collection_id=?2",
         params![now, id],
@@ -3048,5 +3461,184 @@ mod tests {
         let domains = get_domains(&conn).unwrap();
         let gh = domains.iter().find(|d| d.domain == "github.com").unwrap();
         assert_eq!(gh.count, 2);
+    }
+
+    fn tree(conn: &Connection) -> Vec<(String, Option<String>)> {
+        let all = get_collections(conn).unwrap();
+        let name = |id: Option<i64>| id.and_then(|id| all.iter().find(|c| c.id == id).map(|c| c.name.clone()));
+        all.iter().map(|c| (c.name.clone(), name(c.parent_id))).collect()
+    }
+
+    fn pair(name: &str, parent: Option<&str>) -> (String, Option<String>) {
+        (name.to_string(), parent.map(str::to_string))
+    }
+
+    /// Nested collections (2.19.0): the tree in pre-order, a parent's list with
+    /// its descendants' bookmarks unless only its own are asked for, its own
+    /// count, names unique in any case, and at most three levels.
+    #[test]
+    fn collections_nest_and_a_parent_shows_what_is_inside() {
+        let conn = setup_test_db();
+        conn.execute("DELETE FROM collections", []).unwrap();
+        let work = create_collection_in(&conn, " Work ", None, Some("blue"), Some("briefcase")).unwrap();
+        let home = create_collection_in(&conn, "Home", None, None, None).unwrap();
+        let docs = create_collection_in(&conn, "Docs", Some(work.id), None, None).unwrap();
+        let rust = create_collection_in(&conn, "Rust", Some(docs.id), None, Some("🦀")).unwrap();
+        assert_eq!((work.name.as_str(), docs.parent_id), ("Work", Some(work.id)));
+        assert!(matches!(create_collection_in(&conn, "Deeper", Some(rust.id), None, None), Err(CollectionError::TooDeep)));
+        assert!(matches!(create_collection_in(&conn, "work", None, None, None), Err(CollectionError::NameTaken)));
+        assert!(matches!(create_collection_in(&conn, "  ", None, None, None), Err(CollectionError::EmptyName)));
+        assert!(matches!(create_collection_in(&conn, "X", Some(9_999), None, None), Err(CollectionError::NotFound)));
+        assert!(matches!(create_collection_in(&conn, "X", None, Some("#ff0000"), None), Err(CollectionError::InvalidStyle)));
+        // Never ordered by hand: siblings by name, each followed by its children.
+        assert_eq!(tree(&conn), [pair("Home", None), pair("Work", None), pair("Docs", Some("Work")), pair("Rust", Some("Docs"))]);
+        assert_eq!(collection_subtree(&conn, work.id).unwrap(), [work.id, docs.id, rust.id]);
+        assert_eq!(collection_subtree(&conn, home.id).unwrap(), [home.id]);
+        assert!(collection_subtree(&conn, 9_999).unwrap().is_empty());
+        assert_eq!(collection_path(&conn, rust.id).unwrap(), ["Work", "Docs", "Rust"]);
+
+        let file = |url: &str, collection: i64| {
+            let b = insert_or_update_bookmark(&conn, url, url, None, None, None, "example.com", Some(collection), None, Source::App).unwrap();
+            b.id
+        };
+        let (w, d, r, h) = (file("https://example.com/w", work.id), file("https://example.com/d", docs.id), file("https://example.com/r", rust.id), file("https://example.com/h", home.id));
+        let ids = |collection: i64, only: bool| {
+            let query = BookmarkQuery { collection_id: Some(collection), only_collection: only, ..Default::default() };
+            let mut ids = get_bookmark_ids(&conn, &query).unwrap();
+            ids.sort();
+            assert_eq!(get_bookmarks(&conn, &query).unwrap().items.len(), ids.len());
+            ids
+        };
+        assert_eq!(ids(work.id, false), [w, d, r]);
+        assert_eq!(ids(work.id, true), [w]);
+        assert_eq!(ids(docs.id, false), [d, r]);
+        assert_eq!(ids(home.id, false), [h]);
+        assert!(get_collections(&conn).unwrap().iter().all(|c| c.count == Some(1)), "own bookmarks only");
+        let counts = search_counts(&conn, None).unwrap();
+        assert_eq!(counts.collections.len(), 4, "per collection, its own");
+
+        assert!(matches!(rename_collection(&conn, docs.id, "HOME"), Err(CollectionError::NameTaken)));
+        rename_collection(&conn, docs.id, " docs ").unwrap();
+        assert!(matches!(rename_collection(&conn, docs.id, ""), Err(CollectionError::EmptyName)));
+        assert!(matches!(rename_collection(&conn, 9_999, "New"), Err(CollectionError::NotFound)));
+        assert_eq!(collection_path(&conn, rust.id).unwrap(), ["Work", "docs", "Rust"]);
+    }
+
+    /// A move (2.19.0) refuses a loop, a tree deeper than three levels, a
+    /// `before` elsewhere and unknown ids, and writes only the moved row once
+    /// its new neighbours have keys.
+    #[test]
+    fn a_collection_moves_into_another_and_writes_only_itself() {
+        let conn = setup_test_db();
+        conn.execute("DELETE FROM collections", []).unwrap();
+        let make = |name: &str, parent: Option<i64>| create_collection_in(&conn, name, parent, None, None).unwrap().id;
+        let (a, b, c) = (make("A", None), make("B", None), make("C", None));
+        let a1 = make("A1", Some(a));
+        let a11 = make("A11", Some(a1));
+        let refused = |id, parent, before| move_collection(&conn, id, parent, before).unwrap_err();
+        assert!(matches!(refused(a, Some(a), None), CollectionError::Cycle));
+        assert!(matches!(refused(a, Some(a11), None), CollectionError::Cycle));
+        assert!(matches!(refused(b, Some(a11), None), CollectionError::TooDeep));
+        assert!(matches!(refused(c, Some(b), Some(a)), CollectionError::NotASibling));
+        assert!(matches!(refused(9_999, None, None), CollectionError::NotFound));
+        assert!(matches!(refused(a, Some(9_999), None), CollectionError::NotFound));
+
+        // Three levels fit: A1 (with A11) into B.
+        move_collection(&conn, a1, Some(b), None).unwrap();
+        assert_eq!(tree(&conn), [pair("A", None), pair("B", None), pair("A1", Some("B")), pair("A11", Some("A1")), pair("C", None)]);
+        let rows = |conn: &Connection| -> Vec<(i64, Option<i64>, Option<String>)> {
+            conn.prepare("SELECT id, parent_id, position_key FROM collections ORDER BY id")
+                .unwrap()
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+                .unwrap()
+                .collect::<Result<_>>()
+                .unwrap()
+        };
+        let moved = |id, parent, before| {
+            let before_rows = rows(&conn);
+            move_collection(&conn, id, parent, before).unwrap();
+            let after = rows(&conn);
+            before_rows.iter().zip(&after).filter(|(x, y)| x != y).map(|(x, _)| x.0).collect::<Vec<i64>>()
+        };
+        // One row per move: C first, B between C and A, A into B after A1, A11 out between C and B.
+        assert_eq!(moved(c, None, Some(a)), [c]);
+        assert_eq!(moved(b, None, Some(a)), [b]);
+        assert_eq!(moved(a, Some(b), None), [a]);
+        assert_eq!(moved(a11, None, Some(b)), [a11]);
+        assert_eq!(tree(&conn), [pair("C", None), pair("A11", None), pair("B", None), pair("A1", Some("B")), pair("A", Some("B"))]);
+        // A move to where it is changes nothing.
+        assert!(moved(a, Some(b), None).is_empty());
+        assert!(moved(a1, Some(b), Some(a)).is_empty());
+        // Siblings never ordered by hand have no keys to go between: the first
+        // move to the end among them gives each one a key.
+        let (g, h, i) = (make("G", Some(c)), make("H", Some(c)), make("I", Some(c)));
+        assert_eq!(moved(g, Some(c), None), [g, h, i]);
+        let names: Vec<String> = tree(&conn).into_iter().filter(|t| t.1.as_deref() == Some("C")).map(|t| t.0).collect();
+        assert_eq!(names, ["H", "I", "G"]);
+    }
+
+    /// Deleting a parent (2.19.0): its bookmarks leave all collections, its
+    /// children move up with what is inside them and take its place.
+    #[test]
+    fn a_deleted_parent_leaves_its_children_in_its_place() {
+        let conn = setup_test_db();
+        conn.execute("DELETE FROM collections", []).unwrap();
+        let make = |name: &str, parent: Option<i64>| create_collection_in(&conn, name, parent, None, None).unwrap().id;
+        let (a, b, c) = (make("A", None), make("B", None), make("C", None));
+        let (x, y) = (make("X", Some(b)), make("Y", Some(b)));
+        let z = make("Z", Some(y));
+        // Placed by hand: C, B, A.
+        move_collection(&conn, c, None, Some(a)).unwrap();
+        move_collection(&conn, b, None, Some(a)).unwrap();
+        assert_eq!(tree(&conn), [pair("C", None), pair("B", None), pair("X", Some("B")), pair("Y", Some("B")), pair("Z", Some("Y")), pair("A", None)]);
+        let kept = insert_or_update_bookmark(&conn, "https://example.com/b", "B", None, None, None, "example.com", Some(b), None, Source::App).unwrap();
+        delete_collection(&conn, b).unwrap();
+        assert_eq!(tree(&conn), [pair("C", None), pair("X", None), pair("Y", None), pair("Z", Some("Y")), pair("A", None)]);
+        assert_eq!(get_bookmark_by_id(&conn, kept.id).unwrap().collection_id, None);
+        // A placed one's child takes its key's place; among siblings never
+        // ordered (Z's) a child goes by name.
+        let (p, _q) = (make("P", Some(z)), make("Q", Some(x)));
+        delete_collection(&conn, x).unwrap();
+        delete_collection(&conn, z).unwrap();
+        assert_eq!(tree(&conn), [pair("C", None), pair("Q", None), pair("Y", None), pair("P", Some("Y")), pair("A", None)]);
+        assert_eq!(get_collections(&conn).unwrap().iter().find(|col| col.id == p).unwrap().position, None);
+        delete_collection(&conn, 9_999).unwrap();
+    }
+
+    #[test]
+    fn a_collection_takes_a_palette_colour_and_an_icon_or_an_emoji() {
+        let conn = setup_test_db();
+        let id = get_collections(&conn).unwrap()[0].id;
+        assert!(get_collections(&conn).unwrap().iter().all(|c| c.color.as_deref().is_some_and(|c| PALETTE.contains(&c))), "starters too");
+        set_collection_style(&conn, id, Some("lilac"), Some("rocket")).unwrap();
+        set_collection_style(&conn, id, None, Some("📚")).unwrap();
+        let style = get_collections(&conn).unwrap().into_iter().find(|c| c.id == id).unwrap();
+        assert_eq!((style.color, style.icon.as_deref()), (None, Some("📚")));
+        for (color, icon) in [(Some("#6366f1"), None), (Some("Lilac"), None), (None, Some("rocketship")), (None, Some("a b")), (None, Some("📚📚📚📚📚"))] {
+            assert!(matches!(set_collection_style(&conn, id, color, icon), Err(CollectionError::InvalidStyle)), "{color:?} {icon:?}");
+        }
+        set_collection_style(&conn, id, None, None).unwrap();
+        assert!(matches!(set_collection_style(&conn, 9_999, None, None), Err(CollectionError::NotFound)));
+        assert_eq!(ICONS.len(), ICONS.iter().collect::<std::collections::BTreeSet<_>>().len());
+    }
+
+    /// The list of a parent reads the subtree's ids, then each one's bookmarks
+    /// from `idx_bookmarks_collection`, as the list of one collection does.
+    #[test]
+    fn a_parents_list_reads_the_collection_index() {
+        let conn = setup_test_db();
+        for only_collection in [true, false] {
+            let query = BookmarkQuery { collection_id: Some(1), only_collection, ..Default::default() };
+            let (filter, at, values) = query_filter(&query);
+            let sql = format!("EXPLAIN QUERY PLAN SELECT b.id FROM bookmarks b{filter} ORDER BY {}", order_by(query.order(), at));
+            let plan: Vec<String> = conn
+                .prepare(&sql)
+                .unwrap()
+                .query_map(rusqlite::params_from_iter(&values), |r| r.get::<_, String>(3))
+                .unwrap()
+                .collect::<Result<_>>()
+                .unwrap();
+            assert!(plan.iter().any(|p| p.contains("idx_bookmarks_collection")), "{only_collection}: {plan:?}");
+        }
     }
 }

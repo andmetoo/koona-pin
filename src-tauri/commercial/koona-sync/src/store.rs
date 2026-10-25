@@ -22,6 +22,9 @@ pub(crate) const LINK: i64 = 3;
 pub(crate) const FAVORITE: usize = 6;
 pub(crate) const COLLECTION: usize = 7;
 pub(crate) const PROGRESS: usize = 14;
+/// The place in [`COLLECTION_FIELDS`] of a collection's parent (schema 15): a local id here, a
+/// uid on the wire, as a bookmark's collection.
+pub(crate) const PARENT: usize = 4;
 /// The unique field of every record: the address, the name.
 pub(crate) const UNIQUE: usize = 0;
 
@@ -42,7 +45,7 @@ pub(crate) const COLLECTIONS: Table = Table {
     code: 0,
     name: "collections",
     kind: "collection",
-    columns: &["name", "color", "icon", "position_key"],
+    columns: &["name", "color", "icon", "position_key", "parent_id"],
     fields: &COLLECTION_FIELDS,
     required: &[0],
 };
@@ -284,7 +287,7 @@ pub(crate) fn to_json(conn: &Connection, t: &Table, field: usize, value: &Value)
     Ok(match value {
         Value::Null => Json::Null,
         Value::Integer(i) if t.is_bookmarks() && field == FAVORITE => Json::Bool(*i != 0),
-        Value::Integer(i) if t.is_bookmarks() && field == COLLECTION => {
+        Value::Integer(i) if (t.is_bookmarks() && field == COLLECTION) || (t.code == COLLECTIONS.code && field == PARENT) => {
             uid_of(conn, &COLLECTIONS, *i)?.map_or(Json::Null, |u| Json::String(u.to_string()))
         }
         // Progress is a fraction on the wire, also when an integer was stored.

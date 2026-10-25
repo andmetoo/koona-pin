@@ -27,6 +27,7 @@ export function PhoneDialogs() {
   const { app, stack } = usePhone();
   const {
     t,
+    i18n,
     surface,
     setSurface,
     droppedFile,
@@ -57,6 +58,16 @@ export function PhoneDialogs() {
     feedMenu,
   } = app;
   useSupporterSheets();
+  // A parent's children move up a level with everything inside them (2.19.0): the dialog says so, as the desktop's.
+  const deleteCollectionText = (collection: { id: number; name: string }) => {
+    const kids = library.collections.filter((c) => c.parent_id === collection.id).map((c) => c.name);
+    const text = t("confirm.deleteCollectionText", { name: collection.name });
+    if (!kids.length) return text;
+    // Intl.ListFormat is in the browsers and webviews we ship, not in the project's TypeScript lib.
+    const list = new (Intl as unknown as { ListFormat: new (lang: string, o: object) => { format: (items: string[]) => string } }).ListFormat(i18n.language, { type: "conjunction" });
+    const more = kids.length === 1 ? t("confirm.deleteCollectionChild", { name: kids[0] }) : t("confirm.deleteCollectionChildren", { names: list.format(kids) });
+    return `${text} ${more}`;
+  };
   const openSettings = () => {
     setSurface(null);
     stack.push({ name: "settings" });
@@ -181,7 +192,7 @@ export function PhoneDialogs() {
       {deletingCollection && (
         <ConfirmDialog
           title={t("confirm.deleteCollection")}
-          text={t("confirm.deleteCollectionText", { name: deletingCollection.name })}
+          text={deleteCollectionText(deletingCollection)}
           confirm={t("confirm.delete")}
           onClose={() => setDeletingCollection(null)}
           onConfirm={async () => {

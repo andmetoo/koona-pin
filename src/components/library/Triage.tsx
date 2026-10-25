@@ -2,7 +2,8 @@ import { CSSProperties, useCallback, useEffect, useId, useLayoutEffect, useRef, 
 import { ArrowLeft, ArrowRight, Check, CircleAlert, Heart, Sparkle, Tag, Undo2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../services/api";
-import { collectionColor } from "../../services/collections";
+import { collectionTint } from "../../services/collections";
+import { buildTree, pathPrefix } from "../../services/collectionTree";
 import { describeError, reasonOf, toCommandError } from "../../services/errors";
 import { browserName, collectionKeys, nextWaiting, savedDay, Step, summary, waiting } from "../../services/triage";
 import { short, undoNotice } from "../../services/undo";
@@ -387,6 +388,7 @@ export function Triage({
       }
     });
 
+  const tree = buildTree(collections);
   const keys = collectionKeys(collections, suggested, KEYS);
   const handler = useRef<(e: KeyboardEvent) => void>(() => {});
   handler.current = (e: KeyboardEvent) => {
@@ -623,11 +625,15 @@ export function Triage({
                           aria-describedby={offer ? whyId : undefined}
                           data-suggested={offer ? true : undefined}
                           className={`sort-chip ${offer ? "sug" : ""}`}
-                          style={{ "--sugc": collectionColor(c.id) } as CSSProperties}
+                          style={{ "--sugc": collectionTint(c) } as CSSProperties}
                         >
                           <span className="num">{i + 1}</span>
-                          <span className="dot" style={{ background: collectionColor(c.id) }} />
-                          <span data-user-text>{c.name}</span>
+                          <span className="dot" style={{ background: collectionTint(c) }} />
+                          <span data-user-text>
+                            {/* Inside another, its path first, muted (2.19.0). */}
+                            {pathPrefix(tree, c.id) && <span className="opacity-60">{pathPrefix(tree, c.id)}</span>}
+                            {c.name}
+                          </span>
                           {offer && (
                             <span className="why">
                               <Icon icon={Sparkle} size={12} />

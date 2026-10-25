@@ -1,5 +1,7 @@
 {
-  "language": { "name": "한국어" },
+  "language": {
+    "name": "한국어"
+  },
   "common": {
     "ctrl": "Ctrl",
     "shift": "Shift",
@@ -10,7 +12,8 @@
     "open": "열기",
     "retry": "다시 시도",
     "ok": "확인",
-    "cancel": "취소"
+    "cancel": "취소",
+    "done": "완료"
   },
   "window": {
     "demo": "브라우저 데모",
@@ -26,7 +29,6 @@
     "collections": "컬렉션",
     "newCollection": "새 컬렉션",
     "noCollections": "아직 컬렉션이 없습니다",
-    "deleteCollection": "컬렉션 {{name}} 삭제",
     "tags": "태그",
     "moreTags_other": "+ {{count}}개 더",
     "fewerTags": "간단히 보기",
@@ -36,7 +38,38 @@
     "tagsDrop": "태그 — 태그 위에 놓으면 추가됩니다",
     "dropNewCollection": "선택 항목으로 새 컬렉션",
     "moveCollection": "이동",
-    "collectionMoved": "{{name}}: {{count}}개 중 {{position}}번째"
+    "movedInto": "{{name}}을(를) {{parent}} 안으로 옮김, {{count}}개 중 {{position}}번째",
+    "movedTop": "{{name}}을(를) 최상위로 옮김, {{count}}개 중 {{position}}번째",
+    "collectionMenu": "{{name}}: 더 보기",
+    "rename": "이름 바꾸기",
+    "renameField": "{{name}}의 새 이름",
+    "style": "아이콘 및 색상…",
+    "newInside": "안에 새 컬렉션",
+    "moveTo": "이동",
+    "topLevel": "최상위",
+    "moveKeys": "Alt ← → ↑ ↓ 로 사이드바에서 옮깁니다",
+    "tooDeep": "컬렉션은 최대 3단계까지입니다",
+    "deleteMenu": "삭제…",
+    "dropInto": "{{name}} 안으로",
+    "dropIntoAfter": "{{name}} 안, {{after}} 뒤로",
+    "dropIntoFirst": "{{name}} 안, 맨 앞으로",
+    "dropTopAfter": "최상위, {{after}} 뒤로",
+    "dropTopFirst": "최상위, 맨 앞으로"
+  },
+  "collectionStyle": {
+    "label": "{{name}}의 아이콘 및 색상",
+    "title": "아이콘 및 색상",
+    "colour": "색상",
+    "icon": "아이콘",
+    "emoji": "또는 이모지 입력",
+    "dot": "점 사용",
+    "colours": {
+      "terracotta": "테라코타",
+      "green": "초록",
+      "ochre": "오커",
+      "blue": "파랑",
+      "lilac": "라일락"
+    }
   },
   "drag": {
     "more_other": "외 북마크 {{count}}개",
@@ -154,6 +187,7 @@
     "isFavorite": "즐겨찾기",
     "moveTo": "컬렉션으로 이동",
     "noCollection": "컬렉션 없음",
+    "findCollection": "컬렉션 찾기",
     "addTag": "태그 추가…",
     "refresh": "미리 보기 새로 고침",
     "delete": "휴지통으로 이동",
@@ -280,7 +314,7 @@
     "library": "라이브러리",
     "inbox": "받은함",
     "destinationHint": "라이브러리: 바로 정리됩니다. 받은함: 브라우저에서 저장한 링크 뒤에서 정리를 기다립니다.",
-    "rule": "최상위 폴더는 컬렉션이 되고, 하위 폴더는 태그가 됩니다. 북마크바, 기타 북마크, 모바일 북마크는 별도 폴더로 보지 않으며 그 안의 링크는 컬렉션 없이 들어옵니다.",
+    "rule": "폴더는 최대 3단계까지 컬렉션이 되고, 그보다 깊은 폴더는 태그가 됩니다. 북마크바, 기타 북마크, 모바일 북마크는 별도 폴더로 보지 않으며 그 안의 링크는 컬렉션 없이 들어옵니다.",
     "cancel": "취소",
     "run": "가져오기",
     "running": "가져오는 중…",
@@ -455,6 +489,8 @@
       "collection_missing_name": "{{index}}번째 컬렉션에 이름이 없습니다",
       "collection_repeated_name": "{{index}}번째 컬렉션의 이름이 중복됩니다({{detail}})",
       "collection_bad_date": "{{index}}번째 컬렉션의 날짜를 읽을 수 없습니다({{detail}})",
+      "collection_unknown_parent": "{{index}}번째 컬렉션이 사본에 없는 컬렉션 안에 있습니다",
+      "collection_loop": "{{index}}번째 컬렉션이 자기 자신 안에 있습니다",
       "tag_missing_name": "{{index}}번째 태그에 이름이 없습니다",
       "tag_repeated_name": "{{index}}번째 태그의 이름이 중복됩니다({{detail}})",
       "tag_bad_date": "{{index}}번째 태그의 날짜를 읽을 수 없습니다({{detail}})"
@@ -464,11 +500,14 @@
     "title": "새 컬렉션",
     "name": "이름",
     "placeholder": "예: 다음 프로젝트",
-    "create": "컬렉션 만들기"
+    "create": "컬렉션 만들기",
+    "titleInside": "{{name}} 안의 새 컬렉션"
   },
   "confirm": {
     "deleteCollection": "컬렉션을 삭제할까요?",
     "deleteCollectionText": "‘{{name}}’의 북마크는 컬렉션 없이 라이브러리에 남습니다.",
+    "deleteCollectionChild": "{{name}}이(가) 안의 내용과 함께 한 단계 위로 올라갑니다.",
+    "deleteCollectionChildren": "{{names}}이(가) 안의 내용과 함께 한 단계 위로 올라갑니다.",
     "delete": "삭제",
     "emptyTrash": "휴지통을 비울까요?",
     "emptyTrashText_other": "북마크 {{count}}개가 영구 삭제됩니다. 되돌릴 수 없으며 ‘복원’으로도 돌아오지 않습니다.",
@@ -998,11 +1037,23 @@
     "size": "글자 크기",
     "sizeValue": "{{size}} px",
     "column": "단 너비",
-    "columns": { "narrow": "좁게", "medium": "보통", "wide": "넓게" },
+    "columns": {
+      "narrow": "좁게",
+      "medium": "보통",
+      "wide": "넓게"
+    },
     "theme": "테마",
-    "themes": { "white": "화이트", "dark": "다크", "paper": "페이퍼", "sepia": "세피아" },
+    "themes": {
+      "white": "화이트",
+      "dark": "다크",
+      "paper": "페이퍼",
+      "sepia": "세피아"
+    },
     "font": "글꼴",
-    "fonts": { "serif": "세리프", "sans": "산세리프" },
+    "fonts": {
+      "serif": "세리프",
+      "sans": "산세리프"
+    },
     "supporterHint": "페이퍼와 세피아 —",
     "supporterLink": "Supporter",
     "locked": "{{name}}, Supporter 전용"
@@ -1048,7 +1099,9 @@
     "damagedLatest": "라이브러리가 손상되어 변경 내용이 저장되지 않으며, 브라우저의 링크는 확장 프로그램에서 기다립니다. 마지막으로 정상인 사본을 복원하세요 — {{when}}.",
     "restore": "복원…",
     "openBackups": "백업 폴더 열기",
-    "movedAside": "이전 테스트 빌드의 라이브러리가 새 스키마와 맞지 않습니다. {{path}}(으)로 보관하고 새 라이브러리를 만들었습니다."
+    "movedAside": "이전 테스트 빌드의 라이브러리가 새 스키마와 맞지 않습니다. {{path}}(으)로 보관하고 새 라이브러리를 만들었습니다.",
+    "onlyCollection": "이 컬렉션만",
+    "insideCollection": "{{name}} 안"
   },
   "groups": {
     "today": "오늘",
@@ -1177,6 +1230,9 @@
       "internal": "문제가 발생했습니다({{message}})",
       "empty_tag": "태그가 비어 있습니다",
       "empty_collection_name": "이름이 비어 있습니다",
+      "collection_name_taken": "이름이 같은 다른 컬렉션이 있습니다",
+      "collection_too_deep": "컬렉션은 최대 3단계까지입니다",
+      "collection_inside_itself": "컬렉션을 자기 자신 안에 넣을 수 없습니다",
       "empty_title": "제목이 비어 있습니다",
       "bookmark_gone": "북마크가 더 이상 없습니다",
       "not_in_trash": "북마크가 휴지통에 없습니다",
@@ -1217,6 +1273,9 @@
       "server_missing": "Koona Pin의 일부(koonapin-mcp)가 없습니다. Koona Pin을 다시 설치하세요.",
       "empty_tag": "태그를 입력하세요.",
       "empty_collection_name": "컬렉션 이름을 입력하세요.",
+      "collection_name_taken": "이미 이름이 같은 다른 컬렉션이 있습니다.",
+      "collection_too_deep": "컬렉션은 최대 3단계까지입니다.",
+      "collection_inside_itself": "컬렉션을 자기 자신이나 그 안의 컬렉션 안에 넣을 수 없습니다.",
       "empty_title": "제목은 비워 둘 수 없습니다.",
       "bookmark_gone": "이 북마크는 더 이상 없습니다.",
       "not_in_trash": "이 북마크는 휴지통에 없습니다.",
@@ -1918,6 +1977,8 @@
       "grid": "격자",
       "filters": "필터",
       "all": "전체",
+      "allIn": "{{name}}의 전체",
+      "inside": "{{name}} 안",
       "favorite": "즐겨찾기",
       "newLinks_other": "새 링크 {{count, number}}개",
       "refreshing": "새로 고치는 중",
@@ -2088,6 +2149,7 @@
       "suggested": "추천",
       "suggestedWhy": "이 사이트 링크 {{filed, number}}개 중 {{count, number}}개",
       "all": "모든 컬렉션",
+      "fold": "{{name}} 안",
       "nothing": "그 이름의 컬렉션이 없습니다",
       "new": "새 컬렉션",
       "newNamed": "새 컬렉션 ‘{{name}}’"

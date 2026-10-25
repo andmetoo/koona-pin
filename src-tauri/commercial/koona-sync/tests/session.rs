@@ -1403,7 +1403,7 @@ fn a_schema_13_peer_pauses_for_feeds_and_its_vector_stays() {
     let mut w = World::new();
     let a = w.add("Hub", 1, 64 << 10);
     let old = w.add_with("Old laptop", 2, |cfg| cfg.schema = 13);
-    assert_eq!(koona_sync::library::SCHEMA, 14);
+    assert_eq!(koona_sync::library::SCHEMA, 15);
     follow(w.lib(a), Uuid::new_v4(), "https://example.com/feed.xml", None, "inbox").unwrap();
     fill(w.lib(a), 2, "a");
     w.connect(a);

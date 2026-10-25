@@ -3,4 +3,4 @@
 /**
  * What is wrong with it.
  */
-export type Damage = "structure" | "bad_address" | "repeated_address" | "repeated_uid" | "bad_date" | "unknown_collection" | "bad_source" | "missing_name" | "repeated_name";
+export type Damage = "structure" | "bad_address" | "repeated_address" | "repeated_uid" | "bad_date" | "unknown_collection" | "bad_source" | "missing_name" | "repeated_name" | "unknown_parent" | "loop";

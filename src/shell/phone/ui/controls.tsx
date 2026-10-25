@@ -13,6 +13,7 @@ export function Chip({
   active = false,
   large = false,
   dot,
+  glyph,
   suggested = false,
   icon,
   className = "",
@@ -24,6 +25,8 @@ export function Chip({
   large?: boolean;
   /** A collection's colour (services/collections.ts `collectionColor`). */
   dot?: string;
+  /** A collection's own mark (CollectionGlyph: icon, emoji or dot) in place of the plain dot (2.19.0). */
+  glyph?: ReactNode;
   suggested?: boolean;
   icon?: LucideIcon;
   children: ReactNode;
@@ -41,7 +44,7 @@ export function Chip({
       {...rest}
     >
       {icon && <PhIcon icon={icon} at="chip" />}
-      {dot && <span className="ph-chip-dot" aria-hidden="true" />}
+      {glyph ?? (dot && <span className="ph-chip-dot" aria-hidden="true" />)}
       {children}
       {suggested && dot && (
         <span className="ph-chip-tag">

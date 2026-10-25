@@ -38,6 +38,7 @@ import { Footer } from "./library/Dialogs";
 import { Button } from "./ui/Button";
 import { StatePanels } from "./ui/Controls";
 import { Dialog } from "./ui/Dialog";
+import { depths, optionIndent } from "../services/collectionTree";
 
 /** Where a list's text came from and what the dialog calls it. */
 type Loaded = { text: string; preview: ListPreview };
@@ -275,6 +276,8 @@ export function ListImportDialog({
     const p = list.preview;
     const set = (change: Partial<ListChoices>) => setChoices({ ...choices, ...change });
     const others = collections.filter((c) => c.id !== p.existing_collection?.id);
+    // Collections inside others are indented under them (2.19.0).
+    const levels = depths(collections);
     const meta = [p.meta.author_name && t("lists.by", { name: p.meta.author_name }), p.meta.updated && formatDay(p.meta.updated, i18n.language), p.source].filter(Boolean);
     const nothing = nothingNew(p);
     const { links, feeds } = importCounts(p, choices);
@@ -335,6 +338,7 @@ export function ListImportDialog({
                 </option>
                 {others.map((c) => (
                   <option key={c.id} value={c.id}>
+                    {optionIndent(levels.get(c.id) ?? 0)}
                     {c.name}
                   </option>
                 ))}

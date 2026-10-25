@@ -1,5 +1,7 @@
 {
-  "language": { "name": "Polski" },
+  "language": {
+    "name": "Polski"
+  },
   "common": {
     "ctrl": "Ctrl",
     "shift": "Shift",
@@ -10,7 +12,8 @@
     "open": "Otwórz",
     "retry": "Spróbuj ponownie",
     "ok": "Rozumiem",
-    "cancel": "Anuluj"
+    "cancel": "Anuluj",
+    "done": "Gotowe"
   },
   "window": {
     "demo": "Demo w przeglądarce",
@@ -26,7 +29,6 @@
     "collections": "Kolekcje",
     "newCollection": "Nowa kolekcja",
     "noCollections": "Nie ma jeszcze kolekcji",
-    "deleteCollection": "Usuń kolekcję {{name}}",
     "tags": "Tagi",
     "moreTags_one": "+ jeszcze {{count}}",
     "moreTags_few": "+ jeszcze {{count}}",
@@ -39,7 +41,38 @@
     "tagsDrop": "Tagi — upuść na tag, aby go dodać",
     "dropNewCollection": "Nowa kolekcja z zaznaczenia",
     "moveCollection": "Przenieś",
-    "collectionMoved": "{{name}}: miejsce {{position}} z {{count}}"
+    "movedInto": "{{name}} przeniesiona do „{{parent}}”, miejsce {{position}} z {{count}}",
+    "movedTop": "{{name}} przeniesiona na najwyższy poziom, miejsce {{position}} z {{count}}",
+    "collectionMenu": "{{name}}: więcej",
+    "rename": "Zmień nazwę",
+    "renameField": "Nowa nazwa dla {{name}}",
+    "style": "Ikona i kolor…",
+    "newInside": "Nowa kolekcja w środku",
+    "moveTo": "Przenieś do",
+    "topLevel": "Najwyższy poziom",
+    "moveKeys": "Alt ← → ↑ ↓ przenosi ją na pasku bocznym",
+    "tooDeep": "Kolekcje mogą sięgać najwyżej trzech poziomów",
+    "deleteMenu": "Usuń…",
+    "dropInto": "Do: {{name}}",
+    "dropIntoAfter": "Do: {{name}}, po: {{after}}",
+    "dropIntoFirst": "Do: {{name}}, na początek",
+    "dropTopAfter": "Najwyższy poziom, po: {{after}}",
+    "dropTopFirst": "Najwyższy poziom, na początek"
+  },
+  "collectionStyle": {
+    "label": "Ikona i kolor kolekcji {{name}}",
+    "title": "Ikona i kolor",
+    "colour": "Kolor",
+    "icon": "Ikona",
+    "emoji": "Albo wpisz emoji",
+    "dot": "Użyj kropki",
+    "colours": {
+      "terracotta": "Terakota",
+      "green": "Zielony",
+      "ochre": "Ochra",
+      "blue": "Niebieski",
+      "lilac": "Liliowy"
+    }
   },
   "drag": {
     "more_one": "i jeszcze {{count}} zakładka",
@@ -184,6 +217,7 @@
     "isFavorite": "W ulubionych",
     "moveTo": "Przenieś do kolekcji",
     "noCollection": "Bez kolekcji",
+    "findCollection": "Znajdź kolekcję",
     "addTag": "Dodaj tag…",
     "refresh": "Odśwież podgląd",
     "delete": "Przenieś do kosza",
@@ -331,7 +365,7 @@
     "library": "Biblioteka",
     "inbox": "Skrzynka odbiorcza",
     "destinationHint": "Biblioteka: od razu uporządkowane. Skrzynka odbiorcza: czekają na uporządkowanie, za linkami zapisanymi z przeglądarki.",
-    "rule": "Foldery najwyższego poziomu stają się kolekcjami, zagnieżdżone — tagami. Pasek zakładek, Inne zakładki i Zakładki na telefonie nie są osobnymi folderami: ich linki zostają bez kolekcji.",
+    "rule": "Foldery stają się kolekcjami, do trzech poziomów w głąb; głębsze foldery stają się tagami. Pasek zakładek, Inne zakładki i Zakładki na telefonie nie są osobnymi folderami: ich linki zostają bez kolekcji.",
     "cancel": "Anuluj",
     "run": "Importuj",
     "running": "Importowanie…",
@@ -578,6 +612,8 @@
       "collection_missing_name": "kolekcja {{index}} nie ma nazwy",
       "collection_repeated_name": "kolekcja {{index}} powtarza nazwę ({{detail}})",
       "collection_bad_date": "kolekcja {{index}} ma nieczytelną datę ({{detail}})",
+      "collection_unknown_parent": "kolekcja {{index}} leży w kolekcji, której nie ma w kopii",
+      "collection_loop": "kolekcja {{index}} leży sama w sobie",
       "tag_missing_name": "tag {{index}} nie ma nazwy",
       "tag_repeated_name": "tag {{index}} powtarza nazwę ({{detail}})",
       "tag_bad_date": "tag {{index}} ma nieczytelną datę ({{detail}})"
@@ -587,11 +623,14 @@
     "title": "Nowa kolekcja",
     "name": "Nazwa",
     "placeholder": "Na przykład następny projekt",
-    "create": "Utwórz kolekcję"
+    "create": "Utwórz kolekcję",
+    "titleInside": "Nowa kolekcja w: {{name}}"
   },
   "confirm": {
     "deleteCollection": "Usunąć kolekcję?",
     "deleteCollectionText": "Zakładki z „{{name}}” zostaną w bibliotece bez kolekcji.",
+    "deleteCollectionChild": "{{name}} przechodzi poziom wyżej, razem z całą zawartością.",
+    "deleteCollectionChildren": "{{names}} przechodzą poziom wyżej, razem z całą zawartością.",
     "delete": "Usuń",
     "emptyTrash": "Opróżnić kosz?",
     "emptyTrashText_one": "{{count}} zakładka zostanie usunięta na zawsze. Tego nie da się cofnąć ani przywrócić.",
@@ -1229,11 +1268,23 @@
     "size": "Rozmiar tekstu",
     "sizeValue": "{{size}} px",
     "column": "Kolumna",
-    "columns": { "narrow": "Wąska", "medium": "Średnia", "wide": "Szeroka" },
+    "columns": {
+      "narrow": "Wąska",
+      "medium": "Średnia",
+      "wide": "Szeroka"
+    },
     "theme": "Motyw",
-    "themes": { "white": "Biały", "dark": "Ciemny", "paper": "Papier", "sepia": "Sepia" },
+    "themes": {
+      "white": "Biały",
+      "dark": "Ciemny",
+      "paper": "Papier",
+      "sepia": "Sepia"
+    },
     "font": "Czcionka",
-    "fonts": { "serif": "Szeryf", "sans": "Sans" },
+    "fonts": {
+      "serif": "Szeryf",
+      "sans": "Sans"
+    },
     "supporterHint": "Papier i Sepia —",
     "supporterLink": "Supporter",
     "locked": "{{name}}, z Supporter"
@@ -1282,7 +1333,9 @@
     "damagedLatest": "Biblioteka jest uszkodzona, więc zmiany nie są zapisywane, a linki z przeglądarki czekają w rozszerzeniu. Przywróć ostatnią dobrą kopię — {{when}}.",
     "restore": "Przywróć…",
     "openBackups": "Otwórz folder kopii zapasowych",
-    "movedAside": "Biblioteka z wcześniejszej wersji testowej nie pasuje do nowego schematu. Zachowano ją jako {{path}} i utworzono nową bibliotekę."
+    "movedAside": "Biblioteka z wcześniejszej wersji testowej nie pasuje do nowego schematu. Zachowano ją jako {{path}} i utworzono nową bibliotekę.",
+    "onlyCollection": "Tylko ta kolekcja",
+    "insideCollection": "W: {{name}}"
   },
   "groups": {
     "today": "Dziś",
@@ -1411,6 +1464,9 @@
       "internal": "coś poszło nie tak ({{message}})",
       "empty_tag": "tag jest pusty",
       "empty_collection_name": "nazwa jest pusta",
+      "collection_name_taken": "inna kolekcja ma tę nazwę",
+      "collection_too_deep": "kolekcje mogą sięgać najwyżej trzech poziomów",
+      "collection_inside_itself": "kolekcja nie może leżeć sama w sobie",
       "empty_title": "tytuł jest pusty",
       "bookmark_gone": "zakładka już nie istnieje",
       "not_in_trash": "zakładki nie ma w koszu",
@@ -1451,6 +1507,9 @@
       "server_missing": "Brakuje części Koona Pin (koonapin-mcp). Zainstaluj ponownie Koona Pin.",
       "empty_tag": "Wpisz tag.",
       "empty_collection_name": "Wpisz nazwę kolekcji.",
+      "collection_name_taken": "Inna kolekcja ma już tę nazwę.",
+      "collection_too_deep": "Kolekcje mogą sięgać najwyżej trzech poziomów.",
+      "collection_inside_itself": "Kolekcja nie może leżeć sama w sobie ani w swojej kolekcji.",
       "empty_title": "Tytuł nie może być pusty.",
       "bookmark_gone": "Ta zakładka już nie istnieje.",
       "not_in_trash": "Tej zakładki nie ma w koszu.",
@@ -2278,6 +2337,8 @@
       "grid": "Siatka",
       "filters": "Filtry",
       "all": "Wszystkie",
+      "allIn": "Wszystko w: {{name}}",
+      "inside": "W: {{name}}",
       "favorite": "Ulubione",
       "newLinks_one": "{{count, number}} nowy link",
       "newLinks_few": "{{count, number}} nowe linki",
@@ -2478,6 +2539,7 @@
       "suggested": "Sugerowana",
       "suggestedWhy": "Linki z tej witryny: {{count, number}} z {{filed, number}}",
       "all": "Wszystkie kolekcje",
+      "fold": "W: {{name}}",
       "nothing": "Brak kolekcji o tej nazwie",
       "new": "Nowa kolekcja",
       "newNamed": "Nowa kolekcja „{{name}}”"

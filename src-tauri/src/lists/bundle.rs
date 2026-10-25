@@ -350,6 +350,36 @@ mod tests {
         assert_eq!(value["license"], "CC0-1.0");
     }
 
+    /// A list made from a parent (2.19.0): the interface adds the links a
+    /// collection shows, and a parent shows those of the collections inside
+    /// it. The section stays flat, in the parent's name.
+    #[test]
+    fn a_list_made_from_a_collection_carries_the_links_of_the_collections_inside_it() {
+        let (c, rust) = library();
+        let inside = crate::db::create_collection_under(&c, "Async", Some(rust), None, None).unwrap();
+        c.execute(
+            "INSERT INTO bookmarks (uid, url, title, domain, created_at, updated_at, collection_id) VALUES ('t', 'https://tokio.rs/tutorial', 'Tokio tutorial', 'tokio.rs', 'x', 'x', ?1)",
+            [inside.id],
+        )
+        .unwrap();
+        let ids = |only_collection: bool| -> Vec<BundleItem> {
+            let query = crate::db::BookmarkQuery { collection_id: Some(rust), only_collection, ..Default::default() };
+            crate::db::get_bookmarks(&c, &query).unwrap().items.iter().map(|b| bookmark(b.id)).collect()
+        };
+        let urls = |items: Vec<BundleItem>| {
+            let value = json(&built(&c, &model(vec![section("Rust", BundleOrigin::Collection { id: rust }, items)])).text);
+            let mut urls: Vec<String> = value["sections"][0]["items"].as_array().unwrap().iter().map(|i| i["url"].as_str().unwrap().to_owned()).collect();
+            urls.sort();
+            (names(&value), urls)
+        };
+        let (sections, with_children) = urls(ids(false));
+        assert_eq!(sections, ["Rust"]);
+        assert!(with_children.contains(&"https://tokio.rs/tutorial".to_owned()), "{with_children:?}");
+        let (_, own) = urls(ids(true));
+        assert_eq!(own.len() + 1, with_children.len());
+        assert!(!own.contains(&"https://tokio.rs/tutorial".to_owned()));
+    }
+
     #[test]
     fn a_collection_takes_its_current_name_or_keeps_the_stored_one() {
         let (c, rust) = library();

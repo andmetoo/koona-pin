@@ -3,7 +3,7 @@ import { Copy, Heart } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Bookmark, Collection, DuplicateGroup, MergeGroup, Merged } from "../../types";
 import { api } from "../../services/api";
-import { collectionColor } from "../../services/collections";
+import { collectionTint } from "../../services/collections";
 import { mergedFields } from "../../services/duplicates";
 import { shortcut } from "../../services/keys";
 import { CommandError, describeError } from "../../services/errors";
@@ -101,6 +101,8 @@ export function DuplicatesPage({
     return t("duplicates.savedOn", { date: shortDate(date, i18n.language) });
   };
   const collectionName = (id: number | null) => collections.find((c) => c.id === id)?.name ?? null;
+  /** A row draws the collection's own colour (2.19.0). */
+  const collectionOf = (id: number | null) => collections.find((c) => c.id === id) ?? null;
   const after = (g: DuplicateGroup) => {
     const main = g.bookmarks.find((b) => b.id === mainOf(g))!;
     const others = g.bookmarks.filter((b) => b !== main);
@@ -175,7 +177,7 @@ export function DuplicatesPage({
                       b={b}
                       main={b.id === mainOf(g)}
                       disabled={busy}
-                      collection={collectionName(b.collection_id)}
+                      collection={collectionOf(b.collection_id)}
                       saved={saved(b.created_at)}
                       onChoose={() => setMains((prev) => ({ ...prev, [g.key]: b.id }))}
                     />
@@ -220,7 +222,7 @@ function Row({
   b: Bookmark;
   main: boolean;
   disabled: boolean;
-  collection: string | null;
+  collection: Collection | null;
   saved: string;
   onChoose: () => void;
 }) {
@@ -263,8 +265,8 @@ function Row({
       <span className="flex w-[120px] shrink-0 items-center gap-2 text-xs">
         {collection ? (
           <>
-            <Dot color={collectionColor(b.collection_id!)} />
-            <span className="truncate text-icon">{collection}</span>
+            <Dot color={collectionTint(collection)} />
+            <span className="truncate text-icon">{collection.name}</span>
           </>
         ) : (
           <span className="text-subtle">{t("duplicates.noCollection")}</span>

@@ -1,5 +1,7 @@
 {
-  "language": { "name": "简体中文" },
+  "language": {
+    "name": "简体中文"
+  },
   "common": {
     "ctrl": "Ctrl",
     "shift": "Shift",
@@ -10,7 +12,8 @@
     "open": "打开",
     "retry": "重试",
     "ok": "知道了",
-    "cancel": "取消"
+    "cancel": "取消",
+    "done": "完成"
   },
   "window": {
     "demo": "浏览器中的演示",
@@ -26,7 +29,6 @@
     "collections": "合集",
     "newCollection": "新建合集",
     "noCollections": "还没有合集",
-    "deleteCollection": "删除合集 {{name}}",
     "tags": "标签",
     "moreTags_other": "另外 {{count}} 个",
     "fewerTags": "收起",
@@ -36,7 +38,38 @@
     "tagsDrop": "标签 — 拖到标签上即可添加",
     "dropNewCollection": "用所选内容新建合集",
     "moveCollection": "移动",
-    "collectionMoved": "{{name}}：第 {{position}} 位，共 {{count}} 个"
+    "movedInto": "{{name}} 已移入 {{parent}}，第 {{position}} 位，共 {{count}} 个",
+    "movedTop": "{{name}} 已移到顶层，第 {{position}} 位，共 {{count}} 个",
+    "collectionMenu": "{{name}}：更多",
+    "rename": "重命名",
+    "renameField": "{{name}} 的新名称",
+    "style": "图标和颜色…",
+    "newInside": "在其中新建合集",
+    "moveTo": "移动到",
+    "topLevel": "顶层",
+    "moveKeys": "Alt ← → ↑ ↓ 可在侧边栏中移动",
+    "tooDeep": "合集最多嵌套三层",
+    "deleteMenu": "删除…",
+    "dropInto": "放入 {{name}}",
+    "dropIntoAfter": "放入 {{name}}，排在 {{after}} 之后",
+    "dropIntoFirst": "放入 {{name}}，排在最前",
+    "dropTopAfter": "顶层，排在 {{after}} 之后",
+    "dropTopFirst": "顶层，排在最前"
+  },
+  "collectionStyle": {
+    "label": "{{name}} 的图标和颜色",
+    "title": "图标和颜色",
+    "colour": "颜色",
+    "icon": "图标",
+    "emoji": "或输入表情符号",
+    "dot": "使用圆点",
+    "colours": {
+      "terracotta": "赤陶色",
+      "green": "绿色",
+      "ochre": "赭黄色",
+      "blue": "蓝色",
+      "lilac": "丁香紫"
+    }
   },
   "drag": {
     "more_other": "及另外 {{count}} 个书签",
@@ -154,6 +187,7 @@
     "isFavorite": "已加星标",
     "moveTo": "移到合集",
     "noCollection": "无合集",
+    "findCollection": "查找合集",
     "addTag": "添加标签…",
     "refresh": "刷新预览",
     "delete": "移到回收站",
@@ -280,7 +314,7 @@
     "library": "资料库",
     "inbox": "收件箱",
     "destinationHint": "资料库：直接归档。收件箱：排在从浏览器保存的链接之后，等待整理。",
-    "rule": "顶层文件夹变成合集，子文件夹变成标签。书签栏、其他书签和移动设备书签不算单独的文件夹：其中的链接不属于任何合集。",
+    "rule": "文件夹会变成合集，最多三层；更深的文件夹变成标签。书签栏、其他书签和移动设备书签不算单独的文件夹：其中的链接不属于任何合集。",
     "cancel": "取消",
     "run": "导入",
     "running": "正在导入…",
@@ -455,6 +489,8 @@
       "collection_missing_name": "第 {{index}} 个合集没有名称",
       "collection_repeated_name": "第 {{index}} 个合集的名称重复（{{detail}}）",
       "collection_bad_date": "第 {{index}} 个合集的日期无法读取（{{detail}}）",
+      "collection_unknown_parent": "第 {{index}} 个合集位于副本中没有的合集内",
+      "collection_loop": "第 {{index}} 个合集在它自己里面",
       "tag_missing_name": "第 {{index}} 个标签没有名称",
       "tag_repeated_name": "第 {{index}} 个标签的名称重复（{{detail}}）",
       "tag_bad_date": "第 {{index}} 个标签的日期无法读取（{{detail}}）"
@@ -464,11 +500,14 @@
     "title": "新建合集",
     "name": "名称",
     "placeholder": "例如：下一个项目",
-    "create": "创建合集"
+    "create": "创建合集",
+    "titleInside": "{{name}} 中的新合集"
   },
   "confirm": {
     "deleteCollection": "删除合集？",
     "deleteCollectionText": "“{{name}}”中的书签会留在资料库中，不属于任何合集。",
+    "deleteCollectionChild": "{{name}} 将连同其中内容上移一层。",
+    "deleteCollectionChildren": "{{names}} 将连同其中内容上移一层。",
     "delete": "删除",
     "emptyTrash": "清空回收站？",
     "emptyTrashText_other": "{{count}} 个书签将被永久删除。此操作无法撤销，也无法通过“恢复”找回。",
@@ -998,11 +1037,23 @@
     "size": "文字大小",
     "sizeValue": "{{size}} px",
     "column": "栏宽",
-    "columns": { "narrow": "窄", "medium": "中", "wide": "宽" },
+    "columns": {
+      "narrow": "窄",
+      "medium": "中",
+      "wide": "宽"
+    },
     "theme": "主题",
-    "themes": { "white": "白色", "dark": "深色", "paper": "纸张", "sepia": "棕褐" },
+    "themes": {
+      "white": "白色",
+      "dark": "深色",
+      "paper": "纸张",
+      "sepia": "棕褐"
+    },
     "font": "字体",
-    "fonts": { "serif": "衬线", "sans": "无衬线" },
+    "fonts": {
+      "serif": "衬线",
+      "sans": "无衬线"
+    },
     "supporterHint": "纸张和棕褐 —",
     "supporterLink": "Supporter",
     "locked": "{{name}}，Supporter 可用"
@@ -1048,7 +1099,9 @@
     "damagedLatest": "资料库已损坏，因此更改不会被保存，浏览器中的链接会在扩展中等待。请恢复最近一份完好的副本 — {{when}}。",
     "restore": "恢复…",
     "openBackups": "打开备份文件夹",
-    "movedAside": "早期测试版本的资料库与新架构不兼容。它已保存为 {{path}}，并创建了新的资料库。"
+    "movedAside": "早期测试版本的资料库与新架构不兼容。它已保存为 {{path}}，并创建了新的资料库。",
+    "onlyCollection": "仅此合集",
+    "insideCollection": "{{name}} 内"
   },
   "groups": {
     "today": "今天",
@@ -1177,6 +1230,9 @@
       "internal": "出了点问题（{{message}}）",
       "empty_tag": "标签为空",
       "empty_collection_name": "名称为空",
+      "collection_name_taken": "另一个合集已使用此名称",
+      "collection_too_deep": "合集最多嵌套三层",
+      "collection_inside_itself": "合集不能放进它自己",
       "empty_title": "标题为空",
       "bookmark_gone": "书签已不存在",
       "not_in_trash": "书签不在回收站中",
@@ -1217,6 +1273,9 @@
       "server_missing": "Koona Pin 缺少一个组件（koonapin-mcp）。请重新安装 Koona Pin。",
       "empty_tag": "请输入标签。",
       "empty_collection_name": "请输入合集名称。",
+      "collection_name_taken": "另一个合集已使用此名称。",
+      "collection_too_deep": "合集最多嵌套三层。",
+      "collection_inside_itself": "合集不能放进它自己或它内部的合集。",
       "empty_title": "标题不能为空。",
       "bookmark_gone": "此书签已不存在。",
       "not_in_trash": "此书签不在回收站中。",
@@ -1918,6 +1977,8 @@
       "grid": "网格",
       "filters": "筛选",
       "all": "全部",
+      "allIn": "{{name}} 中的全部",
+      "inside": "{{name}} 内",
       "favorite": "星标",
       "newLinks_other": "{{count, number}} 个新链接",
       "refreshing": "正在刷新",
@@ -2088,6 +2149,7 @@
       "suggested": "建议",
       "suggestedWhy": "此网站的 {{filed, number}} 个链接中有 {{count, number}} 个",
       "all": "全部合集",
+      "fold": "{{name}} 内",
       "nothing": "没有这个名称的合集",
       "new": "新建合集",
       "newNamed": "新建合集“{{name}}”"

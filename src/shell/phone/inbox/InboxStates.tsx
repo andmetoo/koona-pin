@@ -2,7 +2,8 @@ import type { CSSProperties } from "react";
 import { ArrowRight, BookOpen, Check, Folder, Plus, Share, Trash2, Undo2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Mascot } from "../../../components/icons";
-import { collectionColor } from "../../../services/collections";
+import { collectionTint } from "../../../services/collections";
+import type { Collection } from "../../../types";
 import { Button } from "../ui/buttons";
 import { PhIcon } from "../ui/icons";
 import { Shelf, ShelfRow } from "../ui/Shelf";
@@ -15,11 +16,14 @@ import type { summary } from "./triage";
  */
 export function InboxSorted({
   sum,
+  collections,
   minutes,
   onLibrary,
   onUndo,
 }: {
   sum: ReturnType<typeof summary>;
+  /** The library's, for the colours of the ones filed into (a collection's own colour since 2.19.0). */
+  collections: Collection[];
   minutes: number;
   onLibrary: () => void;
   onUndo: () => void;
@@ -41,7 +45,7 @@ export function InboxSorted({
             <>
               <span className="inb-dots" aria-hidden="true">
                 {sum.filedInto.slice(0, 3).map((id) => (
-                  <span key={id} className="ph-chip-dot" style={{ "--dot": collectionColor(id) } as CSSProperties} />
+                  <span key={id} className="ph-chip-dot" style={{ "--dot": collectionTint(collections.find((c) => c.id === id) ?? { id, color: null }) } as CSSProperties} />
                 ))}
               </span>
               {sum.filed}

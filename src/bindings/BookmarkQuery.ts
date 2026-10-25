@@ -5,7 +5,15 @@ import type { PageCursor } from "./PageCursor";
 /**
  * What the list shows: search, filters and the page to read.
  */
-export type BookmarkQuery = { search?: string, collection_id?: number, tag?: string, domain?: string, only_favorites: boolean, 
+export type BookmarkQuery = { search?: string, 
+/**
+ * The collection and everything inside it (2.19.0).
+ */
+collection_id?: number, 
+/**
+ * Only the collection's own bookmarks, not its descendants' (2.19.0).
+ */
+only_collection: boolean, tag?: string, domain?: string, only_favorites: boolean, 
 /**
  * Only bookmarks waiting in the inbox.
  */

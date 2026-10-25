@@ -1,5 +1,7 @@
 {
-  "language": { "name": "Italiano" },
+  "language": {
+    "name": "Italiano"
+  },
   "common": {
     "ctrl": "Ctrl",
     "shift": "Maiusc",
@@ -10,7 +12,8 @@
     "open": "Apri",
     "retry": "Riprova",
     "ok": "Ho capito",
-    "cancel": "Annulla"
+    "cancel": "Annulla",
+    "done": "Fine"
   },
   "window": {
     "demo": "Demo nel browser",
@@ -26,7 +29,6 @@
     "collections": "Raccolte",
     "newCollection": "Nuova raccolta",
     "noCollections": "Ancora nessuna raccolta",
-    "deleteCollection": "Elimina la raccolta {{name}}",
     "tags": "Tag",
     "moreTags_one": "+ altro {{count}}",
     "moreTags_many": "+ altri {{count}}",
@@ -38,7 +40,38 @@
     "tagsDrop": "Tag — rilascia su un tag per aggiungerlo",
     "dropNewCollection": "Nuova raccolta dalla selezione",
     "moveCollection": "Sposta",
-    "collectionMoved": "{{name}}: posizione {{position}} di {{count}}"
+    "movedInto": "{{name}} spostata in {{parent}}, posizione {{position}} di {{count}}",
+    "movedTop": "{{name}} spostata al livello principale, posizione {{position}} di {{count}}",
+    "collectionMenu": "{{name}}: altro",
+    "rename": "Rinomina",
+    "renameField": "Nuovo nome di {{name}}",
+    "style": "Icona e colore…",
+    "newInside": "Nuova raccolta all’interno",
+    "moveTo": "Sposta in",
+    "topLevel": "Livello principale",
+    "moveKeys": "Alt ← → ↑ ↓ la spostano nella barra laterale",
+    "tooDeep": "Le raccolte arrivano al massimo a tre livelli",
+    "deleteMenu": "Elimina…",
+    "dropInto": "In {{name}}",
+    "dropIntoAfter": "In {{name}}, dopo {{after}}",
+    "dropIntoFirst": "In {{name}}, per prima",
+    "dropTopAfter": "Livello principale, dopo {{after}}",
+    "dropTopFirst": "Livello principale, per prima"
+  },
+  "collectionStyle": {
+    "label": "Icona e colore di {{name}}",
+    "title": "Icona e colore",
+    "colour": "Colore",
+    "icon": "Icona",
+    "emoji": "Oppure scrivi un’emoji",
+    "dot": "Usa un punto",
+    "colours": {
+      "terracotta": "Terracotta",
+      "green": "Verde",
+      "ochre": "Ocra",
+      "blue": "Blu",
+      "lilac": "Lilla"
+    }
   },
   "drag": {
     "more_one": "e {{count}} altro segnalibro",
@@ -174,6 +207,7 @@
     "isFavorite": "Nei preferiti",
     "moveTo": "Sposta in una raccolta",
     "noCollection": "Nessuna raccolta",
+    "findCollection": "Cerca una raccolta",
     "addTag": "Aggiungi tag…",
     "refresh": "Aggiorna l’anteprima",
     "delete": "Sposta nel cestino",
@@ -314,7 +348,7 @@
     "library": "Libreria",
     "inbox": "In arrivo",
     "destinationHint": "Libreria: sistemati subito. In arrivo: aspettano di essere smistati, dopo i link salvati dal browser.",
-    "rule": "Le cartelle di primo livello diventano raccolte, quelle annidate diventano tag. Barra dei preferiti, Altri preferiti e Dispositivi mobili non sono cartelle a sé: i loro link restano senza raccolta.",
+    "rule": "Le cartelle diventano raccolte, fino a tre livelli; quelle più profonde diventano tag. Barra dei preferiti, Altri preferiti e Dispositivi mobili non sono cartelle a sé: i loro link restano senza raccolta.",
     "cancel": "Annulla",
     "run": "Importa",
     "running": "Importazione…",
@@ -537,6 +571,8 @@
       "collection_missing_name": "la raccolta {{index}} non ha un nome",
       "collection_repeated_name": "la raccolta {{index}} ripete un nome ({{detail}})",
       "collection_bad_date": "la raccolta {{index}} ha una data illeggibile ({{detail}})",
+      "collection_unknown_parent": "la raccolta {{index}} si trova in una raccolta che la copia non ha",
+      "collection_loop": "la raccolta {{index}} è dentro sé stessa",
       "tag_missing_name": "il tag {{index}} non ha un nome",
       "tag_repeated_name": "il tag {{index}} ripete un nome ({{detail}})",
       "tag_bad_date": "il tag {{index}} ha una data illeggibile ({{detail}})"
@@ -546,11 +582,14 @@
     "title": "Nuova raccolta",
     "name": "Nome",
     "placeholder": "Per esempio, il prossimo progetto",
-    "create": "Crea raccolta"
+    "create": "Crea raccolta",
+    "titleInside": "Nuova raccolta in {{name}}"
   },
   "confirm": {
     "deleteCollection": "Eliminare la raccolta?",
     "deleteCollectionText": "I segnalibri di «{{name}}» restano nella libreria senza raccolta.",
+    "deleteCollectionChild": "{{name}} sale di un livello, con tutto ciò che contiene.",
+    "deleteCollectionChildren": "{{names}} salgono di un livello, con tutto ciò che contengono.",
     "delete": "Elimina",
     "emptyTrash": "Svuotare il cestino?",
     "emptyTrashText_one": "{{count}} segnalibro verrà eliminato definitivamente. Non si può annullare e non tornerà con Ripristina.",
@@ -1152,11 +1191,23 @@
     "size": "Dimensione del testo",
     "sizeValue": "{{size}} px",
     "column": "Colonna",
-    "columns": { "narrow": "Stretta", "medium": "Media", "wide": "Larga" },
+    "columns": {
+      "narrow": "Stretta",
+      "medium": "Media",
+      "wide": "Larga"
+    },
     "theme": "Tema",
-    "themes": { "white": "Bianco", "dark": "Scuro", "paper": "Carta", "sepia": "Seppia" },
+    "themes": {
+      "white": "Bianco",
+      "dark": "Scuro",
+      "paper": "Carta",
+      "sepia": "Seppia"
+    },
     "font": "Carattere",
-    "fonts": { "serif": "Serif", "sans": "Sans" },
+    "fonts": {
+      "serif": "Serif",
+      "sans": "Sans"
+    },
     "supporterHint": "Carta e Seppia —",
     "supporterLink": "Supporter",
     "locked": "{{name}}, con Supporter"
@@ -1204,7 +1255,9 @@
     "damagedLatest": "La libreria è danneggiata: le modifiche non vengono salvate e i link dal browser aspettano nell’estensione. Ripristina l’ultima copia buona: {{when}}.",
     "restore": "Ripristina…",
     "openBackups": "Apri la cartella dei backup",
-    "movedAside": "La libreria di una versione di prova precedente non è compatibile con il nuovo schema. È stata conservata come {{path}} ed è stata creata una nuova libreria."
+    "movedAside": "La libreria di una versione di prova precedente non è compatibile con il nuovo schema. È stata conservata come {{path}} ed è stata creata una nuova libreria.",
+    "onlyCollection": "Solo questa raccolta",
+    "insideCollection": "In {{name}}"
   },
   "groups": {
     "today": "Oggi",
@@ -1333,6 +1386,9 @@
       "internal": "qualcosa è andato storto ({{message}})",
       "empty_tag": "il tag è vuoto",
       "empty_collection_name": "il nome è vuoto",
+      "collection_name_taken": "un’altra raccolta ha questo nome",
+      "collection_too_deep": "le raccolte arrivano al massimo a tre livelli",
+      "collection_inside_itself": "una raccolta non può stare dentro sé stessa",
       "empty_title": "il titolo è vuoto",
       "bookmark_gone": "il segnalibro non esiste più",
       "not_in_trash": "il segnalibro non è nel cestino",
@@ -1373,6 +1429,9 @@
       "server_missing": "Manca una parte di Koona Pin (koonapin-mcp). Reinstalla Koona Pin.",
       "empty_tag": "Inserisci un tag.",
       "empty_collection_name": "Inserisci il nome della raccolta.",
+      "collection_name_taken": "Un’altra raccolta ha già questo nome.",
+      "collection_too_deep": "Le raccolte arrivano al massimo a tre livelli.",
+      "collection_inside_itself": "Una raccolta non può stare dentro sé stessa né dentro una raccolta che contiene.",
       "empty_title": "Il titolo non può essere vuoto.",
       "bookmark_gone": "Questo segnalibro non esiste più.",
       "not_in_trash": "Questo segnalibro non è nel cestino.",
@@ -2158,6 +2217,8 @@
       "grid": "Griglia",
       "filters": "Filtri",
       "all": "Tutti",
+      "allIn": "Tutto in {{name}}",
+      "inside": "In {{name}}",
       "favorite": "Preferito",
       "newLinks_one": "{{count, number}} nuovo link",
       "newLinks_many": "{{count, number}} di nuovi link",
@@ -2348,6 +2409,7 @@
       "suggested": "Suggerita",
       "suggestedWhy": "{{count, number}} su {{filed, number}} link di questo sito",
       "all": "Tutte le raccolte",
+      "fold": "In {{name}}",
       "nothing": "Nessuna raccolta con questo nome",
       "new": "Nuova raccolta",
       "newNamed": "Nuova raccolta «{{name}}»"

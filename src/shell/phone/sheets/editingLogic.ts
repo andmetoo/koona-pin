@@ -1,3 +1,4 @@
+import { ancestors, buildTree, flatten, MAX_DEPTH, pathPrefix } from "../../../services/collectionTree";
 import { foldText } from "../../../services/library";
 import type { Collection, Tag } from "../../../types";
 
@@ -26,6 +27,49 @@ export function firstChoice(collections: Collection[], { selected, current, sugg
 export function matching(collections: Collection[], query: string): Collection[] {
   const typed = foldText(query.trim());
   return typed ? collections.filter((c) => foldText(c.name).includes(typed)) : collections;
+}
+
+/** One line of the picker's list. */
+export interface PickerRow {
+  collection: Collection;
+  /** Indent level, 0 at the top; capped at the depth limit, so a tree synced deeper stays on screen. */
+  depth: number;
+  /** Own bookmarks and every descendant's: what a parent holds. */
+  total: number;
+  hasChildren: boolean;
+  open: boolean;
+  /** An ancestor of the chosen collection: it stays open, so the choice is never hidden. */
+  locked: boolean;
+  /** «Development › Web › » in front of the name in a search, else empty. */
+  prefix: string;
+}
+
+/**
+ * The picker's list (2.19.0), in the sidebar's order: the tree with its folded parents' children
+ * left out, or, with a typed query, the flat matches with their paths. Everything starts open
+ * (`folded` is what the person closed); the ancestors of `chosen` are always open.
+ */
+export function pickerRows(collections: Collection[], { query = "", folded = new Set<number>(), chosen = null }: { query?: string; folded?: ReadonlySet<number>; chosen?: number | null }): PickerRow[] {
+  const roots = buildTree(collections);
+  const total = new Map(flatten(roots).map((n) => [n.item.id, n.total]));
+  const cap = MAX_DEPTH - 1;
+  if (query.trim()) {
+    const hits = new Set(matching(collections, query).map((c) => c.id));
+    return flatten(roots)
+      .filter((n) => hits.has(n.item.id))
+      .map((n) => ({ collection: n.item, depth: 0, total: n.total, hasChildren: false, open: false, locked: false, prefix: pathPrefix(roots, n.item.id) }));
+  }
+  const locked = new Set(chosen === null ? [] : ancestors(roots, chosen).map((a) => a.id));
+  const shut = new Set([...folded].filter((id) => !locked.has(id)));
+  return flatten(roots, shut).map((n) => ({
+    collection: n.item,
+    depth: Math.min(n.depth, cap),
+    total: total.get(n.item.id) ?? 0,
+    hasChildren: n.children.length > 0,
+    open: !shut.has(n.item.id),
+    locked: locked.has(n.item.id),
+    prefix: "",
+  }));
 }
 
 /** The typed name when no collection has it already: the picker offers to create it. */

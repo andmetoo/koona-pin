@@ -61,7 +61,7 @@ test("Export → Add to bundle; the capsule sits above the bulk bar and comes do
 });
 
 test("«Add {view}» adds a collection, a tag, All bookmarks and a feed, each as its section says", async ({ page }) => {
-  await sidebar(page).getByRole("button", { name: /^Development/ }).click();
+  await sidebar(page).getByRole("treeitem", { name: /^Development/ }).click();
   await openFromMenu(page);
   // The empty bundle: the button of the empty state, focused.
   await expect(panel(page).locator("[data-bundle-empty]")).toBeVisible();
@@ -133,7 +133,7 @@ test("keyboard only: Tab to the capsule, Enter, F6 both ways, Delete a row, Esc 
 test("Save writes the built list under the title's name; Copy gives Markdown; Clear has Undo", async ({ page, context, browserName }) => {
   if (browserName === "chromium") await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await mockSave(page);
-  await sidebar(page).getByRole("button", { name: /^Design/ }).click();
+  await sidebar(page).getByRole("treeitem", { name: /^Design/ }).click();
   await openFromMenu(page);
   await panel(page).getByRole("button", { name: /^Add Design/ }).click();
   await panel(page).getByRole("button", { name: "Add description and author" }).click();
@@ -171,7 +171,7 @@ test("without a file manager the Saved notice offers no «Show»", async ({ page
   });
   await page.reload();
   await mockSave(page);
-  await sidebar(page).getByRole("button", { name: /^Design/ }).click();
+  await sidebar(page).getByRole("treeitem", { name: /^Design/ }).click();
   await openFromMenu(page);
   await panel(page).getByRole("button", { name: /^Add Design/ }).click();
   await panel(page).getByRole("button", { name: "Save .kpin…" }).click();
@@ -182,7 +182,7 @@ test("without a file manager the Saved notice offers no «Show»", async ({ page
 
 test("a double click on Save opens one dialog; a title in Cyrillic names the file, the id stays ASCII", async ({ page }) => {
   await mockSave(page, 300);
-  await sidebar(page).getByRole("button", { name: /^Design/ }).click();
+  await sidebar(page).getByRole("treeitem", { name: /^Design/ }).click();
   await openFromMenu(page);
   await panel(page).getByRole("button", { name: /^Add Design/ }).click();
   await panel(page).getByRole("textbox", { name: "Title" }).fill("Мои ссылки");

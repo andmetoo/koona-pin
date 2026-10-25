@@ -97,10 +97,12 @@ import type { PageRequest } from "./api";
 import { demoLibrary, poster, posterOf } from "./demoData";
 import { DEMO_FEEDS, DEMO_POSTS, isFull, pictureOf, postHtml, postUrl } from "./demoFeeds";
 import { parseBookmarksFile } from "./bookmarksFile";
-import { cursorAt, isAfter, ListOrder, listTime, matchesBookmark, orderOf, sortBookmarks } from "./library";
+import { cursorAt, isAfter, ListOrder, listTime, matchesBookmark, orderOf, sortBookmarks, sortCollections } from "./library";
 import { suggestFrom } from "./triage";
 import { groupsOf, mergedFields } from "./duplicates";
 import { CommandError } from "./errors";
+import { buildTree, canCreateInside, canMoveInto, findNode, inTreeOrder, scopeIds, subtreeIds } from "./collectionTree";
+import { PALETTE } from "./collections";
 import { storedValue } from "./preferences";
 import { emailShape, length, MAX_MESSAGE } from "./feedback";
 import i18n, { resolveLanguage, storedLanguage } from "../i18n";
@@ -597,6 +599,7 @@ let initial = {
     icon: null,
     count: null,
     created_at: "2026-10-02T00:00:00.000Z",
+    parent_id: null,
   })),
 };
 try {
@@ -615,7 +618,25 @@ let bookmarks: Bookmark[] = initial.bookmarks.map((b) => ({
   // The preview keeps offline copies in memory only (NP-126): none survive a reload.
   offline_at: null,
 }));
-let collections: Collection[] = initial.collections;
+// A preview saved before nested collections (2.19.0) has them all at the top level.
+let collections: Collection[] = initial.collections.map((c) => ({ ...c, parent_id: c.parent_id ?? null }));
+/** The collections a filter on one shows (2.19.0), as `db::get_bookmarks` reads them. */
+const scopeOf = (filters: Partial<FilterState>) =>
+  filters.collectionId == null ? undefined : scopeIds(collections, filters.collectionId, filters.onlyCollection);
+/** The children of `parent` in their order: placed ones first, then by name (2.19.0). */
+const siblingsOf = (parent: number | null) => sortCollections(collections.filter((c) => c.parent_id === parent), i18n.language);
+/** Siblings numbered in this order, as a move or a deletion leaves them. */
+function placeSiblings(ids: number[]) {
+  collections = collections.map((c) => (ids.includes(c.id) ? { ...c, position: ids.indexOf(c.id) } : c));
+}
+/** A collection's name, trimmed and free in any case (2.19.0): `db::clean_collection_name`. */
+function freeName(name: string, own?: number): string {
+  const clean = name.trim();
+  if (!clean) throw new CommandError("invalid_request", "The name is empty", "empty_collection_name");
+  if (collections.some((c) => c.id !== own && c.name.toLocaleLowerCase() === clean.toLocaleLowerCase()))
+    throw new CommandError("conflict", "UNIQUE constraint failed: collections.name", "collection_name_taken");
+  return clean;
+}
 /** The highest collection id handed out: like AUTOINCREMENT, a deleted one is not reused. */
 let lastCollection = 0;
 const nextCollection = () => {
@@ -1430,7 +1451,7 @@ export const demo = {
       bookmarks.filter(
         (b) =>
           (page.id === undefined || b.id === page.id) &&
-          matchesBookmark(b, filters),
+          matchesBookmark(b, filters, scopeOf(filters)),
       ),
       order,
     );
@@ -1456,13 +1477,14 @@ export const demo = {
   },
   async getBookmarkIds(filters: Partial<FilterState> = {}, sort: BookmarkSort = "newest"): Promise<number[]> {
     const order = listOrder(filters, sort);
-    return sortBookmarks(bookmarks.filter((b) => matchesBookmark(b, filters)), order).map((b) => b.id);
+    return sortBookmarks(bookmarks.filter((b) => matchesBookmark(b, filters, scopeOf(filters))), order).map((b) => b.id);
   },
   async rebuildSearchIndex() {
     return bookmarks.length;
   },
+  /** In the tree's order, as `db::get_collections` (2.19.0): siblings placed by hand first, then by name. */
   async getCollections() {
-    return collections.map((c) => ({
+    return inTreeOrder(sortCollections(collections, i18n.language)).map((c) => ({
       ...c,
       count: live().filter((b) => b.collection_id === c.id).length,
     }));
@@ -1728,22 +1750,70 @@ export const demo = {
     invalidations.forEach((fn) => fn());
     return gone;
   },
-  async createCollection(name: string, color?: string, icon?: string) {
-    if (collections.some((c) => c.name === name.trim()))
-      throw new CommandError("conflict", "UNIQUE constraint failed: collections.name");
+  /** `db::create_collection_in` (2.19.0): a free name, a known parent, at most three levels. */
+  async createCollection(name: string, parent: number | null = null) {
+    const clean = freeName(name);
+    if (parent !== null) {
+      if (!collections.some((c) => c.id === parent)) throw new CommandError("not_found", "No such collection");
+      if (!canCreateInside(buildTree(collections), parent))
+        throw new CommandError("invalid_request", "Collections nest at most three levels deep", "collection_too_deep");
+    }
     const c: Collection = {
       id: nextCollection(),
-      name: name.trim(),
-      color: color ?? null,
-      icon: icon ?? null,
+      name: clean,
+      color: null,
+      icon: null,
       count: 0,
       created_at: new Date().toISOString(),
+      parent_id: parent,
     };
     collections = [...collections, c];
     persist();
     return c;
   },
+  /**
+   * `db::move_collection` (2.19.0): into `parent` before its child `before` (none: last). Refuses an
+   * unknown one, a loop, a fourth level, and a `before` that is not a child of `parent`.
+   */
+  async moveCollection(id: number, parent: number | null, before: number | null) {
+    const roots = buildTree(collections);
+    const node = findNode(roots, id);
+    if (!node || (parent !== null && !findNode(roots, parent))) throw new CommandError("not_found", "No such collection");
+    if (parent !== null && subtreeIds(node).includes(parent))
+      throw new CommandError("invalid_request", "A collection cannot go inside itself", "collection_inside_itself");
+    if (!canMoveInto(roots, id, parent))
+      throw new CommandError("invalid_request", "Collections nest at most three levels deep", "collection_too_deep");
+    if (before !== null && (before === id || collections.find((c) => c.id === before)?.parent_id !== parent))
+      throw new CommandError("invalid_request", "Not a child of that parent");
+    // The demo numbers every sibling anew; the desktop app writes one key between the neighbours.
+    const order = siblingsOf(parent).filter((c) => c.id !== id).map((c) => c.id);
+    order.splice(before === null ? order.length : order.indexOf(before), 0, id);
+    collections = collections.map((c) => (c.id === id ? { ...c, parent_id: parent } : c));
+    placeSiblings(order);
+    persist();
+  },
+  /** `db::rename_collection` (2.19.0). */
+  async renameCollection(id: number, name: string) {
+    if (!collections.some((c) => c.id === id)) throw new CommandError("not_found", "No such collection");
+    const clean = freeName(name, id);
+    collections = collections.map((c) => (c.id === id ? { ...c, name: clean } : c));
+    persist();
+  },
+  /** `db::set_collection_style` (2.19.0): a palette name or none, a Lucide name, an emoji or none. */
+  async setCollectionStyle(id: number, color: string | null, icon: string | null) {
+    if (!collections.some((c) => c.id === id)) throw new CommandError("not_found", "No such collection");
+    if (color !== null && !(PALETTE as readonly string[]).includes(color)) throw new CommandError("invalid_request", "Unknown colour");
+    collections = collections.map((c) => (c.id === id ? { ...c, color, icon } : c));
+    persist();
+  },
+  /** Its bookmarks leave all collections; its children move up into its place (2.19.0). */
   async deleteCollection(id: number) {
+    const gone = collections.find((c) => c.id === id);
+    if (gone) {
+      const order = siblingsOf(gone.parent_id).flatMap((c) => (c.id === id ? siblingsOf(id) : [c])).map((c) => c.id);
+      collections = collections.map((c) => (c.parent_id === id ? { ...c, parent_id: gone.parent_id } : c));
+      placeSiblings(order);
+    }
     collections = collections.filter((c) => c.id !== id);
     bookmarks = bookmarks.map((b) =>
       b.collection_id === id
@@ -1770,7 +1840,6 @@ export const demo = {
     };
     const known = new Map(bookmarks.map((b) => [b.url, b]));
     const tagsBefore = new Set(bookmarks.flatMap((b) => b.tags ?? []));
-    const named = new Map(collections.map((c) => [c.name.toLocaleLowerCase(), c.id]));
     const created: Collection[] = [];
     const added: Bookmark[] = [];
     const now = new Date().toISOString();
@@ -1780,16 +1849,24 @@ export const demo = {
       if (previous?.deleted_at) summary.in_trash++;
       else if (previous) summary.existing++;
       else {
+        // Folders nest (2.19.0): a collection of the same name under the same parent is reused; the
+        // name taken elsewhere becomes «Name (Parent)», then «Name (Parent) 2»…
         let collectionId: number | null = null;
-        if (link.collection) {
-          const key = link.collection.toLocaleLowerCase();
-          collectionId = named.get(key) ?? null;
-          if (collectionId === null) {
-            const c: Collection = { id: id++, name: link.collection, color: null, icon: null, count: 0, created_at: now };
-            created.push(c);
-            named.set(key, c.id);
-            collectionId = c.id;
+        for (const folder of link.path) {
+          const all = [...collections, ...created];
+          const same = all.find((c) => c.parent_id === collectionId && c.name.toLocaleLowerCase() === folder.toLocaleLowerCase());
+          if (same) {
+            collectionId = same.id;
+            continue;
           }
+          const taken = (name: string) => all.some((c) => c.name.toLocaleLowerCase() === name.toLocaleLowerCase());
+          const parent = all.find((c) => c.id === collectionId)?.name;
+          const base = taken(folder) && parent ? `${folder} (${parent})` : folder;
+          let name = base;
+          for (let n = 2; taken(name); n++) name = `${base} ${n}`;
+          const c: Collection = { id: id++, name, color: null, icon: null, count: 0, created_at: now, parent_id: collectionId };
+          created.push(c);
+          collectionId = c.id;
         }
         const url = new URL(link.url);
         added.push({
@@ -1885,7 +1962,7 @@ export const demo = {
       const same = collections.find((existing) => existing.name.toLocaleLowerCase() === c.name.toLocaleLowerCase());
       if (same) collectionOf.set(c.uid, same.id);
       else {
-        collections = [...collections, { id: id, name: c.name, color: c.color ?? null, icon: c.icon ?? null, count: 0, created_at: c.created_at }];
+        collections = [...collections, { id: id, name: c.name, color: c.color ?? null, icon: c.icon ?? null, count: 0, created_at: c.created_at, parent_id: null }];
         summary.collections.push(c.name);
         collectionOf.set(c.uid, id++);
       }
@@ -1995,7 +2072,7 @@ export const demo = {
       const same = collections.find((c) => c.name.toLocaleLowerCase() === name.toLocaleLowerCase());
       if (same) collectionId = same.id;
       else {
-        created = { id: id++, name, color: null, icon: null, count: 0, created_at: now };
+        created = { id: id++, name, color: null, icon: null, count: 0, created_at: now, parent_id: null };
         collectionId = created.id;
       }
     }
@@ -2421,11 +2498,6 @@ export const demo = {
     return { ...b };
   },
   /** The demo library is made in its language already. */
-  /** `db::reorder_collections`: every id gets its place, unknown ones change nothing. */
-  async reorderCollections(ids: number[]) {
-    collections = collections.map((c) => (ids.includes(c.id) ? { ...c, position: ids.indexOf(c.id) } : c));
-    persist();
-  },
   /** The preview compares by the interface's collator: nothing to write. */
   async setSortLanguage(_language: string) {
     return false;

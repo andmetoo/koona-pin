@@ -40,6 +40,9 @@ enum Op {
     Restore { pick: u16 },
     Purge { pick: u16 },
     DeleteCollection { pick: u16 },
+    /// A collection into another, or to the top level; refused, as in the app, into itself or
+    /// one of its own (schema 15).
+    Nest { pick: u16, to: u16 },
     /// A new address; refused, as in the app, when another bookmark has it.
     Address { pick: u16, url: usize },
     Rename { pick: u16, name: usize },
@@ -90,6 +93,7 @@ fn op() -> impl Strategy<Value = Op> {
         1 => pick.prop_map(|pick| Op::Restore { pick }),
         2 => pick.prop_map(|pick| Op::Purge { pick }),
         1 => pick.prop_map(|pick| Op::DeleteCollection { pick }),
+        2 => (pick, any::<u16>()).prop_map(|(pick, to)| Op::Nest { pick, to }),
         1 => (pick, 0..URLS).prop_map(|(pick, url)| Op::Address { pick, url }),
         1 => (pick, 0..COLLECTION_NAMES.len()).prop_map(|(pick, name)| Op::Rename { pick, name }),
         2 => pick.prop_map(|pick| Op::Reading { pick }),
@@ -257,6 +261,21 @@ fn edit(conn: &Connection, op: &Op, serial: &mut u64) {
         Op::DeleteCollection { pick: p } => {
             if let Some(id) = pick(conn, "SELECT id FROM collections ORDER BY id", *p) {
                 delete_collection(conn, id);
+            }
+        }
+        Op::Nest { pick: p, to } => {
+            if let Some(id) = pick(conn, "SELECT id FROM collections ORDER BY id", *p) {
+                let collections = ids(conn, "SELECT id FROM collections ORDER BY id");
+                let target = match *to as usize % (collections.len() + 1) {
+                    0 => None,
+                    i => Some(collections[i - 1]),
+                };
+                let inside: bool = target.is_some_and(|t| {
+                    one(conn, &format!("WITH RECURSIVE up(id) AS (SELECT {t} UNION SELECT c.parent_id FROM collections c JOIN up ON c.id = up.id WHERE c.parent_id IS NOT NULL) SELECT EXISTS (SELECT 1 FROM up WHERE id = {id})"))
+                });
+                if !inside {
+                    set_parent(conn, id, target);
+                }
             }
         }
         // The writes of `reading.rs`: several fields in one statement.

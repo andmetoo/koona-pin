@@ -1,13 +1,13 @@
-import { type CSSProperties, type FormEvent, type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
+import { type FormEvent, type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { AlertCircle, ChevronDown, Folder, Hash, Plus, Trash2, X } from "lucide-react";
 import { cleanTag, SEPARATORS, useCommaEnds } from "../../../components/library/Fields";
-import { collectionColor } from "../../../services/collections";
 import { describeError } from "../../../services/errors";
 import { composing } from "../../../services/ime";
 import type { Bookmark } from "../../../types";
 import { usePhone } from "../PhoneContext";
 import { Button } from "../ui/buttons";
 import { Chip } from "../ui/controls";
+import { CollectionGlyph } from "../ui/CollectionGlyph";
 import { PhIcon } from "../ui/icons";
 import { Sheet, SheetBar, useCloseSheet } from "../ui/Sheet";
 import { tagSuggestions } from "./editingLogic";
@@ -174,7 +174,7 @@ function EditForm({ bookmark }: { bookmark: Bookmark }) {
           <PhIcon icon={Folder} at="field" />
           <span className="ed-collection-label">{t("phone.edit.collection")}</span>
           <span className="ed-collection-chip">
-            {chosen && <span className="ph-chip-dot" style={{ "--dot": collectionColor(chosen.id) } as CSSProperties} />}
+            {chosen && <CollectionGlyph collection={chosen} />}
             <span className="ed-collection-name" data-user-text>
               {chosen ? chosen.name : t("phone.edit.noCollection")}
             </span>

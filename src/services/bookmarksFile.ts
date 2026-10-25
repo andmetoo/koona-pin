@@ -4,12 +4,17 @@ import type { SkipReason, SkippedLink } from "../types";
  * A browser bookmarks file read by the interface: the preview of the import
  * dialog (frame 28) and the demo adapter. The desktop import itself is
  * `import.rs`; the rule here is the same (Р-10 point 4) and is checked on the
- * same files of Chrome, Edge and Firefox.
+ * same files of Chrome, Edge and Firefox. Folders are nested collections down
+ * to `MAX_DEPTH` levels (2.19.0); the names of deeper ones become tags.
  */
+/** As `db::MAX_DEPTH` in the desktop app. */
+const MAX_DEPTH = 3;
+
 export type ParsedLink = {
   url: string;
   title: string;
-  collection: string | null;
+  /** The collections it sits in, outermost first, at most `MAX_DEPTH`; empty: none. */
+  path: string[];
   tags: string[];
   /** When the browser saved it (`ADD_DATE`), in the library's format. */
   addedAt: string | null;
@@ -132,9 +137,9 @@ export function parseBookmarksFile(html: string, now = new Date()): ParsedFile {
       own.push(f.name.trim());
       folders.add(own.join("\u0000"));
     });
-    const [collection = null, ...nested] = own;
-    const tags = [...new Set([...nested, ...link.tags].map((t) => t.trim().toLowerCase()).filter(Boolean))];
-    result.links.push({ url, title: link.title, collection, tags, addedAt: link.addDate ? parseTime(link.addDate, now) : null });
+    const path = own.slice(0, MAX_DEPTH);
+    const tags = [...new Set([...own.slice(MAX_DEPTH), ...link.tags].map((t) => t.trim().toLowerCase()).filter(Boolean))];
+    result.links.push({ url, title: link.title, path, tags, addedAt: link.addDate ? parseTime(link.addDate, now) : null });
   }
   result.folders = folders.size;
   return result;
