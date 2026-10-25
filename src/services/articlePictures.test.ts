@@ -130,7 +130,7 @@ describe("both readers", () => {
 
   it("a feed post keeps its srcset and lazy pictures", () => {
     const article = articleOfPost(
-      { id: 1, url: BASE, title: "Post", author: null, published_at: null, full: true, html: `<p>Hi</p><img src="/blank.gif" data-lazy-src="/a.jpg" srcset="/a.jpg 1x, /a@2x.jpg 2x">` },
+      { id: 1, url: BASE, title: "Post", author: null, published_at: null, full: true, language: null, html: `<p>Hi</p><img src="/blank.gif" data-lazy-src="/a.jpg" srcset="/a.jpg 1x, /a@2x.jpg 2x">` },
       null,
     );
     const img = doc(article.html).body.querySelector("img");

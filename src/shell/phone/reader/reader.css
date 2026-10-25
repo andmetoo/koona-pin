@@ -1,6 +1,6 @@
 /* The phone's reader (R1) and post view (FL2's content), NP-072b: full-bleed reading under glass
    circles, Inter titles, the text in Literata at the reading look's size (reader/look.ts sets
-   --rd-font, --rd-size and --rd-line, and the phone's tokens for a chosen theme). Scoped under
+   --rd-size, --rd-line and data-reader-font, and the phone's tokens for a chosen theme). Scoped under
    `.phone`; the desktop's article rules (app.css, a layer) give way to these. */
 
 /* ---------------------------------------------------------------- The top: glass circles 44 */
@@ -155,13 +155,13 @@
 }
 .phone .rd-screen .reader-dek {
   margin: 0 0 20px;
-  font-family: var(--rd-font, var(--ph-reading-font));
+  font-family: var(--reader-font, var(--reader-serif));
   font-size: 17px;
   line-height: 26px;
   color: var(--ph-body);
 }
 .phone .rd-screen .reader-body {
-  font-family: var(--rd-font, var(--ph-reading-font));
+  font-family: var(--reader-font, var(--reader-serif));
   font-size: var(--rd-size, 19px);
   line-height: var(--rd-line, 30px);
   color: var(--ph-body);
@@ -221,7 +221,7 @@
 }
 .phone .rd-post-lead figcaption {
   margin-top: 10px;
-  font-family: var(--rd-font, var(--ph-reading-font));
+  font-family: var(--reader-font, var(--ph-reading-font));
   font-size: 14px;
   line-height: 20px;
   font-style: italic;

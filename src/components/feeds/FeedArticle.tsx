@@ -91,6 +91,7 @@ export function FeedArticleSheet({
       aria-label={item ? item.title : t("feeds.article")}
       data-feed-article
       data-reader-look={look.theme}
+      data-reader-font={look.font}
       style={readerStyle(look)}
       className={`reading-look feed-sheet mx-2.5 mt-2.5 -mb-6 flex min-w-0 flex-1 flex-col overflow-hidden rounded-[18px] bg-sheet text-sheet-ink ${className}`}
     >

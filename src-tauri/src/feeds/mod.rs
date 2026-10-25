@@ -190,6 +190,8 @@ pub struct FeedArticle {
     /// As the feed sent it, unsanitised: the interface sanitises it at render.
     pub html: String,
     pub full: bool,
+    /// The feed's language, as the post's `lang`: hyphens and the serif follow it.
+    pub language: Option<String>,
 }
 
 /// A feed a page names with `<link rel="alternate">`, or the pasted address itself.
