@@ -245,3 +245,42 @@ export function watchPictures(body: HTMLElement): () => void {
     body.removeEventListener("error", onError, true);
   };
 }
+
+/** A link to a picture file rather than a page. */
+const PICTURE_FILE = /\.(?:jpe?g|png|gif|webp|avif)$/i;
+
+/** What the viewer shows for a picture of the article: where to get it large, and a page it links to. */
+export interface ViewerSource {
+  /** The picture as the article shows it, loaded already: the viewer opens with it. */
+  shown: string;
+  /** A larger one, when the srcset or a link to the file names it; loaded behind the shown one. */
+  large: string | null;
+  /** Its width in pixels as the srcset gives it, for the fit before it arrives. */
+  largeWidth: number | null;
+  /** A page the picture links to (not the picture file itself), for «Open link». */
+  link: string | null;
+}
+
+/** The sources of a picture on screen: the largest `w` of its srcset, else a file its link names. */
+export function viewerSource(img: HTMLImageElement): ViewerSource {
+  const shown = img.currentSrc || img.src;
+  let large: string | null = null;
+  let largeWidth: number | null = null;
+  for (const { url, descriptor } of parseSrcset(img.getAttribute("srcset") ?? "")) {
+    const width = /^(\d+)w$/.exec(descriptor)?.[1];
+    const address = pictureAddress(url, img.baseURI);
+    if (address && width && Number(width) > (largeWidth ?? 0)) [large, largeWidth] = [address, Number(width)];
+  }
+  const href = img.closest("a[href]")?.getAttribute("href") ?? null;
+  let link: string | null = null;
+  if (href && /^https?:/i.test(href)) {
+    const file = pictureAddress(href);
+    if (file && PICTURE_FILE.test(new URL(file).pathname)) {
+      if (!large) large = file;
+    } else link = href;
+  }
+  return { shown, large: large && large !== shown ? large : null, largeWidth, link };
+}
+
+/** A picture of the article that opens in the viewer: not a badge in the line, not a hidden one. */
+export const viewable = (img: HTMLImageElement) => !img.hasAttribute("data-inline") && !img.closest("[hidden]") && img.naturalWidth > 1;

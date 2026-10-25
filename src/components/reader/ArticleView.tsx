@@ -2,10 +2,11 @@ import { Fragment, MouseEvent, ReactNode, useEffect, useRef, useState } from "re
 import { ArrowUpRight, FileX, WifiOff } from "lucide-react";
 import { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { watchPictures } from "../../services/articlePictures";
+import { viewable, viewerSource, type ViewerSource, watchPictures } from "../../services/articlePictures";
 import { Article, openArticle, ReadFailure, readingMinutes } from "../../services/reader";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
+import { PictureViewer } from "./PictureViewer";
 import { HelpLink } from "../ui/HelpLink";
 
 type State = { url: string } & (
@@ -168,6 +169,8 @@ export function ArticleView({
   const body = useRef<HTMLDivElement>(null);
   // Broken pictures hide, small ones stay in the line: per article on screen.
   useEffect(() => (body.current ? watchPictures(body.current) : undefined), [article?.html]);
+  /** A picture of the article over the window (#400), with where it came from. */
+  const [viewing, setViewing] = useState<{ img: HTMLImageElement; source: ViewerSource; caption: string | null } | null>(null);
   useEffect(() => {
     if (article) onReady?.(article);
     // Once per article, not per render of the caller.
@@ -180,6 +183,19 @@ export function ArticleView({
   const copySaved = state.kind === "article" && state.offlineAt && offlineAt ? offlineAt : null;
 
   if (state.kind === "failed" && failure) return failure(state.failure);
+
+  // A picture opens in the viewer, even one inside a link (the viewer offers the link); a link in
+  // the text opens in the browser.
+  const click = (e: MouseEvent<HTMLElement>) => {
+    const img = (e.target as HTMLElement).closest("img");
+    if (img instanceof HTMLImageElement && viewable(img)) {
+      e.preventDefault();
+      const caption = img.closest("figure")?.querySelector("figcaption")?.textContent?.replace(/\s+/g, " ").trim() || null;
+      setViewing({ img, source: viewerSource(img), caption });
+      return;
+    }
+    if ((e.target as HTMLElement).closest(".reader-body")) follow(e);
+  };
 
   const follow = (e: MouseEvent<HTMLElement>) => {
     const link = (e.target as HTMLElement).closest<HTMLAnchorElement>("a[href]");
@@ -210,7 +226,8 @@ export function ArticleView({
     );
 
   return (
-    <article lang={article?.language ?? undefined} aria-busy={!article || undefined} className="reader-article mx-auto w-full max-w-[var(--reader-column,600px)]">
+    <>
+    <article lang={article?.language ?? undefined} aria-busy={!article || undefined} onClick={click} className="reader-article mx-auto w-full max-w-[var(--reader-column,600px)]">
       {header ?? (
       <p className="reader-meta">
         {[
@@ -233,7 +250,7 @@ export function ArticleView({
       {article?.description && <p className="reader-dek">{article.description}</p>}
       {lead}
       {article ? (
-        <div ref={body} className="reader-body" onClick={follow} dangerouslySetInnerHTML={{ __html: article.html }} />
+        <div ref={body} className="reader-body" dangerouslySetInnerHTML={{ __html: article.html }} />
       ) : (
         <div role="status" aria-label={t("reader.loading")} className="flex flex-col gap-3 pt-2">
           {[100, 96, 88, 100, 72].map((width, i) => (
@@ -259,6 +276,16 @@ export function ArticleView({
         </div>
       )}
     </article>
+    {viewing && (
+      <PictureViewer
+        img={viewing.img}
+        source={viewing.source}
+        caption={viewing.caption}
+        onOpen={onOpen}
+        onClose={() => setViewing(null)}
+      />
+    )}
+    </>
   );
 }
 

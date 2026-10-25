@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { addLeadPicture, parseSrcset, pictureAddress, preparePictures, restorePictures, watchPictures } from "./articlePictures";
+import { addLeadPicture, parseSrcset, pictureAddress, preparePictures, restorePictures, viewable, viewerSource, watchPictures } from "./articlePictures";
 import { articleOfPost } from "./feedsView";
 import { extractArticle } from "./reader";
 
@@ -168,5 +168,34 @@ describe("pictures on screen", () => {
     img("icon").dispatchEvent(new Event("load"));
     expect(img("icon").hasAttribute("data-inline")).toBe(true);
     again();
+  });
+});
+
+describe("what the viewer shows", () => {
+  const img = (html: string) => {
+    document.body.innerHTML = html;
+    return document.querySelector("img")!;
+  };
+
+  it("takes the widest of the srcset, behind the picture already shown", () => {
+    const source = viewerSource(img(`<img src="https://a.example/p-640.jpg" srcset="https://a.example/p-640.jpg 640w, https://a.example/p-1600.jpg 1600w, https://a.example/p-1024.jpg 1024w">`));
+    expect(source).toEqual({ shown: "https://a.example/p-640.jpg", large: "https://a.example/p-1600.jpg", largeWidth: 1600, link: null });
+  });
+
+  it("takes a link to the picture's file as the large one, and offers a link to a page", () => {
+    expect(viewerSource(img(`<a href="https://a.example/full/p.png"><img src="https://a.example/p.png"></a>`))).toMatchObject({ large: "https://a.example/full/p.png", link: null });
+    expect(viewerSource(img(`<a href="https://a.example/story"><img src="https://a.example/p.png"></a>`))).toMatchObject({ large: null, link: "https://a.example/story" });
+    expect(viewerSource(img(`<a href="#user-content-note"><img src="https://a.example/p.png"></a>`)).link).toBeNull();
+  });
+
+  it("opens pictures, not badges in the line or hidden ones", () => {
+    const picture = img(`<figure><img src="https://a.example/p.png"></figure>`);
+    Object.defineProperty(picture, "naturalWidth", { value: 800 });
+    expect(viewable(picture)).toBe(true);
+    picture.dataset.inline = "";
+    expect(viewable(picture)).toBe(false);
+    delete picture.dataset.inline;
+    picture.closest("figure")!.hidden = true;
+    expect(viewable(picture)).toBe(false);
   });
 });

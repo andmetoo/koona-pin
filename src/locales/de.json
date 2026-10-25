@@ -1050,6 +1050,15 @@
     "offlineBanner": "Keine Verbindung — Sie lesen die Offline-Kopie vom {{date}}",
     "tryLive": "Live-Seite versuchen"
   },
+  "viewer": {
+    "label": "Bild",
+    "close": "Schließen",
+    "zoomIn": "Vergrößern",
+    "zoomOut": "Verkleinern",
+    "fit": "An Fenster anpassen",
+    "zoom": "Zoom",
+    "openLink": "Link öffnen"
+  },
   "offline": {
     "save": "Offline speichern",
     "saved": "Offline gespeichert",

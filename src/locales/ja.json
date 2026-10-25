@@ -973,6 +973,15 @@
     "offlineBanner": "接続がありません — {{date}} に保存したオフラインコピーを表示中",
     "tryLive": "最新のページを試す"
   },
+  "viewer": {
+    "label": "画像",
+    "close": "閉じる",
+    "zoomIn": "拡大",
+    "zoomOut": "縮小",
+    "fit": "ウィンドウに合わせる",
+    "zoom": "ズーム",
+    "openLink": "リンクを開く"
+  },
   "offline": {
     "save": "オフライン保存",
     "saved": "オフライン保存済み",

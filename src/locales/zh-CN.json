@@ -973,6 +973,15 @@
     "offlineBanner": "无网络连接 — 正在阅读 {{date}} 保存的离线副本",
     "tryLive": "尝试在线页面"
   },
+  "viewer": {
+    "label": "图片",
+    "close": "关闭",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "fit": "适合窗口",
+    "zoom": "缩放",
+    "openLink": "打开链接"
+  },
   "offline": {
     "save": "离线保存",
     "saved": "已离线保存",
