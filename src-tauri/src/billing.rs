@@ -39,7 +39,7 @@ const ENVIRONMENT: Option<&str> = option_env!("KOONAPIN_PADDLE_ENV");
 // A store's release build (Google Play, the App Store) cannot ship without the account service: it
 // would sell nothing and offer no «Restore purchases», which the store's review refuses.
 #[cfg(all(any(play, appstore), not(debug_assertions)))]
-const _: () = assert!(URL.is_some() && KEY.is_some(), "set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY in .env for a store build (supabase/README.md)");
+const _: () = assert!(URL.is_some() && KEY.is_some(), "set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY in .env for a store build (docs/building.md)");
 
 /// The last days of a paid period, when the app asks once a day whether it renewed.
 const RENEWAL_WINDOW: TimeDelta = TimeDelta::days(3);
