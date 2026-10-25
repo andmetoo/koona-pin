@@ -866,7 +866,8 @@ async fn fetch(thumbs: &Arc<Thumbs>, address: &str, size: Size, wait: Option<Dur
         return Outcome::Nothing;
     }
     let key = key(address);
-    let url = match Url::parse(address.trim()) {
+    // Kept under the address it was asked by; a phone fetches a synced Google icon from the site.
+    let url = match Url::parse(crate::metadata::fetched_icon(address).trim()) {
         Ok(url) if matches!(url.scheme(), "http" | "https") && url.host_str().is_some() => url,
         // Not the web: never asked, the card shows its cover.
         _ => {

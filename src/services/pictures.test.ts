@@ -7,7 +7,7 @@ vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: (path: string, protocol: string) => `${protocol}://localhost/${encodeURIComponent(path)}`,
 }));
 
-import { hash8, pictureSrc } from "./pictures";
+import { hash8, pictureSrc, siteIcon } from "./pictures";
 
 describe("hash8", () => {
   it("is FNV-1a 32 over UTF-8, as 8 hex digits", () => {
@@ -70,5 +70,16 @@ describe("pictureSrc", () => {
     expect(pictureSrc("bookmark-image", 12, "https://x.org/a.png")).toBe("https://x.org/a.png");
     expect(pictureSrc("post-thumb", 7, "http://x.org/a.jpg")).toBe("https://x.org/a.jpg");
     expect(pictureSrc("bookmark-icon", 12, null)).toBeNull();
+  });
+});
+
+describe("siteIcon", () => {
+  it("turns Google's icon address into the site's own favicon", () => {
+    expect(siteIcon("https://www.google.com/s2/favicons?domain=example.org&sz=128")).toBe("https://example.org/favicon.ico");
+  });
+  it("keeps any other address, and a domain that is not one", () => {
+    expect(siteIcon("https://example.org/touch.png")).toBe("https://example.org/touch.png");
+    const odd = "https://www.google.com/s2/favicons?domain=evil.test/x&sz=128";
+    expect(siteIcon(odd)).toBe(odd);
   });
 });

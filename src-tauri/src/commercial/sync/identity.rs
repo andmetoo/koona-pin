@@ -172,6 +172,7 @@ fn name_or_host(name: &str) -> String {
 }
 
 /// The computer's name as the system gives it; `Computer` when it gives none.
+#[cfg(not(target_os = "ios"))]
 pub fn host_name() -> String {
     let name = system_host_name().unwrap_or_default();
     // macOS and some Linux names end in the local domain, which says nothing.
@@ -181,6 +182,19 @@ pub fn host_name() -> String {
     } else {
         name
     }
+}
+
+/// An iPhone's: `iPhone` and a random capital, made once with the device and kept with it. The
+/// system's own name often carries the person's, and the relay keeps the device's name (owner, 25
+/// October 2026).
+#[cfg(target_os = "ios")]
+pub fn host_name() -> String {
+    format!("iPhone {}", random_letter())
+}
+
+#[cfg(any(target_os = "ios", test))]
+fn random_letter() -> char {
+    char::from(b'A' + Uuid::new_v4().as_bytes()[0] % 26)
 }
 
 #[cfg(windows)]
@@ -200,7 +214,7 @@ fn system_host_name() -> Option<String> {
     Some(String::from_utf8_lossy(&buffer[..end]).into_owned())
 }
 
-#[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
+#[cfg(not(any(windows, target_os = "linux", target_os = "macos", target_os = "ios")))]
 fn system_host_name() -> Option<String> {
     None
 }
@@ -209,6 +223,13 @@ fn system_host_name() -> Option<String> {
 mod tests {
     use super::*;
     use std::fs;
+
+    #[test]
+    fn a_random_letter_is_a_latin_capital() {
+        for _ in 0..200 {
+            assert!(random_letter().is_ascii_uppercase());
+        }
+    }
 
     fn folder(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("koonapin-sync-identity-{name}-{}", Uuid::new_v4().simple()));
