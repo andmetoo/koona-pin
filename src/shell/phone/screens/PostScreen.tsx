@@ -15,6 +15,7 @@ import { usePicture } from "../../../hooks/usePicture";
 import { api } from "../../../services/api";
 import { describeError } from "../../../services/errors";
 import { feedName, getFeedArticle, saveFeedItem, setFeedItemsRead } from "../../../services/feeds";
+import { markViewable, unmarkViewable } from "../../../services/articlePictures";
 import { articleOfPost, captionOf, pictureUrl, publishedLine, startsWithPicture } from "../../../services/feedsView";
 import { type Article, cachedArticle, readingMinutes } from "../../../services/reader";
 import type { Bookmark, BookmarkChange, FeedArticle } from "../../../types";
@@ -236,7 +237,20 @@ export function PostScreen({ route, hidden }: { route: Extract<Route, { name: "p
             lead={
               lead.src ? (
                 <figure className="rd-post-lead">
-                  <img src={lead.src} alt="" referrerPolicy="no-referrer" onError={lead.onError} onLoad={lead.onLoad} tabIndex={0} role="button" aria-haspopup="dialog" aria-label={caption ?? t("viewer.label")} />
+                  <img
+                    src={lead.src}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    // A button for the picture viewer once it has loaded; none while it fails.
+                    onError={(e) => {
+                      unmarkViewable(e.currentTarget);
+                      lead.onError();
+                    }}
+                    onLoad={(e) => {
+                      lead.onLoad(e);
+                      markViewable(e.currentTarget, t("viewer.label"));
+                    }}
+                  />
                   {caption && <figcaption>{caption}</figcaption>}
                 </figure>
               ) : null

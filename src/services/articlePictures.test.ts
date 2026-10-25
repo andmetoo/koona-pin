@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { addLeadPicture, captionOf, parseSrcset, pictureAddress, pictureFor, preparePictures, restorePictures, viewable, viewerSource, watchPictures } from "./articlePictures";
+import { addLeadPicture, figureCaption, markViewable, parseSrcset, pictureAddress, pictureFor, preparePictures, restorePictures, unmarkViewable, viewable, viewerSource, watchPictures } from "./articlePictures";
 import { articleOfPost } from "./feedsView";
 import { extractArticle } from "./reader";
 
@@ -228,6 +228,19 @@ describe("pictures from the keyboard", () => {
     expect(pictureFor($("a"))).toBe($("a"));
     expect(pictureFor($("b"))).toBe($("c"));
     expect(pictureFor($("d"))).toBeNull();
-    expect(captionOf($("a") as HTMLImageElement)).toBeNull();
+    expect(figureCaption($("a") as HTMLImageElement)).toBeNull();
+  });
+});
+
+describe("a picture as a button", () => {
+  it("is named in the new language when marked again, and is no button once it fails", () => {
+    document.body.innerHTML = `<figure><img id="lead" src="https://a.example/a.jpg"></figure>`;
+    const img = document.getElementById("lead") as HTMLImageElement;
+    markViewable(img, "Picture");
+    expect(img.getAttribute("aria-label")).toBe("Picture");
+    markViewable(img, "Bild");
+    expect(img.getAttribute("aria-label")).toBe("Bild");
+    unmarkViewable(img);
+    expect(["tabindex", "role", "aria-haspopup", "aria-label"].map((name) => img.hasAttribute(name))).toEqual([false, false, false, false]);
   });
 });

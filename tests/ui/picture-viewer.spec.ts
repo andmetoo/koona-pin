@@ -193,3 +193,34 @@ test("a picture opens from the keyboard: Tab to it, Enter", async ({ page }) => 
   await expect(viewer(page)).toHaveCount(0);
   await expect(img).toBeFocused();
 });
+
+test("Enter on a link that is only a picture opens the picture, not the browser", async ({ page }) => {
+  const img = await readingWithPicture(page, `<p>Before.</p><p><a href="https://example.com/story"><img src="${PICTURE}" alt="Linked"></a></p>`);
+  // The link is the tab stop; the picture in it is no button of its own.
+  await expect(img).not.toHaveAttribute("role", "button");
+  await page.locator("[data-reading-mode] .reader-body a").focus();
+  await page.keyboard.press("Enter");
+  await expect(viewer(page)).toBeVisible();
+  expect(await opened(page)).toEqual([]);
+  await expect(viewer(page).getByRole("button", { name: "Open link" })).toBeVisible();
+});
+
+test("a pinch without a point zooms about the middle; one whose end never came leaves the wheel working", async ({ page }) => {
+  const img = await readingWithPicture(page);
+  await img.click();
+  await settled(page);
+  await viewer(page).locator("[data-viewer-picture]").evaluate((el) => {
+    const gesture = (type: string, scale: number) => el.dispatchEvent(Object.assign(new Event(type, { bubbles: true, cancelable: true }), { scale }));
+    gesture("gesturestart", 1);
+    gesture("gesturechange", 2);
+    // No gestureend: the window lost focus mid-pinch.
+  });
+  expect(await scale(page)).toBeCloseTo(2, 2);
+  const matrix = await picture(page).evaluate((el) => new DOMMatrix(getComputedStyle(el).transform));
+  expect([matrix.e, matrix.f]).toEqual([0, 0]);
+  await page.waitForTimeout(400);
+  const box = (await viewer(page).locator("[data-viewer-box]").boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, 100);
+  await expect.poll(() => scale(page)).toBeCloseTo(1.6, 2);
+});

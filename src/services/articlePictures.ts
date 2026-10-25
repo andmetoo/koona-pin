@@ -232,13 +232,8 @@ export function watchPictures(body: HTMLElement, label = "Picture"): () => void 
   const settle = (img: HTMLImageElement) => {
     if (!img.naturalWidth || !img.naturalHeight || (img.naturalWidth <= 1 && img.naturalHeight <= 1)) hide(img);
     else if (img.naturalHeight <= INLINE_HEIGHT && img.naturalWidth <= INLINE_WIDTH) img.dataset.inline = "";
-    else if (!img.closest("a[href]")) {
-      // It opens in the viewer: reachable by Tab and Enter too. One inside a link is reached by the link.
-      img.tabIndex = 0;
-      img.setAttribute("role", "button");
-      img.setAttribute("aria-haspopup", "dialog");
-      if (!img.alt.trim()) img.setAttribute("aria-label", captionOf(img) ?? label);
-    }
+    // It opens in the viewer: reachable by Tab and Enter too. One inside a link is reached by the link.
+    else if (!img.closest("a[href]")) markViewable(img, label);
   };
   const onLoad = (e: Event) => e.target instanceof HTMLImageElement && settle(e.target);
   const onError = (e: Event) => e.target instanceof HTMLImageElement && hide(e.target);
@@ -253,8 +248,24 @@ export function watchPictures(body: HTMLElement, label = "Picture"): () => void 
   };
 }
 
-/** The caption of the figure a picture is alone in, as one line. */
-export const captionOf = (img: HTMLImageElement) => img.closest("figure")?.querySelector("figcaption")?.textContent?.replace(/\s+/g, " ").trim() || null;
+/** The caption of the figure a picture is in, as one line. */
+export const figureCaption = (img: HTMLImageElement) => img.closest("figure")?.querySelector("figcaption")?.textContent?.replace(/\s+/g, " ").trim() || null;
+
+/**
+ * A loaded picture as a button that opens the viewer, for Tab and Enter: named by its alt, else
+ * its figure's caption, else `label`. Again with a new `label` renames it (a new language).
+ */
+export function markViewable(img: HTMLImageElement, label: string) {
+  img.tabIndex = 0;
+  img.setAttribute("role", "button");
+  img.setAttribute("aria-haspopup", "dialog");
+  if (!img.alt.trim()) img.setAttribute("aria-label", figureCaption(img) ?? label);
+}
+
+/** A picture that failed, or is loading another source: no button to press until it shows. */
+export function unmarkViewable(img: HTMLImageElement) {
+  for (const name of ["tabindex", "role", "aria-haspopup", "aria-label"]) img.removeAttribute(name);
+}
 
 /** A link to a picture file rather than a page. */
 const PICTURE_FILE = /\.(?:jpe?g|png|gif|webp|avif)$/i;

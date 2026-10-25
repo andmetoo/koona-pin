@@ -134,14 +134,17 @@ export function PictureViewer({ img, source, caption, onOpen, onClose }: {
   // under the dialog does not scroll.
   useEffect(() => {
     const element = dialog.current!;
-    let pinch: { scale: number } | null = null;
+    /** The WebKit pinch going on: the scale it began from, and when it last changed. */
+    let pinch: { scale: number; at: number } | null = null;
+    /** A pinch whose gestureend never came (the window lost focus) is over after a pause. */
+    const pinching = () => !!pinch && performance.now() - pinch.at < 300;
     /** The wheel burst going on: whether it zooms, and when its last event came. */
     let burst: { zooms: boolean; at: number } | null = null;
     const over = (target: EventTarget | null) => !closing.current && !!boxRef.current?.contains(target as Node);
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
       // WebKit may follow its gesture events with ctrl-wheels: one pinch zooms once.
-      if (pinch || !over(e.target)) return;
+      if (pinching() || !over(e.target)) return;
       const s = latest.current;
       const at = inBox(e);
       const notch = e.deltaMode === 1 || (Math.abs(e.deltaY) >= 50 && Number.isInteger(e.deltaY));
@@ -161,12 +164,16 @@ export function PictureViewer({ img, source, caption, onOpen, onClose }: {
     type Gesture = Event & { scale: number; clientX: number; clientY: number };
     const gestureStart = (e: Event) => {
       e.preventDefault();
-      pinch = over(e.target) ? { scale: latest.current.view.scale } : null;
+      pinch = over(e.target) ? { scale: latest.current.view.scale, at: performance.now() } : null;
     };
     const gestureChange = (e: Event) => {
       e.preventDefault();
       const g = e as Gesture;
-      if (pinch && typeof g.scale === "number") zoomTo(pinch.scale * g.scale, inBox(g), "none");
+      if (!pinch || !Number.isFinite(g.scale)) return;
+      pinch.at = performance.now();
+      // The point between the fingers when the event names one, else the picture's middle.
+      const at = Number.isFinite(g.clientX) && Number.isFinite(g.clientY) && (g.clientX || g.clientY) ? inBox(g) : { x: 0, y: 0 };
+      zoomTo(pinch.scale * g.scale, at, "none");
     };
     const gestureEnd = (e: Event) => {
       e.preventDefault();
