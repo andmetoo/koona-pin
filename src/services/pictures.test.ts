@@ -49,8 +49,8 @@ describe("pictureSrc", () => {
     expect(pictureSrc("post-thumb", 1, "")).toBeNull();
   });
 
-  it("keeps the feed filter: https and inline pictures only", () => {
-    expect(pictureSrc("post-thumb", 1, "http://x.org/a.jpg")).toBeNull();
+  it("keeps the feed filter: https (plain http upgraded) and inline pictures only", () => {
+    expect(pictureSrc("post-thumb", 1, "http://x.org/a.jpg")).toMatch(/^kpimg:/);
     expect(pictureSrc("feed-icon", "u", "javascript:alert(1)")).toBeNull();
     // A bookmark's picture is not filtered: the backend decides.
     expect(pictureSrc("bookmark-image", 1, "http://x.org/a.jpg")).toMatch(/^kpimg:/);
@@ -68,7 +68,7 @@ describe("pictureSrc", () => {
   it("passes the source address through outside Tauri", () => {
     env.tauri = false;
     expect(pictureSrc("bookmark-image", 12, "https://x.org/a.png")).toBe("https://x.org/a.png");
-    expect(pictureSrc("post-thumb", 7, "http://x.org/a.jpg")).toBeNull();
+    expect(pictureSrc("post-thumb", 7, "http://x.org/a.jpg")).toBe("https://x.org/a.jpg");
     expect(pictureSrc("bookmark-icon", 12, null)).toBeNull();
   });
 });

@@ -105,7 +105,7 @@ describe("hostile HTML", () => {
     expect(dom(result.article.html).textContent).toContain("The honest paragraph survives");
   });
 
-  it("lets no script, frame, form, style, handler or plain-http picture through", () => {
+  it("lets no script, frame, form, style, handler or plain-http address through", () => {
     if (!result.ok) throw new Error("no article");
     const html = result.article.html;
     expectHarmless(html);
@@ -130,10 +130,10 @@ describe("hostile HTML", () => {
     expect(html).not.toMatch(/alert\(/);
     expect(dom(html).textContent).toContain("The honest paragraph survives");
   });
-  it("keeps the https picture and the article's own links", () => {
+  it("keeps the https pictures, the plain-http one upgraded, and the article's own links", () => {
     if (!result.ok) throw new Error("no article");
     const body = dom(result.article.html);
-    expect(Array.from(body.querySelectorAll("img")).map((img) => img.getAttribute("src"))).toEqual(["https://cdn.example.org/diagram.png"]);
+    expect(Array.from(body.querySelectorAll("img")).map((img) => img.getAttribute("src"))).toEqual(["https://cdn.example.org/diagram.png", "https://tracker.example/pixel.gif"]);
     expect(body.querySelector("a[href='#user-content-note-1']")).not.toBeNull();
     expect(body.querySelector("a[href='https://example.org/source']")?.getAttribute("rel")).toBe("noopener noreferrer");
     expect(body.querySelector("a[href='https://other.example/page']")).not.toBeNull();

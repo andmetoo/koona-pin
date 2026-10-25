@@ -15,7 +15,7 @@ const PATHS: Record<PictureKind, (id: number | string) => string> = {
   "feed-icon": (id) => `f/${id}/icon`,
 };
 
-/** Feed pictures pass the same filter as before the cache: https and inline pictures only. */
+/** Feed pictures pass the same filter as before the cache: https (plain http upgraded) and inline pictures only. */
 const FEED_KINDS: ReadonlySet<PictureKind> = new Set(["post-thumb", "feed-icon"]);
 
 /** The address a picture of this kind is shown from, before the cache: null when there is none. */

@@ -1174,6 +1174,17 @@
     margin: 0 auto;
     border-radius: 10px;
   }
+  /* A badge, an icon, a formula (watchPictures): in the line, at its own size. */
+  .reader-body img[data-inline] {
+    display: inline;
+    vertical-align: middle;
+    margin: 0;
+    border-radius: 0;
+  }
+  /* A picture that failed, and the figure it was alone in. */
+  .reader-body [hidden] {
+    display: none;
+  }
   .reader-body figcaption {
     margin-top: 8px;
     font-family: var(--font-sans);
