@@ -2,6 +2,7 @@
   "language": { "name": "日本語" },
   "common": {
     "ctrl": "Ctrl",
+    "shift": "Shift",
     "close": "閉じる",
     "soon": "今後のバージョンで対応予定",
     "keep": "残す",

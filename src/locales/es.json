@@ -2,6 +2,7 @@
   "language": { "name": "Español" },
   "common": {
     "ctrl": "Ctrl",
+    "shift": "Mayús",
     "close": "Cerrar",
     "soon": "Llegará en una versión posterior",
     "keep": "Conservar",

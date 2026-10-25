@@ -2,6 +2,7 @@
   "language": { "name": "Deutsch" },
   "common": {
     "ctrl": "Strg",
+    "shift": "Umschalt",
     "close": "Schließen",
     "soon": "Kommt in einer späteren Version",
     "keep": "Behalten",

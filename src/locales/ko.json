@@ -2,6 +2,7 @@
   "language": { "name": "한국어" },
   "common": {
     "ctrl": "Ctrl",
+    "shift": "Shift",
     "close": "닫기",
     "soon": "이후 버전에서 제공 예정",
     "keep": "유지",

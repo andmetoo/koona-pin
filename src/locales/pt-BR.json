@@ -2,6 +2,7 @@
   "language": { "name": "Português (Brasil)" },
   "common": {
     "ctrl": "Ctrl",
+    "shift": "Shift",
     "close": "Fechar",
     "soon": "Chega em uma versão futura",
     "keep": "Manter",

@@ -2,6 +2,7 @@
   "language": { "name": "Polski" },
   "common": {
     "ctrl": "Ctrl",
+    "shift": "Shift",
     "close": "Zamknij",
     "soon": "Pojawi się w kolejnej wersji",
     "keep": "Zostaw",

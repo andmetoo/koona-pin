@@ -2,6 +2,7 @@
   "language": { "name": "简体中文" },
   "common": {
     "ctrl": "Ctrl",
+    "shift": "Shift",
     "close": "关闭",
     "soon": "将在后续版本中提供",
     "keep": "保留",

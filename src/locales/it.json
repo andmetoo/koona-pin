@@ -2,6 +2,7 @@
   "language": { "name": "Italiano" },
   "common": {
     "ctrl": "Ctrl",
+    "shift": "Maiusc",
     "close": "Chiudi",
     "soon": "Arriverà in una prossima versione",
     "keep": "Tieni",

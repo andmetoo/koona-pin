@@ -2,6 +2,7 @@
   "language": { "name": "Türkçe" },
   "common": {
     "ctrl": "Ctrl",
+    "shift": "Shift",
     "close": "Kapat",
     "soon": "Sonraki bir sürümde gelecek",
     "keep": "Tut",

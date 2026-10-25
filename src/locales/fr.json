@@ -2,6 +2,7 @@
   "language": { "name": "Français" },
   "common": {
     "ctrl": "Ctrl",
+    "shift": "Maj",
     "close": "Fermer",
     "soon": "Dans une prochaine version",
     "keep": "Garder",

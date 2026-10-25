@@ -248,6 +248,10 @@ test("Unread | All: Unread keeps the open post until another opens, and is remem
   // Read after a second, and still in the list while it is open.
   await expect(posts(page).first()).toHaveAttribute("data-read", "true", { timeout: 3000 });
   await expect(posts(page)).toHaveCount(unread);
+  // Kept by the query itself, so a save shows on it like on any other row.
+  await page.keyboard.press("s");
+  await expect(posts(page).first().locator("[data-feed-saved]")).toBeVisible();
+  await expect(sheet(page).getByRole("button", { name: "Saved", exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("j");
   await expect(posts(page).nth(1)).toHaveAttribute("aria-selected", "true");
   // Once the next one is read, the one left goes.

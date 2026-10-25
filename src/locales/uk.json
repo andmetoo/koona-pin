@@ -2,6 +2,7 @@
   "language": { "name": "Українська" },
   "common": {
     "ctrl": "Ctrl",
+    "shift": "Shift",
     "close": "Закрити",
     "soon": "З'явиться в наступних версіях",
     "keep": "Залишити",

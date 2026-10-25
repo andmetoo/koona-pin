@@ -18,6 +18,11 @@ export function shortcut(key: string, mac = isMac()): string {
   return mac ? `⌘${key}` : `${i18n.t("common.ctrl")} ${key}`;
 }
 
+/** A shortcut with Shift, written the same way: «⇧A» on a Mac, «Shift A» elsewhere («Umschalt A»). */
+export function shiftShortcut(key: string, mac = isMac()): string {
+  return mac ? `⇧${key}` : `${i18n.t("common.shift")} ${key}`;
+}
+
 /**
  * A letter shortcut by the key's place as well as its letter: J on a Russian
  * layout types «о», and the key still means J (reading mode, the feeds page).

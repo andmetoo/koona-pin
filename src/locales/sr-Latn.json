@@ -4,6 +4,7 @@
   },
   "common": {
     "ctrl": "Ctrl",
+    "shift": "Shift",
     "close": "Zatvori",
     "soon": "Stiže u nekoj od sledećih verzija",
     "keep": "Zadrži",

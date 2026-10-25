@@ -6,7 +6,7 @@ import type { Feed, FeedItem } from "../../types";
 import { feedName } from "../../services/feeds";
 import { dayGroups, dayLabel, postAge } from "../../services/feedsView";
 import { usePicture } from "../../hooks/usePicture";
-import { isMac, shortcut } from "../../services/keys";
+import { shiftShortcut, shortcut } from "../../services/keys";
 import { Icon } from "../icons";
 import { Hint } from "../ui/Hint";
 import { FeedIcon } from "./FeedIcon";
@@ -97,7 +97,8 @@ export function FeedList({
     },
     overscan: 6,
   });
-  useEffect(() => virtualizer.measure(), [virtualizer, entries]);
+  // Rows are measured as drawn (2.17.0: pictures make them taller) and kept by key, so a reload
+  // after a read mark keeps them; no `measure()` that would set them all back to the guess.
 
   const focusing = useRef<number | null>(null);
   useImperativeHandle(listRef, () => ({
@@ -139,7 +140,7 @@ export function FeedList({
         <div className="flex items-start gap-2">
           <h1 className="min-w-0 flex-1 truncate text-[26px] leading-[30px] font-bold tracking-[-0.01em]">{title}</h1>
           <div className="flex shrink-0 items-center gap-1">
-            <Hint label={t("feeds.menu.markRead")} keys={isMac() ? "⇧A" : "Shift A"}>
+            <Hint label={t("feeds.menu.markRead")} keys={shiftShortcut("A")}>
               <button
                 type="button"
                 aria-label={t("feeds.menu.markRead")}

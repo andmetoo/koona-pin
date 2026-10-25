@@ -13,6 +13,11 @@ feed_uid?: string, unread_only: boolean,
  */
 search?: string, 
 /**
+ * With `unread_only`, this post is listed too once read: the one open in the sheet stays in
+ * its place while it is read (2.17.0).
+ */
+keep?: number, 
+/**
  * `FeedItemPage::next` of the page before; none for the first.
  */
 after?: string, limit: number, };
