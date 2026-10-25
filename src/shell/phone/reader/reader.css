@@ -173,7 +173,7 @@
   font-family: var(--np-font);
   color: var(--ph-ink);
 }
-.phone .rd-screen .reader-body img {
+.phone .rd-screen .reader-body img:not([data-inline]) {
   border-radius: var(--ph-r-thumb);
 }
 .phone .rd-screen .reader-body blockquote {

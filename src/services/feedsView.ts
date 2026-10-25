@@ -3,6 +3,7 @@
 import type { TFunction } from "i18next";
 import type { Feed, FeedArticle, FeedItem } from "../types";
 import { feedName } from "./feeds";
+import { pictureAddress, preparePictures, restorePictures } from "./articlePictures";
 import { Article, countWords, sanitize } from "./reader";
 
 /** «3h», «2d»: the age in the list's first line, short as the frame has it; a week on, the date. */
@@ -94,20 +95,16 @@ export function startsWithPicture(html: string): boolean {
   return false;
 }
 
-/** A picture address the sheet and the list may load: https, or one a feed or the preview inlines. */
+/** A picture address the sheet and the list may load: https (plain http upgraded), or one a feed or the preview inlines. */
 export function pictureUrl(raw: string | null | undefined): string | null {
   if (!raw) return null;
   if (/^data:image\/(png|jpeg|gif|webp|avif|svg\+xml)[;,]/i.test(raw)) return raw;
-  try {
-    return new URL(raw).protocol === "https:" ? raw : null;
-  } catch {
-    return null;
-  }
+  return pictureAddress(raw);
 }
 
 /**
  * The cached post as reading mode's `Article` (NP-132): links made absolute against the
- * post's address and opened in the browser, pictures over https only, then the same
+ * post's address and opened in the browser, pictures as reading mode prepares them, then the same
  * `sanitize()` — no scripts, frames, forms, SVG or media reach the sheet.
  */
 export function articleOfPost(post: FeedArticle, site: string | null): Article {
@@ -131,23 +128,8 @@ export function articleOfPost(post: FeedArticle, site: string | null): Article {
       a.removeAttribute("href");
     }
   }
-  for (const img of Array.from(doc.querySelectorAll("img"))) {
-    let src: string | null = null;
-    try {
-      src = new URL(img.getAttribute("src")?.trim() ?? "", base).href;
-    } catch {
-      src = null;
-    }
-    if (!src || !src.startsWith("https:")) {
-      img.remove();
-      continue;
-    }
-    img.setAttribute("src", src);
-    img.removeAttribute("srcset");
-    img.setAttribute("loading", "lazy");
-    img.setAttribute("decoding", "async");
-    img.setAttribute("referrerpolicy", "no-referrer");
-  }
+  restorePictures(doc);
+  preparePictures(doc, base);
   const html = sanitize(doc.body.innerHTML);
   return {
     url: post.url ?? "",
