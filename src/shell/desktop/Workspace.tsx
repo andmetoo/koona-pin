@@ -503,10 +503,11 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
           <main ref={mainRef} className="relative flex min-w-0 flex-1 flex-col">
             {page === "settings" ? (
               <>
-                <div data-drop-head className={`${padding} pt-2 pb-5`}>
+                <div data-drop-head className={`${padding} pt-2 pb-1.5`}>
                   <h1 className="flex h-9 items-center text-2xl font-semibold">{t("nav.settings")}</h1>
                 </div>
-                <div data-drop-area className={`min-h-0 flex-1 overflow-y-auto ${padding}`}>
+                {/* The groups fade in under the title as the sidebar's middle does (2.17.1), not cut at a hard edge. */}
+                <div data-drop-area className={`scroll-fade min-h-0 flex-1 overflow-y-auto pt-3.5 ${padding}`}>
                   <SettingsPage
                     theme={theme}
                     onTheme={setTheme}
