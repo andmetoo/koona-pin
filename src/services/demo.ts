@@ -2444,9 +2444,9 @@ export const demo = {
   async createStarterLibrary(_names: string[], _links: StarterLink[]): Promise<StarterLibrary> {
     return { collections: [], links: [] };
   },
-  /** The demo has no share queue of its own: the build's capability says it all. */
+  /** The demo's share queue is there unless a test says not (an iPhone signed without its App Group). */
   async shareIntakeReady(): Promise<boolean> {
-    return true;
+    return localStorage.getItem("koonapin.demo.shareQueue") !== "none";
   },
   /** Starter links of the sample library: a test puts their ids into localStorage. */
   async getStarterLinks(): Promise<number[]> {

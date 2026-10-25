@@ -242,7 +242,12 @@ writeFileSync(profileFile, execFileSync("security", ["cms", "-D", "-i", path.joi
 if (plist(profileFile, "ProvisionedDevices") !== undefined) failures.push("the profile lists devices: it is not an App Store profile");
 expect("the profile's team", plist(profileFile, "TeamIdentifier:0"), team);
 // The App Group on the app and the extension (koona-share's queue), and the extension signed and versioned as the app.
-const groups = (file) => plist(file, "com.apple.security.application-groups") ?? "";
+// PlistBuddy prints the array as «Array {», one group per line, «}»: the groups, matched whole.
+const groups = (file) =>
+  (plist(file, "com.apple.security.application-groups") ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && line !== "Array {" && line !== "}");
 if (!groups(entitlementsFile).includes(appGroup)) failures.push(`the app's entitlements have no App Group ${appGroup}`);
 for (const { appex, id } of extensions) {
   const extension = path.join(bundle, "PlugIns", appex);

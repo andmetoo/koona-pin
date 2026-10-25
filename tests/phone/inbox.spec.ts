@@ -232,6 +232,20 @@ test("the inbox sorted: summary, undo of the last decision, then the library; em
   await expect(page.locator('[data-sheet-kind="newLink"]').getByRole("dialog")).toBeVisible();
 });
 
+test("an iPhone whose share queue is missing (no App Group) offers New link, not the share sheet", async ({ page }) => {
+  await openPhone(page, { platform: "ios", capabilities: { share_intake: true }, settings: { "demo.shareQueue": "none" } });
+  await navPill(page).getByRole("button", { name: "Inbox" }).click();
+  for (let left = Number((await count(page).textContent())!.split(" of ")[1]); left > 0; left--) {
+    await pill(page).getByRole("button", { name: "Keep" }).click();
+  }
+  await page.locator("[data-inbox-sorted]").getByRole("button", { name: "Go to library" }).click();
+  await navPill(page).getByRole("button", { name: "Inbox" }).click();
+  const empty = page.locator("[data-inbox-empty]");
+  await expect(empty.getByRole("heading", { name: "All sorted" })).toBeVisible();
+  await expect(empty).toContainText("Links you save land here.");
+  await expect(empty).not.toContainText("Share → Koona Pin");
+});
+
 test("a tap on the card opens it in the reader; Back returns to the same card", async ({ page }) => {
   await openInbox(page);
   const first = await card(page).getAttribute("data-triage-card");

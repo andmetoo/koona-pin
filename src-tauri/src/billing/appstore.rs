@@ -378,9 +378,11 @@ async fn verify<A: Account>(account: &A, secret: &str) -> Result<Option<PlayStat
     let (status, value) = account.ask(body, bearer).await?;
     // An adopted purchase whose claim the server refuses was adopted first elsewhere (another
     // iPhone on the same Apple Account): not invalid, it belongs to the account it was bound to.
+    // Done here as «owned»: the sheet shows it only when it follows this purchase (or none), and
+    // Restore then asks whether the account signed in is its owner.
     if checkout.original.is_some() && status == reqwest::StatusCode::FORBIDDEN && value["error"] == "claim" {
-        account.update(|s| s.appstore.retain(|c| c.secret != secret))?;
-        return owned_here(account).await.map(Some);
+        account.update(|s| s.finish_appstore(secret, PlayState::Owned))?;
+        return Ok(Some(PlayState::Owned));
     }
     let verdict = verdict(status, &value)?;
     let mut state = None;
@@ -603,8 +605,10 @@ async fn resume_with<A: Account, S: Store>(account: &A, store: &S, listed: Optio
     if let Some(listed) = &listed {
         account.update(|s| {
             let signed_in = s.session.as_ref().map(|session| session.email.clone());
-            s.adopt_appstore(listed.entitlements.iter().chain(&listed.unfinished), signed_in, Utc::now());
-            s.find_appstore(listed.entitlements.iter().chain(&listed.unfinished));
+            // Unfinished first, then what the Apple Account owns now (the latest of each purchase),
+            // so the newest transaction is the one kept.
+            s.adopt_appstore(listed.unfinished.iter().chain(&listed.entitlements), signed_in, Utc::now());
+            s.find_appstore(listed.unfinished.iter().chain(&listed.entitlements));
         })?;
     }
     let at = Utc::now();
@@ -613,6 +617,9 @@ async fn resume_with<A: Account, S: Store>(account: &A, store: &S, listed: Optio
         .appstore
         .iter()
         .filter(|c| c.jws.is_some() && (now || c.asked_at.is_none_or(|asked| asked > at || at - asked >= FRESH)))
+        // An adopted purchase that waits for its owner's email is asked about again only when
+        // something can change it: a sign-in (`verify_waiting`), «Try again» or «Restore».
+        .filter(|c| now || !(c.original.is_some() && c.state == Some(PlayState::Email)))
         .map(|c| c.secret.clone())
         .collect();
     for secret in due {
@@ -668,7 +675,8 @@ async fn restore<A: Account, S: Store>(account: &A, store: &S) -> Result<PlaySta
             return Ok(progress.state);
         }
     }
-    if let Some(progress) = stored.appstore_outcome.as_ref().map(|(_, state)| *state) {
+    // «Owned» elsewhere is settled below, by whether the account signed in owns it.
+    if let Some(progress) = stored.appstore_outcome.as_ref().map(|(_, state)| *state).filter(|state| *state != PlayState::Owned) {
         return Ok(progress);
     }
     if ours.is_empty() {
@@ -1316,6 +1324,29 @@ mod tests {
         fake.lists(vec![], vec![transaction("9800", LIFETIME_PRODUCT, None)]);
         assert_eq!(run(restore(&fake, &fake)).ok(), Some(PlayState::Owned));
         assert!(fake.billing.get().appstore.is_empty());
+        // Found in the background while the sheet follows another purchase: that one stays shown.
+        let busy = Fake::new(|_, _| Ok((403, json!({ "error": "claim" }))));
+        busy.set(|s| {
+            s.appstore.push(AppStoreCheckout { state: Some(PlayState::Email), ..checkout("s1", "2026-10-25T10:00:00Z") });
+            s.appstore_followed = Some("s1".into());
+        });
+        busy.lists(vec![], vec![transaction("9801", LIFETIME_PRODUCT, None)]);
+        run(resume(&busy, &busy, None, false)).unwrap();
+        assert_eq!(busy.billing.get().appstore_progress().map(|p| p.state), Some(PlayState::Email));
+        assert_eq!(busy.plan_checks.load(std::sync::atomic::Ordering::SeqCst), 0, "no plan check for it");
+    }
+
+    #[test]
+    fn an_adopted_purchase_waiting_for_an_email_is_not_asked_about_on_every_return() {
+        let fake = Fake::new(|_, _| Ok((200, json!({ "status": "email" }))));
+        fake.lists(vec![], vec![transaction("9900", MONTHLY, None)]);
+        run(resume(&fake, &fake, None, false)).unwrap();
+        assert_eq!(fake.asked("appstore_verify").len(), 1);
+        fake.set(|s| s.appstore[0].asked_at = Some(at("2026-10-01T10:00:00Z")));
+        run(resume(&fake, &fake, None, false)).unwrap();
+        assert_eq!(fake.asked("appstore_verify").len(), 1, "back to the screen: not asked again");
+        run(resume(&fake, &fake, None, true)).unwrap();
+        assert_eq!(fake.asked("appstore_verify").len(), 2, "Try again or Restore: asked");
     }
 
     #[test]

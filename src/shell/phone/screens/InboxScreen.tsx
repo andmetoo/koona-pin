@@ -1,8 +1,6 @@
 import "./InboxScreen.css";
-import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useLayoutEffect, useRef } from "react";
 import { BookOpen, Check, CircleAlert, Ellipsis, Trash2 } from "lucide-react";
-import { capabilities } from "../../../platform/capabilities";
-import { api } from "../../../services/api";
 import { success } from "../../../platform/haptics";
 import { collectionColor } from "../../../services/collections";
 import { collectionKeys } from "../../../services/triage";
@@ -30,14 +28,6 @@ const CHIPS = 5;
 const LIFT = 90;
 
 /**
- * The share sheet's hint only where shared links really arrive (an iPhone needs its App Group):
- * asked of the app once per run, since it can't change while the app runs.
- */
-let shareReady: boolean | undefined = capabilities.share_intake ? undefined : false;
-let asking: Promise<boolean> | null = null;
-const askShareReady = () => (asking ??= api.shareIntakeReady().then((ready) => (shareReady = ready), () => false));
-
-/**
  * I1–I3 and E1, the Inbox (NP-072b): with links waiting, triage — "Sort inbox" with "5 of 12" and
  * Done, the progress, the card stack with swipes, "File into a collection" chips with the
  * suggested one, the decision pill; sorted, the summary (I3); nothing waiting, "All sorted" (E1).
@@ -46,7 +36,7 @@ const askShareReady = () => (asking ??= api.shareIntakeReady().then((ready) => (
  * waiting here).
  */
 export function InboxScreen({ hidden }: { hidden: boolean }) {
-  const { app, stack, sheets, bar, fold } = usePhone();
+  const { app, stack, sheets, bar, fold, shareIntake } = usePhone();
   // iPhone Duo's inner display (DU3): two full-height panels, "Up next" and Undo on the left, the
   // card and the pill under the thumb on the right; no Done there (nor on the outer display, DO1).
   const duo = !!bar;
@@ -54,15 +44,6 @@ export function InboxScreen({ hidden }: { hidden: boolean }) {
   const { t } = app;
   const triage = useTriage(app);
   const { state } = triage;
-  const [shareIntake, setShareIntake] = useState(() => shareReady ?? false);
-  useEffect(() => {
-    if (shareReady !== undefined) return;
-    let live = true;
-    void askShareReady().then((ready) => live && setShareIntake(ready));
-    return () => {
-      live = false;
-    };
-  }, []);
   const card = currentOf(state);
   const done = isDone(state);
   const steps = state?.steps.length ?? 0;
