@@ -6,11 +6,11 @@ const choice = (more: Partial<ReaderChoice> = {}): ReaderChoice => ({ theme: "au
 const lookOf = (c: ReaderChoice, appDark = false) => phoneReaderLook(resolveReaderLook(c, { appDark, unlocked: false }), c);
 
 describe("the phone's reading look", () => {
-  it("reads R1's Literata 19/30 at the default size", () => {
+  it("reads R1's Literata 19/30 at the default size, the article's own serif", () => {
     const { style, page } = lookOf(choice());
     expect(style["--rd-size"]).toBe("19px");
     expect(style["--rd-line"]).toBe("30px");
-    expect(style["--rd-font"]).toContain("Literata");
+    expect(lookOf(choice()).font).toBe("serif");
     expect(page).toBeNull();
   });
 
@@ -32,8 +32,8 @@ describe("the phone's reading look", () => {
   });
 
   it("takes the font and size of the choice", () => {
-    const { style } = lookOf(choice({ font: "sans", size: 22 }));
-    expect(style["--rd-font"]).toBe("var(--np-font)");
+    const { style, font } = lookOf(choice({ font: "sans", size: 22 }));
+    expect(font).toBe("sans");
     expect(style["--rd-size"]).toBe("23px");
     expect(style["--rd-line"]).toBe("36px");
   });

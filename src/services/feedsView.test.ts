@@ -83,7 +83,7 @@ describe("the caption under the picture", () => {
 });
 
 describe("the cached article", () => {
-  const post = (html: string) => ({ id: 1, url: "https://blog.example.org/2026/post", title: "Title", author: "Ann", published_at: hoursAgo(1), html, full: true });
+  const post = (html: string) => ({ id: 1, url: "https://blog.example.org/2026/post", title: "Title", author: "Ann", published_at: hoursAgo(1), html, full: true, language: "en-gb" });
 
   it("never keeps a script, a frame, a form, SVG, styles or handlers of a hostile post", () => {
     const article = articleOfPost(
@@ -123,7 +123,7 @@ describe("the cached article", () => {
     const images = Array.from(body.querySelectorAll("img"));
     expect(images.map((img) => img.getAttribute("src"))).toEqual(["https://blog.example.org/a.jpg", "https://plain.example/b.jpg"]);
     expect(images[0].getAttribute("referrerpolicy")).toBe("no-referrer");
-    expect(article).toMatchObject({ title: "Title", author: "Ann", site: "Example", url: "https://blog.example.org/2026/post", description: null });
+    expect(article).toMatchObject({ title: "Title", author: "Ann", site: "Example", url: "https://blog.example.org/2026/post", description: null, language: "en-gb" });
     expect(article.words).toBe(2);
   });
 });

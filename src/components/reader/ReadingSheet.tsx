@@ -127,6 +127,7 @@ export function ReadingSheet({
       aria-label={b.title || b.url}
       data-reading-sheet
       data-reader-look={look.theme}
+      data-reader-font={look.font}
       style={readerStyle(look)}
       className="reading-sheet reading-look fixed inset-0 m-0 h-full max-h-none w-full max-w-none bg-transparent p-0"
       onCancel={(e) => {

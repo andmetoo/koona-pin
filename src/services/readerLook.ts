@@ -87,12 +87,6 @@ export const FREE_PALETTES: Record<FreeTheme, ReaderPalette> = {
   },
 };
 
-/** The faces of the fonts; Literata and Inter ship with the app (OFL). */
-const FONT_STACKS: Record<ReaderFont, string> = {
-  serif: '"Literata Variable", Literata, Georgia, "Times New Roman", serif',
-  sans: 'var(--np-font)',
-};
-
 /** What a Supporter build adds: the palettes of its themes by id. */
 export interface SupporterLook {
   themes: Partial<Record<(typeof SUPPORTER_THEMES)[number], ReaderPalette>>;
@@ -166,8 +160,13 @@ export function saveReaderChoice(choice: ReaderChoice) {
 export interface ReaderLook {
   theme: ReaderTheme;
   palette: ReaderPalette;
+  /**
+   * Literata and Inter ship with the app (OFL). The font is no CSS variable: a stack set on
+   * the mode's root is resolved there, in the interface's language. The root carries
+   * `data-reader-font` and the article picks its own Chinese, Japanese or Korean fallback
+   * by its `lang` (app.css, --reader-serif and --np-font).
+   */
   font: ReaderFont;
-  fontStack: string;
   size: number;
   /** Line height of the body: B3's 30 on 18, the same rhythm at other sizes. */
   lineHeight: number;
@@ -183,7 +182,6 @@ export function resolveReaderLook(choice: ReaderChoice, { appDark, unlocked }: {
     theme,
     palette: paletteOf(theme)!,
     font: choice.font,
-    fontStack: FONT_STACKS[choice.font],
     size: choice.size,
     lineHeight: Math.round((choice.size * 5) / 3),
     column: choice.column,
@@ -213,7 +211,6 @@ export function readerStyle(look: ReaderLook): CSSProperties {
     "--np-sheet": p.read,
     "--np-sheet-ink": p.ink,
     "--np-sheet-line": p.border,
-    "--reader-font": look.fontStack,
     "--reader-size": `${look.size}px`,
     "--reader-line": `${look.lineHeight}px`,
     "--reader-width": `${look.width}px`,

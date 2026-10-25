@@ -35,6 +35,9 @@ pub struct ParsedFeed {
     pub site_url: Option<String>,
     pub icon_url: Option<String>,
     pub description: Option<String>,
+    /// RSS `<language>`, Atom `xml:lang`, JSON Feed `language`: a BCP 47 tag such as `en-gb`,
+    /// for the reader's hyphens and fonts.
+    pub language: Option<String>,
     /// RSS `<ttl>`, in minutes; the schedule may wait longer, never shorter.
     pub ttl_minutes: Option<u32>,
     /// In document order, at most 500.
@@ -250,9 +253,18 @@ fn map(feed: Feed, source: &[u8], base: &Url) -> ParsedFeed {
         site_url,
         icon_url: feed.icon.iter().chain(feed.logo.iter()).find_map(|image| web_url(base, &image.uri)),
         description: feed.description.as_ref().map(|t| clip(&text_of(&t.content), MAX_EXCERPT)).filter(|t| !t.is_empty()),
+        language: feed.language.as_deref().and_then(language_tag),
         ttl_minutes: feed.ttl,
         items,
     }
+}
+
+/// A language tag as the reader can put it in `lang`: `en_US` and `EN-us` become `en-us`;
+/// anything that is not letters and digits in parts of up to eight is none.
+fn language_tag(raw: &str) -> Option<String> {
+    let tag = raw.trim().replace('_', "-").to_ascii_lowercase();
+    let valid = tag.split('-').all(|part| (1..=8).contains(&part.len()) && part.bytes().all(|b| b.is_ascii_alphanumeric()));
+    (valid && tag.split('-').next().is_some_and(|primary| (2..=3).contains(&primary.len()) && primary.bytes().all(|b| b.is_ascii_alphabetic()))).then_some(tag)
 }
 
 fn item(entry: &Entry, base: &Url, recovered: Option<String>, json_image: Option<String>) -> ParsedItem {
@@ -750,6 +762,12 @@ mod tests {
         assert_eq!(feed.title.as_deref(), Some("Example Kitchen"));
         assert_eq!(feed.site_url.as_deref(), Some("https://kitchen.example.com/"));
         assert_eq!(feed.description.as_deref(), Some("Recipes tested twice."));
+        assert_eq!(feed.language.as_deref(), Some("en-gb"));
+        assert_eq!(language_tag(" pt-BR "), Some("pt-br".into()));
+        assert_eq!(language_tag("zh-Hant-TW"), Some("zh-hant-tw".into()));
+        for junk in ["", "english", "e", "en--us", "12", "en us", "en-<b>"] {
+            assert_eq!(language_tag(junk), None, "{junk}");
+        }
         let first = &feed.items[0];
         assert_eq!(first.key, "kitchen-0002");
         assert_eq!(first.url.as_deref(), Some("https://kitchen.example.com/posts/roast-potatoes"));
