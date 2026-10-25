@@ -1331,7 +1331,7 @@
     "openAgain": "重新打开页面",
     "thanksTitle": "感谢你支持 Koona Pin",
     "againTitle": "你已经拥有一次性购买",
-    "againText": "{{email}} 已经拥有，因此这笔付款会按原支付方式全额退还，通常在几天内到账。Supporter 保持不变。",
+    "againText": "账户 {{email}} 已经拥有，因此这笔付款会按原支付方式全额退还，通常在几天内到账。Supporter 保持不变。",
     "thanksText": "Supporter 已为付款邮箱 {{email}} 开通。在其他电脑上，请打开“支持”并选择“我已是 Supporter”。",
     "paidTitle": "付款成功",
     "paidSignInText": "付款邮箱已有 Koona Pin 账户。用我们发送到该邮箱的验证码登录后，这里也会显示你的方案。",

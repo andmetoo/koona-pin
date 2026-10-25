@@ -1537,7 +1537,7 @@
     "openAgain": "Abrir la página otra vez",
     "thanksTitle": "Gracias por apoyar Koona Pin",
     "againTitle": "Ya tienes el pago único",
-    "againText": "{{email}} ya lo tenía, así que este pago se reembolsa por completo al medio con el que pagaste, normalmente en unos días. Supporter sigue como estaba.",
+    "againText": "La cuenta {{email}} ya lo tiene, así que este pago se reembolsa por completo al medio con el que pagaste, normalmente en unos días. Supporter sigue como estaba.",
     "thanksText": "Supporter está activo para {{email}}, el correo de tu pago. En otro ordenador, abre «Apoyar» y elige «Ya soy Supporter».",
     "paidTitle": "Pago recibido",
     "paidSignInText": "El correo de tu pago ya tiene una cuenta de Koona Pin. Inicia sesión con el código que te enviaremos y Koona Pin mostrará tu plan aquí.",

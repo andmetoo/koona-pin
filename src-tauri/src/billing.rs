@@ -386,6 +386,8 @@ impl Stored {
         if !self.same_account(&session.email) {
             self.delete_at = None;
         }
+        // A repeat purchase said for another sign-in is not this one's; a claim sets it again after.
+        self.paid_again = false;
         self.session = Some(session);
         let kept = self.lease.take();
         self.keep_lease(kept, key);
@@ -1007,6 +1009,8 @@ pub async fn get_supporter_prices(app: AppHandle) -> Result<SupporterPrices, Com
 pub async fn start_checkout(app: AppHandle, interval: PlanInterval) -> Result<String, CommandError> {
     let billing = app.state::<Billing>();
     if let Some(url) = billing.get().waiting(interval, Utc::now()).and_then(|c| c.url.clone()) {
+        // A purchase going on, as a new one: a repeat said before is not this one's.
+        billing.update(&app, |s| s.paid_again = false)?;
         open(&app, &url)?;
         return Ok(url);
     }
@@ -1576,7 +1580,7 @@ mod tests {
     }
 
     #[test]
-    fn a_one_time_purchase_bought_again_is_said_until_the_next_purchase() {
+    fn a_one_time_purchase_bought_again_is_said_until_the_next_purchase_or_sign_in() {
         let now = at("2026-10-12T12:00:00Z");
         let mut stored = Stored { paid_again: true, ..supporter("2027-10-12T12:00:00Z") };
         assert_eq!(status(&stored, now).paid_again, Some(true));
@@ -1585,6 +1589,13 @@ mod tests {
         assert!(kept.paid_again);
         stored.add_checkout(checkout("year1", "2026-10-12T11:00:00Z", PlanInterval::Year));
         assert_eq!(status(&stored, now).paid_again, None);
+        // Another sign-in, or signing out, says nothing of it either.
+        let mut other = Stored { paid_again: true, ..supporter("2027-10-12T12:00:00Z") };
+        other.sign_in(Session { access_token: "b".into(), refresh_token: "r2".into(), expires_at: 0, email: "ben@example.com".into() }, &[]);
+        assert!(!other.paid_again);
+        let mut out = Stored { paid_again: true, ..supporter("2027-10-12T12:00:00Z") };
+        out.signed_out();
+        assert!(!out.paid_again);
     }
 
     #[test]

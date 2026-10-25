@@ -1551,7 +1551,7 @@
     "openAgain": "Ponovo otvori stranicu",
     "thanksTitle": "Hvala što podržavate Koona Pin",
     "againTitle": "Već imate jednokratnu kupovinu",
-    "againText": "Za {{email}} ona već postoji, zato se ova uplata u celosti vraća načinom na koji ste platili, obično u roku od nekoliko dana. Supporter ostaje kakav jeste.",
+    "againText": "Na nalogu {{email}} ona već postoji, zato se ova uplata u celosti vraća načinom na koji ste platili, obično u roku od nekoliko dana. Supporter ostaje kakav jeste.",
     "thanksText": "Supporter je aktivan za {{email}}, adresu iz plaćanja. Na drugom računaru otvorite „Podrži“ i izaberite „Već sam Supporter“.",
     "paidTitle": "Plaćanje je primljeno",
     "paidSignInText": "Adresa iz plaćanja već ima Koona Pin nalog. Prijavite se kodom koji ćemo poslati na nju i Koona Pin će ovde pokazati vaš plan.",

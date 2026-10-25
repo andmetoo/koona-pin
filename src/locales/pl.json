@@ -1640,7 +1640,7 @@
     "openAgain": "Otwórz stronę ponownie",
     "thanksTitle": "Dziękujemy za wsparcie Koona Pin",
     "againTitle": "Masz już jednorazowy zakup",
-    "againText": "{{email}} już go miało, więc ta płatność jest zwracana w całości na sposób, którym zapłacono, zwykle w ciągu kilku dni. Supporter zostaje bez zmian.",
+    "againText": "Konto {{email}} już go ma, więc ta płatność jest zwracana w całości na sposób, którym zapłacono, zwykle w ciągu kilku dni. Supporter zostaje bez zmian.",
     "thanksText": "Supporter jest aktywny dla {{email}}, adresu z płatności. Na innym komputerze otwórz „Wesprzyj” i wybierz „Już jestem Supporterem”.",
     "paidTitle": "Płatność przyjęta",
     "paidSignInText": "Adres z płatności ma już konto Koona Pin. Zaloguj się kodem, który na niego wyślemy — wtedy Koona Pin pokaże tu twój plan.",

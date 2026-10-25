@@ -140,19 +140,13 @@ export function useSupporterPurchase({
   }, []);
   const [paidEmail, setPaidEmail] = useState(email);
   // The one-time purchase bought again, which the server refunds (billing.rs `paid_again`): the
-  // last step says so instead of «thank you», however it was reached.
+  // last step says so instead of «thank you». Known before the step shows, so its title never
+  // changes under the person's eyes.
   const [again, setAgain] = useState(false);
-  useEffect(() => {
-    if (step !== "thanks") return;
-    let alive = true;
-    void api
-      .getSupporterStatus()
-      .then((status) => alive && setAgain(!!status.paid_again))
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [step]);
+  const thank = (status: SupporterStatus | null) => {
+    setAgain(!!status?.paid_again);
+    setStep((s) => (unanswered(s) || s === "signIn" ? "thanks" : s));
+  };
   useEffect(() => {
     if (!paid || paidAtOpen.current) return;
     if (unknownAtOpen.current && stepNow.current === "plans") {
@@ -160,7 +154,14 @@ export function useSupporterPurchase({
       return;
     }
     setPaidEmail(email);
-    setStep((s) => (unanswered(s) || s === "signIn" ? "thanks" : s));
+    let alive = true;
+    void api
+      .getSupporterStatus()
+      .then((status) => alive && thank(status))
+      .catch(() => alive && thank(null));
+    return () => {
+      alive = false;
+    };
   }, [paid, email]);
   const [interval, setPlan] = useState<PlanInterval>(upgrade ? "lifetime" : "year");
   const { prices, failed: pricesFailed } = useSupporterPrices();
@@ -180,7 +181,10 @@ export function useSupporterPurchase({
         .then(async (state) => {
           if (!alive) return;
           if (state === "paid") {
-            setPaidEmail((await api.getSupporterStatus()).email);
+            const status = await api.getSupporterStatus();
+            if (!alive) return;
+            setPaidEmail(status.email);
+            setAgain(!!status.paid_again);
             setStep("thanks");
           } else if (state === "sign_in") {
             setStep("signIn");
@@ -192,6 +196,7 @@ export function useSupporterPurchase({
             // A subscriber switching to the one-time purchase has a plan all along: only it counts.
             if (upgrade ? status.plan?.interval === "lifetime" : status.plan) {
               setPaidEmail(status.email);
+              setAgain(!!status.paid_again);
               setStep("thanks");
             } else {
               setStep("plans");
