@@ -230,6 +230,8 @@ function currentDemoSupporter(): SupporterStatus {
     check_failed: kind === "offline",
     plan_unknown: false,
     awaiting_sign_in: false,
+    // `koonapin.demo.paidAgain` = `stale`: a repeat said for an earlier payment is still kept.
+    ...(demoSwitch("koonapin.demo.paidAgain") === "stale" ? { paid_again: true } : {}),
     ...(kind === "deleting" && plan?.valid_until ? { delete_at: plan.valid_until } : {}),
     // A deletion sent before a restart whose answer did not come (billing/deletion.rs, deletion_sent).
     ...(demoSwitch("koonapin.demo.deletionPending") === "on" && plan ? { deletion_pending: "anna@example.com" } : {}),
@@ -2538,7 +2540,8 @@ export const demo = {
         setDemoSupporter(
           later === "later_sign_in"
             ? { ...now, awaiting_sign_in: true }
-            : { ...now, email: "anna@example.com", plan: demoPlan("supporter"), check_failed: false },
+            : // The claim that signed in says whether it was a repeat (billing.rs paid_again): not this one.
+              { ...now, email: "anna@example.com", plan: demoPlan("supporter"), check_failed: false, paid_again: undefined },
         );
       }, 800);
     }
@@ -2556,6 +2559,8 @@ export const demo = {
     noServer();
     demoPolls = 0;
     demoBought = interval;
+    // A new purchase: a repeat said before is not this one's (billing.rs add_checkout).
+    setDemoSupporter({ ...currentDemoSupporter(), paid_again: undefined });
     return "https://koona.app/pin/checkout/?_ptxn=txn_demo";
   },
   async openCheckout(_url: string) {},

@@ -2728,6 +2728,25 @@ test("Supporter: a one-time purchase bought again says the payment is refunded, 
   }
 });
 
+test("Supporter: a repeat said for an earlier payment never labels a new one", async ({ page }) => {
+  const row = page.locator("[data-plan-row]");
+  for (const kind of ["free", "later_paid"] as const) {
+    await page.evaluate((k) => {
+      localStorage.setItem("koonapin.demo.supporter", k);
+      localStorage.setItem("koonapin.demo.paidAgain", "stale");
+    }, kind);
+    await page.reload();
+    await row.click();
+    const plans = page.getByRole("dialog", { name: "Support Koona Pin" });
+    // later_paid: a yearly plan bought elsewhere arrives while the plans show; free: a yearly payment here.
+    if (kind === "free") await plans.getByRole("button", { name: "Continue" }).click();
+    const thanks = page.getByRole("dialog", { name: "Thank you for supporting Koona Pin" });
+    await expect(thanks, kind).toContainText("Supporter is active", { timeout: 15_000 });
+    await expect(page.getByRole("dialog", { name: "You already have the one-time purchase" })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+  }
+});
+
 test("Supporter: a payment the app saw first in the background still ends in thanks; what it finds by itself moves an open dialog on (NP-066)", async ({ page }) => {
   for (const [kind, title, click] of [
     ["background", "Thank you for supporting Koona Pin", true],

@@ -399,6 +399,16 @@ impl Stored {
         self.awaiting_sign_in = false;
     }
 
+    /// The server no longer takes the refresh token of the session here: it ends. Only that session,
+    /// `refresh_token`: Sign out or another sign-in meanwhile wins.
+    fn session_ended(&mut self, refresh_token: &str) {
+        if self.session.as_ref().is_some_and(|now| now.refresh_token == refresh_token) {
+            self.session = None;
+            // As Sign out: a repeat said for that session is not the next one's.
+            self.paid_again = false;
+        }
+    }
+
     /// Paid with the email of an account that existed before: done here, sign in by code. Only
     /// while the purchase is still here, as `signed_in_by`.
     /// `again`: the one-time purchase bought again (the usual way a repeat is paid), refunded.
@@ -816,13 +826,7 @@ async fn fresh_token(app: &AppHandle, force: bool) -> Result<Option<String>, Com
         return Err(refused("auth refresh", status));
     }
     if ends_session(status) {
-        billing.update(app, |s| {
-            if same(s) {
-                s.session = None;
-                // As Sign out: a repeat said for that session is not the next one's.
-                s.paid_again = false;
-            }
-        })?;
+        billing.update(app, |s| s.session_ended(&session.refresh_token))?;
         return Ok(None);
     }
     let fresh = session_of(&value).ok_or_else(|| refused("auth refresh", status))?;
@@ -1601,6 +1605,16 @@ mod tests {
         let mut out = Stored { paid_again: true, ..supporter("2027-10-12T12:00:00Z") };
         out.signed_out();
         assert!(!out.paid_again);
+    }
+
+    #[test]
+    fn a_session_the_server_ended_ends_its_repeat_too_but_not_another_sessions() {
+        let mut stored = Stored { paid_again: true, ..supporter("2027-10-12T12:00:00Z") };
+        // A refresh for a session replaced meanwhile changes nothing.
+        stored.session_ended("old");
+        assert!(stored.session.is_some() && stored.paid_again);
+        stored.session_ended("r");
+        assert!(stored.session.is_none() && !stored.paid_again);
     }
 
     #[test]
