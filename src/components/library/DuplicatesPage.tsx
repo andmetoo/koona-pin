@@ -132,7 +132,7 @@ export function DuplicatesPage({
             {t("duplicates.loading")}
           </p>
         ) : groups.length === 0 ? (
-          // As the library's empty sections and Link check (2.15.1): the icon in its circle, the same title.
+          // As the library's empty sections and Link check (2.17.1): the icon in its circle, the same title.
           <div className="mx-auto flex max-w-[480px] flex-col items-center gap-3 pt-16 text-center">
             <span className="flex size-12 items-center justify-center rounded-full bg-secondary text-icon">
               <Icon icon={Copy} size={20} />

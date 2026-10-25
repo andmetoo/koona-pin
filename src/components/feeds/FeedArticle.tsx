@@ -1,5 +1,5 @@
 import { ReactNode, Ref, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowLeft, ArrowUp, BookOpen, Check, Heart, Link, Maximize2, Minimize2, Plus, Rss } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, BookOpen, Check, ChevronDown, ChevronUp, Heart, Link, Maximize2, Minimize2, Plus, Rss } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Bookmark, Feed, FeedArticle as CachedPost, FeedItem } from "../../types";
 import { feedName, getFeedArticle } from "../../services/feeds";
@@ -25,7 +25,7 @@ export interface AaProps {
 /**
  * The article sheet (NP-132, Lunacy «Feeds 2.2 · 1» and «· 5»): a card inset 10 px, radius 18, its
  * bottom below the window's edge. On the left ← in a narrow window, else the expand button that
- * lays the card over the list up to the sidebar; on the right Save S, Read later R, Favorite F,
+ * lays the card over the list up to the sidebar, then ⌃ K and ⌄ J (2.17.0); on the right Save S, Read later R, Favorite F,
  * a hairline, Open O and Aa — the reading look of the Aa panel. The cached post renders through
  * `ArticleView` with an `Article` built by `sanitize()`; a summary-only post offers «Load the full
  * article», read on that click only. At the end «Next story» J, with the next post's card peeking
@@ -48,6 +48,7 @@ export function FeedArticleSheet({
   onExpand,
   onNext,
   onPrevious,
+  hasNext = false,
   onSave,
   onReading,
   onFavorite,
@@ -74,6 +75,8 @@ export function FeedArticleSheet({
   onNext: () => void;
   /** Absent on the first post of the list. */
   onPrevious?: () => void;
+  /** A post after this one in the list: ⌄ moves to it. */
+  hasNext?: boolean;
   onSave: () => void;
   onReading: () => void;
   onFavorite: () => void;
@@ -91,6 +94,7 @@ export function FeedArticleSheet({
       aria-label={item ? item.title : t("feeds.article")}
       data-feed-article
       data-reader-look={look.theme}
+      data-reader-font={look.font}
       style={readerStyle(look)}
       className={`reading-look feed-sheet mx-2.5 mt-2.5 -mb-6 flex min-w-0 flex-1 flex-col overflow-hidden rounded-[18px] bg-sheet text-sheet-ink ${className}`}
     >
@@ -106,6 +110,17 @@ export function FeedArticleSheet({
               <Icon icon={expanded ? Minimize2 : Maximize2} size={16} />
             </ToolButton>
           )
+        )}
+        {/* J and K as buttons, for a mouse; dimmed at the ends of the list. */}
+        {item && (
+          <>
+            <ToolButton label={t("feeds.previous")} keys="K" disabled={!onPrevious} onClick={() => onPrevious?.()}>
+              <Icon icon={ChevronUp} size={18} />
+            </ToolButton>
+            <ToolButton label={t("feeds.next")} keys="J" disabled={!hasNext} onClick={onNext}>
+              <Icon icon={ChevronDown} size={18} />
+            </ToolButton>
+          </>
         )}
         <span className="flex-1" />
         {item && (
@@ -340,7 +355,7 @@ function ToolButton({
         aria-keyshortcuts={keys === "Esc" ? "Escape" : keys}
         disabled={disabled}
         onClick={onClick}
-        className={`flex size-[34px] items-center justify-center rounded-full transition-colors duration-150 hover:bg-read-track disabled:opacity-45 ${pressed ? "text-accent" : "text-read-text"}`}
+        className={`flex size-[34px] items-center justify-center rounded-full transition-colors duration-150 hover:bg-read-track disabled:opacity-45 disabled:hover:bg-transparent ${pressed ? "text-accent" : "text-read-text"}`}
       >
         {children}
       </button>

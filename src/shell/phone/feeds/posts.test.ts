@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { FeedItem } from "../../../types";
-import { forgetPosts, postOf, rememberPosts, updatePost, withKept } from "./posts";
+import { forgetPosts, postOf, rememberPosts, updatePost } from "./posts";
 
 const post = (id: number, hoursAgo: number, more: Partial<FeedItem> = {}): FeedItem => ({
   id,
@@ -16,26 +16,6 @@ const post = (id: number, hoursAgo: number, more: Partial<FeedItem> = {}): FeedI
   bookmark_id: null,
   full: true,
   ...more,
-});
-
-describe("posts kept on Unread", () => {
-  it("leaves the list as it is with nothing kept, or when the list has them again", () => {
-    const items = [post(3, 1), post(2, 2)];
-    expect(withKept(items, [])).toBe(items);
-    expect(withKept(items, [post(3, 1, { read: true })])).toBe(items);
-  });
-
-  it("puts a post read here back in its place, newest first", () => {
-    const items = [post(4, 1), post(2, 3)];
-    expect(withKept(items, [post(3, 2, { read: true })]).map((p) => p.id)).toEqual([4, 3, 2]);
-  });
-
-  it("waits with a kept post older than the last one loaded", () => {
-    const items = [post(4, 1), post(3, 2)];
-    expect(withKept(items, [post(1, 9)]).map((p) => p.id)).toEqual([4, 3]);
-    // With nothing unread left, the kept ones are the list.
-    expect(withKept([], [post(1, 9), post(2, 3)]).map((p) => p.id)).toEqual([2, 1]);
-  });
 });
 
 describe("the posts' store", () => {

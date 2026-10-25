@@ -10,6 +10,7 @@ import Defuddle from "defuddle";
 import DOMPurify from "dompurify";
 import type { Bookmark, OfflineArticle, OfflineCopy, OfflineCopyContent } from "../types";
 import { api } from "./api";
+import { addLeadPicture, preparePictures, restorePictures } from "./articlePictures";
 
 export interface Article {
   /** Where the page ended up, after redirects and a `<meta refresh>`. */
@@ -24,7 +25,7 @@ export interface Article {
   description: string | null;
   /** BCP 47, as the page declares it. */
   language: string | null;
-  /** Clean HTML: no scripts, frames, forms, styles or handlers; https pictures only. */
+  /** Clean HTML: no scripts, frames, forms, styles or handlers; https pictures only, plain http upgraded. */
   html: string;
   words: number;
   /** Letters inside links over all letters, 0–1. A table of contents is mostly links. */
@@ -234,7 +235,7 @@ export function articleOf(html: string, url: string): Article | null {
   const parser = new DOMParser();
   // Inert: a DOMParser document runs no scripts and loads no pictures or styles.
   const page = parser.parseFromString(html, "text/html");
-  promoteLazyImages(page);
+  restorePictures(page);
   let result;
   try {
     result = new Defuddle(page, {
@@ -252,7 +253,8 @@ export function articleOf(html: string, url: string): Article | null {
   // The extract is prepared in another inert document, then cleaned last.
   const extract = parser.parseFromString(result.content, "text/html");
   prepareLinks(extract, url);
-  preparePictures(extract);
+  addLeadPicture(extract, result.image, url);
+  preparePictures(extract, url);
   const clean = sanitize(extract.body.innerHTML);
 
   const counted = parser.parseFromString(clean, "text/html").body;
@@ -293,18 +295,6 @@ export function dekOf(description: string | undefined, body: Element): string | 
 
 const refuseFetch: typeof globalThis.fetch = () => Promise.reject(new Error("The reader makes no requests of its own"));
 
-/** Pictures that load when scrolled to keep the address in `data-src`; DOMParser runs no script to move it. */
-function promoteLazyImages(doc: Document) {
-  for (const img of Array.from(doc.querySelectorAll("img"))) {
-    const src = img.getAttribute("src") ?? "";
-    if (src && !src.startsWith("data:")) continue;
-    const lazy = ["data-src", "data-lazy-src", "data-original", "data-url"].map((name) => img.getAttribute(name)).find(Boolean);
-    const lazySet = img.getAttribute("data-srcset") ?? img.getAttribute("data-lazy-srcset");
-    if (lazy) img.setAttribute("src", lazy);
-    if (lazySet && !img.getAttribute("srcset")) img.setAttribute("srcset", lazySet);
-  }
-}
-
 /** Links point at absolute web addresses and open in the browser; links within the article stay. */
 function prepareLinks(doc: Document, base: string) {
   for (const a of Array.from(doc.querySelectorAll("a"))) {
@@ -332,48 +322,6 @@ function prepareLinks(doc: Document, base: string) {
     } else {
       a.removeAttribute("href");
     }
-  }
-}
-
-/** Pictures keep https addresses only; one without any is dropped. */
-function preparePictures(doc: Document) {
-  for (const img of Array.from(doc.querySelectorAll("img"))) {
-    const set = (img.getAttribute("srcset") ?? "")
-      .split(/,\s+/)
-      .map((candidate) => candidate.trim())
-      .filter((candidate) => https(candidate.split(/\s+/)[0]));
-    const src = img.getAttribute("src")?.trim() ?? "";
-    const fallback = set.length ? set[set.length - 1].split(/\s+/)[0] : null;
-    const chosen = https(src) ? src : fallback;
-    if (!chosen) {
-      // A picture alone in a figure leaves an empty frame behind.
-      const figure = img.closest("figure");
-      if (figure && figure.querySelectorAll("img").length === 1) figure.remove();
-      else img.remove();
-      continue;
-    }
-    img.setAttribute("src", chosen);
-    if (set.length) img.setAttribute("srcset", set.join(", "));
-    else img.removeAttribute("srcset");
-    img.setAttribute("loading", "lazy");
-    img.setAttribute("decoding", "async");
-    // The site learns a picture was loaded, not from where.
-    img.setAttribute("referrerpolicy", "no-referrer");
-  }
-  // `<picture>` keeps its `<img>`; its `<source>` elements are removed by the sanitizer.
-  for (const picture of Array.from(doc.querySelectorAll("picture"))) {
-    const img = picture.querySelector("img");
-    if (img) picture.replaceWith(img);
-    else picture.remove();
-  }
-}
-
-function https(raw: string | undefined): boolean {
-  if (!raw) return false;
-  try {
-    return new URL(raw).protocol === "https:";
-  } catch {
-    return false;
   }
 }
 

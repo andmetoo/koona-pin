@@ -370,6 +370,7 @@ export function ReadingMode({
       role="region"
       aria-label={t("readingMode.label")}
       data-reader-look={look.theme}
+      data-reader-font={look.font}
       style={readerStyle(look)}
       className="reading-mode fixed inset-0 z-40 flex bg-read text-read-text"
     >
@@ -840,7 +841,7 @@ const Queue = function Queue({
           );
         })}
       </ol>
-      {/* One hint a line (2.15.1): wrapped in a row, a «·» was left hanging at the end of each line. */}
+      {/* One hint a line (2.17.1): wrapped in a row, a «·» was left hanging at the end of each line. */}
       <p className="flex shrink-0 flex-col gap-0.5 px-6 pt-3 pb-[25px] text-xs leading-[15px] text-read-muted">
         <span>{t("readingMode.keys")}</span>
         <span>{t("readingMode.keysEsc")}</span>

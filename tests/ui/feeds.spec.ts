@@ -207,11 +207,101 @@ test("the card spreads over the list with E; at the end of a post Next story and
   await expect(sheet(page).last().getByRole("heading", { level: 1 })).toContainText(title.trim().slice(0, 20));
   await expect(posts(page).nth(2)).toHaveAttribute("aria-selected", "true");
   await sheet(page).last().locator("[data-feed-next]").scrollIntoViewIfNeeded();
-  await sheet(page).last().getByRole("button", { name: "Previous story" }).click();
+  await sheet(page).last().locator("[data-feed-next]").getByRole("button", { name: "Previous story" }).click();
   await expect(posts(page).nth(1)).toHaveAttribute("aria-selected", "true");
   // The first post has nothing before it.
   await posts(page).first().click();
   await expect(sheet(page).last().locator("[data-feed-previous]")).toHaveCount(0);
+});
+
+test("⌃ and ⌄ in the toolbar move like K and J and dim at the ends of the list (2.17.0)", async ({ page }) => {
+  await open(page);
+  await row(page, "The Verge").click();
+  await expect(posts(page)).toHaveCount(4);
+  await posts(page).first().click();
+  const toolbar = sheet(page).last();
+  const previous = () => sheet(page).last().getByRole("button", { name: "Previous story", exact: true });
+  const next = () => sheet(page).last().getByRole("button", { name: "Next story", exact: true });
+  await expect(previous()).toBeDisabled();
+  await expect(next()).toHaveAttribute("aria-keyshortcuts", "J");
+  await next().click();
+  await expect(posts(page).nth(1)).toHaveAttribute("aria-selected", "true");
+  await expect(previous()).toBeEnabled();
+  await previous().click();
+  await expect(posts(page).first()).toHaveAttribute("aria-selected", "true");
+  await posts(page).nth(3).click();
+  await expect(next()).toBeDisabled();
+  await expect(toolbar).toBeVisible();
+});
+
+test("Unread | All: Unread keeps the open post until another opens, and is remembered (2.17.0)", async ({ page }) => {
+  await open(page);
+  await row(page, "The Verge").click();
+  await expect(posts(page)).toHaveCount(4);
+  const show = page.getByRole("group", { name: "Show posts" });
+  await expect(show.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+  await show.getByRole("button", { name: "Unread" }).click();
+  const unread = await posts(page).count();
+  expect(unread).toBeLessThan(4);
+  expect(await page.locator("[data-feed-item][data-read]").count()).toBe(0);
+  await posts(page).first().click();
+  // Read after a second, and still in the list while it is open.
+  await expect(posts(page).first()).toHaveAttribute("data-read", "true", { timeout: 3000 });
+  await expect(posts(page)).toHaveCount(unread);
+  // Kept by the query itself, so a save shows on it like on any other row.
+  await page.keyboard.press("s");
+  await expect(posts(page).first().locator("[data-feed-saved]")).toBeVisible();
+  await expect(sheet(page).getByRole("button", { name: "Saved", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("j");
+  await expect(posts(page).nth(1)).toHaveAttribute("aria-selected", "true");
+  // Once the next one is read, the one left goes.
+  await expect(posts(page)).toHaveCount(unread - 1, { timeout: 3000 });
+  await page.reload();
+  await row(page, "The Verge").click();
+  await expect(page.getByRole("group", { name: "Show posts" }).getByRole("button", { name: "Unread" })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("Mark all read in the list header; Unread then says everything is read and offers all posts (2.17.0)", async ({ page }) => {
+  await open(page);
+  await openFeeds(page);
+  const markAll = page.locator("[data-feed-list]").getByRole("button", { name: "Mark all read" });
+  // A search narrows the list, not what is marked: the button waits until it is cleared.
+  await page.locator("[data-feed-list]").getByRole("button", { name: "Search posts" }).click();
+  await page.keyboard.type("potatoes");
+  await expect(markAll).toBeDisabled();
+  // ⇧A from outside the field waits too.
+  await page.locator("[data-feed-list] h1").click();
+  await page.keyboard.press("Shift+A");
+  await expect(page.getByText(/^Marked as read/)).toHaveCount(0);
+  await expect(row(page, "All feeds")).toContainText("11");
+  await page.locator("[data-feed-list]").getByRole("button", { name: "Search posts" }).click();
+  await expect(markAll).toBeEnabled();
+  await page.getByRole("group", { name: "Show posts" }).getByRole("button", { name: "Unread" }).click();
+  await markAll.click();
+  await expect(page.getByText("Marked as read: 11")).toBeVisible();
+  await expect(row(page, "All feeds")).toContainText("0");
+  await expect(page.locator("[data-feed-status]")).toContainText("0 new");
+  await expect(markAll).toBeDisabled();
+  const empty = page.locator("[data-feed-all-read]");
+  await expect(empty).toContainText("Everything is read");
+  await empty.getByRole("button", { name: "Show all posts" }).click();
+  await expect(page.getByRole("group", { name: "Show posts" }).getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+  await expect(posts(page).first()).toBeVisible();
+});
+
+test("a post's picture spans the row at 16:9 under its excerpt; a post without one has no box (2.17.0)", async ({ page }) => {
+  await open(page);
+  await openFeeds(page);
+  const picture = page.locator("[data-feed-item] [data-feed-picture]").first();
+  await expect(picture).toBeVisible();
+  await expect(picture).toHaveAttribute("loading", "lazy");
+  const box = (await picture.boundingBox())!;
+  const rowBox = (await picture.locator("xpath=ancestor::*[@data-feed-item]").boundingBox())!;
+  expect(box.width).toBeGreaterThan(rowBox.width - 30);
+  expect(Math.abs(box.width / box.height - 16 / 9)).toBeLessThan(0.02);
+  // Rows follow one another without overlapping, pictures or not.
+  const tops = await posts(page).evaluateAll((rows) => rows.slice(0, 6).map((r) => [r.getBoundingClientRect().top, r.getBoundingClientRect().bottom]));
+  for (let i = 1; i < tops.length; i++) expect(tops[i][0]).toBeGreaterThanOrEqual(tops[i - 1][1]);
 });
 
 test("Settings → Feeds: how often to check, OPML import and export", async ({ page }) => {

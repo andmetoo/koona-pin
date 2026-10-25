@@ -202,7 +202,7 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
         />
       )}
       {/* In a narrow window the word gives way to the book; the hint names it. So it does in a row
-          under 36 rem beside the editor (2.15.1), where the word cost the title all but a letter. */}
+          under 36 rem beside the editor (2.17.1), where the word cost the title all but a letter. */}
       <Hint label={t("readingMode.read")} show={props.narrow}>
         <Button
           ref={props.readRef}

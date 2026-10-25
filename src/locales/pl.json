@@ -2,6 +2,7 @@
   "language": { "name": "Polski" },
   "common": {
     "ctrl": "Ctrl",
+    "shift": "Shift",
     "close": "Zamknij",
     "soon": "Pojawi się w kolejnej wersji",
     "keep": "Zostaw",
@@ -2074,6 +2075,9 @@
     "search": "Szukaj we wpisach",
     "searchPlaceholder": "Tytuły i fragmenty",
     "clearSearch": "Wyczyść wyszukiwanie",
+    "allPosts": "Wszystkie",
+    "show": "Pokaż wpisy",
+    "showAll": "Pokaż wszystkie wpisy",
     "unread": "Nieprzeczytane",
     "saved": "zapisany",
     "empty": "Na razie brak wpisów. Nowe pojawią się po następnym sprawdzeniu.",

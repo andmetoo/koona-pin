@@ -2,6 +2,7 @@
   "language": { "name": "Italiano" },
   "common": {
     "ctrl": "Ctrl",
+    "shift": "Maiusc",
     "close": "Chiudi",
     "soon": "Arriverà in una prossima versione",
     "keep": "Tieni",
@@ -1964,6 +1965,9 @@
     "search": "Cerca negli articoli",
     "searchPlaceholder": "Titoli ed estratti",
     "clearSearch": "Cancella ricerca",
+    "allPosts": "Tutti",
+    "show": "Mostra i post",
+    "showAll": "Mostra tutti i post",
     "unread": "Non letto",
     "saved": "salvato",
     "empty": "Ancora nessun articolo. I nuovi arrivano al prossimo controllo.",

@@ -7,4 +7,8 @@ export type FeedArticle = { id: number, url: string | null, title: string, autho
 /**
  * As the feed sent it, unsanitised: the interface sanitises it at render.
  */
-html: string, full: boolean, };
+html: string, full: boolean, 
+/**
+ * The feed's language, as the post's `lang`: hyphens and the serif follow it.
+ */
+language: string | null, };
