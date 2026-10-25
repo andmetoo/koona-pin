@@ -127,10 +127,10 @@ fn purchase(desktop: bool) -> Purchase {
     }
 }
 
-/// Links shared from other apps: Android's share sheet (koona-share, NP-071). iOS gets it with its
-/// share extension, which feeds the same queue.
+/// Links shared from other apps: Android's share sheet and iOS's share extension (koona-share,
+/// NP-071), which feed the same queue.
 fn share_intake(platform: Platform) -> bool {
-    platform == Platform::Android
+    matches!(platform, Platform::Android | Platform::Ios)
 }
 
 /// The script that hands [`AppInfo`] to the page, before the page's own scripts.
@@ -167,9 +167,9 @@ mod tests {
     }
 
     #[test]
-    fn only_android_takes_links_shared_from_other_apps() {
-        assert!(share_intake(Platform::Android));
-        assert!(!share_intake(Platform::Ios) && !share_intake(Platform::Desktop));
+    fn only_phones_take_links_shared_from_other_apps() {
+        assert!(share_intake(Platform::Android) && share_intake(Platform::Ios));
+        assert!(!share_intake(Platform::Desktop));
     }
 
     #[test]

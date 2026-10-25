@@ -64,6 +64,10 @@ targets:
         CFBundleVersion: "2.5.0"
     entitlements:
       path: koonapin_iOS/koonapin_iOS.entitlements
+      properties:
+        # The share extension's queue (koona-share): the only thing the two share. The library stays
+        # in the app's own container (a locked SQLite file in a shared one gets the app killed).
+        com.apple.security.application-groups: [group.app.koona.pin]
     scheme:
       environmentVariables:
         RUST_BACKTRACE: full
@@ -81,6 +85,8 @@ targets:
         EXCLUDED_ARCHS[sdk=iphoneos*]: x86_64
       groups: [app]
     dependencies:
+      # "Share → Koona Pin" (koona-share), embedded in PlugIns/.
+      - target: koonapin_Share
       - framework: libapp.a
         embed: false
       - sdk: CoreGraphics.framework
@@ -99,3 +105,59 @@ targets:
         outputFiles:
           - $(SRCROOT)/Externals/x86_64/${CONFIGURATION}/libapp.a
           - $(SRCROOT)/Externals/arm64/${CONFIGURATION}/libapp.a
+  # "Share → Koona Pin" (koona-share): a share extension in Swift with no WebView, no Rust and no
+  # network. It writes each shared link to the queue in the App Group's container, which the app takes
+  # in (share_queue.rs). Its code is in src-tauri/plugins/koona-share/ios-extension.
+  koonapin_Share:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ../../plugins/koona-share/ios-extension/Queue
+      - path: ../../plugins/koona-share/ios-extension/Sheet
+      - path: ../../plugins/koona-share/ios-extension/Strings
+      - path: koonapin_Share/PrivacyInfo.xcprivacy
+    info:
+      path: koonapin_Share/Info.plist
+      properties:
+        CFBundleDisplayName: Koona Pin
+        # Both are the app's, copied into the built extension by the phase below (App Store
+        # Connect wants them equal; Tauri writes the app's build number at each build).
+        CFBundleShortVersionString: "0"
+        CFBundleVersion: "0"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: ShareViewController
+          NSExtensionAttributes:
+            # One web page or link, or text (with a link in it, the sheet says when there is none).
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsWebPageWithMaxCount: 1
+              NSExtensionActivationSupportsText: true
+            # Safari's page title, read in the page by Preprocess.js.
+            NSExtensionJavaScriptPreprocessingFile: Preprocess
+    entitlements:
+      path: koonapin_Share/koonapin_Share.entitlements
+      properties:
+        com.apple.security.application-groups: [group.app.koona.pin]
+    settings:
+      base:
+        PRODUCT_NAME: KoonaPinShare
+        PRODUCT_BUNDLE_IDENTIFIER: app.koona.pin.share
+        TARGETED_DEVICE_FAMILY: 1
+        ARCHS: [arm64]
+        SWIFT_VERSION: "5.0"
+        APPLICATION_EXTENSION_API_ONLY: true
+        ENABLE_BITCODE: false
+        EXCLUDED_ARCHS[sdk=iphoneos*]: x86_64
+    postBuildScripts:
+      - script: |
+          app="${SRCROOT:?}/koonapin_iOS/Info.plist"
+          built="${TARGET_BUILD_DIR:?}/${INFOPLIST_PATH:?}"
+          for key in CFBundleShortVersionString CFBundleVersion; do
+            value=$(/usr/libexec/PlistBuddy -c "Print :$key" "$app")
+            /usr/libexec/PlistBuddy -c "Set :$key $value" "$built"
+          done
+        name: The app's version
+        inputFiles:
+          - $(SRCROOT)/koonapin_iOS/Info.plist
+        basedOnDependencyAnalysis: false

@@ -1,0 +1,6 @@
+/* Written from src/locales/it.json (phone.share) by `bun run locales:ios`; do not edit. */
+"saved" = "Salvato in Koona Pin";
+"inInbox" = "In arrivo · %1$@";
+"done" = "Fatto";
+"noLink" = "Nessun link da salvare";
+"failed" = "Impossibile salvare il link";

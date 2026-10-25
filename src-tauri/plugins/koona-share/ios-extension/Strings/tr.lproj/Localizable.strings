@@ -1,0 +1,6 @@
+/* Written from src/locales/tr.json (phone.share) by `bun run locales:ios`; do not edit. */
+"saved" = "Koona Pin'e kaydedildi";
+"inInbox" = "Gelen kutusunda · %1$@";
+"done" = "Tamam";
+"noLink" = "Kaydedilecek bağlantı yok";
+"failed" = "Bağlantı kaydedilemedi";
