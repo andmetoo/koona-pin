@@ -766,7 +766,6 @@
     "help": "Hilfe ↗"
   },
   "settings": {
-    "assistants": "KI-Assistenten",
     "general": "Allgemein",
     "reading": "Lesen",
     "openLinks": "Links öffnen",
@@ -786,7 +785,6 @@
     "themeDark": "Dunkel",
     "autostart": "Mit dem System starten",
     "autostartHint": "Startet im Infobereich, damit Links aus dem Browser sofort ankommen",
-    "desktopOnly": "In der Desktop-App verfügbar",
     "tray": "App beim Schließen des Fensters im Infobereich behalten",
     "trayHint": "Ganz beenden über das Menü des Koona-Pin-Symbols im Infobereich",
     "trayBackground": "Beim Schließen des Fensters im Hintergrund weiterlaufen",
@@ -795,9 +793,7 @@
     "quit": "Koona Pin beenden",
     "quitHint": "Links aus dem Browser warten bis zum nächsten Start in der Erweiterung",
     "quitButton": "Beenden",
-    "browser": "Browser",
     "connectBrowser": "Weiteren Browser verbinden",
-    "data": "Daten",
     "folder": "Bibliotheksordner",
     "backups": "Sicherungen",
     "copies_one": "{{count}} Kopie",
@@ -834,7 +830,6 @@
     "refreshProgress": "{{done}} von {{total}}",
     "refreshStop": "Anhalten",
     "checkUpdates": "Nach Updates suchen",
-    "updates": "Updates",
     "upToDateToday": "Aktuell · heute um {{time}} geprüft",
     "upToDateOn": "Aktuell · am {{date}} um {{time}} geprüft",
     "checking": "Suche nach Updates…",
@@ -859,7 +854,6 @@
     "help": "Hilfe",
     "helpHint": "Anleitungen und Antworten auf häufige Probleme auf koona.app, auf Englisch",
     "helpButton": "Hilfe öffnen ↗",
-    "offline": "Offline-Kopien",
     "offlineStats": "Für offline gespeichert — {{articles}} · {{size}}",
     "offlineArticles_one": "{{count}} Artikel",
     "offlineArticles_other": "{{count}} Artikel",
@@ -867,15 +861,23 @@
     "showFolder": "Ordner zeigen",
     "saveOffline": "Artikel speichern, die ich aus der Leseliste öffne",
     "saveOfflineHint": "Jeder Artikel der Leseliste, den Sie im Lesemodus öffnen, behält hier eine Kopie.",
-    "removeCopies": "Alle Kopien entfernen",
-    "removeCopiesHint": "Die Lesezeichen bleiben; nur ihre Offline-Kopien werden gelöscht.",
     "removeCopiesButton": "Entfernen…",
     "removeCopiesTitle": "Alle Offline-Kopien entfernen?",
     "removeCopiesText_one": "{{count}} gespeicherter Artikel wird von diesem Computer gelöscht. Das Lesezeichen bleibt.",
     "removeCopiesText_other": "{{count}} gespeicherte Artikel werden von diesem Computer gelöscht. Die Lesezeichen bleiben.",
     "removeCopiesConfirm": "Kopien entfernen",
     "copiesRemoved_one": "{{count}} Offline-Kopie entfernt",
-    "copiesRemoved_other": "{{count}} Offline-Kopien entfernt"
+    "copiesRemoved_other": "{{count}} Offline-Kopien entfernt",
+    "connections": "Verbindungen",
+    "syncAndBackups": "Synchronisierung und Sicherungen",
+    "storage": "Speicher",
+    "summaryConnected": "{{browsers}} verbunden",
+    "summaryAssistantsOn": "KI-Assistenten an",
+    "summaryAssistantsOff": "KI-Assistenten aus",
+    "summaryOffline": "Offline: {{articles}} · {{size}}",
+    "summarySupport": "Hilfe, Feedback, Lizenzen",
+    "summaryMarkRead": "am Ende als gelesen markieren",
+    "removeCopiesHint": "Die Lesezeichen bleiben; nur ihre Offline-Kopien werden gelöscht."
   },
   "notice": {
     "previewRefreshed": "Vorschau aktualisiert",
@@ -1930,7 +1932,8 @@
       "import": "Importieren…",
       "clear": "Feed-Cache leeren",
       "clearHint": "Beiträge werden neu geladen. Gespeicherte bleiben in deiner Bibliothek.",
-      "clearButton": "Leeren"
+      "clearButton": "Leeren",
+      "summaryEvery": "Prüfung: {{interval}}"
     }
   },
   "bundle": {

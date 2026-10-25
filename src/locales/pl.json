@@ -888,7 +888,6 @@
     "help": "Pomoc ↗"
   },
   "settings": {
-    "assistants": "Asystenci AI",
     "general": "Ogólne",
     "reading": "Czytanie",
     "openLinks": "Otwieranie linków",
@@ -908,7 +907,6 @@
     "themeDark": "Ciemny",
     "autostart": "Uruchamiaj razem z systemem",
     "autostartHint": "Uruchamia się w zasobniku systemowym, żeby linki z przeglądarki docierały od razu",
-    "desktopOnly": "Dostępne w aplikacji na komputer",
     "tray": "Po zamknięciu okna zostaw aplikację w zasobniku systemowym",
     "trayHint": "Całkowicie zamkniesz ją z menu ikony Koona Pin w zasobniku systemowym",
     "trayBackground": "Po zamknięciu okna działaj w tle",
@@ -917,9 +915,7 @@
     "quit": "Zamknij Koona Pin",
     "quitHint": "Linki z przeglądarki poczekają w rozszerzeniu do następnego uruchomienia",
     "quitButton": "Zamknij",
-    "browser": "Przeglądarka",
     "connectBrowser": "Połącz kolejną przeglądarkę",
-    "data": "Dane",
     "folder": "Folder biblioteki",
     "backups": "Kopie zapasowe",
     "copies_one": "{{count}} kopia",
@@ -960,7 +956,6 @@
     "refreshProgress": "{{done}} z {{total}}",
     "refreshStop": "Zatrzymaj",
     "checkUpdates": "Sprawdź aktualizacje",
-    "updates": "Aktualizacje",
     "upToDateToday": "Aktualna wersja · sprawdzono dziś o {{time}}",
     "upToDateOn": "Aktualna wersja · sprawdzono {{date}} o {{time}}",
     "checking": "Sprawdzanie aktualizacji…",
@@ -985,7 +980,6 @@
     "help": "Pomoc",
     "helpHint": "Poradniki i odpowiedzi na częste problemy na koona.app, po angielsku",
     "helpButton": "Otwórz pomoc ↗",
-    "offline": "Kopie offline",
     "offlineStats": "Zapisane offline — {{articles}} · {{size}}",
     "offlineArticles_one": "{{count}} artykuł",
     "offlineArticles_few": "{{count}} artykuły",
@@ -995,8 +989,6 @@
     "showFolder": "Pokaż folder",
     "saveOffline": "Zapisuj artykuły otwierane z listy Do przeczytania",
     "saveOfflineHint": "Każdy artykuł z Do przeczytania otwarty w trybie czytania zostawia tu kopię.",
-    "removeCopies": "Usuń wszystkie kopie",
-    "removeCopiesHint": "Zakładki zostają; usuwane są tylko ich kopie offline.",
     "removeCopiesButton": "Usuń…",
     "removeCopiesTitle": "Usunąć wszystkie kopie offline?",
     "removeCopiesText_one": "{{count}} zapisany artykuł zostanie usunięty z tego komputera. Zakładka zostaje.",
@@ -1007,7 +999,17 @@
     "copiesRemoved_one": "Usunięto {{count}} kopię offline",
     "copiesRemoved_few": "Usunięto {{count}} kopie offline",
     "copiesRemoved_many": "Usunięto {{count}} kopii offline",
-    "copiesRemoved_other": "Usunięto {{count}} kopii offline"
+    "copiesRemoved_other": "Usunięto {{count}} kopii offline",
+    "connections": "Połączenia",
+    "syncAndBackups": "Synchronizacja i kopie",
+    "storage": "Pamięć",
+    "summaryConnected": "Połączono: {{browsers}}",
+    "summaryAssistantsOn": "Asystenci AI włączeni",
+    "summaryAssistantsOff": "Asystenci AI wyłączeni",
+    "summaryOffline": "Offline: {{articles}} · {{size}}",
+    "summarySupport": "Pomoc, opinie, licencje",
+    "summaryMarkRead": "oznacz jako przeczytane na końcu",
+    "removeCopiesHint": "Zakładki zostają; usuwane są tylko ich kopie offline."
   },
   "notice": {
     "previewRefreshed": "Podgląd odświeżony",
@@ -2150,7 +2152,8 @@
       "import": "Importuj…",
       "clear": "Wyczyść pamięć kanałów",
       "clearHint": "Wpisy zostaną pobrane ponownie. Zapisane zostaną w bibliotece.",
-      "clearButton": "Wyczyść"
+      "clearButton": "Wyczyść",
+      "summaryEvery": "Co {{interval}}"
     }
   },
   "bundle": {

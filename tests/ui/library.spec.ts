@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { bell, centre, copiedAt, copyBookmark, failOnce, jsonCopy, openApp, openTriage, opened, stubBrowser } from "../fixtures/app";
+import { bell, centre, copiedAt, copyBookmark, failOnce, jsonCopy, openApp, openTriage, opened, settingsGroup, stubBrowser } from "../fixtures/app";
 // Safari uses Option-Tab for all controls; ordinary Tab follows its text-field preference.
 const tabKey = (browserName: string, backwards = false) =>
   `${process.platform === "darwin" && browserName === "webkit" ? "Alt+" : ""}${backwards ? "Shift+" : ""}Tab`;
@@ -920,6 +920,9 @@ test("restore: replace asks first with the numbers, then the library is the copy
 
 test("backup: the settings explain copies, the dialog lists them, asks with the numbers and names the copy of the old library", async ({ page }) => {
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  // Folded, the group says when the last copy was made; open, it explains copies below.
+  await expect(page.getByText("A backup is the whole library exactly as it was")).toHaveCount(0);
+  await settingsGroup(page, "backups");
   await expect(page.getByText("A backup is the whole library exactly as it was")).toBeVisible();
   await page.getByRole("button", { name: "Restore…", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Restore from a backup" });
@@ -2337,6 +2340,7 @@ test("connect dialog: steps for each browser, no token and no bookmarklet", asyn
   await expect(dialog).not.toContainText(/token|bookmarklet/i);
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await settingsGroup(page, "connections");
   const block = page.locator('[data-capture="none"]');
   await expect(block).toContainText("The extension saves a page in one click");
   await block.getByRole("button", { name: "Connect", exact: true }).click();
@@ -2394,13 +2398,54 @@ test("macOS: Safari first in «Connect browser», turned on in Safari's settings
   await expect(shown).toContainText("it starts in the menu bar and saves the link");
 });
 
+test("Settings: General always open, the other groups fold with a summary, and the open ones are remembered (S1)", async ({ page }) => {
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const groups = page.locator("section[data-settings-group]");
+  await expect(groups).toHaveCount(7);
+  await expect(groups.locator("h2")).toHaveText([
+    "General",
+    /^Connections.*AI assistants off$/,
+    /^Reading/,
+    /^Feeds/,
+    /^Sync and backups/,
+    /^Storage.*offline/,
+    "SupportHelp, feedback, licenses",
+  ]);
+  // General has no fold; the others start folded. The summary is the header's description.
+  const head = (name: string) => page.locator(`section[data-settings-group="${name}"] h2 button`);
+  await expect(head("general")).toHaveCount(0);
+  await expect(head("feeds")).toHaveAttribute("aria-expanded", "false");
+  await expect(head("feeds")).toHaveAccessibleName("Feeds");
+  await expect(head("feeds")).toHaveAccessibleDescription("Every 1 hr");
+  await expect(page.getByRole("radio", { name: "3 hr" })).toHaveCount(0);
+  await head("feeds").click();
+  await expect(head("feeds")).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("radio", { name: "3 hr" })).toBeVisible();
+  // The browser demo is a desktop: nothing in General waits for «the desktop app».
+  await expect(page.getByRole("switch", { name: "Start with the system" })).toBeEnabled();
+  await expect(page.getByText("Available in the desktop app")).toHaveCount(0);
+  // Backups work in the preview too, and the folded summary follows them.
+  await expect(head("backups")).toHaveAccessibleDescription("No backups yet · 0 copies");
+  await head("backups").click();
+  await page.getByRole("button", { name: "Back up now" }).click();
+  await expect(page.getByText("Backup created")).toBeVisible();
+  await head("backups").click();
+  await expect(head("backups")).toHaveAccessibleDescription(/^Last backup today at .+ · 1 copy$/);
+  await head("backups").click();
+  await page.reload();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(head("feeds")).toHaveAttribute("aria-expanded", "true");
+  await expect(head("storage")).toHaveAttribute("aria-expanded", "false");
+});
+
 test("app update: a row only with a new version, the dialog on demand, the download, cancel, a failure in ochre, Settings (NP-038)", async ({ page }) => {
   // Up to date: no row, Settings say so.
   await expect(page.locator("button[data-update]")).toHaveCount(0);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await expect(page.locator("section[data-update]")).toContainText("Up to date · checked today at");
+  // The version row is in General, which is always open (S1).
+  await expect(page.locator("[data-settings-update]")).toContainText("Up to date · checked today at");
   // The changelog of the running version, left of the button (NP-040).
-  await expect(page.locator("section[data-update]").getByRole("button", { name: "Changelog ↗" })).toBeVisible();
+  await expect(page.locator("[data-settings-update]").getByRole("button", { name: "Changelog ↗" })).toBeVisible();
   await page.evaluate(() => localStorage.setItem("koonapin.demo.update", "failing"));
   await page.reload();
   const row = page.locator("button[data-update]");
@@ -2436,11 +2481,11 @@ test("app update: a row only with a new version, the dialog on demand, the downl
   await expect(row).toHaveAttribute("data-update", "failed");
   await expect(row).toHaveText("Update failedRetry");
   await failed.getByRole("button", { name: "Close", exact: true }).last().click();
-  // Settings → Updates offers the same dialog; what changed is in it, not a link beside.
+  // Settings → General offers the same dialog; what changed is in it, not a link beside.
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await expect(page.locator("section[data-update]")).toContainText("Version 0.3.0 wasn't installed");
-  await expect(page.locator("section[data-update]").getByText("What's new")).toHaveCount(0);
-  await page.locator("section[data-update]").getByRole("button", { name: "Update…" }).click();
+  await expect(page.locator("[data-settings-update]")).toContainText("Version 0.3.0 wasn't installed");
+  await expect(page.locator("[data-settings-update]").getByText("What's new")).toHaveCount(0);
+  await page.locator("[data-settings-update]").getByRole("button", { name: "Update…" }).click();
   await expect(page.getByRole("dialog", { name: "Couldn't update" })).toBeVisible();
   await page.keyboard.press("Escape");
   // A narrow window: an icon above the browser in the strip, the whole text in its hint.
@@ -2885,6 +2930,7 @@ test("Supporter: the plans show the prices Paddle gave last time at once, not do
 
 test("feedback: from Settings, checked before sending, a failure keeps the draft, Try again sends it (NP-088)", async ({ page }) => {
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await settingsGroup(page, "support");
   await expect(page.getByText("Report a problem")).toHaveCount(0);
   await page.getByRole("button", { name: "Send feedback…" }).click();
   const dialog = page.getByRole("dialog", { name: "Send feedback" });
@@ -2970,6 +3016,7 @@ test("feedback: a report still being prepared is waited for; one that failed is 
     api.sendFeedback = async (feedback) => void w.sent.push(feedback);
   });
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await settingsGroup(page, "support");
   await page.getByRole("button", { name: "Send feedback…" }).click();
   const dialog = page.getByRole("dialog", { name: "Send feedback" });
   await dialog.getByRole("textbox", { name: "Message" }).fill("Sent at once");
@@ -3012,7 +3059,7 @@ test("AI assistants: off by default, read only or read and add, the dialog for e
   // WebKit has no clipboard permissions to grant; it copies on the click, but only Chromium reads it back.
   if (browserName === "chromium") await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  const section = page.locator("section", { has: page.getByRole("heading", { name: "AI assistants" }) });
+  const section = (await settingsGroup(page, "connections")).locator("[data-settings-assistants]");
   await expect(section.locator("[data-mcp]")).toHaveAttribute("data-mcp", "off");
   await expect(section).toContainText("Claude, Cursor and other MCP apps on this computer can search your bookmarks");
   await expect(section.getByRole("radiogroup")).toHaveCount(0);

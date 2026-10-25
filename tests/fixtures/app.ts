@@ -33,6 +33,19 @@ export async function openApp(
   else await expect(page.locator("[data-bookmark-id]")).toHaveCount(cards);
 }
 
+/** A group of Settings (S1), opened if folded: General is always open, the others start folded. */
+export type SettingsGroup = "general" | "connections" | "reading" | "feeds" | "backups" | "storage" | "support";
+export async function settingsGroup(page: Page, name: SettingsGroup): Promise<Locator> {
+  const group = page.locator(`section[data-settings-group="${name}"]`);
+  await expect(group).toBeVisible();
+  const head = group.locator("h2 button");
+  if ((await head.count()) && (await head.getAttribute("aria-expanded")) === "false") {
+    await head.click();
+    await expect(head).toHaveAttribute("aria-expanded", "true");
+  }
+  return group;
+}
+
 export const bell = (page: Page) => page.locator("[data-notification-bell]");
 export const centre = (page: Page) => page.getByRole("dialog", { name: "Notifications" });
 /** Triage over the inbox; since the notification centre, the library's way in is the bell. */

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { dropPoint, type DropWhere } from "../fixtures/app";
+import { dropPoint, settingsGroup, type DropWhere } from "../fixtures/app";
 
 // Adding a link (2026-10-16): «New link» in the sidebar and ⌘N open a glass sheet; ⌘V in the
 // library and a link dropped on the window save at once; the sidebar's sections fold.
@@ -526,6 +526,7 @@ test("⋯ → «Import a file…» routes a picked file as a drop; a dropped fil
   await page.keyboard.press("Escape");
   await expect(feeds).toHaveCount(0);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await settingsGroup(page, "feeds");
   await page.getByRole("button", { name: "Import…" }).click();
   await expect(feeds).toContainText("Feeds file .opml");
   await expect(feeds).not.toContainText("feeds.opml");

@@ -23,7 +23,7 @@ export function useReading(
   loadedRef: MutableRefObject<Bookmark[]>,
   bookmarks: Bookmark[],
 ) {
-  /** «Open links» (Р-69, point 5), set in Settings → General → Reading (NP-124). */
+  /** «Open links» (Р-69, point 5), set in Settings → Reading (NP-124). */
   const [linkTarget, setLinkTarget] = useState(storedOpenLinks);
   const linkTargetRef = useRef(linkTarget);
   linkTargetRef.current = linkTarget;

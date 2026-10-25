@@ -175,7 +175,7 @@ pub fn reveal_backup(app: AppHandle, library: State<'_, Arc<Library>>, file_name
     app.opener().reveal_item_in_dir(path).map_err(CommandError::internal)
 }
 
-/// Settings → AI assistants (NP-091): access and the last request.
+/// Settings → Connections → AI assistants (NP-091): access and the last request.
 #[tauri::command]
 pub async fn get_mcp_status(state: State<'_, Arc<DbState>>) -> Result<mcp::McpStatus, CommandError> {
     blocking(&state, |conn| Ok(mcp::status(conn))).await

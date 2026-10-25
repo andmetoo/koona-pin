@@ -138,6 +138,15 @@ test("a browser that can't send bookmarks is a problem: amber, Details, no ×", 
   await bell(page).click();
   await problem.getByRole("button", { name: "Details" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Settings");
+  // The problem opens Connections by itself, the plaque in the browser row's place (S3, A).
+  await expect(page.locator('section[data-settings-group="connections"] [data-capture="failing"]')).toContainText("Capture isn't working");
+  // Opened by the problem, it is not kept as the person's choice when another group opens.
+  await page.locator('section[data-settings-group="feeds"] h2 button').click();
+  expect(await page.evaluate(() => localStorage.getItem("koonapin.settingsGroups"))).toBe("feeds");
+  // Folded by hand, the problem stays in the summary (S3, C).
+  await page.locator('section[data-settings-group="connections"] h2 button').click();
+  await expect(page.locator('section[data-settings-group="connections"] h2')).toContainText("Capture isn't working");
+  await expect(page.locator('[data-capture="failing"]')).toHaveCount(0);
 });
 
 test("the narrow strip has the bell under the spirit; the centre opens beside the strip", async ({ page }) => {

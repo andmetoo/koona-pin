@@ -766,7 +766,6 @@
     "help": "Help ↗"
   },
   "settings": {
-    "assistants": "AI assistants",
     "general": "General",
     "reading": "Reading",
     "openLinks": "Open links",
@@ -786,7 +785,6 @@
     "themeDark": "Dark",
     "autostart": "Start with the system",
     "autostartHint": "Starts in the tray so links from the browser arrive right away",
-    "desktopOnly": "Available in the desktop app",
     "tray": "Keep the app in the tray when the window is closed",
     "trayHint": "Quit completely from the Koona Pin tray icon menu",
     "trayBackground": "Keep running in the background when the window is closed",
@@ -795,9 +793,7 @@
     "quit": "Quit Koona Pin",
     "quitHint": "Links from the browser wait in the extension until the next start",
     "quitButton": "Quit",
-    "browser": "Browser",
     "connectBrowser": "Connect another browser",
-    "data": "Data",
     "folder": "Library folder",
     "backups": "Backups",
     "copies_one": "{{count}} copy",
@@ -834,7 +830,6 @@
     "refreshProgress": "{{done}} of {{total}}",
     "refreshStop": "Stop",
     "checkUpdates": "Check for updates",
-    "updates": "Updates",
     "upToDateToday": "Up to date · checked today at {{time}}",
     "upToDateOn": "Up to date · checked {{date}} at {{time}}",
     "checking": "Checking for updates…",
@@ -859,7 +854,6 @@
     "help": "Help",
     "helpHint": "Guides and answers to common problems on koona.app",
     "helpButton": "Open help ↗",
-    "offline": "Offline copies",
     "offlineStats": "Saved for offline — {{articles}} · {{size}}",
     "offlineArticles_one": "{{count}} article",
     "offlineArticles_other": "{{count}} articles",
@@ -867,15 +861,23 @@
     "showFolder": "Show folder",
     "saveOffline": "Save articles I open in Reading",
     "saveOfflineHint": "Each article from Reading you open in reading mode keeps a copy here.",
-    "removeCopies": "Remove all copies",
-    "removeCopiesHint": "The bookmarks stay; only their offline copies go.",
     "removeCopiesButton": "Remove…",
     "removeCopiesTitle": "Remove all offline copies?",
     "removeCopiesText_one": "{{count}} saved article will be deleted from this computer. The bookmark stays.",
     "removeCopiesText_other": "{{count}} saved articles will be deleted from this computer. The bookmarks stay.",
     "removeCopiesConfirm": "Remove copies",
     "copiesRemoved_one": "{{count}} offline copy removed",
-    "copiesRemoved_other": "{{count}} offline copies removed"
+    "copiesRemoved_other": "{{count}} offline copies removed",
+    "connections": "Connections",
+    "syncAndBackups": "Sync and backups",
+    "storage": "Storage",
+    "summaryConnected": "{{browsers}} connected",
+    "summaryAssistantsOn": "AI assistants on",
+    "summaryAssistantsOff": "AI assistants off",
+    "summaryOffline": "{{articles}} offline · {{size}}",
+    "summarySupport": "Help, feedback, licenses",
+    "summaryMarkRead": "mark as read at the end",
+    "removeCopiesHint": "The bookmarks stay; only their offline copies go."
   },
   "notice": {
     "previewRefreshed": "Preview refreshed",
@@ -1930,7 +1932,8 @@
       "import": "Import…",
       "clear": "Clear feed cache",
       "clearHint": "Posts are fetched again. Saved ones stay in your library.",
-      "clearButton": "Clear"
+      "clearButton": "Clear",
+      "summaryEvery": "Every {{interval}}"
     }
   },
   "bundle": {

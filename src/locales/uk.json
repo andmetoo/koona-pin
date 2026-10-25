@@ -888,7 +888,6 @@
     "help": "Довідка ↗"
   },
   "settings": {
-    "assistants": "ШІ-асистенти",
     "general": "Загальні",
     "reading": "Читання",
     "openLinks": "Відкривати посилання",
@@ -908,7 +907,6 @@
     "themeDark": "Темна",
     "autostart": "Запускати разом із системою",
     "autostartHint": "Запускається в системному лотку, щоб посилання з браузера надходили одразу",
-    "desktopOnly": "Доступно в застосунку для комп'ютера",
     "tray": "Залишати застосунок у системному лотку, коли вікно закрито",
     "trayHint": "Повністю вийти можна з меню значка Koona Pin у системному лотку",
     "trayBackground": "Працювати у фоні, коли вікно закрито",
@@ -917,9 +915,7 @@
     "quit": "Вийти з Koona Pin",
     "quitHint": "Посилання з браузера зачекають у розширенні до наступного запуску",
     "quitButton": "Вийти",
-    "browser": "Браузер",
     "connectBrowser": "Підключити ще один браузер",
-    "data": "Дані",
     "folder": "Папка бібліотеки",
     "backups": "Резервні копії",
     "copies_one": "{{count}} копія",
@@ -960,7 +956,6 @@
     "refreshProgress": "{{done}} з {{total}}",
     "refreshStop": "Зупинити",
     "checkUpdates": "Перевірити оновлення",
-    "updates": "Оновлення",
     "upToDateToday": "Остання версія · перевірено сьогодні о {{time}}",
     "upToDateOn": "Остання версія · перевірено {{date}} о {{time}}",
     "checking": "Перевірка оновлень…",
@@ -985,7 +980,6 @@
     "help": "Довідка",
     "helpHint": "Як користуватися Koona Pin і що робити, якщо щось не так, — на koona.app, англійською",
     "helpButton": "Відкрити довідку ↗",
-    "offline": "Офлайн-копії",
     "offlineStats": "Збережено для офлайну — {{articles}} · {{size}}",
     "offlineArticles_one": "{{count}} стаття",
     "offlineArticles_few": "{{count}} статті",
@@ -995,8 +989,6 @@
     "showFolder": "Показати теку",
     "saveOffline": "Зберігати статті, відкриті з «Почитати»",
     "saveOfflineHint": "Кожна стаття з «Почитати», відкрита в режимі читання, лишається тут копією.",
-    "removeCopies": "Видалити всі копії",
-    "removeCopiesHint": "Закладки залишаться, видаляться лише їхні офлайн-копії.",
     "removeCopiesButton": "Видалити…",
     "removeCopiesTitle": "Видалити всі офлайн-копії?",
     "removeCopiesText_one": "{{count}} збережену статтю буде видалено з цього комп’ютера. Закладка залишиться.",
@@ -1007,7 +999,17 @@
     "copiesRemoved_one": "Видалено {{count}} офлайн-копію",
     "copiesRemoved_few": "Видалено {{count}} офлайн-копії",
     "copiesRemoved_many": "Видалено {{count}} офлайн-копій",
-    "copiesRemoved_other": "Видалено {{count}} офлайн-копії"
+    "copiesRemoved_other": "Видалено {{count}} офлайн-копії",
+    "connections": "Підключення",
+    "syncAndBackups": "Синхронізація і копії",
+    "storage": "Сховище",
+    "summaryConnected": "Підключено: {{browsers}}",
+    "summaryAssistantsOn": "ШІ-асистенти ввімкнено",
+    "summaryAssistantsOff": "ШІ-асистенти вимкнено",
+    "summaryOffline": "Офлайн: {{articles}} · {{size}}",
+    "summarySupport": "Довідка, відгуки, ліцензії",
+    "summaryMarkRead": "позначати прочитаним наприкінці",
+    "removeCopiesHint": "Закладки залишаться, видаляться лише їхні офлайн-копії."
   },
   "notice": {
     "previewRefreshed": "Прев'ю оновлено",
@@ -2150,7 +2152,8 @@
       "import": "Імпорт…",
       "clear": "Очистити кеш стрічок",
       "clearHint": "Дописи завантажаться знову. Збережені лишаться в бібліотеці.",
-      "clearButton": "Очистити"
+      "clearButton": "Очистити",
+      "summaryEvery": "Раз на {{interval}}"
     }
   },
   "bundle": {

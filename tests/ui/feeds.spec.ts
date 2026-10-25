@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { openApp, opened, stubBrowser } from "../fixtures/app";
+import { openApp, opened, settingsGroup, stubBrowser } from "../fixtures/app";
 
 // The Feeds page (NP-132) on the preview's five sample feeds (NP-128): the sidebar section, the
 // list column, the article sheet and its keys. `koonapin.demo.feeds` switches the preview to no
@@ -217,6 +217,7 @@ test("the card spreads over the list with E; at the end of a post Next story and
 test("Settings → Feeds: how often to check, OPML import and export", async ({ page }) => {
   await open(page);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await settingsGroup(page, "feeds");
   await page.getByRole("radio", { name: "3 hr" }).click();
   await expect(page.getByRole("radio", { name: "3 hr" })).toHaveAttribute("aria-checked", "true");
   expect(await page.evaluate(() => localStorage.getItem("koonapin.demo.feedsRefreshMinutes"))).toBe("180");

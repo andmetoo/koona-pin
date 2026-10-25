@@ -210,11 +210,11 @@ pub fn handle(conn: &Connection, journal: &mut Journal, message: &Value, now: Da
         Err(error) => json!({ "ok": true, "access": access.as_str(), "error": error }),
     };
     if access == Access::Off {
-        let error = "Koona Pin has access for AI assistants turned off. The person can turn it on in Koona Pin: Settings → AI assistants.";
+        let error = "Koona Pin has access for AI assistants turned off. The person can turn it on in Koona Pin: Settings → Connections.";
         return Handled { reply: answer(Err(error.into())), changed: Vec::new(), saved: None, status };
     }
     if !access.offers(spec) {
-        let error = "Koona Pin lets AI assistants only read the library. The person can allow adding in Koona Pin: Settings → AI assistants.";
+        let error = "Koona Pin lets AI assistants only read the library. The person can allow adding in Koona Pin: Settings → Connections.";
         return Handled { reply: answer(Err(error.into())), changed: Vec::new(), saved: None, status };
     }
     let mut call = Call { conn, journal, assistant: &name, changed: Vec::new(), saved: None };

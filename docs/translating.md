@@ -75,7 +75,7 @@ Not translated: Koona Pin, Windows, Chrome, Edge, Firefox, Chrome Web Store, Edg
 | Link check | Checking whether saved pages still open, moved or are gone. |
 | Selection | Several bookmarks picked for a bulk action. |
 | Sort by | The order of the list (newest, oldest, title, site). |
-| Search index | The internal index that makes search fast; appears in Settings → Data. |
+| Search index | The internal index that makes search fast; appears in Settings → Storage. |
 | Extension | The Koona Pin browser extension. |
 | Queue | Links the extension holds until the app receives them. |
 | Tray | The notification area of the taskbar or panel. Use the system's own name for it in your language. |

@@ -766,7 +766,6 @@
     "help": "Yardım ↗"
   },
   "settings": {
-    "assistants": "Yapay zekâ asistanları",
     "general": "Genel",
     "reading": "Okuma",
     "openLinks": "Bağlantıları aç",
@@ -786,7 +785,6 @@
     "themeDark": "Koyu",
     "autostart": "Sistemle başlat",
     "autostartHint": "Tarayıcıdan gelen bağlantılar hemen ulaşsın diye sistem tepsisinde başlar",
-    "desktopOnly": "Masaüstü uygulamasında kullanılabilir",
     "tray": "Pencere kapatılınca uygulamayı sistem tepsisinde tut",
     "trayHint": "Tamamen çıkmak için sistem tepsisindeki Koona Pin simgesinin menüsünü kullanın",
     "trayBackground": "Pencere kapatılınca arka planda çalışmaya devam et",
@@ -795,9 +793,7 @@
     "quit": "Koona Pin'den çık",
     "quitHint": "Tarayıcıdan gelen bağlantılar bir sonraki başlatmaya kadar uzantıda bekler",
     "quitButton": "Çık",
-    "browser": "Tarayıcı",
     "connectBrowser": "Başka bir tarayıcı bağla",
-    "data": "Veriler",
     "folder": "Kitaplık klasörü",
     "backups": "Yedekler",
     "copies_one": "{{count}} kopya",
@@ -834,7 +830,6 @@
     "refreshProgress": "{{done}} / {{total}}",
     "refreshStop": "Durdur",
     "checkUpdates": "Güncellemeleri denetle",
-    "updates": "Güncellemeler",
     "upToDateToday": "Güncel · son denetim bugün {{time}}",
     "upToDateOn": "Güncel · son denetim {{date}} {{time}}",
     "checking": "Güncellemeler denetleniyor…",
@@ -859,7 +854,6 @@
     "help": "Yardım",
     "helpHint": "koona.app'te kılavuzlar ve sık karşılaşılan sorunların yanıtları, İngilizce",
     "helpButton": "Yardımı aç ↗",
-    "offline": "Çevrimdışı kopyalar",
     "offlineStats": "Çevrimdışı kaydedildi — {{articles}} · {{size}}",
     "offlineArticles_one": "{{count}} makale",
     "offlineArticles_other": "{{count}} makale",
@@ -867,15 +861,23 @@
     "showFolder": "Klasörü göster",
     "saveOffline": "Okuma listesinden açtığım makaleleri kaydet",
     "saveOfflineHint": "Okuma listesinden okuma modunda açtığınız her makalenin kopyası burada kalır.",
-    "removeCopies": "Tüm kopyaları kaldır",
-    "removeCopiesHint": "Yer işaretleri kalır; yalnızca çevrimdışı kopyaları silinir.",
     "removeCopiesButton": "Kaldır…",
     "removeCopiesTitle": "Tüm çevrimdışı kopyalar kaldırılsın mı?",
     "removeCopiesText_one": "Kaydedilmiş {{count}} makale bu bilgisayardan silinecek. Yer işareti kalır.",
     "removeCopiesText_other": "Kaydedilmiş {{count}} makale bu bilgisayardan silinecek. Yer işaretleri kalır.",
     "removeCopiesConfirm": "Kopyaları kaldır",
     "copiesRemoved_one": "{{count}} çevrimdışı kopya kaldırıldı",
-    "copiesRemoved_other": "{{count}} çevrimdışı kopya kaldırıldı"
+    "copiesRemoved_other": "{{count}} çevrimdışı kopya kaldırıldı",
+    "connections": "Bağlantılar",
+    "syncAndBackups": "Eşitleme ve yedekler",
+    "storage": "Depolama",
+    "summaryConnected": "{{browsers}} bağlı",
+    "summaryAssistantsOn": "Yapay zekâ asistanları açık",
+    "summaryAssistantsOff": "Yapay zekâ asistanları kapalı",
+    "summaryOffline": "Çevrimdışı: {{articles}} · {{size}}",
+    "summarySupport": "Yardım, geri bildirim, lisanslar",
+    "summaryMarkRead": "sonunda okundu olarak işaretle",
+    "removeCopiesHint": "Yer işaretleri kalır; yalnızca çevrimdışı kopyaları silinir."
   },
   "notice": {
     "previewRefreshed": "Önizleme yenilendi",
@@ -1930,7 +1932,8 @@
       "import": "İçe aktar…",
       "clear": "Akış önbelleğini temizle",
       "clearHint": "Yazılar yeniden indirilir. Kaydedilenler kitaplıkta kalır.",
-      "clearButton": "Temizle"
+      "clearButton": "Temizle",
+      "summaryEvery": "Her {{interval}}"
     }
   },
   "bundle": {

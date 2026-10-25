@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { openApp } from "../fixtures/app";
+import { openApp, settingsGroup } from "../fixtures/app";
 
 /** The demo's computers run the version it was built from (package.json). */
 const version: string = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
@@ -48,8 +48,11 @@ test("Sync: the perk of the Supporter dialog turns sync on; this computer become
   await expect(plan.getByRole("button", { name: "Manage…" })).toBeVisible();
 });
 
-test("Sync: Settings → Data has its row with Supporter, «Learn more» without, nothing in a build that sells nothing (frame 10)", async ({ page }) => {
-  const settings = () => page.getByRole("button", { name: "Settings" }).first().click();
+test("Sync: Settings → Sync and backups has its row with Supporter, «Learn more» without, nothing in a build that sells nothing (frame 10)", async ({ page }) => {
+  const settings = async () => {
+    await page.getByRole("button", { name: "Settings" }).first().click();
+    await settingsGroup(page, "backups");
+  };
   await start(page, "on", null);
   await settings();
   await expect(page.locator("[data-sync-settings]")).toHaveCount(0);

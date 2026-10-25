@@ -13,7 +13,7 @@ export function useVersion(): string {
   return version;
 }
 
-/** The library's backups (Settings → Data on the desktop), read again after a restore (`dataVersion`). */
+/** The library's backups (Settings → Sync and backups on the desktop), read again after a restore (`dataVersion`). */
 export function useDataSummary(dataVersion: number) {
   const [data, setData] = useState<DataSummary | null>(null);
   useEffect(() => {

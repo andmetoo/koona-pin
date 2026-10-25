@@ -1,5 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
-import { openApp } from "../fixtures/app";
+import { openApp, settingsGroup } from "../fixtures/app";
 
 // NP-126 (frames O1–O5): an offline copy saved from the list, its marker left of the heart,
 // the «Offline» section, the copy opened in the reader with no request, and removed again.
@@ -109,11 +109,13 @@ test("reading mode: «Save offline» keeps the article on screen; offline, the c
   await context.setOffline(false);
   await expect(banner).toHaveCount(0);
 
-  // Settings → Reading → Offline copies (O5): the count, then «Remove all copies» after a confirmation.
+  // Settings → Storage (O5): the count, then «Remove…» after a confirmation.
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
   await expect(mode).toHaveCount(0);
   await page.getByRole("button", { name: "Settings" }).first().click();
+  await expect(page.locator('section[data-settings-group="storage"] h2')).toContainText("1 article offline");
+  await settingsGroup(page, "storage");
   const stats = page.locator("[data-settings-offline=stats]");
   await expect(stats).toContainText("Saved for offline — 1 article");
   await page.getByRole("button", { name: "Remove…" }).click();

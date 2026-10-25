@@ -705,7 +705,6 @@
     "help": "도움말 ↗"
   },
   "settings": {
-    "assistants": "AI 어시스턴트",
     "general": "일반",
     "reading": "읽기",
     "openLinks": "링크 열기",
@@ -725,7 +724,6 @@
     "themeDark": "어둡게",
     "autostart": "시스템과 함께 시작",
     "autostartHint": "알림 영역에서 시작되어 브라우저의 링크가 바로 도착합니다",
-    "desktopOnly": "데스크톱 앱에서 사용할 수 있습니다",
     "tray": "창을 닫아도 앱을 알림 영역에 유지",
     "trayHint": "완전히 종료하려면 알림 영역의 Koona Pin 아이콘 메뉴를 사용하세요",
     "trayBackground": "창을 닫아도 백그라운드에서 계속 실행",
@@ -734,9 +732,7 @@
     "quit": "Koona Pin 종료",
     "quitHint": "브라우저의 링크는 다음 실행까지 확장 프로그램에서 기다립니다",
     "quitButton": "종료",
-    "browser": "브라우저",
     "connectBrowser": "다른 브라우저 연결",
-    "data": "데이터",
     "folder": "라이브러리 폴더",
     "backups": "백업",
     "copies_other": "사본 {{count}}개",
@@ -771,7 +767,6 @@
     "refreshProgress": "{{done}} / {{total}}",
     "refreshStop": "중지",
     "checkUpdates": "업데이트 확인",
-    "updates": "업데이트",
     "upToDateToday": "최신 버전 · 오늘 {{time}}에 확인함",
     "upToDateOn": "최신 버전 · {{date}} {{time}}에 확인함",
     "checking": "업데이트 확인 중…",
@@ -796,20 +791,27 @@
     "help": "도움말",
     "helpHint": "koona.app의 사용 안내와 자주 겪는 문제의 해결 방법(영어)",
     "helpButton": "도움말 열기 ↗",
-    "offline": "오프라인 사본",
     "offlineStats": "오프라인용으로 저장됨 — {{articles}} · {{size}}",
     "offlineArticles_other": "글 {{count}}개",
     "offlineHint": "이 컴퓨터에만 있으며 동기화되거나 내보내지지 않습니다.",
     "showFolder": "폴더 보기",
     "saveOffline": "읽을거리에서 연 글 저장",
     "saveOfflineHint": "읽을거리의 글을 읽기 모드로 열 때마다 여기에 사본이 남습니다.",
-    "removeCopies": "모든 사본 삭제",
-    "removeCopiesHint": "북마크는 남고 오프라인 사본만 삭제됩니다.",
     "removeCopiesButton": "삭제…",
     "removeCopiesTitle": "모든 오프라인 사본을 삭제할까요?",
     "removeCopiesText_other": "저장된 글 {{count}}개가 이 컴퓨터에서 삭제됩니다. 북마크는 남습니다.",
     "removeCopiesConfirm": "사본 삭제",
-    "copiesRemoved_other": "오프라인 사본 {{count}}개를 삭제했습니다"
+    "copiesRemoved_other": "오프라인 사본 {{count}}개를 삭제했습니다",
+    "connections": "연결",
+    "syncAndBackups": "동기화 및 백업",
+    "storage": "저장 공간",
+    "summaryConnected": "{{browsers}} 연결됨",
+    "summaryAssistantsOn": "AI 어시스턴트 켜짐",
+    "summaryAssistantsOff": "AI 어시스턴트 꺼짐",
+    "summaryOffline": "오프라인: {{articles}} · {{size}}",
+    "summarySupport": "도움말, 피드백, 라이선스",
+    "summaryMarkRead": "끝까지 읽으면 읽음으로 표시",
+    "removeCopiesHint": "북마크는 남고 오프라인 사본만 삭제됩니다."
   },
   "notice": {
     "previewRefreshed": "미리 보기를 새로 고쳤습니다",
@@ -1820,7 +1822,8 @@
       "import": "가져오기…",
       "clear": "피드 캐시 비우기",
       "clearHint": "글을 다시 가져옵니다. 저장한 글은 라이브러리에 남습니다.",
-      "clearButton": "비우기"
+      "clearButton": "비우기",
+      "summaryEvery": "{{interval}}마다"
     }
   },
   "bundle": {

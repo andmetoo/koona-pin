@@ -43,7 +43,7 @@ export function SyncPerkRow({ status, onOpen }: { status: SyncStatus | null; onO
   );
 }
 
-/** Settings → Data «Sync» (frame 10): the state and «Manage…»; without Supporter, «Learn more». */
+/** Settings → Sync and backups «Sync» (frame 10): the state and «Manage…»; without Supporter, «Learn more». */
 export function useSyncSettingsLine(status: SyncStatus | null) {
   const { t, i18n } = useTranslation();
   if (!status) return null;

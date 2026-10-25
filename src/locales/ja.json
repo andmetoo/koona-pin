@@ -705,7 +705,6 @@
     "help": "ヘルプ ↗"
   },
   "settings": {
-    "assistants": "AI アシスタント",
     "general": "全般",
     "reading": "読書",
     "openLinks": "リンクを開く",
@@ -725,7 +724,6 @@
     "themeDark": "ダーク",
     "autostart": "システムと同時に起動",
     "autostartHint": "通知領域で起動するので、ブラウザーからのリンクがすぐに届きます",
-    "desktopOnly": "デスクトップ アプリで利用できます",
     "tray": "ウィンドウを閉じても通知領域にアプリを残す",
     "trayHint": "完全に終了するには、通知領域の Koona Pin アイコンのメニューを使います",
     "trayBackground": "ウィンドウを閉じてもバックグラウンドで動作を続ける",
@@ -734,9 +732,7 @@
     "quit": "Koona Pin を終了",
     "quitHint": "ブラウザーからのリンクは次回の起動まで拡張機能内で待機します",
     "quitButton": "終了",
-    "browser": "ブラウザー",
     "connectBrowser": "別のブラウザーを接続",
-    "data": "データ",
     "folder": "ライブラリのフォルダー",
     "backups": "バックアップ",
     "copies_other": "{{count}} 個のコピー",
@@ -771,7 +767,6 @@
     "refreshProgress": "{{done}} / {{total}}",
     "refreshStop": "停止",
     "checkUpdates": "更新を確認",
-    "updates": "アップデート",
     "upToDateToday": "最新です · 今日 {{time}} に確認",
     "upToDateOn": "最新です · {{date}} {{time}} に確認",
     "checking": "アップデートを確認中…",
@@ -796,20 +791,27 @@
     "help": "ヘルプ",
     "helpHint": "使い方とよくある問題の解決方法（koona.app、英語）",
     "helpButton": "ヘルプを開く ↗",
-    "offline": "オフラインコピー",
     "offlineStats": "オフライン用に保存 — {{articles}} · {{size}}",
     "offlineArticles_other": "{{count}} 件の記事",
     "offlineHint": "このコンピュータのみ：同期もエクスポートもされません。",
     "showFolder": "フォルダを表示",
     "saveOffline": "あとで読むから開いた記事を保存",
     "saveOfflineHint": "あとで読むの記事を読書モードで開くと、ここにコピーが残ります。",
-    "removeCopies": "すべてのコピーを削除",
-    "removeCopiesHint": "ブックマークは残り、オフラインコピーだけが削除されます。",
     "removeCopiesButton": "削除…",
     "removeCopiesTitle": "すべてのオフラインコピーを削除しますか？",
     "removeCopiesText_other": "保存した {{count}} 件の記事がこのコンピュータから削除されます。ブックマークは残ります。",
     "removeCopiesConfirm": "コピーを削除",
-    "copiesRemoved_other": "オフラインコピーを {{count}} 件削除しました"
+    "copiesRemoved_other": "オフラインコピーを {{count}} 件削除しました",
+    "connections": "接続",
+    "syncAndBackups": "同期とバックアップ",
+    "storage": "ストレージ",
+    "summaryConnected": "{{browsers}} に接続済み",
+    "summaryAssistantsOn": "AI アシスタント: オン",
+    "summaryAssistantsOff": "AI アシスタント: オフ",
+    "summaryOffline": "オフライン: {{articles}} · {{size}}",
+    "summarySupport": "ヘルプ、フィードバック、ライセンス",
+    "summaryMarkRead": "最後まで読んだら既読にする",
+    "removeCopiesHint": "ブックマークは残り、オフラインコピーだけが削除されます。"
   },
   "notice": {
     "previewRefreshed": "プレビューを更新しました",
@@ -1820,7 +1822,8 @@
       "import": "読み込む…",
       "clear": "フィードのキャッシュを消去",
       "clearHint": "投稿は再取得されます。保存した投稿はライブラリに残ります。",
-      "clearButton": "消去"
+      "clearButton": "消去",
+      "summaryEvery": "{{interval}}ごと"
     }
   },
   "bundle": {

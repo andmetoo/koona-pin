@@ -827,7 +827,6 @@
     "help": "Aiuto ↗"
   },
   "settings": {
-    "assistants": "Assistenti IA",
     "general": "Generali",
     "reading": "Lettura",
     "openLinks": "Apri i link",
@@ -847,7 +846,6 @@
     "themeDark": "Scuro",
     "autostart": "Avvia con il sistema",
     "autostartHint": "Si avvia nell’area di notifica, così i link dal browser arrivano subito",
-    "desktopOnly": "Disponibile nell’app desktop",
     "tray": "Tieni l’app nell’area di notifica quando la finestra è chiusa",
     "trayHint": "Per uscire del tutto usa il menu dell’icona di Koona Pin nell’area di notifica",
     "trayBackground": "Continua in background quando la finestra è chiusa",
@@ -856,9 +854,7 @@
     "quit": "Esci da Koona Pin",
     "quitHint": "I link dal browser aspettano nell’estensione fino al prossimo avvio",
     "quitButton": "Esci",
-    "browser": "Browser",
     "connectBrowser": "Collega un altro browser",
-    "data": "Dati",
     "folder": "Cartella della libreria",
     "backups": "Backup",
     "copies_one": "{{count}} copia",
@@ -897,7 +893,6 @@
     "refreshProgress": "{{done}} di {{total}}",
     "refreshStop": "Ferma",
     "checkUpdates": "Cerca aggiornamenti",
-    "updates": "Aggiornamenti",
     "upToDateToday": "Aggiornato · controllato oggi alle {{time}}",
     "upToDateOn": "Aggiornato · controllato il {{date}} alle {{time}}",
     "checking": "Ricerca aggiornamenti…",
@@ -922,7 +917,6 @@
     "help": "Aiuto",
     "helpHint": "Guide e risposte ai problemi più comuni su koona.app, in inglese",
     "helpButton": "Apri l’aiuto ↗",
-    "offline": "Copie offline",
     "offlineStats": "Salvati per offline — {{articles}} · {{size}}",
     "offlineArticles_one": "{{count}} articolo",
     "offlineArticles_many": "{{count}} di articoli",
@@ -931,8 +925,6 @@
     "showFolder": "Mostra cartella",
     "saveOffline": "Salva gli articoli che apro da Da leggere",
     "saveOfflineHint": "Ogni articolo di Da leggere aperto in modalità lettura tiene qui una copia.",
-    "removeCopies": "Rimuovi tutte le copie",
-    "removeCopiesHint": "I segnalibri restano; vengono rimosse solo le copie offline.",
     "removeCopiesButton": "Rimuovi…",
     "removeCopiesTitle": "Rimuovere tutte le copie offline?",
     "removeCopiesText_one": "{{count}} articolo salvato verrà eliminato da questo computer. Il segnalibro resta.",
@@ -941,7 +933,17 @@
     "removeCopiesConfirm": "Rimuovi copie",
     "copiesRemoved_one": "{{count}} copia offline rimossa",
     "copiesRemoved_many": "{{count}} di copie offline rimosse",
-    "copiesRemoved_other": "{{count}} copie offline rimosse"
+    "copiesRemoved_other": "{{count}} copie offline rimosse",
+    "connections": "Connessioni",
+    "syncAndBackups": "Sincronizzazione e backup",
+    "storage": "Archiviazione",
+    "summaryConnected": "Connesso: {{browsers}}",
+    "summaryAssistantsOn": "Assistenti IA attivi",
+    "summaryAssistantsOff": "Assistenti IA disattivati",
+    "summaryOffline": "Offline: {{articles}} · {{size}}",
+    "summarySupport": "Aiuto, feedback, licenze",
+    "summaryMarkRead": "segna come letto alla fine",
+    "removeCopiesHint": "I segnalibri restano; vengono rimosse solo le copie offline."
   },
   "notice": {
     "previewRefreshed": "Anteprima aggiornata",
@@ -2040,7 +2042,8 @@
       "import": "Importa…",
       "clear": "Svuota cache dei feed",
       "clearHint": "Gli articoli vengono riscaricati. Quelli salvati restano nella libreria.",
-      "clearButton": "Svuota"
+      "clearButton": "Svuota",
+      "summaryEvery": "Ogni {{interval}}"
     }
   },
   "bundle": {
