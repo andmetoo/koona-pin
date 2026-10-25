@@ -91,7 +91,9 @@ export function useImportExport(
     let lastArea: DropArea | null = null;
     let said = false;
     let own = false;
-    const start = () => (own = true);
+    // A drag the page cancels at its start (a preview image in the list) is no drag and ends with
+    // no `dragend`: counted as ours, it would leave every later drag from outside untaken.
+    const start = (e: DragEvent) => (own = !e.defaultPrevented);
     const end = () => (own = false);
     /**
      * The list area under the pointer, or null outside it: the view's `[data-drop-area]` (the
@@ -141,8 +143,16 @@ export function useImportExport(
       e.preventDefault();
       if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
     };
+    /**
+     * A drag the window does not take: WebKit would open a dropped file or link in place of the
+     * app, so it is refused, but over a field, whose drop is its own.
+     */
+    const refuse = (e: DragEvent) => {
+      const target = e.target instanceof Element ? e.target : null;
+      if (!target?.closest("input, textarea, [contenteditable]:not([contenteditable=false])")) keepOut(e);
+    };
     const over = (e: DragEvent) => {
-      if (!accepting) return;
+      if (!accepting) return refuse(e);
       if (accepting === "dialog") return keepOut(e);
       e.preventDefault();
       show(e);
@@ -157,7 +167,7 @@ export function useImportExport(
       }
     };
     const drop = (e: DragEvent) => {
-      if (!accepting) return;
+      if (!accepting) return refuse(e);
       e.preventDefault();
       const kind = accepting;
       depth = 0;

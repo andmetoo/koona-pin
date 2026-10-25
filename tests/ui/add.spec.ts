@@ -412,6 +412,43 @@ test("a file dragged over the window: the hero, as real drags show it; the kind 
   await expect(zone).toHaveCount(0);
 });
 
+test("a drag cancelled at its start leaves later drags to the window; a drop the window does not take is still refused", async ({ page }) => {
+  const zone = page.locator("[data-drop-zone]");
+  /** A `dragstart` on `selector`; whether the page cancelled it. */
+  const dragStart = (selector: string) =>
+    page.evaluate((selector) => {
+      const event = new DragEvent("dragstart", { bubbles: true, cancelable: true });
+      document.querySelector(selector)!.dispatchEvent(event);
+      return event.defaultPrevented;
+    }, selector);
+  /** A drop over the list; whether the page kept the webview from opening it. */
+  const dropKept = async (init: { link?: string; file?: string }) =>
+    page.evaluate(
+      ({ init, at }) => {
+        const data = new DataTransfer();
+        if (init.link) data.setData("text/uri-list", init.link);
+        if (init.file) data.items.add(new File(["x"], init.file));
+        const event = new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true, clientX: at.x, clientY: at.y });
+        (document.elementFromPoint(at.x, at.y) ?? document.body).dispatchEvent(event);
+        return event.defaultPrevented;
+      },
+      { init, at: await dropPoint(page) },
+    );
+  // The list cancels a preview image's own drag (macOS, 2.18.0): no `dragend` follows it.
+  expect(await dragStart("[data-bookmark-id]")).toBe(true);
+  await dragFiles(page, "dragenter", [{ name: "other.kpin" }], true);
+  await expect(zone).toHaveAttribute("data-drop-zone", "hero");
+  await dragFiles(page, "dragleave", [], true);
+  await expect(zone).toHaveCount(0);
+  // The app's own drag, dropped on the window: not taken, and still not opened by the webview.
+  expect(await dragStart("main")).toBe(false);
+  expect(await dropKept({ file: "photo.png" })).toBe(true);
+  expect(await dropKept({ link: "https://example.com/own" })).toBe(true);
+  await page.waitForTimeout(400);
+  await expect(page.locator("[data-glass-toast]")).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
 test("a dropped file goes by what it holds: a list, OPML, bookmarks and a backup open their dialogs; others are refused", async ({ page }) => {
   const drop = async (files: { name: string; text?: string }[]) => {
     await dragFiles(page, "dragenter", files);

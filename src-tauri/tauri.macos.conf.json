@@ -19,5 +19,9 @@
         "dragDropEnabled": false
       }
     ]
+  },
+  "bundle": {
+    "resources": { "macos/kpin.icns": "kpin.icns" },
+    "macOS": { "infoPlist": "macos/Info.plist" }
   }
 }
