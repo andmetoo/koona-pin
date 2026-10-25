@@ -1365,13 +1365,11 @@ mod tests {
 
     #[test]
     fn purchases_adopted_and_unclaimed_never_stop_a_purchase() {
-        let fake = Fake::new(|_, _| Ok((200, json!({ "status": "email" }))));
         let codes: Vec<native::Transaction> = (0..MAX_KEPT + 2).map(|i| transaction(&format!("99{i:02}"), MONTHLY, None)).collect();
-        fake.lists(vec![], codes);
-        run(resume(&fake, &fake, None, false)).unwrap();
-        assert_eq!(fake.billing.get().appstore.len(), MAX_KEPT + 2);
-        let mut room = fake.billing.get();
-        assert!(room.add_appstore(checkout("new", "2026-10-25T10:00:00Z")));
+        let mut stored = Stored::default();
+        stored.adopt_appstore(&codes, None, at("2026-10-25T10:00:00Z"));
+        assert_eq!(stored.appstore.len(), MAX_KEPT + 2);
+        assert!(stored.add_appstore(checkout("new", "2026-10-25T10:00:00Z")));
     }
 
     #[test]
