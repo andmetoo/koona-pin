@@ -89,7 +89,7 @@ export const FREE_PALETTES: Record<FreeTheme, ReaderPalette> = {
 
 /** The faces of the fonts; Literata and Inter ship with the app (OFL). */
 const FONT_STACKS: Record<ReaderFont, string> = {
-  serif: '"Literata Variable", Literata, Georgia, "Times New Roman", serif',
+  serif: '"Literata Variable", Literata, Georgia, "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "Yu Mincho", "Hiragino Mincho ProN", "Times New Roman", serif',
   sans: 'var(--np-font)',
 };
 
