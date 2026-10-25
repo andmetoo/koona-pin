@@ -460,7 +460,9 @@ function PlaySheet({ channel }: { channel: StoreChannel }) {
                     <Button
                       kind="soft"
                       className="sp-buy"
-                      disabled={busy || !price}
+                      // A paid purchase not confirmed yet: buying again would charge twice, and the
+                      // server cannot refund a store's duplicate.
+                      disabled={busy || !price || kept}
                       aria-label={t("phone.supporter.play.buyLabel", { action, plan: name })}
                       onClick={() => void buy(value)}
                     >

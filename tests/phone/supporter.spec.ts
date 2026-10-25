@@ -618,6 +618,8 @@ test("the Play build: paid but not confirmed now is kept, and Try again asks the
   await expect(supporter.getByRole("alert")).toHaveText(
     "Koona Pin couldn't confirm your purchase with Google Play yet. If you paid, it's kept and checked again when you come back to the app — no need to buy it again.",
   );
+  // Nothing can be bought twice while the paid purchase waits for its confirmation.
+  for (const name of ["Subscribe · Yearly", "Subscribe · Monthly", "Buy · One-time"]) await expect(supporter.getByRole("button", { name })).toBeDisabled();
   // Closed and opened again (as after a restart), the sheet still says the purchase is kept.
   expect(await systemBack(page)).toBe(true);
   await expect(sheet(page, "supporter")).toHaveCount(0);
