@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { addLeadPicture, parseSrcset, pictureAddress, preparePictures, restorePictures, viewable, viewerSource, watchPictures } from "./articlePictures";
+import { addLeadPicture, captionOf, parseSrcset, pictureAddress, pictureFor, preparePictures, restorePictures, viewable, viewerSource, watchPictures } from "./articlePictures";
 import { articleOfPost } from "./feedsView";
 import { extractArticle } from "./reader";
 
@@ -197,5 +197,37 @@ describe("what the viewer shows", () => {
     delete picture.dataset.inline;
     picture.closest("figure")!.hidden = true;
     expect(viewable(picture)).toBe(false);
+  });
+});
+
+describe("pictures from the keyboard", () => {
+  it("makes a loaded picture a button named by its alt, caption or the label; one in a link stays the link's", () => {
+    document.body.innerHTML = `<div id="body"><figure><img id="captioned" src="https://a.example/a.jpg"><figcaption>The  lake
+      at dawn</figcaption></figure><img id="alt" alt="A chart" src="https://a.example/b.jpg"><img id="bare" src="https://a.example/c.jpg">
+      <a href="https://a.example/story"><img id="linked" src="https://a.example/d.jpg"></a></div>`;
+    const stop = watchPictures(document.getElementById("body")!, "Picture");
+    for (const id of ["captioned", "alt", "bare", "linked"]) {
+      const img = document.getElementById(id) as HTMLImageElement;
+      Object.defineProperty(img, "naturalWidth", { value: 800 });
+      Object.defineProperty(img, "naturalHeight", { value: 500 });
+      img.dispatchEvent(new Event("load"));
+    }
+    const img = (id: string) => document.getElementById(id) as HTMLImageElement;
+    expect(img("captioned").getAttribute("role")).toBe("button");
+    expect(img("captioned").tabIndex).toBe(0);
+    expect(img("captioned").getAttribute("aria-label")).toBe("The lake at dawn");
+    expect(img("alt").getAttribute("aria-label")).toBeNull();
+    expect(img("bare").getAttribute("aria-label")).toBe("Picture");
+    expect(img("linked").hasAttribute("role")).toBe(false);
+    stop();
+  });
+
+  it("finds the picture a key opens: a focused one, or a link that is only a picture", () => {
+    document.body.innerHTML = `<img id="a" src="x"><a id="b" href="#"><img id="c" src="y"></a><a id="d" href="#">Words <img src="z"></a>`;
+    const $ = (id: string) => document.getElementById(id)!;
+    expect(pictureFor($("a"))).toBe($("a"));
+    expect(pictureFor($("b"))).toBe($("c"));
+    expect(pictureFor($("d"))).toBeNull();
+    expect(captionOf($("a") as HTMLImageElement)).toBeNull();
   });
 });

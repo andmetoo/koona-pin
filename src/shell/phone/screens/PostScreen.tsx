@@ -236,7 +236,7 @@ export function PostScreen({ route, hidden }: { route: Extract<Route, { name: "p
             lead={
               lead.src ? (
                 <figure className="rd-post-lead">
-                  <img src={lead.src} alt="" referrerPolicy="no-referrer" onError={lead.onError} onLoad={lead.onLoad} />
+                  <img src={lead.src} alt="" referrerPolicy="no-referrer" onError={lead.onError} onLoad={lead.onLoad} tabIndex={0} role="button" aria-haspopup="dialog" aria-label={caption ?? t("viewer.label")} />
                   {caption && <figcaption>{caption}</figcaption>}
                 </figure>
               ) : null

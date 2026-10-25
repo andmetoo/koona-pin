@@ -30,24 +30,28 @@ export function PictureViewer({ img, source, caption, onOpen, onClose }: {
   const [window_, setWindow] = useState<Size>(() => windowSize());
   const [natural, setNatural] = useState<Size>(() => ({ width: img.naturalWidth, height: img.naturalHeight }));
   const [src, setSrc] = useState(source.shown);
-  // The box is as large as the large picture will be, so the card does not jump when that arrives.
-  const cap = Math.max(natural.width, source.largeWidth ?? 0);
+  // The box is sized once, as large as the large picture will be when the srcset says so: the
+  // card neither jumps nor resizes when that picture arrives. A larger file than promised only
+  // lets the zoom go further, and the percentage is always of the pixels on screen.
+  const [cap] = useState(() => Math.max(img.naturalWidth, source.largeWidth ?? 0));
+  const pixels = Math.max(cap, natural.width);
   const narrow = window_.width < 640;
   const room = roomFor(window_);
   const box = useMemo(() => fitSize(natural, room, cap), [natural.width, natural.height, room.width, room.height, cap]);
   const card = cardFor(box, window_, narrow, !!caption);
-  const max = maxScale(box, cap);
+  const max = maxScale(box, pixels);
   const middle: Point = { x: box.width / 2, y: box.height / 2 };
 
   /** The picture inside the box: offset from the box's centre and scale over the fit. */
   const [view, setView] = useState<View>(FITTED);
   /** The card itself: where it stands against its place, for the growth out of the picture, the way back and a swipe. */
-  const [lift, setLift] = useState<Lift>(() => liftFrom(img, card));
+  const reduce = useMemo(() => matchMedia("(prefers-reduced-motion: reduce)").matches, []);
+  const [lift, setLift] = useState<Lift>(() => (reduce ? FADED : liftFrom(img, card)));
   /** How the next change moves: `open` and `close` for the card, `glide` for a button or a key, `none` while a finger or the wheel leads. */
   const [motion, setMotion] = useState<"open" | "close" | "glide" | "quick" | "none">("none");
   const [shade, setShade] = useState(0);
   const closing = useRef(false);
-  const reduce = useMemo(() => matchMedia("(prefers-reduced-motion: reduce)").matches, []);
+  const percentOf = useMemo(() => new Intl.NumberFormat(i18n.language, { style: "percent", maximumFractionDigits: 0 }), [i18n.language]);
 
   const latest = useRef({ view, box, max, middle, card });
   latest.current = { view, box, max, middle, card };
@@ -102,9 +106,10 @@ export function PictureViewer({ img, source, caption, onOpen, onClose }: {
     setMotion("close");
     setShade(0);
     // Back toward the picture in the text when it is still on screen; otherwise it fades where it is.
+    // Reduced motion: it only fades, from where it stands (after a swipe too).
     const back = liftFrom(img, latest.current.card);
-    const visible = back.scale > 0 && back.visible;
-    setLift(visible ? { ...back, opacity: 0 } : { x: 0, y: 0, scale: 0.94, opacity: 0, visible: true });
+    if (reduce) setLift((l) => ({ ...l, opacity: 0 }));
+    else setLift(back.visible ? { ...back, opacity: 0 } : { x: 0, y: 0, scale: 0.94, opacity: 0, visible: true });
     window.setTimeout(onClose, reduce ? 120 : 200);
   };
   useBack(close);
@@ -121,26 +126,62 @@ export function PictureViewer({ img, source, caption, onOpen, onClose }: {
     return { x: e.clientX - (rect.left + rect.width / 2), y: e.clientY - (rect.top + rect.height / 2) };
   };
 
-  // The wheel over the picture: a pinch on a trackpad (ctrl) or a mouse's notch zooms at the
-  // pointer, a trackpad's two-finger scroll pans a zoomed picture. Anywhere else it does nothing,
-  // and the page under the dialog does not scroll.
+  // The wheel over the picture. A pinch on a trackpad comes as the wheel with ctrl in Chromium and
+  // as gesture events in WebKit (the Mac app): both zoom at the pointer. A whole notch zooms. For
+  // the rest (a Mac mouse's small, uneven steps, a trackpad's scroll) a burst of wheel events is
+  // one session, decided as it starts: begun vertically over the fitted picture, it zooms all
+  // along; begun over a zoomed one, it pans. Anywhere else the wheel does nothing, and the page
+  // under the dialog does not scroll.
   useEffect(() => {
     const element = dialog.current!;
+    let pinch: { scale: number } | null = null;
+    /** The wheel burst going on: whether it zooms, and when its last event came. */
+    let burst: { zooms: boolean; at: number } | null = null;
+    const over = (target: EventTarget | null) => !closing.current && !!boxRef.current?.contains(target as Node);
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
-      if (closing.current || !boxRef.current?.contains(e.target as Node)) return;
+      // WebKit may follow its gesture events with ctrl-wheels: one pinch zooms once.
+      if (pinch || !over(e.target)) return;
       const s = latest.current;
       const at = inBox(e);
-      const notch = e.deltaMode === 1 || (e.deltaX === 0 && Math.abs(e.deltaY) >= 50 && Number.isInteger(e.deltaY));
-      if (e.ctrlKey) zoomTo(s.view.scale * Math.exp(-e.deltaY * 0.01), at, "none");
-      else if (notch) zoomTo(s.view.scale * (e.deltaY < 0 ? 1.25 : 0.8), at, "quick");
-      else if (s.view.scale > 1) {
+      const notch = e.deltaMode === 1 || (Math.abs(e.deltaY) >= 50 && Number.isInteger(e.deltaY));
+      const lines = e.deltaMode === 1 ? 40 : 1;
+      if (e.ctrlKey) return zoomTo(s.view.scale * Math.exp(-e.deltaY * lines * 0.01), at, "none");
+      if (notch) return zoomTo(s.view.scale * (e.deltaY < 0 ? 1.25 : 0.8), at, "quick");
+      const now = performance.now();
+      if (!burst || now - burst.at > 200) burst = { zooms: s.view.scale <= 1.01 && e.deltaX === 0, at: now };
+      burst.at = now;
+      if (burst.zooms) zoomTo(s.view.scale * Math.exp(-e.deltaY * 0.0025), at, "none");
+      else {
         setMotion("none");
         setView(clampView({ ...s.view, x: s.view.x - e.deltaX, y: s.view.y - e.deltaY }, s.box, s.box, s.max, s.middle));
       }
     };
+    /** WebKit's GestureEvent: `scale` since the gesture began. */
+    type Gesture = Event & { scale: number; clientX: number; clientY: number };
+    const gestureStart = (e: Event) => {
+      e.preventDefault();
+      pinch = over(e.target) ? { scale: latest.current.view.scale } : null;
+    };
+    const gestureChange = (e: Event) => {
+      e.preventDefault();
+      const g = e as Gesture;
+      if (pinch && typeof g.scale === "number") zoomTo(pinch.scale * g.scale, inBox(g), "none");
+    };
+    const gestureEnd = (e: Event) => {
+      e.preventDefault();
+      pinch = null;
+    };
     element.addEventListener("wheel", wheel, { passive: false });
-    return () => element.removeEventListener("wheel", wheel);
+    element.addEventListener("gesturestart", gestureStart);
+    element.addEventListener("gesturechange", gestureChange);
+    element.addEventListener("gestureend", gestureEnd);
+    return () => {
+      element.removeEventListener("wheel", wheel);
+      element.removeEventListener("gesturestart", gestureStart);
+      element.removeEventListener("gesturechange", gestureChange);
+      element.removeEventListener("gestureend", gestureEnd);
+    };
   }, []);
 
   // Pointers on the picture: one drags a zoomed picture, or (a finger) swipes the unzoomed card
@@ -255,9 +296,7 @@ export function PictureViewer({ img, source, caption, onOpen, onClose }: {
     action();
   };
 
-  const percent = new Intl.NumberFormat(i18n.language, { style: "percent", maximumFractionDigits: 0 }).format(
-    natural.width ? (box.width * view.scale) / natural.width : 1,
-  );
+  const percent = percentOf.format(pixels ? (box.width * view.scale) / pixels : 1);
   const zoomed = view.scale > 1.01;
   const cardStyle: CSSProperties = {
     left: card.left,
@@ -266,7 +305,8 @@ export function PictureViewer({ img, source, caption, onOpen, onClose }: {
     height: card.height,
     // It grows from the picture box's middle, which is what lands on the picture in the text.
     transformOrigin: `${card.pad + box.width / 2}px ${card.top_ + box.height / 2}px`,
-    transform: reduce ? undefined : `translate(${lift.x}px, ${lift.y}px) scale(${lift.scale})`,
+    // Under reduced motion too: a swipe still moves the card with the finger; only the growth is left out.
+    transform: `translate(${lift.x}px, ${lift.y}px) scale(${lift.scale})`,
     opacity: lift.opacity,
   };
 
@@ -347,6 +387,8 @@ interface Lift {
   visible: boolean;
 }
 const SETTLED: Lift = { x: 0, y: 0, scale: 1, opacity: 1, visible: true };
+/** In place, not shown yet: the start under reduced motion, which only fades. */
+const FADED: Lift = { ...SETTLED, opacity: 0 };
 
 /** Where the card stands so that its picture box covers the picture in the text (frame P3). */
 function liftFrom(img: HTMLImageElement, card: Card): Lift {

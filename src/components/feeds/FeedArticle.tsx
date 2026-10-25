@@ -222,7 +222,9 @@ function Post({ item, feed, onOpen, onFeed }: { item: FeedItem; feed: Feed | und
   );
   const lead = leadImage.src ? (
     <figure className="feed-lead">
+      {/* It opens in the picture viewer (ArticleView): by Tab and Enter too. */}
       <img src={leadImage.src} alt="" referrerPolicy="no-referrer" onError={leadImage.onError}
+        tabIndex={0} role="button" aria-haspopup="dialog" aria-label={caption ?? t("viewer.label")}
         onLoad={leadImage.onLoad}
         className="aspect-[680/382] w-full rounded-2xl bg-well object-cover" />
       {caption && <figcaption className="feed-caption">{caption}</figcaption>}

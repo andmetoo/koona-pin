@@ -19,8 +19,8 @@ const scale = (page: Page) => picture(page).evaluate((el) => new DOMMatrix(getCo
 const settled = (page: Page) => page.waitForTimeout(380);
 
 /** Reading mode with the article's body replaced by one with a picture (the demo's has none). */
-async function readingWithPicture(page: Page, html = ARTICLE) {
-  await openApp(page, { viewport: { width: 1280, height: 800 }, settings: { openLinks: null, theme: "light", language: "en", view: "grid" } });
+async function readingWithPicture(page: Page, html = ARTICLE, theme = "light") {
+  await openApp(page, { viewport: { width: 1280, height: 800 }, settings: { openLinks: null, theme, language: "en", view: "grid" } });
   await stubBrowser(page);
   await page.locator("button[data-read-mode]").click();
   const body = page.locator("[data-reading-mode] .reader-body");
@@ -113,4 +113,83 @@ test("a picture inside a link opens in the viewer, which offers the link", async
   await expect(open).toBeVisible();
   await open.click();
   await expect.poll(async () => (await opened(page)).at(-1)).toBe("https://example.com/story");
+});
+
+/** A picture of the given size from a site, without the network. */
+const svgOf = (width: number, height: number, fill: string) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="${width}" height="${height}" fill="${fill}"/></svg>`;
+
+test("the widest picture of the srcset replaces the shown one, and the card and its percentage stay", async ({ page }) => {
+  // The large one comes a second late, so the card is seen settled before and after it.
+  await page.route("https://pictures.test/**", async (route) => {
+    const large = route.request().url().endsWith("large.svg");
+    if (large) await new Promise((resolve) => setTimeout(resolve, 1000));
+    await route.fulfill({ contentType: "image/svg+xml", body: large ? svgOf(1600, 1000, "#3b4f6b") : svgOf(400, 250, "#c26a4a") });
+  });
+  const img = await readingWithPicture(
+    page,
+    `<figure><img src="https://pictures.test/small.svg" srcset="https://pictures.test/small.svg 400w, https://pictures.test/large.svg 1600w" sizes="200px" alt="Sized"></figure>`,
+  );
+  await img.click();
+  await settled(page);
+  // The box is sized for 1600 px from the start: 768 × 480 in a 1280 × 800 window, 48 %.
+  await expect(picture(page)).toHaveAttribute("src", "https://pictures.test/small.svg");
+  await expect(viewer(page).getByRole("button", { name: "Fit to window" })).toHaveText("48%");
+  const before = (await card(page).boundingBox())!;
+  await expect(picture(page)).toHaveAttribute("src", "https://pictures.test/large.svg");
+  await expect(viewer(page).getByRole("button", { name: "Fit to window" })).toHaveText("48%");
+  expect((await card(page).boundingBox())!.width).toBeCloseTo(before.width, 0);
+});
+
+test("the card takes the reading theme's colours: Dark", async ({ page }) => {
+  const img = await readingWithPicture(page, ARTICLE, "dark");
+  await img.click();
+  await settled(page);
+  await expect(card(page)).toHaveCSS("background-color", "rgb(44, 43, 39)");
+});
+
+test("reduced motion: the card fades in place, without growing out of the picture", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const img = await readingWithPicture(page);
+  await img.click();
+  await page.waitForTimeout(40);
+  const matrix = await card(page).evaluate((el) => new DOMMatrix(getComputedStyle(el).transform));
+  expect([matrix.a, matrix.e, matrix.f]).toEqual([1, 0, 0]);
+  await settled(page);
+  await expect(card(page)).toHaveCSS("opacity", "1");
+  await page.keyboard.press("Escape");
+  await expect(viewer(page)).toHaveCount(0);
+});
+
+test("a Mac trackpad's pinch (WebKit gesture events) and a Mac mouse's small wheel steps zoom", async ({ page }) => {
+  const img = await readingWithPicture(page);
+  await img.click();
+  await settled(page);
+  const box = (await viewer(page).locator("[data-viewer-box]").boundingBox())!;
+  await viewer(page).locator("[data-viewer-picture]").evaluate((el, [x, y]) => {
+    const gesture = (type: string, scale: number) => el.dispatchEvent(Object.assign(new Event(type, { bubbles: true, cancelable: true }), { scale, clientX: x, clientY: y }));
+    gesture("gesturestart", 1);
+    gesture("gesturechange", 1.5);
+    gesture("gesturechange", 2);
+    gesture("gestureend", 2);
+  }, [box.x + box.width / 2, box.y + box.height / 2]);
+  expect(await scale(page)).toBeCloseTo(2, 2);
+  await viewer(page).getByRole("button", { name: "Fit to window" }).click();
+  await settled(page);
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  for (let i = 0; i < 10; i++) await page.mouse.wheel(0, -40);
+  await expect.poll(() => scale(page)).toBeGreaterThan(1.5);
+});
+
+test("a picture opens from the keyboard: Tab to it, Enter", async ({ page }) => {
+  const img = await readingWithPicture(page);
+  await expect(img).toHaveAttribute("role", "button");
+  await expect(img).toHaveAttribute("tabindex", "0");
+  await img.focus();
+  await page.keyboard.press("Enter");
+  await expect(viewer(page)).toBeVisible();
+  await expect(viewer(page).getByRole("button", { name: "Close" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(viewer(page)).toHaveCount(0);
+  await expect(img).toBeFocused();
 });

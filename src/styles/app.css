@@ -1349,6 +1349,10 @@
   .reader-article img:not([data-inline]) {
     cursor: zoom-in;
   }
+  .reader-article img[role="button"]:focus-visible {
+    outline: 2px solid var(--np-accent);
+    outline-offset: 3px;
+  }
   .picture-viewer {
     --viewer-card: var(--np-read-current, var(--np-sheet, #ffffff));
     --viewer-ink: var(--np-sheet-ink, var(--np-ink));

@@ -61,3 +61,14 @@ test("a swipe down closes it; a short one springs back", async ({ page }) => {
   await swipe(page, 400, 640);
   await expect(viewer(page)).toHaveCount(0);
 });
+
+test("reduced motion: the card still follows a swipe, and a long one closes it", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const img = await readerWithPicture(page);
+  await img.click();
+  await page.waitForTimeout(200);
+  await swipe(page, 400, 440);
+  await expect(viewer(page)).toBeVisible();
+  await swipe(page, 400, 640);
+  await expect(viewer(page)).toHaveCount(0);
+});

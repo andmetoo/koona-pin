@@ -223,7 +223,7 @@ const INLINE_WIDTH = 240;
  * broken; a 1 × 1 one is hidden too; a small one stays in its line. Returns the
  * cleanup for an effect.
  */
-export function watchPictures(body: HTMLElement): () => void {
+export function watchPictures(body: HTMLElement, label = "Picture"): () => void {
   const hide = (img: HTMLImageElement) => {
     const figure = img.closest("figure");
     if (figure && body.contains(figure) && figure.querySelectorAll("img").length === 1) figure.hidden = true;
@@ -232,6 +232,13 @@ export function watchPictures(body: HTMLElement): () => void {
   const settle = (img: HTMLImageElement) => {
     if (!img.naturalWidth || !img.naturalHeight || (img.naturalWidth <= 1 && img.naturalHeight <= 1)) hide(img);
     else if (img.naturalHeight <= INLINE_HEIGHT && img.naturalWidth <= INLINE_WIDTH) img.dataset.inline = "";
+    else if (!img.closest("a[href]")) {
+      // It opens in the viewer: reachable by Tab and Enter too. One inside a link is reached by the link.
+      img.tabIndex = 0;
+      img.setAttribute("role", "button");
+      img.setAttribute("aria-haspopup", "dialog");
+      if (!img.alt.trim()) img.setAttribute("aria-label", captionOf(img) ?? label);
+    }
   };
   const onLoad = (e: Event) => e.target instanceof HTMLImageElement && settle(e.target);
   const onError = (e: Event) => e.target instanceof HTMLImageElement && hide(e.target);
@@ -245,6 +252,9 @@ export function watchPictures(body: HTMLElement): () => void {
     body.removeEventListener("error", onError, true);
   };
 }
+
+/** The caption of the figure a picture is alone in, as one line. */
+export const captionOf = (img: HTMLImageElement) => img.closest("figure")?.querySelector("figcaption")?.textContent?.replace(/\s+/g, " ").trim() || null;
 
 /** A link to a picture file rather than a page. */
 const PICTURE_FILE = /\.(?:jpe?g|png|gif|webp|avif)$/i;
@@ -280,6 +290,14 @@ export function viewerSource(img: HTMLImageElement): ViewerSource {
     } else link = href;
   }
   return { shown, large: large && large !== shown ? large : null, largeWidth, link };
+}
+
+/** The picture a key opens: the focused picture, or the one a focused link holds with no words of its own. */
+export function pictureFor(target: Element): HTMLImageElement | null {
+  if (target instanceof HTMLImageElement) return target;
+  if (!(target instanceof HTMLAnchorElement) || target.textContent?.trim()) return null;
+  const img = target.querySelector("img");
+  return img instanceof HTMLImageElement ? img : null;
 }
 
 /** A picture of the article that opens in the viewer: not a badge in the line, not a hidden one. */

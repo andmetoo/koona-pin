@@ -1,8 +1,8 @@
-import { Fragment, MouseEvent, ReactNode, useEffect, useRef, useState } from "react";
+import { Fragment, KeyboardEvent, MouseEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { ArrowUpRight, FileX, WifiOff } from "lucide-react";
 import { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { viewable, viewerSource, type ViewerSource, watchPictures } from "../../services/articlePictures";
+import { captionOf, pictureFor, viewable, viewerSource, type ViewerSource, watchPictures } from "../../services/articlePictures";
 import { Article, openArticle, ReadFailure, readingMinutes } from "../../services/reader";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
@@ -168,7 +168,7 @@ export function ArticleView({
   const article = state.kind === "article" ? state.article : null;
   const body = useRef<HTMLDivElement>(null);
   // Broken pictures hide, small ones stay in the line: per article on screen.
-  useEffect(() => (body.current ? watchPictures(body.current) : undefined), [article?.html]);
+  useEffect(() => (body.current ? watchPictures(body.current, t("viewer.label")) : undefined), [article?.html]);
   /** A picture of the article over the window (#400), with where it came from. */
   const [viewing, setViewing] = useState<{ img: HTMLImageElement; source: ViewerSource; caption: string | null } | null>(null);
   useEffect(() => {
@@ -186,15 +186,24 @@ export function ArticleView({
 
   // A picture opens in the viewer, even one inside a link (the viewer offers the link); a link in
   // the text opens in the browser.
+  const view = (img: HTMLImageElement) => setViewing({ img, source: viewerSource(img), caption: captionOf(img) });
   const click = (e: MouseEvent<HTMLElement>) => {
     const img = (e.target as HTMLElement).closest("img");
     if (img instanceof HTMLImageElement && viewable(img)) {
       e.preventDefault();
-      const caption = img.closest("figure")?.querySelector("figcaption")?.textContent?.replace(/\s+/g, " ").trim() || null;
-      setViewing({ img, source: viewerSource(img), caption });
+      view(img);
       return;
     }
     if ((e.target as HTMLElement).closest(".reader-body")) follow(e);
+  };
+  // Enter or Space on a focused picture, or on a link that is only a picture, as a click on it.
+  const key = (e: KeyboardEvent<HTMLElement>) => {
+    if ((e.key !== "Enter" && e.key !== " ") || e.ctrlKey || e.metaKey || e.altKey) return;
+    const img = pictureFor(e.target as Element);
+    if (!img || !viewable(img)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    view(img);
   };
 
   const follow = (e: MouseEvent<HTMLElement>) => {
@@ -227,7 +236,7 @@ export function ArticleView({
 
   return (
     <>
-    <article lang={article?.language ?? undefined} aria-busy={!article || undefined} onClick={click} className="reader-article mx-auto w-full max-w-[var(--reader-column,600px)]">
+    <article lang={article?.language ?? undefined} aria-busy={!article || undefined} onClick={click} onKeyDown={key} className="reader-article mx-auto w-full max-w-[var(--reader-column,600px)]">
       {header ?? (
       <p className="reader-meta">
         {[
