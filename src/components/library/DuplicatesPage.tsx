@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Heart } from "lucide-react";
+import { Copy, Heart } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Bookmark, Collection, DuplicateGroup, MergeGroup, Merged } from "../../types";
 import { api } from "../../services/api";
@@ -132,9 +132,13 @@ export function DuplicatesPage({
             {t("duplicates.loading")}
           </p>
         ) : groups.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 pt-24 text-center">
-            <h2 className="text-lg font-semibold">{t("duplicates.emptyTitle")}</h2>
-            <p className="max-w-[400px] text-sm text-muted">{t("duplicates.emptyText")}</p>
+          // As the library's empty sections and Link check (2.15.1): the icon in its circle, the same title.
+          <div className="mx-auto flex max-w-[480px] flex-col items-center gap-3 pt-16 text-center">
+            <span className="flex size-12 items-center justify-center rounded-full bg-secondary text-icon">
+              <Icon icon={Copy} size={20} />
+            </span>
+            <h2 className="text-xl font-semibold">{t("duplicates.emptyTitle")}</h2>
+            <p className="text-sm text-muted">{t("duplicates.emptyText")}</p>
           </div>
         ) : (
           <div className="flex flex-col gap-3">

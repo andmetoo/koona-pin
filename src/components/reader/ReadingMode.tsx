@@ -840,15 +840,12 @@ const Queue = function Queue({
           );
         })}
       </ol>
-      {/* Each hint whole: a narrow line breaks between them, never inside one. */}
-      <p className="flex shrink-0 flex-wrap gap-x-2.5 px-6 pt-3 pb-[25px] text-xs leading-[15px] text-read-muted">
-        <span className="whitespace-nowrap">{t("readingMode.keys")}</span>
-        <span aria-hidden>·</span>
-        <span className="whitespace-nowrap">{t("readingMode.keysEsc")}</span>
-        <span aria-hidden>·</span>
-        <span className="whitespace-nowrap">{t("readingMode.keysTab")}</span>
-        <span aria-hidden>·</span>
-        <span className="whitespace-nowrap">{t("readingMode.keysRemove", { key: deleteKey() })}</span>
+      {/* One hint a line (2.15.1): wrapped in a row, a «·» was left hanging at the end of each line. */}
+      <p className="flex shrink-0 flex-col gap-0.5 px-6 pt-3 pb-[25px] text-xs leading-[15px] text-read-muted">
+        <span>{t("readingMode.keys")}</span>
+        <span>{t("readingMode.keysEsc")}</span>
+        <span>{t("readingMode.keysTab")}</span>
+        <span>{t("readingMode.keysRemove", { key: deleteKey() })}</span>
       </p>
     </div>
   );

@@ -2905,6 +2905,10 @@
    fade in under the fixed sections and sink under the footer's glass. */
 .sidebar-scroll {
   scrollbar-width: none;
+}
+/* Settings' groups under its title, the same way (2.15.1). */
+.sidebar-scroll,
+.scroll-fade {
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14px);
   mask-image: linear-gradient(to bottom, transparent, #000 14px);
 }
@@ -2944,7 +2948,7 @@
   -webkit-mask-image: none;
   mask-image: none;
 }
-:root[data-linux] .sidebar-scroll {
+:root[data-linux] :is(.sidebar-scroll, .scroll-fade) {
   -webkit-mask-image: none;
   mask-image: none;
 }
@@ -2995,7 +2999,8 @@
   position: absolute;
   inset: 0 -12px;
   z-index: -1;
-  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--np-panel) 94%, transparent) 28px);
+  /* Solid under the rows (2.15.1): at 94 % the tags behind showed through «Settings» as a ghost. */
+  background: linear-gradient(to bottom, transparent, var(--np-panel) 28px);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28px);

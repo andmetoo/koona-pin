@@ -201,7 +201,8 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
           ]}
         />
       )}
-      {/* In a narrow window the word gives way to the book; the hint names it. */}
+      {/* In a narrow window the word gives way to the book; the hint names it. So it does in a row
+          under 36 rem beside the editor (2.15.1), where the word cost the title all but a letter. */}
       <Hint label={t("readingMode.read")} show={props.narrow}>
         <Button
           ref={props.readRef}
@@ -209,11 +210,11 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
           size="lg"
           data-read-mode
           onClick={props.onRead}
-          aria-label={props.narrow ? t("readingMode.read") : undefined}
-          className={`!rounded-[9px] !border-line bg-card text-ink shadow-button ${props.narrow ? "w-[34px] !px-0" : ""}`}
+          aria-label={t("readingMode.read")}
+          className={`!rounded-[9px] !border-line bg-card text-ink shadow-button ${props.narrow ? "w-[34px] !px-0" : "@max-[36rem]:w-[34px] @max-[36rem]:!px-0"}`}
         >
           <Icon icon={BookOpen} size={15} className="shrink-0" />
-          {!props.narrow && t("readingMode.read")}
+          {!props.narrow && <span className="@max-[36rem]:hidden">{t("readingMode.read")}</span>}
         </Button>
       </Hint>
     </div>
