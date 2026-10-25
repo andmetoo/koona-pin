@@ -147,13 +147,17 @@ export function SettingsPage({
     setAutoOpened(true);
   }, [problem]);
   const toggle = (id: GroupId) => {
-    const next = new Set(open);
-    if (!next.delete(id)) next.add(id);
-    const auto = autoOpened && id !== "connections";
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
     if (id === "connections") setAutoOpened(false);
-    savePreference("settingsGroups", [...next].filter((group) => !(auto && group === "connections")).join(","));
-    setOpen(next);
   };
+  // What is kept is what the person opened: Connections opened by a problem stays out.
+  useEffect(() => {
+    savePreference("settingsGroups", [...open].filter((group) => !(autoOpened && group === "connections")).join(","));
+  }, [open, autoOpened]);
 
   useEffect(() => {
     void api.getDataSummary().then(setData).catch(() => {});
@@ -626,8 +630,9 @@ function ConnectionsSummary({ capture, mcp }: { capture?: CaptureStatus | null; 
   const state = capture?.state;
   const failing = state === "failing";
   const warn = state === "lost" || state === "incompatible" || failing;
-  const browser =
-    capture === undefined ? null : state === "connected" ? t("settings.summaryConnected", { browsers: connectedNames(capture) }) : statusLabel(capture, t);
+  // Connected but no browser wrote lately: no names to give, so the plain status.
+  const names = state === "connected" ? connectedNames(capture ?? null) : "";
+  const browser = capture === undefined ? null : names ? t("settings.summaryConnected", { browsers: names }) : statusLabel(capture, t);
   const assistants = mcp ? t((mcp.status?.access ?? "off") === "off" ? "settings.summaryAssistantsOff" : "settings.summaryAssistantsOn") : null;
   // Inline, not flex: the header's summary ends in «…» when it is too long.
   return (

@@ -14,7 +14,7 @@ export interface HandedOff {
 }
 
 /**
- * «Refresh previews» for many bookmarks (Settings → Data, the selection bar, after an import):
+ * «Refresh previews» for many bookmarks (Settings → Storage, the selection bar, after an import):
  * the run of this session as Rust reports it, picked up again after a reload, and whether its
  * result was dismissed from the notification centre. The run is told apart by when it began.
  *

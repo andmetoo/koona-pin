@@ -44,7 +44,7 @@ export function useAppState(desktop: DesktopStatus | null, { noticeTiming }: { n
   const update = desktop?.update ?? null;
   const capture = desktop?.capture ?? null;
   const surfaces = useSurfaces({ supporter: supporter.supporter, sync: supporter.sync, update });
-  /** «Refresh previews» for many bookmarks: Settings → Data, the selection bar, the notification centre. */
+  /** «Refresh previews» for many bookmarks: Settings → Storage, the selection bar, the notification centre. */
   const previews = usePreviewRefresh();
   const lib = useLibraryView(t, nav, notices, previews.handingOff);
   const { library } = lib;

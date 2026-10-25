@@ -23,7 +23,7 @@ export interface SelectionActions {
   export: (format: ExportFormat) => void;
   /** Export → «Add to bundle» (share-bundle.md, M6): the selection into the bundle; not in the trash. */
   addToBundle: () => void;
-  /** «Refresh previews»: their pages read again in the background, as Settings → Data does. */
+  /** «Refresh previews»: their pages read again in the background, as Settings → Storage does. */
   refresh: () => void;
   trash: () => void;
   restore: () => void;

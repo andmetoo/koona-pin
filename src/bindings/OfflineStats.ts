@@ -2,6 +2,6 @@
 
 /**
  * Every copy on this computer, those of bookmarks in the trash included:
- * Settings → Reading tells what the folder holds.
+ * Settings → Storage tells what the folder holds.
  */
 export type OfflineStats = { count: number, bytes: number, };

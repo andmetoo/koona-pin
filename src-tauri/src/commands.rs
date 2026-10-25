@@ -247,7 +247,7 @@ pub async fn get_bookmark_ids(
     })
     .await
 }
-/// Settings → Data: rebuilds the search index if it has drifted from the library.
+/// Settings → Storage: rebuilds the search index if it has drifted from the library.
 #[tauri::command]
 pub async fn rebuild_search_index(
     app: AppHandle,
@@ -1070,7 +1070,7 @@ pub async fn remove_offline_copy(app: AppHandle, state: State<'_, Arc<DbState>>,
     }
     Ok(())
 }
-/// «Remove all copies» of Settings → Reading: how many there were.
+/// «Remove…» of Settings → Storage: how many offline copies there were.
 #[tauri::command]
 pub async fn remove_all_offline_copies(app: AppHandle, state: State<'_, Arc<DbState>>) -> Result<u32, CommandError> {
     let removed = blocking(&state, |conn| {

@@ -125,7 +125,7 @@ pub struct OfflineCopyContent {
 }
 
 /// Every copy on this computer, those of bookmarks in the trash included:
-/// Settings → Reading tells what the folder holds.
+/// Settings → Storage tells what the folder holds.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[ts(export)]
 pub struct OfflineStats {

@@ -39,7 +39,10 @@ export async function settingsGroup(page: Page, name: SettingsGroup): Promise<Lo
   const group = page.locator(`section[data-settings-group="${name}"]`);
   await expect(group).toBeVisible();
   const head = group.locator("h2 button");
-  if ((await head.count()) && (await head.getAttribute("aria-expanded")) === "false") await head.click();
+  if ((await head.count()) && (await head.getAttribute("aria-expanded")) === "false") {
+    await head.click();
+    await expect(head).toHaveAttribute("aria-expanded", "true");
+  }
   return group;
 }
 

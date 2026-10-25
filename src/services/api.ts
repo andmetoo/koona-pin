@@ -307,7 +307,7 @@ const native = {
   onLinkCheck: (callback: (progress: LinkCheckProgress) => void) => subscription("link-check", callback),
   /** «Refresh previews» for many bookmarks: the run of this session, picked up after a reload. */
   getPreviewRefresh: () => call<PreviewRefresh>("get_preview_refresh"),
-  /** The counts of the choice in Settings → Data. */
+  /** The counts of the choice in Settings → Storage. */
   getPreviewCounts: () => call<PreviewCounts>("get_preview_counts"),
   /** A scope, or the selected ids; in the background, reported by onPreviewRefresh. While one runs, its state. */
   startPreviewRefresh: (target: { scope: PreviewScope } | { ids: number[] }) =>
@@ -463,7 +463,7 @@ const nativeDesktop = {
   cancelUpdate: () => call<void>("cancel_update"),
   /** The tray menu and tooltip in the interface's language (NP-085). */
   setTrayLabels: (labels: TrayLabels) => call<void>("set_tray_labels", { labels }),
-  /** Settings → AI assistants (NP-091): access, the last request, and how to connect. */
+  /** Settings → Connections → AI assistants (NP-091): access, the last request, and how to connect. */
   getMcpStatus: () => call<McpStatus>("get_mcp_status"),
   setMcpAccess: (access: McpAccess) => call<McpStatus>("set_mcp_access", { access }),
   onMcpStatus: (callback: (status: McpStatus) => void) => subscription("mcp-status", callback),

@@ -10,7 +10,7 @@
 use rmcp::schemars::{self, JsonSchema};
 use serde::{Deserialize, Serialize};
 
-/// What an assistant may do, as Settings → AI assistants sets it. The same
+/// What an assistant may do, as Settings → Connections sets it. The same
 /// names are stored in `app_settings`, sent over the channel and typed for
 /// the interface (`McpAccess`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]

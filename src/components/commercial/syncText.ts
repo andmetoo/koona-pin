@@ -162,7 +162,7 @@ function startedOverBy(status: SyncStatus): string | null {
 }
 
 /**
- * The one line of the Supporter dialog («Synced · 3 computers · just now») and of Settings → Data
+ * The one line of the Supporter dialog («Synced · 3 computers · just now») and of Settings → Sync and backups
  * («On · 3 computers · synced just now»); none while sync is off here.
  */
 export function syncSummary(status: SyncStatus, t: TFunction, language: string, place: "supporter" | "settings"): { tone: SyncTone; text: string } | null {
