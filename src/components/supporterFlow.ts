@@ -148,8 +148,10 @@ export function useSupporterPurchase({
     if (unknownAtOpen.current) void api.refreshSupporter(true).catch(() => {});
   }, []);
   const [paidEmail, setPaidEmail] = useState(email);
+  // A repeat this dialog already said («Payment received» turned into it) stays said: the sign-in
+  // by code that follows clears the app's flag, as it may be another account's.
   const thank = (status: SupporterStatus | null) => {
-    setAgain(!!status?.paid_again);
+    setAgain((said) => said || !!status?.paid_again);
     setStep((s) => (unanswered(s) || s === "signIn" ? "thanks" : s));
   };
   useEffect(() => {

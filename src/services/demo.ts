@@ -2646,7 +2646,7 @@ export const demo = {
     const play = binds ? ({ state: "paid", email: null } as const) : waiting;
     const bought = play?.state === "paid" ? demoPlan(demoBought === "lifetime" ? "lifetime" : "supporter") : null;
     const plan = bought ? { ...bought, store: "play" as const } : address.startsWith("free@") || unknown ? null : demoPlan("supporter");
-    setDemoSupporter({ ...currentDemoSupporter(), email: email.trim(), plan, check_failed: unknown, plan_unknown: unknown, awaiting_sign_in: false, play });
+    setDemoSupporter({ ...currentDemoSupporter(), email: email.trim(), plan, check_failed: unknown, plan_unknown: unknown, awaiting_sign_in: false, paid_again: undefined, play });
     return currentDemoSupporter();
   },
   async getBackupFolder(): Promise<BackupFolder> {

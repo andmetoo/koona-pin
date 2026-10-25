@@ -386,11 +386,9 @@ impl Stored {
         if !self.same_account(&session.email) {
             self.delete_at = None;
         }
-        // A repeat purchase said for another sign-in is not this one's (a claim sets it again after);
-        // the sign-in by code that a paid purchase waits for is the payment's own and keeps it.
-        if !self.awaiting_sign_in {
-            self.paid_again = false;
-        }
+        // A repeat purchase is said before the sign-in it waits for («Payment received»), and by the
+        // claim that signs in after this; any sign-in by code may be another account's, so it ends.
+        self.paid_again = false;
         self.session = Some(session);
         let kept = self.lease.take();
         self.keep_lease(kept, key);
@@ -1604,18 +1602,16 @@ mod tests {
     }
 
     #[test]
-    fn a_repeat_paid_with_an_existing_accounts_email_is_kept_through_its_code_sign_in() {
+    fn a_repeat_paid_with_an_existing_accounts_email_is_said_until_the_code_signs_in() {
         let now = at("2026-10-12T12:00:00Z");
         let mut stored = Stored::default();
         stored.add_checkout(checkout("once1", "2026-10-12T11:00:00Z", PlanInterval::Lifetime));
         stored.paid_for_existing_account("once1", true);
         assert_eq!((stored.settled(), status(&stored, now).paid_again), (CheckoutState::SignIn, Some(true)));
-        // The code signs the payment's account in: the last step still says the payment comes back.
-        stored.sign_in(Session { access_token: "a".into(), refresh_token: "r".into(), expires_at: 0, email: "anna@example.com".into() }, &[]);
-        assert!(stored.paid_again && !stored.awaiting_sign_in);
-        // A later sign-in, nothing awaited: it is not that one's.
+        // The code signs in, whichever account: it is said no more (the open dialog keeps what it showed).
         stored.sign_in(Session { access_token: "b".into(), refresh_token: "r2".into(), expires_at: 0, email: "ben@example.com".into() }, &[]);
-        assert!(!stored.paid_again);
+        assert!(!stored.paid_again && !stored.awaiting_sign_in);
+        assert_eq!(status(&stored, now).paid_again, None);
         // Not a repeat: nothing said.
         let mut plain = Stored::default();
         plain.add_checkout(checkout("year1", "2026-10-12T11:00:00Z", PlanInterval::Year));
