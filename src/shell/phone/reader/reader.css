@@ -648,3 +648,13 @@
   margin-left: 16px;
   margin-right: 16px;
 }
+
+/* ---------------------------------------------------------------- The picture viewer's card (P4) */
+.phone .picture-viewer {
+  --viewer-card: var(--ph-paper);
+  --viewer-ink: var(--ph-ink);
+  --viewer-meta: var(--ph-meta);
+  --viewer-well: var(--ph-well);
+  --viewer-raised: var(--ph-raised);
+  --viewer-line: var(--ph-line);
+}

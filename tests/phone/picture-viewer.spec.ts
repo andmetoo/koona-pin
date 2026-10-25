@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { openPhone, systemBack, topScreen } from "./fixtures";
 import { ARTICLE } from "../ui/picture-viewer.spec";
 
-// #400 on a phone: a tap opens the picture, Back or a swipe down puts it back.
+// #400 on a phone (frame P4): a tap opens the picture in a card, Back or a swipe down puts it back.
 
 const viewer = (page: Page) => page.locator("[data-picture-viewer]");
 
@@ -18,10 +18,10 @@ async function readerWithPicture(page: Page) {
   return img;
 }
 
-/** A finger's drag on the stage, as pointer events of a touch, 10 px a frame. */
+/** A finger's drag on the picture, as pointer events of a touch, 10 px a frame. */
 const swipe = (page: Page, from: number, to: number) =>
   viewer(page)
-    .locator(".picture-viewer-stage")
+    .locator("[data-viewer-box]")
     .evaluate(
       async (stage, [a, b]) => {
         // A frame apart, as a finger moves: the speed is part of what closes it.

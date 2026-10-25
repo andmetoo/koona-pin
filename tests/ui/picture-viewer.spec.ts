@@ -1,7 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 import { openApp, opened, stubBrowser } from "../fixtures/app";
 
-// #400: a picture of the article opens over the window, zooms, pans and goes back into its place.
+// #400 (frames P1–P3): a picture of the article opens in a card over it, zooms and pans inside the
+// card, and the card goes back to the picture.
 
 const grid = Array.from({ length: 16 }, (_, i) => `<line x1="${i * 100}" y1="0" x2="${i * 100}" y2="1000" stroke="#fff"/>`).join("");
 export const PICTURE = `data:image/svg+xml;utf8,${encodeURIComponent(
@@ -29,13 +30,20 @@ async function readingWithPicture(page: Page, html = ARTICLE) {
   return body.locator("img");
 }
 
-test("a picture opens over the window, zooms, pans, and closes back into place", async ({ page }) => {
+const card = (page: Page) => viewer(page).locator("[data-viewer-card]");
+
+test("a picture opens in a card over the article, zooms and pans inside it, and closes", async ({ page }) => {
   const img = await readingWithPicture(page);
   await img.click();
   await expect(viewer(page)).toBeVisible();
-  await expect(img).toHaveCSS("visibility", "hidden");
   await settled(page);
   expect(await scale(page)).toBeCloseTo(1, 2);
+  // Not full screen: the card leaves the article around it; its picture is clipped by the box.
+  const box = (await card(page).boundingBox())!;
+  expect(box.width).toBeLessThan(1280 * 0.7);
+  expect(box.x).toBeGreaterThan(100);
+  await expect(card(page)).toHaveCSS("opacity", "1");
+  await expect(viewer(page).locator("[data-viewer-box]")).toHaveCSS("overflow", "hidden");
   await expect(viewer(page).getByText("The caption of the picture, shown under it in the viewer.")).toBeVisible();
   await expect(viewer(page).getByRole("button", { name: "Zoom out" })).toBeDisabled();
   await expect(viewer(page).getByRole("button", { name: "Close" })).toBeFocused();
@@ -44,14 +52,14 @@ test("a picture opens over the window, zooms, pans, and closes back into place",
   await page.keyboard.press("+");
   await settled(page);
   expect(await scale(page)).toBeCloseTo(2.25, 2);
+  // The card does not grow with the zoom.
+  expect((await card(page).boundingBox())!.width).toBeCloseTo(box.width, 0);
   const before = (await picture(page).boundingBox())!;
   await page.mouse.move(640, 400);
   await page.mouse.down();
   await page.mouse.move(540, 360, { steps: 5 });
   await page.mouse.up();
   expect((await picture(page).boundingBox())!.x).toBeLessThan(before.x - 50);
-  // Beside a zoomed picture a click does not close it.
-  await page.mouse.click(20, 400);
   await expect(viewer(page)).toBeVisible();
 
   await page.keyboard.press("0");
@@ -64,14 +72,14 @@ test("a picture opens over the window, zooms, pans, and closes back into place",
   await settled(page);
   expect(await scale(page)).toBeCloseTo(1, 2);
 
-  // Escape closes the viewer only; reading mode stays and its picture is back.
+  // Escape closes the viewer only; reading mode stays, its picture where it was.
   await page.keyboard.press("Escape");
   await expect(viewer(page)).toHaveCount(0);
   await expect(page.locator("[data-reading-mode]")).toBeVisible();
-  await expect(img).toHaveCSS("visibility", "visible");
+  await expect(img).toBeVisible();
 });
 
-test("while it is open the reading mode's keys rest, and a click beside the picture closes it", async ({ page }) => {
+test("while it is open the reading mode's keys rest, and a click beside the card closes it", async ({ page }) => {
   const img = await readingWithPicture(page);
   await img.click();
   await settled(page);
@@ -79,6 +87,8 @@ test("while it is open the reading mode's keys rest, and a click beside the pict
   const shown = await title.textContent();
   await page.keyboard.press("j");
   await expect(title).toHaveText(shown!);
+  // Even zoomed in.
+  await page.keyboard.press("+");
   await page.mouse.click(30, 400);
   await expect(viewer(page)).toHaveCount(0);
 });
