@@ -1,7 +1,8 @@
 import "./InboxScreen.css";
-import { type CSSProperties, useEffect, useLayoutEffect, useRef } from "react";
+import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { BookOpen, Check, CircleAlert, Ellipsis, Trash2 } from "lucide-react";
 import { capabilities } from "../../../platform/capabilities";
+import { api } from "../../../services/api";
 import { success } from "../../../platform/haptics";
 import { collectionColor } from "../../../services/collections";
 import { collectionKeys } from "../../../services/triage";
@@ -45,6 +46,16 @@ export function InboxScreen({ hidden }: { hidden: boolean }) {
   const { t } = app;
   const triage = useTriage(app);
   const { state } = triage;
+  // The share sheet's hint only where shared links really arrive (an iPhone needs its App Group).
+  const [shareIntake, setShareIntake] = useState(false);
+  useEffect(() => {
+    if (!capabilities.share_intake) return;
+    let live = true;
+    api.shareIntakeReady().then((ready) => live && setShareIntake(ready), () => {});
+    return () => {
+      live = false;
+    };
+  }, []);
   const card = currentOf(state);
   const done = isDone(state);
   const steps = state?.steps.length ?? 0;
@@ -96,7 +107,7 @@ export function InboxScreen({ hidden }: { hidden: boolean }) {
             </Button>
           </div>
         ) : !state ? null : empty ? (
-          <InboxEmpty shareIntake={capabilities.share_intake} onLibrary={toLibrary} onNew={() => sheets.open({ kind: "newLink", props: {} })} />
+          <InboxEmpty shareIntake={shareIntake} onLibrary={toLibrary} onNew={() => sheets.open({ kind: "newLink", props: {} })} />
         ) : done ? (
           <InboxSorted sum={summary(state.steps)} minutes={minutesSpent(state)} onLibrary={toLibrary} onUndo={triage.undo} />
         ) : (

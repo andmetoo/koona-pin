@@ -173,9 +173,34 @@ impl Stored {
         found
     }
 
-    /// Whether a kept purchase claims this account token.
-    fn claims(&self, token: Option<&str>) -> bool {
-        token.is_some_and(|token| self.appstore.iter().any(|c| account_token(&c.secret).eq_ignore_ascii_case(token)))
+    /// Whether a kept purchase claims this transaction: by its account token, or, for one bought
+    /// without a token and adopted here, by its id.
+    fn claims(&self, id: &str, token: Option<&str>) -> bool {
+        match token {
+            Some(token) => self.appstore.iter().any(|c| account_token(&c.secret).eq_ignore_ascii_case(token)),
+            None => self.appstore.iter().any(|c| c.transaction.as_deref() == Some(id)),
+        }
+    }
+
+    /// Purchases bought outside the app (an offer code, the App Store's own page) carry no
+    /// `appAccountToken`, so no secret here claims them. The first transaction of each, the first
+    /// time it is seen, gets a fresh secret of its own: the server takes it as the purchase's claim
+    /// (`appstore_verify` adopts a purchase without a token once), and it is then verified as any.
+    #[cfg(any(test, appstore))]
+    pub(super) fn adopt_appstore<'a>(&mut self, transactions: impl IntoIterator<Item = &'a native::Transaction>, account: Option<String>, now: DateTime<Utc>) {
+        for transaction in transactions {
+            let ours = PRODUCTS.contains(&transaction.product.as_str());
+            if !ours || transaction.account_token.is_some() || transaction.revoked || transaction.id != transaction.original_id || self.appstore_adopted.contains(&transaction.original_id) {
+                continue;
+            }
+            self.appstore_adopted.push(transaction.original_id.clone());
+            self.appstore.push(AppStoreCheckout {
+                transaction: Some(transaction.id.clone()),
+                jws: Some(transaction.jws.clone()),
+                product: transaction.product.clone(),
+                ..started(PlanInterval::Month, account.clone(), now)
+            });
+        }
     }
 
     /// What the server said about the purchase with this secret, as for Play
@@ -311,7 +336,8 @@ pub(super) trait Store: Send + Sync {
     fn buy(&self, product: String, account_token: String) -> impl Future<Output = Result<native::Bought, native::Error>> + Send;
     /// The transactions not finished and what the Apple Account owns; `sync` first for «Restore».
     fn transactions(&self, sync: bool) -> impl Future<Output = Result<native::Transactions, native::Error>> + Send;
-    fn finish(&self, id: String) -> impl Future<Output = Result<(), native::Error>> + Send;
+    /// Finishes these transactions, in one pass over StoreKit's unfinished ones.
+    fn finish(&self, ids: Vec<String>) -> impl Future<Output = Result<(), native::Error>> + Send;
 }
 
 // ── The steps ────────────────────────────────────────────────────────────────
@@ -435,10 +461,10 @@ fn kept_after_payment<A: Account>(account: &A, secret: &str, asked: Result<Optio
 #[cfg(any(test, appstore))]
 async fn settle<A: Account, S: Store>(account: &A, store: &S, unfinished: &[native::Transaction]) {
     let stored = account.billing().get();
-    let done: Vec<&native::Transaction> = unfinished.iter().filter(|t| !stored.claims(t.account_token.as_deref())).collect();
-    for transaction in &done {
-        if let Err(error) = store.finish(transaction.id.clone()).await {
-            eprintln!("Koona Pin: an App Store transaction could not be finished: {error}");
+    let done: Vec<&native::Transaction> = unfinished.iter().filter(|t| !stored.claims(&t.id, t.account_token.as_deref())).collect();
+    if !done.is_empty() {
+        if let Err(error) = store.finish(done.iter().map(|t| t.id.clone()).collect()).await {
+            eprintln!("Koona Pin: App Store transactions could not be finished: {error}");
         }
     }
     if !done.is_empty() && stored.session.is_some() {
@@ -555,6 +581,8 @@ async fn resume_with<A: Account, S: Store>(account: &A, store: &S, listed: Optio
     };
     if let Some(listed) = &listed {
         account.update(|s| {
+            let signed_in = s.session.as_ref().map(|session| session.email.clone());
+            s.adopt_appstore(listed.entitlements.iter().chain(&listed.unfinished), signed_in, Utc::now());
             s.find_appstore(listed.entitlements.iter().chain(&listed.unfinished).map(|t| (t.id.as_str(), t.account_token.as_deref(), t.jws.as_str())));
         })?;
     }
@@ -665,9 +693,9 @@ mod commands {
             super::super::play::within_or(wait, async move { store.transactions(sync).await }, native::Error::NoAnswer).await
         }
 
-        async fn finish(&self, id: String) -> Result<(), native::Error> {
+        async fn finish(&self, ids: Vec<String>) -> Result<(), native::Error> {
             let store = self.0.clone();
-            super::super::play::within_or(ASK_WAIT, async move { store.finish(&id).await }, native::Error::NoAnswer).await
+            super::super::play::within_or(ASK_WAIT, async move { store.finish(&ids).await }, native::Error::NoAnswer).await
         }
     }
 
@@ -974,11 +1002,11 @@ mod tests {
             self.listed.lock().unwrap().clone()
         }
 
-        async fn finish(&self, id: String) -> Result<(), native::Error> {
+        async fn finish(&self, ids: Vec<String>) -> Result<(), native::Error> {
             if let Ok(listed) = self.listed.lock().unwrap().as_mut() {
-                listed.unfinished.retain(|t| t.id != id);
+                listed.unfinished.retain(|t| !ids.contains(&t.id));
             }
-            self.finished.lock().unwrap().push(id);
+            self.finished.lock().unwrap().extend(ids);
             Ok(())
         }
     }
@@ -1041,7 +1069,7 @@ mod tests {
         let asked = fake.asked("appstore_verify");
         assert_eq!(asked[0].0["claim"].as_str(), Some(kept.secret.as_str()));
         assert_eq!(kept.transaction.as_deref(), Some("7"));
-        assert!(fake.billing.get().claims(Some(&account_token(&kept.secret).to_uppercase())), "StoreKit's case does not matter");
+        assert!(fake.billing.get().claims("any", Some(&account_token(&kept.secret).to_uppercase())), "StoreKit's case does not matter");
     }
 
     #[test]
@@ -1211,6 +1239,32 @@ mod tests {
         assert_eq!(waiting.asked("appstore_verify")[0].0["transaction"], "jws-8100", "the newest signed form");
         assert!(waiting.billing.get().appstore.is_empty());
         assert_eq!(waiting.finished(), ["8100"]);
+    }
+
+    #[test]
+    fn a_purchase_made_outside_the_app_is_adopted_once_and_finished_only_once_bound() {
+        // An offer code redeemed in the App Store: no account token, so no secret here claims it.
+        let fake = Fake::new(|_, _| Ok((200, json!({ "status": "paid", "lease": null }))));
+        fake.set(|s| s.session = Some(anna()));
+        let redeemed = transaction("9500", ANNUAL, None);
+        fake.lists(vec![redeemed.clone()], vec![redeemed.clone()]);
+        run(resume(&fake, &fake, None, false)).unwrap();
+        let asked = fake.asked("appstore_verify");
+        assert_eq!(asked.len(), 1, "adopted with a fresh secret and verified");
+        assert_eq!(asked[0].0["transaction"], "jws-9500");
+        assert!(fake.billing.get().appstore.is_empty(), "bound, so done");
+        assert_eq!(fake.finished(), ["9500"]);
+        // Seen again (Restore, the next start): never adopted a second time.
+        fake.lists(vec![], vec![redeemed]);
+        run(resume(&fake, &fake, None, false)).unwrap();
+        assert_eq!(fake.asked("appstore_verify").len(), 1);
+        // The server out of reach: kept, and the transaction stays unfinished.
+        let offline = Fake::new(|_, _| Err(CommandError::detailed(ErrorCode::Network, ErrorDetail::ServiceFailed, "offline")));
+        let other = transaction("9600", MONTHLY, None);
+        offline.lists(vec![other.clone()], vec![other]);
+        assert!(run(resume(&offline, &offline, None, false)).is_err());
+        assert_eq!(offline.billing.get().appstore.len(), 1);
+        assert!(offline.finished().is_empty());
     }
 
     #[test]

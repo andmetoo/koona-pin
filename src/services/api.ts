@@ -214,6 +214,8 @@ const native = {
     call<StarterLibrary>("create_starter_library", { names, links }),
   /** The starter links still in the library: triage names them (NP-117). */
   getStarterLinks: () => call<number[]>("get_starter_links"),
+  /** Whether links shared from other apps reach the app now (a phone's share queue exists). */
+  shareIntakeReady: () => call<boolean>("share_intake_ready"),
   /** The sidebar's order after a move: every collection's id, first to last (NP-114). */
   reorderCollections: (ids: number[]) => call<void>("reorder_collections", { ids }),
   /** «Title A–Z» and «Site A–Z» compare in this language; true when the keys were written anew (NP-114). */

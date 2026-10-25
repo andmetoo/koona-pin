@@ -113,8 +113,12 @@ impl<P: Store, L: Store> Store for Moving<P, L> {
 
     fn write(&self, path: &Path, text: &str) -> io::Result<()> {
         self.primary.write(path, text)?;
-        // A copy left behind would come back as the secret if `primary` were ever cleared.
-        self.legacy.delete(path)
+        // A copy left behind would come back as the secret if `primary` were ever cleared; one that
+        // can't be removed now is removed by the next write. The secret itself is saved.
+        if let Err(error) = self.legacy.delete(path) {
+            eprintln!("Koona Pin: the old copy of a secret could not be removed yet: {error}");
+        }
+        Ok(())
     }
 
     fn delete(&self, path: &Path) -> io::Result<()> {
@@ -131,7 +135,13 @@ impl<P: Store, L: Store> Moving<P, L> {
         let marker = folder.join(MARKER);
         if !marker.exists() {
             let old_files = names.iter().any(|name| matches!(self.legacy.read(&folder.join(name)), Ok(Some(_))));
-            if !old_files {
+            // The marker first: one that can't be written would make every start look like a fresh
+            // install, clearing the secrets again each time. Without it nothing is cleared.
+            let written = std::fs::create_dir_all(folder).and_then(|()| std::fs::write(&marker, b"1"));
+            if let Err(error) = &written {
+                eprintln!("Koona Pin: the Keychain marker could not be written: {error}");
+            }
+            if !old_files && written.is_ok() {
                 // No marker and nothing to move: a first start, or the first after a reinstall,
                 // which leaves the Keychain behind. Nothing in it is this install's.
                 for name in names {
@@ -142,10 +152,6 @@ impl<P: Store, L: Store> Moving<P, L> {
                         }
                     }
                 }
-            }
-            let written = std::fs::create_dir_all(folder).and_then(|()| std::fs::write(&marker, b"1"));
-            if let Err(error) = written {
-                eprintln!("Koona Pin: the Keychain marker could not be written: {error}");
             }
         }
         for name in names {
@@ -312,6 +318,21 @@ mod tests {
         store.prepare(&folder, &NAMES);
         assert_eq!(store.read(&folder.join("account.json")).unwrap().as_deref(), Some("new"));
         let _ = std::fs::remove_dir_all(folder);
+    }
+
+    #[test]
+    fn a_marker_that_cannot_be_written_clears_nothing() {
+        let fake = Fake::default();
+        fake.items.lock().unwrap().insert("account.json".into(), "signed in".into());
+        // The folder is a file: the marker can't be written in it, start after start.
+        let folder = folder();
+        std::fs::remove_dir(&folder).unwrap();
+        std::fs::write(&folder, b"not a folder").unwrap();
+        let store = Moving { primary: &fake, legacy: Files };
+        store.prepare(&folder, &NAMES);
+        store.prepare(&folder, &NAMES);
+        assert_eq!(keys(&fake), ["account.json"]);
+        let _ = std::fs::remove_file(folder);
     }
 
     #[test]

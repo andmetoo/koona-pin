@@ -54,13 +54,18 @@ impl Identity {
         koona_sync::crypto::public_key(&self.key_pair())
     }
 
-    fn read(path: &Path) -> Result<Option<Identity>, ()> {
-        let text = match secrets::read(path) {
-            Ok(Some(text)) => text,
-            Ok(None) => return Ok(None),
-            Err(_) => return Err(()),
-        };
-        let stored: Stored = serde_json::from_str(&text).map_err(|_| ())?;
+    /// The identity kept at `path`: none, or `Err(())` for one that is there but damaged. A store
+    /// that can't be read now (the iPhone's Keychain before the first unlock) is an I/O error, not
+    /// damage: the key is still good and is read again later.
+    fn read(path: &Path) -> io::Result<Result<Option<Identity>, ()>> {
+        Ok(match secrets::read(path)? {
+            Some(text) => Identity::parse(&text),
+            None => Ok(None),
+        })
+    }
+
+    fn parse(text: &str) -> Result<Option<Identity>, ()> {
+        let stored: Stored = serde_json::from_str(text).map_err(|_| ())?;
         let pkcs8 = STANDARD.decode(stored.key).map_err(|_| ())?;
         if stored.v != 1 || stored.device.is_nil() || koona_sync::crypto::device_key(&pkcs8).is_err() {
             return Err(());
@@ -70,9 +75,9 @@ impl Identity {
 
     /// The device of this computer, made on first use. A damaged file is moved aside and a new
     /// device made: the relay sees a new device, which the hub pairs like any other, and the
-    /// old entry stays in the directory until removed.
+    /// old entry stays in the directory until removed. One that can't be read now is an error.
     pub fn load_or_create(path: &Path) -> io::Result<Identity> {
-        match Identity::read(path) {
+        match Identity::read(path)? {
             Ok(Some(identity)) => return Ok(identity),
             Ok(None) => {}
             Err(()) => {

@@ -114,28 +114,25 @@ pub async fn guard_pictures(meta: &mut PageMetadata) {
     }
 }
 
-/// Google's icon service: a computer's icon for a page before it is read.
+/// Google's icon service: the icon of a page before it is read.
 const ICON_SERVICE: &str = "https://www.google.com/s2/favicons?domain=";
 
-/// What is known of a page before it is read: its domain and an icon. A computer asks Google's
-/// icon service; a phone asks only the site, for its `/favicon.ico`, so no third party learns
-/// which sites the person saves (owner, 25 October 2026: the App Store and Play privacy labels).
+/// What is known of a page before it is read: its domain and Google's icon. Every device keeps the
+/// same address, so a link synced between them has the same icon; only the fetch differs
+/// ([`fetched_icon`]).
 pub fn base_metadata(target_url: &str) -> PageMetadata {
     let domain = extract_domain(target_url);
     PageMetadata {
         domain: domain.clone(),
-        favicon_url: Some(if cfg!(mobile) { site_icon(&domain) } else { format!("{ICON_SERVICE}{domain}&sz=128") }),
+        favicon_url: Some(format!("{ICON_SERVICE}{domain}&sz=128")),
         ..Default::default()
     }
 }
 
-fn site_icon(domain: &str) -> String {
-    format!("https://{domain}/favicon.ico")
-}
-
-/// Where a phone fetches an icon from: a bookmark made on a computer (and synced) may carry Google's
-/// address, which a phone turns into the site's own `/favicon.ico`. Anything else, and every
-/// address on a computer, is fetched as it is.
+/// Where an icon is fetched from. A phone never asks Google's icon service, so no third party
+/// learns which sites the person saves (owner, 25 October 2026: the App Store and Play privacy
+/// labels): its address becomes the site's own `/favicon.ico`. Anything else, and every address on
+/// a computer, is fetched as it is.
 pub fn fetched_icon(address: &str) -> std::borrow::Cow<'_, str> {
     if cfg!(mobile) {
         if let Some(icon) = own_icon(address) {
@@ -148,7 +145,7 @@ pub fn fetched_icon(address: &str) -> std::borrow::Cow<'_, str> {
 fn own_icon(address: &str) -> Option<String> {
     let rest = address.trim().strip_prefix(ICON_SERVICE)?;
     let domain = rest.split('&').next().filter(|d| !d.is_empty() && !d.contains(['/', '?', '#', '@']))?;
-    Some(site_icon(domain))
+    Some(format!("https://{domain}/favicon.ico"))
 }
 
 pub async fn fetch_with(target_url: &str, limits: &Limits) -> PageMetadata {
@@ -738,8 +735,7 @@ pub fn read_page(html: &str, base: &Url, meta: &mut PageMetadata) {
         // A bare favicon.ico is usually 16 px: Google's 128 px icon, already
         // set, serves a cover better unless the page declares a larger one.
         if let Some((size, url)) = best {
-            // A phone's base icon is only a guess at `/favicon.ico`: any icon the page declares wins.
-            if size >= 32 || meta.favicon_url.is_none() || cfg!(mobile) {
+            if size >= 32 || meta.favicon_url.is_none() {
                 meta.favicon_url = Some(url);
             }
         }

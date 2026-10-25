@@ -232,6 +232,13 @@ pub fn manage(app: &tauri::App, folder: Option<PathBuf>) {
     }
 }
 
+/// Whether links shared from other apps reach this app now: a phone whose share sheet has a queue.
+/// On iPhone, one signed without its App Group has none, whatever the build's capability says.
+#[tauri::command]
+pub fn share_intake_ready(app: AppHandle) -> bool {
+    app.try_state::<Queue>().is_some()
+}
+
 /// Takes the queue in on a thread of its own, with the change events a capture sends, so the
 /// interface reads what came. Nothing without a queue or before the library is open: its opening
 /// calls this again.

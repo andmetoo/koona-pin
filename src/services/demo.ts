@@ -2444,6 +2444,10 @@ export const demo = {
   async createStarterLibrary(_names: string[], _links: StarterLink[]): Promise<StarterLibrary> {
     return { collections: [], links: [] };
   },
+  /** The demo has no share queue of its own: the build's capability says it all. */
+  async shareIntakeReady(): Promise<boolean> {
+    return true;
+  },
   /** Starter links of the sample library: a test puts their ids into localStorage. */
   async getStarterLinks(): Promise<number[]> {
     try {

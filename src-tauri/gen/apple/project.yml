@@ -101,10 +101,12 @@ targets:
       - sdk: WebKit.framework
     preBuildScripts:
       # `bun run tauri` of the repository's package.json, as every other build (NP-151). A Run from
-      # Xcode's own window gets Xcode's PATH, not the shell's: the usual places of bun and cargo
-      # (mise, bun's installer, rustup) come first.
+      # Xcode's own window gets Xcode's PATH, not the person's: then their own shell says where bun
+      # and cargo are, wherever they were installed.
       - script: |
-          export PATH="$HOME/.local/share/mise/shims:$HOME/.bun/bin:$HOME/.cargo/bin:$PATH"
+          if ! command -v bun >/dev/null 2>&1; then
+            PATH="$("${SHELL:-/bin/zsh}" -ilc 'printf %s "$PATH"' 2>/dev/null):$PATH"; export PATH
+          fi
           cd "${SRCROOT:?}/../../.." && bun run tauri ios xcode-script -v --platform "${PLATFORM_DISPLAY_NAME:?}" --sdk-root "${SDKROOT:?}" --framework-search-paths "${FRAMEWORK_SEARCH_PATHS:?}" --header-search-paths "${HEADER_SEARCH_PATHS:?}" --gcc-preprocessor-definitions "${GCC_PREPROCESSOR_DEFINITIONS:-}" --configuration "${CONFIGURATION:?}" ${FORCE_COLOR} ${ARCHS:?}
         name: Build Rust Code
         basedOnDependencyAnalysis: false

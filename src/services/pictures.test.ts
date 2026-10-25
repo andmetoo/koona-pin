@@ -7,7 +7,7 @@ vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: (path: string, protocol: string) => `${protocol}://localhost/${encodeURIComponent(path)}`,
 }));
 
-import { hash8, pictureSrc, siteIcon } from "./pictures";
+import { hash8, pictureSrc, webFallback } from "./pictures";
 
 describe("hash8", () => {
   it("is FNV-1a 32 over UTF-8, as 8 hex digits", () => {
@@ -73,13 +73,8 @@ describe("pictureSrc", () => {
   });
 });
 
-describe("siteIcon", () => {
-  it("turns Google's icon address into the site's own favicon", () => {
-    expect(siteIcon("https://www.google.com/s2/favicons?domain=example.org&sz=128")).toBe("https://example.org/favicon.ico");
-  });
-  it("keeps any other address, and a domain that is not one", () => {
-    expect(siteIcon("https://example.org/touch.png")).toBe("https://example.org/touch.png");
-    const odd = "https://www.google.com/s2/favicons?domain=evil.test/x&sz=128";
-    expect(siteIcon(odd)).toBe(odd);
+describe("webFallback", () => {
+  it("lets the WebView try every source address where the build asks the icon service (a computer)", () => {
+    for (const kind of ["bookmark-image", "bookmark-icon", "post-thumb", "feed-icon"] as const) expect(webFallback(kind)).toBe(true);
   });
 });

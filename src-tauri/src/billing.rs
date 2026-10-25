@@ -293,6 +293,10 @@ struct Stored {
     /// (billing/appstore.rs); kept over Sign out as Play's are.
     #[serde(default)]
     appstore: Vec<appstore::AppStoreCheckout>,
+    /// The original transactions bought outside the app (no `appAccountToken`) that were given a
+    /// secret here: each is adopted once (billing/appstore.rs), kept over Sign out.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    appstore_adopted: Vec<String>,
     #[serde(skip)]
     appstore_outcome: Option<(String, play::PlayState)>,
     #[serde(skip)]
@@ -320,7 +324,7 @@ impl Stored {
     /// Signed out, as «Sign out» leaves the file: the environment stays, and Play purchases not bound
     /// yet (NP-154), whose secrets are their only claim; the account and all of its state go.
     fn signed_out(&mut self) {
-        *self = Stored { sandbox: self.sandbox, play: std::mem::take(&mut self.play), appstore: std::mem::take(&mut self.appstore), ..Stored::default() };
+        *self = Stored { sandbox: self.sandbox, play: std::mem::take(&mut self.play), appstore: std::mem::take(&mut self.appstore), appstore_adopted: std::mem::take(&mut self.appstore_adopted), ..Stored::default() };
     }
 
     /// Keeps the server's signed plan and what of it verifies for the account signed in here.
@@ -606,6 +610,25 @@ fn new_secret() -> String {
     format!("{}{}", uuid::Uuid::new_v4().simple(), uuid::Uuid::new_v4().simple())
 }
 
+/// The account kept in `account.json`, as this build uses it: none (or one that doesn't parse) is
+/// the empty one.
+fn stored_of(text: Option<String>) -> Stored {
+    let mut stored: Stored = text.and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default();
+    stored.migrate();
+    // An account of the other environment is not this build's.
+    if service().is_some_and(|s| s.sandbox != stored.sandbox) {
+        stored = Stored { sandbox: service().is_some_and(|s| s.sandbox), ..Stored::default() };
+    }
+    // The plan only as the server signed it: a plan written in the file by hand, or kept by
+    // the builds before 0.10, counts for nothing until the server answers.
+    let lease = stored.lease.take();
+    stored.keep_lease(lease, &plan_key());
+    if stored.unsigned_plan.take().is_some() && stored.lease.is_none() {
+        stored.checked_at = None;
+    }
+    stored
+}
+
 pub struct Billing {
     path: PathBuf,
     stored: Mutex<Stored>,
@@ -624,27 +647,20 @@ pub struct Billing {
     /// One Play purchase step at a time, Play's sheet included (NP-154): the check on the way back
     /// to the screen waits for the purchase that put Play's sheet over the app.
     playing: tokio::sync::Mutex<()>,
+    /// The account could not be read at start (the iPhone's Keychain before the first unlock): it
+    /// is read again before anything is shown or written, so an empty state never overwrites it.
+    unread: std::sync::atomic::AtomicBool,
 }
 
 impl Billing {
     fn load(path: PathBuf) -> Self {
-        let mut stored: Stored = crate::secrets::read(&path)
-            .ok()
-            .flatten()
-            .and_then(|text| serde_json::from_str(&text).ok())
-            .unwrap_or_default();
-        stored.migrate();
-        // An account of the other environment is not this build's.
-        if service().is_some_and(|s| s.sandbox != stored.sandbox) {
-            stored = Stored { sandbox: service().is_some_and(|s| s.sandbox), ..Stored::default() };
-        }
-        // The plan only as the server signed it: a plan written in the file by hand, or kept by
-        // the builds before 0.10, counts for nothing until the server answers.
-        let lease = stored.lease.take();
-        stored.keep_lease(lease, &plan_key());
-        if stored.unsigned_plan.take().is_some() && stored.lease.is_none() {
-            stored.checked_at = None;
-        }
+        let (stored, unread) = match crate::secrets::read(&path) {
+            Ok(text) => (stored_of(text), false),
+            Err(error) => {
+                eprintln!("Koona Pin: the account can't be read yet, it is read again before use: {error}");
+                (stored_of(None), true)
+            }
+        };
         Billing {
             path,
             stored: Mutex::new(stored),
@@ -654,11 +670,26 @@ impl Billing {
             refreshing: tokio::sync::Mutex::new(()),
             portal_at: Mutex::new(None),
             playing: tokio::sync::Mutex::new(()),
+            unread: std::sync::atomic::AtomicBool::new(unread),
         }
     }
 
+    /// The account read now if it could not be read before; an error while it still can't be.
+    fn read_again(&self, stored: &mut Stored) -> std::io::Result<()> {
+        use std::sync::atomic::Ordering;
+        if !self.unread.load(Ordering::Acquire) {
+            return Ok(());
+        }
+        *stored = stored_of(crate::secrets::read(&self.path)?);
+        self.unread.store(false, Ordering::Release);
+        Ok(())
+    }
+
     fn get(&self) -> Stored {
-        self.stored.lock().map(|s| s.clone()).unwrap_or_default()
+        let Ok(mut stored) = self.stored.lock() else { return Stored::default() };
+        // Still unreadable: shown as signed out for now, never written.
+        let _ = self.read_again(&mut stored);
+        stored.clone()
     }
 
     /// Changes the stored state, writes the file and tells the interface. The lock is held until
@@ -673,6 +704,7 @@ impl Billing {
 
     fn apply(&self, change: impl FnOnce(&mut Stored)) -> Result<Stored, CommandError> {
         let mut stored = self.stored.lock().map_err(CommandError::internal)?;
+        self.read_again(&mut stored).map_err(CommandError::internal)?;
         let mut next = stored.clone();
         change(&mut next);
         self.write(&next)?;

@@ -1,5 +1,5 @@
 import { SyntheticEvent, useState, useSyncExternalStore } from "react";
-import { pictureSource, pictureSrc, type PictureKind } from "../services/pictures";
+import { pictureSource, pictureSrc, webFallback, type PictureKind } from "../services/pictures";
 
 export type Picture = {
   /** The address to show now; null when there is no picture or every address failed. */
@@ -50,7 +50,7 @@ export function usePicture(kind: PictureKind, id: number | string, sourceUrl: st
   const source = pictureSource(kind, sourceUrl);
   const cached = pictureSrc(kind, id, sourceUrl);
   const online = typeof navigator === "undefined" || navigator.onLine;
-  const chain = !source || !cached ? [] : cached === source ? [source] : webFirst && online ? [source, cached] : [cached, source];
+  const chain = !source || !cached ? [] : cached === source ? [source] : !webFallback(kind) ? [cached] : webFirst && online ? [source, cached] : [cached, source];
   const key = `${round} ${chain.join(" ")}`;
   const [state, setState] = useState<{ key: string; index: number }>({ key, index: 0 });
   const index = state.key === key ? state.index : 0;

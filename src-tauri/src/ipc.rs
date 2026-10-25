@@ -29,6 +29,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         commands::create_starter_collections,
         commands::create_starter_library,
         commands::get_starter_links,
+        crate::share_queue::share_intake_ready,
         commands::reorder_collections,
         commands::set_sort_language,
         commands::refresh_preview,

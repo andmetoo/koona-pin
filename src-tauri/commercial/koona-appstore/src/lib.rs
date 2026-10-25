@@ -180,7 +180,7 @@ mod ios {
 
     #[derive(Serialize)]
     struct FinishArgs<'a> {
-        id: &'a str,
+        ids: &'a [String],
     }
 
     #[derive(serde::Deserialize)]
@@ -213,9 +213,9 @@ mod ios {
             self.0.run_mobile_plugin_async("transactions", TransactionsArgs { sync }).await.map_err(error)
         }
 
-        /// Finishes the transaction with this id, if it is still unfinished.
-        pub async fn finish(&self, id: &str) -> Result<(), Error> {
-            self.0.run_mobile_plugin_async("finish", FinishArgs { id }).await.map_err(error)
+        /// Finishes the transactions with these ids that are still unfinished, in one pass.
+        pub async fn finish(&self, ids: &[String]) -> Result<(), Error> {
+            self.0.run_mobile_plugin_async("finish", FinishArgs { ids }).await.map_err(error)
         }
 
         /// The system's sheet of this app's subscriptions (`showManageSubscriptions(in:)`).

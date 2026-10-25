@@ -22,23 +22,15 @@ const FEED_KINDS: ReadonlySet<PictureKind> = new Set(["post-thumb", "feed-icon"]
 /** The address a picture of this kind is shown from, before the cache: null when there is none. */
 export function pictureSource(kind: PictureKind, sourceUrl: string | null | undefined): string | null {
   if (!sourceUrl) return null;
-  if (FEED_KINDS.has(kind)) return pictureUrl(sourceUrl);
-  return !capabilities.icon_service && kind === "bookmark-icon" ? siteIcon(sourceUrl) : sourceUrl;
+  return FEED_KINDS.has(kind) ? pictureUrl(sourceUrl) : sourceUrl;
 }
-
-const ICON_SERVICE = "https://www.google.com/s2/favicons?domain=";
 
 /**
- * A phone never asks Google's icon service (the store privacy labels): a bookmark made on a
- * computer may carry its address, which becomes the site's own `/favicon.ico`, as the backend's
- * `metadata::fetched_icon` does.
+ * Whether the WebView may load the source address itself when the local copy fails. Not a
+ * bookmark's icon where the build asks no icon service (a phone): its address may be Google's,
+ * and only the backend's fetch turns it into the site's own (`metadata::fetched_icon`).
  */
-export function siteIcon(address: string): string {
-  const trimmed = address.trim();
-  if (!trimmed.startsWith(ICON_SERVICE)) return address;
-  const domain = trimmed.slice(ICON_SERVICE.length).split("&")[0];
-  return domain && !/[/?#@]/.test(domain) ? `https://${domain}/favicon.ico` : address;
-}
+export const webFallback = (kind: PictureKind): boolean => kind !== "bookmark-icon" || capabilities.icon_service;
 
 /**
  * FNV-1a, 32 bits, over the UTF-8 bytes of `text`, as 8 lowercase hex digits.

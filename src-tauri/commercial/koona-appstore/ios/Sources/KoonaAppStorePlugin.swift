@@ -23,7 +23,7 @@ class TransactionsArgs: Decodable {
 }
 
 class FinishArgs: Decodable {
-  let id: String
+  let ids: [String]
 }
 
 struct ProductFacts: Encodable {
@@ -230,13 +230,15 @@ class KoonaAppStorePlugin: Plugin {
   @objc public func finish(_ invoke: Invoke) throws {
     let args = try invoke.parseArgs(FinishArgs.self)
     Task {
-      for await result in Transaction.unfinished {
+      // One pass over what is unfinished, however many are asked for; done once all were found.
+      var left = Set(args.ids)
+      for await result in Transaction.unfinished where !left.isEmpty {
         let transaction: Transaction
         switch result {
         case .verified(let t): transaction = t
         case .unverified(let t, _): transaction = t
         }
-        if String(transaction.id) == args.id {
+        if left.remove(String(transaction.id)) != nil {
           await transaction.finish()
         }
       }
