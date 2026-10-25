@@ -365,6 +365,14 @@ test("the App Store build: bought signed out, the email claims it, the code sign
   await expect(sheet(page, "plan").getByRole("button", { name: "Manage in the App Store" })).toBeVisible();
 });
 
+test("the App Store build: with nothing on sale, Restore purchases and the legal links stay", async ({ page }) => {
+  const supporter = await openAppStore(page, { ...FREE, "demo.playProducts": "none" });
+  await expect(supporter).toContainText("The App Store can't sell Supporter on this iPhone right now.");
+  await supporter.getByRole("button", { name: "Restore purchases" }).click();
+  await expect(supporter.getByRole("alert")).toHaveText("This Apple Account has no Supporter purchase to restore.");
+  await expect(supporter.getByRole("button", { name: "Terms of Use" })).toBeVisible();
+});
+
 test("the App Store build: Ask to Buy waits for approval, and the sheet opens on it again", async ({ page }) => {
   const supporter = await openAppStore(page, { ...FREE, "demo.play": "pending" });
   await supporter.getByRole("button", { name: "Buy · One-time" }).click();

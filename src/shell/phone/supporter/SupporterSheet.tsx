@@ -497,12 +497,19 @@ function PlaySheet({ channel }: { channel: StoreChannel }) {
               <p className="sp-hint">{words("renews")}</p>
               {offer?.lifetime && <p className="sp-hint">{t("phone.supporter.play.once")}</p>}
             </div>
-            {apple && (
-              <Button kind="clear" compact block className="sp-restore" disabled={busy} onClick={() => void restore()}>
-                {t("phone.supporter.appstore.restore")}
-              </Button>
-            )}
           </>
+        )}
+        {/* Restore whatever StoreKit sells or not: a purchase made elsewhere is found either way. */}
+        {apple && (
+          <Button kind="clear" compact block className="sp-restore" disabled={busy} onClick={() => void restore()}>
+            {t("phone.supporter.appstore.restore")}
+          </Button>
+        )}
+        {/* Where the plans are not shown, what Restore found is said here. */}
+        {apple && error && !supporter?.plan && (playUnavailable(offer) || (offerFailed && !offer)) && (
+          <Notice tone={kept ? "amber" : "danger"} live="alert">
+            {error}
+          </Notice>
         )}
         {apple && <Legal />}
       </section>
