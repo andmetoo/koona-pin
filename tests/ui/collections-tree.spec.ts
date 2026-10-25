@@ -201,6 +201,10 @@ test("the row menu renames in place, styles the collection and makes one inside"
   await expect(emoji).toHaveValue("🎉");
   await emoji.fill("Р");
   await expect(item(page, "Frontend")).toContainText("🎉");
+  await expect(emoji).toHaveValue("Р");
+  // Emptied, the field takes the emoji off.
+  await emoji.fill("");
+  await expect(item(page, "Frontend")).not.toContainText("🎉");
   await style.getByRole("radio", { name: "globe" }).click();
   await expect(emoji).toHaveValue("");
   await expect(item(page, "Frontend").locator("svg.lucide-globe")).toBeVisible();

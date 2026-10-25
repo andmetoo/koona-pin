@@ -64,6 +64,12 @@ export function useLibrary(
   collectionsRef.current = collections;
   /** A changed bookmark belongs to a collection's list when it is anywhere inside it (2.19.0). */
   const scopeOf = (f: FilterState) => (f.collectionId === null ? undefined : scopeIds(collectionsRef.current, f.collectionId, f.onlyCollection));
+  /**
+   * A bookmark in a collection the catalog does not know yet (synced in a moment ago) may sit
+   * inside the one shown: the database decides, as it does for search words.
+   */
+  const unsure = (b: Bookmark, f: FilterState) =>
+    f.collectionId !== null && !f.onlyCollection && b.collection_id !== null && !collectionsRef.current.some((c) => c.id === b.collection_id);
   const [tags, setTags] = useState<Tag[]>([]);
   const [domains, setDomains] = useState<DomainCount[]>([]);
   const [counts, setCounts] = useState<LibraryCounts>({
@@ -415,8 +421,9 @@ export function useLibrary(
       eventVersion.current++;
       const b = change.bookmark;
       const filters = filtersRef.current;
-      if (!b || !matchesFilters(b, filters, scopeOf(filters))) return apply(change, false);
-      if (!filters.search.trim()) return apply(change, true);
+      const matches = !!b && matchesFilters(b, filters, scopeOf(filters));
+      if (!b || (!matches && !unsure(b, filters))) return apply(change, false);
+      if (matches && !filters.search.trim()) return apply(change, true);
       // Search words are matched by the database, the only copy of the rules.
       const list = seq.current;
       api.getBookmarks(filters, { id: b.id, limit: 1 }).then(
@@ -444,7 +451,7 @@ export function useLibrary(
       const filters = filtersRef.current;
       const list = seq.current;
       let found: Set<number> | null = null;
-      if (filters.search.trim()) {
+      if (filters.search.trim() || fresh.some((c) => !!c.bookmark && unsure(c.bookmark, filters))) {
         try {
           found = new Set(await api.getBookmarkIds(filters));
         } catch {
@@ -458,7 +465,7 @@ export function useLibrary(
       const latest = fresh.filter((c) => revisions.current.get(c.id) === c.revision);
       for (const c of latest) {
         const b = c.bookmark;
-        apply(c, !!b && matchesFilters(b, filters, scopeOf(filters)) && (!found || found.has(b.id)), false);
+        apply(c, !!b && (unsure(b, filters) || matchesFilters(b, filters, scopeOf(filters))) && (!found || found.has(b.id)), false);
       }
       catalogSoon();
     });

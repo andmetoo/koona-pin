@@ -274,11 +274,14 @@ struct Collections {
     names: HashMap<i64, String>,
     /// Where each folder of the file already landed: (parent, folded name).
     placed: HashMap<(Option<i64>, String), i64>,
+    /// A folder (its folded path) whose links of an earlier import sit in a
+    /// collection of its name somewhere else: the person moved it since.
+    moved: HashMap<Vec<String>, i64>,
 }
 
 impl Collections {
-    fn load(conn: &Connection) -> rusqlite::Result<Collections> {
-        let mut known = Collections { by_name: HashMap::new(), names: HashMap::new(), placed: HashMap::new() };
+    fn load(conn: &Connection, links: &[ImportLink]) -> rusqlite::Result<Collections> {
+        let mut known = Collections { by_name: HashMap::new(), names: HashMap::new(), placed: HashMap::new(), moved: HashMap::new() };
         let rows = conn
             .prepare("SELECT id, name, parent_id FROM collections")?
             .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, Option<i64>>(2)?)))?
@@ -287,14 +290,49 @@ impl Collections {
             known.by_name.insert(db::fold(&name), (id, parent));
             known.names.insert(id, name);
         }
+        let mut sits = conn.prepare("SELECT collection_id FROM bookmarks WHERE url = ?1")?;
+        for link in links.iter().filter(|l| !l.path.is_empty()) {
+            let key: Vec<String> = link.path.iter().map(|f| db::fold(f)).collect();
+            if known.moved.contains_key(&key) {
+                continue;
+            }
+            let Some(Some(id)) = sits.query_row([&link.url], |r| r.get::<_, Option<i64>>(0)).optional()? else { continue };
+            // Its own name, or one the import made of it: «Docs (Work)», «Docs 2».
+            let folder = &key[key.len() - 1];
+            let name = known.names.get(&id).map(|n| db::fold(n)).unwrap_or_default();
+            if name == *folder || name.starts_with(&format!("{folder} ")) {
+                known.moved.insert(key, id);
+            }
+        }
         Ok(known)
     }
 
+    /// The level of a collection, 1 at the top; a loop synced in ends it.
+    fn depth(&self, id: i64) -> usize {
+        let parents: HashMap<i64, Option<i64>> = self.by_name.values().copied().collect();
+        let mut line = vec![id];
+        while let Some(&Some(up)) = line.last().and_then(|x| parents.get(x)) {
+            if line.contains(&up) {
+                break;
+            }
+            line.push(up);
+        }
+        line.len()
+    }
+
     /// The collection the last folder of `path` stands for, made with the
-    /// ones above it when the library lacks them.
+    /// ones above it when the library lacks them. A folder the person moved
+    /// is found where it is now, with what is below it, while that still fits.
     fn at(&mut self, conn: &Connection, path: &[String], summary: &mut ImportSummary) -> rusqlite::Result<i64> {
-        let mut parent = None;
-        for folder in path {
+        let folded: Vec<String> = path.iter().map(|f| db::fold(f)).collect();
+        let (start, mut parent) = (1..=path.len())
+            .rev()
+            .find_map(|n| {
+                let id = *self.moved.get(&folded[..n])?;
+                (self.depth(id) + path.len() - n <= db::MAX_DEPTH).then_some((n, Some(id)))
+            })
+            .unwrap_or((0, None));
+        for folder in &path[start..] {
             let key = (parent, db::fold(folder));
             let id = match self.placed.get(&key) {
                 Some(&id) => id,
@@ -361,7 +399,7 @@ pub fn import(
     }
     summary.skipped = parsed.skipped.iter().take(SKIPPED_LISTED).cloned().collect();
 
-    let mut collections = Collections::load(&tx)?;
+    let mut collections = Collections::load(&tx, &parsed.links)?;
     let tags_before: i64 = tx.query_row("SELECT count(*) FROM tags", [], |r| r.get(0))?;
     let triaged_at = (!to_inbox).then(|| now.clone());
     let total = parsed.links.len();
@@ -696,6 +734,26 @@ mod tests {
         // Docs inside Docs: the third level is named after its parent.
         assert_eq!(run(&["Home", "Docs", "Docs"], "https://f.example/").collections, ["Home/Docs/Docs (Docs)"]);
         assert_eq!(path("Docs (Docs)"), ["Home", "Docs", "Docs (Docs)"]);
+    }
+
+    /// A folder the person moved since the last import is where its links
+    /// are now: the same file with a new link makes no «Work 2».
+    #[test]
+    fn a_moved_folder_is_found_where_its_links_are() {
+        let c = database();
+        let file = |urls: &[&str]| urls.iter().map(|u| folder_html(&["Work", "Docs"], u)).collect::<String>();
+        let run = |html: &str| import(&c, &parse(html, now()), false, |_, _| {}).unwrap();
+        assert_eq!(run(&file(&["https://a.example/"])).collections, ["Work", "Work/Docs"]);
+        let id = |name: &str| c.query_row("SELECT id FROM collections WHERE name = ?1", [name], |r| r.get::<_, i64>(0)).unwrap();
+        let projects = db::create_collection(&c, "Projects", None, None).unwrap().id;
+        db::move_collection(&c, id("Work"), Some(projects), None).unwrap();
+        let again = run(&file(&["https://a.example/", "https://b.example/"]));
+        assert!(again.collections.is_empty(), "{:?}", again.collections);
+        // Docs out on its own: still found by its links.
+        db::move_collection(&c, id("Docs"), None, None).unwrap();
+        assert!(run(&file(&["https://a.example/", "https://c.example/"])).collections.is_empty());
+        let in_docs: i64 = c.query_row("SELECT count(*) FROM bookmarks WHERE collection_id = ?1", [id("Docs")], |r| r.get(0)).unwrap();
+        assert_eq!(in_docs, 3);
     }
 
     /// A parent is made for a child that gets a new bookmark; folders whose

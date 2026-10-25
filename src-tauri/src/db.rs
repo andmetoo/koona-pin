@@ -1738,8 +1738,8 @@ pub fn collection_subtree(conn: &Connection, id: i64) -> Result<Vec<i64>> {
 }
 
 /// The names from the top level down to the collection, itself last
-/// ("Work", "Docs"); empty for an unknown id (2.19.0). The CSV export
-/// joins them with "/".
+/// ("Work", "Docs"); empty for an unknown id (2.19.0). The import names
+/// what it made with them joined by "/".
 pub fn collection_path(conn: &Connection, id: i64) -> Result<Vec<String>> {
     let names: HashMap<i64, String> = conn
         .prepare("SELECT id, name FROM collections")?
@@ -1886,7 +1886,10 @@ pub fn move_collection(
     if parent.is_some_and(|p| forest.line(p).contains(&id)) {
         return Err(CollectionError::Cycle);
     }
-    if parent.map_or(0, |p| forest.depth(p)) + forest.height(id) > MAX_DEPTH {
+    // A tree synced or restored deeper than the limit still moves where it
+    // gets no deeper than it is: out, up, among its siblings.
+    let deep = parent.map_or(0, |p| forest.depth(p)) + forest.height(id);
+    if deep > MAX_DEPTH && deep > forest.depth(id) - 1 + forest.height(id) {
         return Err(CollectionError::TooDeep);
     }
     let mut siblings: Vec<(i64, Option<String>)> = tx
@@ -2064,7 +2067,7 @@ pub fn starter_link_ids(conn: &Connection) -> Result<Vec<i64>> {
 /// the siblings, keys between its neighbours' (2.19.0); among siblings
 /// never ordered by hand they go by name.
 pub fn delete_collection(conn: &Connection, id: i64) -> Result<()> {
-    use crate::position_keys::{spread, valid};
+    use crate::position_keys::{reorder, spread, valid};
     let tx = conn.unchecked_transaction()?;
     let now = now();
     let place: Option<(Option<i64>, Option<String>)> = tx
@@ -2088,11 +2091,31 @@ pub fn delete_collection(conn: &Connection, id: i64) -> Result<()> {
                 let hi = others.iter().filter(|k| **k > key).min();
                 spread(lo.map(String::as_str), hi.map(String::as_str), children.len()).into_iter().map(Some).collect()
             }
-            // An unplaced parent has no place to give: the children keep their
-            // own order after the placed siblings (2.19.0); with no keys
-            // anywhere, by name as before.
+            // An unplaced parent stands among its unplaced siblings by name:
+            // the children take its spot there, in their own order, and the
+            // siblings get keys where they need them to keep theirs (2.19.0).
+            // With no keys anywhere, by name as before.
             None if !others.is_empty() || children.iter().any(|c| c.1.as_deref().is_some_and(valid)) => {
-                spread(others.iter().max().map(String::as_str), None, children.len()).into_iter().map(Some).collect()
+                let siblings: Vec<(i64, Option<String>)> = tx
+                    .prepare(&format!("SELECT id, position_key FROM collections WHERE parent_id IS ?1 ORDER BY {SIBLING_ORDER}"))?
+                    .query_map([parent], |r| Ok((r.get(0)?, r.get(1)?)))?
+                    .collect::<Result<_>>()?;
+                let mut order: Vec<(i64, Option<String>, bool)> = Vec::with_capacity(siblings.len() + children.len());
+                for (sibling, key) in siblings {
+                    match sibling == id {
+                        true => order.extend(children.iter().map(|c| (c.0, None, true))),
+                        false => order.push((sibling, key, false)),
+                    }
+                }
+                let current: Vec<Option<&str>> = order.iter().map(|s| s.1.as_deref()).collect();
+                let mut keys: HashMap<usize, String> = reorder(&current).into_iter().collect();
+                let mut place = tx.prepare("UPDATE collections SET position_key = ?1 WHERE id = ?2")?;
+                for (at, (sibling, ..)) in order.iter().enumerate().filter(|(_, s)| !s.2) {
+                    if let Some(key) = keys.remove(&at) {
+                        place.execute(params![key, sibling])?;
+                    }
+                }
+                order.iter().enumerate().filter(|(_, s)| s.2).map(|(at, _)| keys.remove(&at)).collect()
             }
             None => vec![None; children.len()],
         };
@@ -3623,7 +3646,8 @@ mod tests {
         move_collection(&conn, y, Some(m), Some(x)).unwrap();
         assert_eq!(get_collections(&conn).unwrap().iter().find(|c| c.id == m).unwrap().position, None);
         delete_collection(&conn, m).unwrap();
-        assert_eq!(tree(&conn), [pair("Y", None), pair("X", None), pair("A", None)]);
+        // M stood after A by name: Y and X take its spot there.
+        assert_eq!(tree(&conn), [pair("A", None), pair("Y", None), pair("X", None)]);
         // Unplaced children of an unplaced parent: after the placed siblings
         // (B has a key from the start), by name among themselves.
         let p = (make("B", None), make("P", None)).1;
@@ -3635,6 +3659,15 @@ mod tests {
         let at = |n: &str| names.iter().position(|x| x == n).unwrap();
         assert!(at("Q") < at("R"), "by name among themselves: {names:?}");
         assert!(at("B") < at("Q"), "after the placed ones: {names:?}");
+        // Into the parent's spot among unplaced siblings, not ahead of them.
+        let mixed = setup_test_db();
+        mixed.execute("DELETE FROM collections", []).unwrap();
+        let add = |name: &str, parent: Option<i64>| create_collection_in(&mixed, name, parent, None, None).unwrap().id;
+        let (_, _, q, _) = (add("A", None), add("M", None), add("Q", None), add("Z", None));
+        add("K", Some(q));
+        mixed.execute("UPDATE collections SET position_key = CASE name WHEN 'A' THEN 'V' ELSE NULL END", []).unwrap();
+        delete_collection(&mixed, q).unwrap();
+        assert_eq!(tree(&mixed).into_iter().map(|t| t.0).collect::<Vec<_>>(), ["A", "M", "K", "Z"].map(String::from), "K in Q's spot");
         let empty = setup_test_db();
         empty.execute("DELETE FROM collections", []).unwrap();
         let made = |name: &str, parent: Option<i64>| create_collection_in(&empty, name, parent, None, None).unwrap().id;
@@ -3644,6 +3677,24 @@ mod tests {
         delete_collection(&empty, d).unwrap();
         assert!(get_collections(&empty).unwrap().iter().all(|c| c.position.is_none()), "no keys anywhere: still none");
         assert_eq!(tree(&empty).into_iter().map(|t| t.0).collect::<Vec<_>>(), ["C", "S", "T"]);
+    }
+
+    /// A tree synced deeper than the limit still moves among its siblings and
+    /// out, only never deeper than it is.
+    #[test]
+    fn a_tree_deeper_than_the_limit_moves_where_it_gets_no_deeper() {
+        let conn = setup_test_db();
+        conn.execute("DELETE FROM collections", []).unwrap();
+        let make = |name: &str, parent: Option<i64>| create_collection_under(&conn, name, parent, None, None).unwrap().id;
+        let (s, t) = (make("S", None), make("T", None));
+        let a = make("A", Some(t));
+        let b = make("B", Some(a));
+        make("C", Some(b));
+        move_collection(&conn, t, None, Some(s)).unwrap();
+        assert_eq!(tree(&conn)[0].0, "T");
+        assert!(matches!(move_collection(&conn, t, Some(s), None), Err(CollectionError::TooDeep)));
+        move_collection(&conn, b, None, None).unwrap();
+        assert!(matches!(move_collection(&conn, b, Some(a), None), Err(CollectionError::TooDeep)), "out, it may not go back past the limit");
     }
 
     #[test]

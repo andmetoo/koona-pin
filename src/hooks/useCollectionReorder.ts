@@ -27,6 +27,14 @@ export interface ToBundle {
   onDrop: (from: number, at: { x: number; y: number }) => void;
 }
 
+/** Two places alike field by field (a place is a flat object), without a copy every frame. */
+function samePlace<T>(a: T | null, b: T | null): boolean {
+  if (a === b) return true;
+  if (!a || !b || typeof a !== "object" || typeof b !== "object") return false;
+  const keys = Object.keys(a) as (keyof T)[];
+  return keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k]);
+}
+
 /** The click that follows the end of a move would open the collection it ended on. */
 function swallowClick() {
   const swallow = (click: MouseEvent) => {
@@ -117,7 +125,7 @@ export function useCollectionReorder<T>(
         item = bundleRef.current!.item(from);
       }
       if (item) sidebarDrag.set({ item, shown, over: hit });
-      if (JSON.stringify(next) === JSON.stringify(over) && out === away && hit === onBundle) return;
+      if (samePlace(next, over) && out === away && hit === onBundle) return;
       over = next;
       away = out;
       onBundle = hit;

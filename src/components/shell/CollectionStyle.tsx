@@ -136,11 +136,13 @@ export function CollectionStyle({
           aria-label={t("collectionStyle.emoji")}
           placeholder={t("collectionStyle.emoji")}
           onChange={(e) => {
-            // The newest emoji replaces the saved one, wherever it was typed or pasted.
-            const one = typedEmoji(e.target.value, saved || null);
-            if (!one) setDraft(e.target.value);
-            else if (one !== saved) onStyle(chosenColor, one);
-            else setDraft(null);
+            // The newest emoji replaces the saved one, wherever it was typed or pasted; an emptied
+            // field takes it off (the dot); other text stays as typed, an IME's word on its way.
+            const text = e.target.value;
+            const one = typedEmoji(text, saved || null);
+            if (one && one !== saved) onStyle(chosenColor, one);
+            else if (saved && !text.trim()) onStyle(chosenColor, null);
+            else setDraft(text === saved ? null : text);
           }}
           className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-subtle"
         />

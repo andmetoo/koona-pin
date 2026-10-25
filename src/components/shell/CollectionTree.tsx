@@ -99,7 +99,8 @@ export function CollectionTree(props: CollectionTreeProps) {
 
   const fold = (id: number, value: boolean) =>
     setFolded((was) => {
-      const next = new Set(was);
+      // Only collections still here: a deleted one's id leaves the preference.
+      const next = new Set([...was].filter((x) => collections.some((c) => c.id === x)));
       if (value) next.add(id);
       else next.delete(id);
       savePreference(FOLDED_KEY, JSON.stringify([...next]));

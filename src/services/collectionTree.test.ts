@@ -56,6 +56,16 @@ describe("collection tree", () => {
     expect(canCreateInside(roots, 5)).toBe(false);
   });
 
+  it("moves a tree synced deeper than the limit where it gets no deeper", () => {
+    // S · T { A { B { C } } }: four levels, as two devices can make.
+    const deep = buildTree([c(1, "S", null), c(2, "T", null), c(3, "A", 2), c(4, "B", 3), c(5, "C", 4)]);
+    expect(canMoveInto(deep, 2, null)).toBe(true); // among its siblings
+    expect(canMoveInto(deep, 2, 1)).toBe(false); // five levels
+    expect(canMoveInto(deep, 4, null)).toBe(true); // out
+    expect(canMoveInto(deep, 3, 1)).toBe(true); // A { B { C } } under S: still four
+    expect(keyboardMove(deep, 2, "up")).toEqual({ id: 2, parent: null, before: 1 });
+  });
+
   it("moves by keyboard", () => {
     expect(keyboardMove(roots, 4, "up")).toEqual({ id: 4, parent: 2, before: 3 });
     expect(keyboardMove(roots, 3, "down")).toEqual({ id: 3, parent: 2, before: 6 });

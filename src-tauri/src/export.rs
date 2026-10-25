@@ -215,8 +215,9 @@ fn collections(conn: &Connection) -> rusqlite::Result<Vec<JsonCollection>> {
         .collect()
 }
 
-/// The names from the top level down to each collection, joined with "/"
-/// ("Work/Docs"), by uid (2.19.0). A loop ends the walk where it closes.
+/// The names from the top level down to each collection, joined with " › "
+/// ("Work › Docs") as the sidebar's search shows them: a name may hold "/"
+/// itself ("UI/UX"). By uid (2.19.0); a loop ends the walk where it closes.
 fn paths(folders: &[JsonCollection]) -> HashMap<&str, String> {
     let by_uid: HashMap<&str, &JsonCollection> = folders.iter().map(|c| (c.uid.as_str(), c)).collect();
     folders
@@ -229,7 +230,7 @@ fn paths(folders: &[JsonCollection]) -> HashMap<&str, String> {
                 at = up.parent.as_deref().and_then(|p| by_uid.get(p));
             }
             names.reverse();
-            (c.uid.as_str(), names.join("/"))
+            (c.uid.as_str(), names.join(" › "))
         })
         .collect()
 }
@@ -673,13 +674,13 @@ mod tests {
         assert_eq!(count, 6);
         assert!(text.starts_with("\u{feff}Название;Адрес;Сайт;Коллекция;Теги;Заметка;Избранное;Во входящих;Сохранено\r\n"));
         let tokio = text.lines().find(|l| l.contains("tokio.rs")).unwrap();
-        assert!(tokio.starts_with("Tokio;https://tokio.rs/;tokio.rs;Работа/Rust/Async;async, rust;;0;0;2023-07-22 "), "{tokio}");
+        assert!(tokio.starts_with("Tokio;https://tokio.rs/;tokio.rs;Работа › Rust › Async;async, rust;;0;0;2023-07-22 "), "{tokio}");
         assert!(text.contains("GitHub \"\"code\"\" & <more>") && text.contains("\"заметка;\nвторая строка\";1;0;"));
         assert!(text.contains("'=HYPERLINK(1);https://m.example.com/;m.example.com;;;;0;1;"));
         assert!(!text.contains("habr.com"));
         // With a comma separator the tags are joined by «; » and quoted only when needed.
         let (comma, _) = csv(&c, Scope::Library, &columns, ',').unwrap();
-        assert!(comma.contains("Tokio,https://tokio.rs/,tokio.rs,Работа/Rust/Async,async; rust,,0,0,"));
+        assert!(comma.contains("Tokio,https://tokio.rs/,tokio.rs,Работа › Rust › Async,async; rust,,0,0,"));
     }
 
     #[test]

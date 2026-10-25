@@ -104,14 +104,19 @@ export function pathPrefix(roots: readonly TreeNode[], id: number): string {
     .join("");
 }
 
-/** Whether `id` (with its subtree) may go into `parent` (none: the top level). */
+/**
+ * Whether `id` (with its subtree) may go into `parent` (none: the top level). A tree synced deeper
+ * than `MAX_DEPTH` still moves where it gets no deeper than it is, as `db::move_collection` takes.
+ */
 export function canMoveInto(roots: readonly TreeNode[], id: number, parent: number | null): boolean {
   const node = findNode(roots, id);
   if (!node) return false;
-  if (parent === null) return height(node) <= MAX_DEPTH;
+  const levels = (above: number) => above + height(node);
+  const fits = (above: number) => levels(above) <= Math.max(MAX_DEPTH, levels(node.depth));
+  if (parent === null) return fits(0);
   if (subtreeIds(node).includes(parent)) return false;
   const target = findNode(roots, parent);
-  return !!target && target.depth + 1 + height(node) <= MAX_DEPTH;
+  return !!target && fits(target.depth + 1);
 }
 
 /** Whether a new collection may be made inside `parent`. */
