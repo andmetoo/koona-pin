@@ -24,7 +24,9 @@ export const SearchField = forwardRef<
   // Esc also takes back a character the IME is composing: the field is not empty then either.
   const filled = !!(composed ?? search);
   return (
-    <label className={`relative flex h-9 items-center ${className}`}>
+    // A field squeezed below 160 px (the toolbar beside the editor) drops its shortcut chip, so
+    // its hint is still a word and not one letter.
+    <label className={`@container/search relative flex h-9 items-center ${className}`}>
       <Icon icon={Search} size={15} className="pointer-events-none absolute left-3 text-subtle" />
       <input
         ref={ref}
@@ -55,11 +57,11 @@ export const SearchField = forwardRef<
         aria-label={t("toolbar.searchLabel")}
         placeholder={placeholder}
         data-well={well || undefined}
-        className="search peer min-w-0 pr-16"
+        className="search peer min-w-0 pr-16 @max-[160px]/search:pr-3"
       />
       {/* The shortcut steps aside while the field is in use; with a query the chip says Esc clears it. */}
       <kbd
-        className={`pointer-events-none absolute right-2 inline-flex h-5 items-center rounded-sm bg-card px-1.5 font-sans text-2xs font-medium whitespace-nowrap text-muted shadow-[0_0_0_1px_var(--np-line),0_1px_0_1px_var(--np-line)] transition-opacity duration-[120ms] ${filled ? "" : "peer-focus-visible:opacity-0"}`}
+        className={`pointer-events-none absolute right-2 inline-flex @max-[160px]/search:hidden h-5 items-center rounded-sm bg-card px-1.5 font-sans text-2xs font-medium whitespace-nowrap text-muted shadow-[0_0_0_1px_var(--np-line),0_1px_0_1px_var(--np-line)] transition-opacity duration-[120ms] ${filled ? "" : "peer-focus-visible:opacity-0"}`}
       >
         {filled ? "Esc" : shortcut("K")}
       </kbd>
