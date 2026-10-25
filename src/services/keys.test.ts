@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import i18n from "../i18n";
-import { arrowTarget, deleteKey, isDeleteKey, isMac, shortcut } from "./keys";
+import { arrowTarget, deleteKey, isDeleteKey, isMac, shiftShortcut, shortcut } from "./keys";
 
 describe("the platform's modifier (#319)", () => {
   it("is ⌘ on a Mac, Ctrl elsewhere", () => {
@@ -29,7 +29,10 @@ describe("the platform's modifier (#319)", () => {
     await i18n.changeLanguage("de");
     expect(shortcut("Z", false)).toBe("Strg Z");
     expect(shortcut("Z", true)).toBe("⌘Z");
+    expect(shiftShortcut("A", false)).toBe("Umschalt A");
+    expect(shiftShortcut("A", true)).toBe("⇧A");
     await i18n.changeLanguage(language);
+    expect(shiftShortcut("A", false)).toBe("Shift A");
   });
   it("no string of any language names Ctrl itself: the shortcut comes in as {{undo}} or {{quit}}", () => {
     for (const language of Object.keys(i18n.options.resources ?? {})) {

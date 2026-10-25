@@ -2967,7 +2967,7 @@ export const demo = {
         (item) =>
           followed.has(item.feed_uid) &&
           (!query.feed_uid || item.feed_uid === query.feed_uid) &&
-          (!query.unread_only || !item.read_at) &&
+          (!query.unread_only || !item.read_at || !!query.keep?.includes(item.id)) &&
           (!search || item.title.toLowerCase().includes(search) || item.excerpt.toLowerCase().includes(search)),
       )
       .sort(newestFirst);

@@ -172,6 +172,10 @@ pub struct FeedItemQuery {
     /// Matches title and excerpt, on the Feeds page only.
     #[ts(optional)]
     pub search: Option<String>,
+    /// With `unread_only`, these posts are listed too once read: the ones opened from the list stay
+    /// in their place while they are read (2.17.0).
+    #[ts(optional)]
+    pub keep: Option<Vec<i64>>,
     /// `FeedItemPage::next` of the page before; none for the first.
     #[ts(optional)]
     pub after: Option<String>,

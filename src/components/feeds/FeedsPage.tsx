@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Plus, Rss } from "lucide-react";
+import { HTMLAttributes, ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { CheckCheck, Plus, Rss, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Bookmark, Feed, FeedItem } from "../../types";
 import { api } from "../../services/api";
@@ -9,6 +9,7 @@ import { keyIs } from "../../services/keys";
 import { markFeedRead, refreshFeeds, saveFeedItem, setFeedItemsRead } from "../../services/feeds";
 import { headerLine, healthLine, listTitle } from "../../services/feedsView";
 import { ReaderLook } from "../../services/readerLook";
+import { preference, savePreference } from "../../services/preferences";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
 import { relativeTime } from "../../services/relativeTime";
@@ -42,6 +43,8 @@ const newestOf = (feeds: Feed[], feedUid: string | null) =>
   feeds
     .filter((f) => feedUid === null || f.uid === feedUid)
     .reduce<string | null>((max, f) => (f.newest_at && (max === null || f.newest_at > max) ? f.newest_at : max), null);
+
+export type FeedShow = "unread" | "all";
 
 export function FeedsPage({
   feeds,
@@ -82,14 +85,26 @@ export function FeedsPage({
   const { t, i18n } = useTranslation();
   const [searching, setSearching] = useState(false);
   const [search, setSearch] = useState("");
-  const { items, loaded, hasMore, loadMore } = useFeedItems(feedUid, searching ? search : "", feeds);
+  // Unread or All posts (2.17.0), kept like the library's view.
+  const [show, setShow] = useState<FeedShow>(() => preference("feeds.show", ["unread", "all"], "all"));
+  useEffect(() => savePreference("feeds.show", show), [show]);
+  const kept = useMemo(() => (itemId === null ? [] : [itemId]), [itemId]);
+  const { items, loaded, hasMore, loadMore } = useFeedItems(feedUid, searching ? search : "", feeds, show === "unread", kept);
   const list = useRef<FeedListHandle>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const sheetEl = useRef<HTMLElement>(null);
   const leavingEl = useRef<HTMLElement>(null);
   // The card laid over the list (E), and the card of the post just left while it flies off.
   const [expanded, setExpanded] = useState(false);
-  const [leaving, setLeaving] = useState<{ item: FeedItem; feed: Feed | undefined; bookmark: Bookmark | null; shift: number } | null>(null);
+  // `previous`/`hasNext`: where the card left stood, so its ⌃ ⌄ stay as they were while it flies.
+  const [leaving, setLeaving] = useState<{
+    item: FeedItem;
+    feed: Feed | undefined;
+    bookmark: Bookmark | null;
+    shift: number;
+    previous: boolean;
+    hasNext: boolean;
+  } | null>(null);
   const selected = useMemo(() => items.find((item) => item.id === itemId) ?? null, [items, itemId]);
   const feed = useMemo(() => (selected ? feeds.find((f) => f.uid === selected.feed_uid) : undefined), [feeds, selected]);
   const shownFeed = feedUid ? feeds.find((f) => f.uid === feedUid) : undefined;
@@ -145,9 +160,21 @@ export function FeedsPage({
     onItem(item.id);
     if (focusArticle) requestAnimationFrame(() => scroller.current?.focus({ preventScroll: true }));
   };
+  // ⌄ or J on the last post loaded: the next page comes first, then the move (2.17.0).
+  const moveOn = useRef(false);
+  useEffect(() => {
+    moveOn.current = false;
+  }, [itemId, feedUid]);
   const move = (step: 1 | -1) => {
     if (!items.length) return;
     const index = selected ? items.indexOf(selected) : -1;
+    if (step > 0 && index === items.length - 1 && hasMore) {
+      moveOn.current = true;
+      // A page that brought nothing (or failed) ends the wait: a later reload must not move on by itself.
+      return void loadMore().then((added) => {
+        if (!added) moveOn.current = false;
+      });
+    }
     const next = items[index < 0 ? (step > 0 ? 0 : items.length - 1) : Math.min(items.length - 1, Math.max(0, index + step))];
     if (!next || next.id === itemId) return;
     const fromList = document.activeElement instanceof HTMLElement && !!document.activeElement.closest("[data-feed-list]");
@@ -158,11 +185,16 @@ export function FeedsPage({
       const box = sheet.getBoundingClientRect();
       const peek = sheet.querySelector("[data-feed-peek]")?.getBoundingClientRect();
       const shift = step > 0 && peek && peek.top < box.bottom ? peek.top - box.top - 1 : (box.height + 24) * step;
-      setLeaving({ item: selected, feed, bookmark, shift });
+      setLeaving({ item: selected, feed, bookmark, shift, previous: index > 0, hasNext: index < items.length - 1 || hasMore });
     }
     onItem(next.id);
     list.current?.reveal(next.id, fromList);
   };
+  useEffect(() => {
+    if (!moveOn.current || !selected || items.indexOf(selected) >= items.length - 1) return;
+    moveOn.current = false;
+    move(1);
+  }, [items]);
   const back = () => {
     if (narrow) onItem(null);
     else if (expanded) setExpanded(false);
@@ -223,12 +255,16 @@ export function FeedsPage({
   const toggleRead = () => {
     if (selected) void setFeedItemsRead([selected.id], !selected.read).catch(failed);
   };
+  // A search narrows the list, not what «Mark all read» marks: ✓✓ and ⇧A wait until it is cleared (2.17.0).
+  const narrowed = searching && !!search.trim();
   // Up to the newest post the page knew of: one a check brought since stays new.
-  const markAll = () =>
+  const markAll = () => {
+    if (narrowed) return;
     void markFeedRead(feedUid, newestOf(feeds, feedUid)).then(
       (count) => onNotice({ text: count ? t("feeds.notice.markedRead", { count }) : t("feeds.notice.allRead") }),
       failed,
     );
+  };
   const refresh = () => void refreshFeeds(feedUid).catch(failed);
 
   const expand = () => {
@@ -282,19 +318,24 @@ export function FeedsPage({
   const offline = (shownFeed ? [shownFeed] : feeds).some((f) => f.health.state === "offline");
   const status = headerLine(feeds, feedUid, { t, language: i18n.language, refreshing, ago: (iso) => relativeTime(iso, i18n.language) });
   const title = listTitle(feeds, feedUid, t);
+  const shown = feeds.filter((f) => feedUid === null || f.uid === feedUid);
+  const unread = shown.reduce((sum, f) => sum + f.unread, 0);
+  // «Everything is read» only where there are posts: a feed not fetched yet has none to read.
+  const allRead = show === "unread" && !narrowed && shown.some((f) => f.total > 0);
   const empty =
     feeds.length === 0 ? (
-      <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-        <span className="flex size-12 items-center justify-center rounded-full bg-secondary text-icon">
-          <Icon icon={Rss} size={20} />
-        </span>
-        <h2 className="text-xl font-semibold">{t("feeds.none.title")}</h2>
-        <p className="text-sm text-muted">{t("feeds.none.text")}</p>
+      <EmptyState icon={Rss} title={t("feeds.none.title")} text={t("feeds.none.text")}>
         <Button variant="primary" onClick={onNewLink} className="mt-1">
           <Icon icon={Plus} size={14} />
           {t("sidebar.newLink")}
         </Button>
-      </div>
+      </EmptyState>
+    ) : allRead ? (
+      <EmptyState icon={CheckCheck} title={t("feeds.notice.allRead")} data-feed-all-read>
+        <Button onClick={() => setShow("all")} className="mt-1">
+          {t("feeds.showAll")}
+        </Button>
+      </EmptyState>
     ) : (
       <p className="px-[18px] py-10 text-center text-sm text-muted">
         {searching && search.trim() ? t("feeds.noMatch", { query: search.trim() }) : t("feeds.empty")}
@@ -362,6 +403,9 @@ export function FeedsPage({
             if (!on) setSearch("");
           }}
           onSearch={setSearch}
+          show={show}
+          onShow={setShow}
+          onMarkAll={unread > 0 && !narrowed ? markAll : undefined}
           listRef={list}
           empty={empty}
           narrow={narrow}
@@ -380,6 +424,8 @@ export function FeedsPage({
               bookmark={leaving.bookmark}
               next={selected}
               nextFeed={feed}
+              onPrevious={leaving.previous ? () => {} : undefined}
+              hasNext={leaving.hasNext}
               sheetRef={leavingEl}
               className="pointer-events-none absolute inset-0"
             />
@@ -393,12 +439,33 @@ export function FeedsPage({
             bookmark={bookmark}
             next={next}
             onPrevious={index > 0 ? () => move(-1) : undefined}
+            hasNext={index >= 0 && (index < items.length - 1 || hasMore)}
             scrollerRef={scroller}
             sheetRef={sheetEl}
             className="relative z-10"
           />
         </div>
       )}
+    </div>
+  );
+}
+
+/** What the list says with no posts: an icon in a circle, a title, a line and an action. */
+function EmptyState({
+  icon,
+  title,
+  text,
+  children,
+  ...rest
+}: { icon: LucideIcon; title: string; text?: string; children: ReactNode } & HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div {...rest} className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+      <span className="flex size-12 items-center justify-center rounded-full bg-secondary text-icon">
+        <Icon icon={icon} size={20} />
+      </span>
+      <h2 className="text-xl font-semibold">{title}</h2>
+      {text && <p className="text-sm text-muted">{text}</p>}
+      {children}
     </div>
   );
 }

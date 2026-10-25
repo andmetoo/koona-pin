@@ -2,6 +2,7 @@
   "language": { "name": "Deutsch" },
   "common": {
     "ctrl": "Strg",
+    "shift": "Umschalt",
     "close": "Schließen",
     "soon": "Kommt in einer späteren Version",
     "keep": "Behalten",
@@ -1854,6 +1855,9 @@
     "search": "Beiträge durchsuchen",
     "searchPlaceholder": "Titel und Auszüge",
     "clearSearch": "Suche leeren",
+    "allPosts": "Alle",
+    "show": "Beiträge zeigen",
+    "showAll": "Alle Beiträge zeigen",
     "unread": "Ungelesen",
     "saved": "gespeichert",
     "empty": "Noch keine Beiträge. Neue erscheinen nach der nächsten Prüfung.",

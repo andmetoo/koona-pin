@@ -2,6 +2,7 @@
   "language": { "name": "Français" },
   "common": {
     "ctrl": "Ctrl",
+    "shift": "Maj",
     "close": "Fermer",
     "soon": "Dans une prochaine version",
     "keep": "Garder",
@@ -1964,6 +1965,9 @@
     "search": "Rechercher dans les articles",
     "searchPlaceholder": "Titres et extraits",
     "clearSearch": "Effacer la recherche",
+    "allPosts": "Tous",
+    "show": "Afficher les articles",
+    "showAll": "Afficher tous les articles",
     "unread": "Non lu",
     "saved": "enregistré",
     "empty": "Aucun article pour l'instant. Les nouveaux arrivent à la prochaine vérification.",

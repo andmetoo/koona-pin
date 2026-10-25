@@ -609,7 +609,13 @@ pub fn list_items(conn: &Connection, query: &FeedItemQuery) -> rusqlite::Result<
         values.push(uid.clone().into());
     }
     if query.unread_only {
-        filter.push("read_at IS NULL".into());
+        match query.keep.as_deref().unwrap_or_default() {
+            [] => filter.push("read_at IS NULL".into()),
+            keep => {
+                filter.push(format!("(read_at IS NULL OR id IN ({}))", vec!["?"; keep.len()].join(", ")));
+                values.extend(keep.iter().map(|&id| Value::from(id)));
+            }
+        }
     }
     for word in query.search.as_deref().unwrap_or_default().split_whitespace() {
         filter.push("np_feed_match(?, title, excerpt)".into());
@@ -1123,6 +1129,12 @@ mod tests {
         assert_eq!(list_items(&conn, &unread_only).unwrap().0.len(), 3);
         assert_eq!(set_read(&conn, &ids[..1], false, NOW).unwrap(), 1);
         assert_eq!(list_items(&conn, &unread_only).unwrap().0.len(), 4);
+        // The open post stays among the unread once read, in its place; a gone one does not come back.
+        let keep = FeedItemQuery { keep: Some(vec![ids[1], -1]), ..unread_only.clone() };
+        let kept: Vec<i64> = list_items(&conn, &keep).unwrap().0.iter().map(|(i, _)| i.id).collect();
+        assert_eq!((kept.len(), kept[1]), (5, ids[1]));
+        let gone = FeedItemQuery { keep: Some(vec![-1]), ..unread_only.clone() };
+        assert_eq!(list_items(&conn, &gone).unwrap().0.len(), 4);
 
         let search = |words: &str| -> Vec<String> {
             let q = FeedItemQuery { search: Some(words.into()), ..query(None, 10) };

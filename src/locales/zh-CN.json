@@ -2,6 +2,7 @@
   "language": { "name": "简体中文" },
   "common": {
     "ctrl": "Ctrl",
+    "shift": "Shift",
     "close": "关闭",
     "soon": "将在后续版本中提供",
     "keep": "保留",
@@ -1744,6 +1745,9 @@
     "search": "搜索文章",
     "searchPlaceholder": "标题和摘要",
     "clearSearch": "清除搜索",
+    "allPosts": "全部",
+    "show": "显示文章",
+    "showAll": "显示全部文章",
     "unread": "未读",
     "saved": "已保存",
     "empty": "暂无文章。下次检查时会有新文章。",

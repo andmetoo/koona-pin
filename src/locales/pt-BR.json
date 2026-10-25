@@ -2,6 +2,7 @@
   "language": { "name": "Português (Brasil)" },
   "common": {
     "ctrl": "Ctrl",
+    "shift": "Shift",
     "close": "Fechar",
     "soon": "Chega em uma versão futura",
     "keep": "Manter",
@@ -1964,6 +1965,9 @@
     "search": "Pesquisar posts",
     "searchPlaceholder": "Títulos e trechos",
     "clearSearch": "Limpar pesquisa",
+    "allPosts": "Todos",
+    "show": "Mostrar posts",
+    "showAll": "Mostrar todos os posts",
     "unread": "Não lido",
     "saved": "salvo",
     "empty": "Ainda não há posts. Os novos chegam na próxima verificação.",
