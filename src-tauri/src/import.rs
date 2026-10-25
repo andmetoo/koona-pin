@@ -348,6 +348,12 @@ impl Collections {
         Ok(known)
     }
 
+    /// Whether a folder below `prefix` is found moved: the person reorganised
+    /// this branch since the last import.
+    fn reorganised(&self, prefix: &[String]) -> bool {
+        self.moved.keys().any(|key| key.len() > prefix.len() && key.starts_with(prefix))
+    }
+
     /// The level of a collection, 1 at the top; a loop synced in ends it.
     fn depth(&self, id: i64) -> usize {
         let mut line = vec![id];
@@ -394,7 +400,18 @@ impl Collections {
                     level = at + 1;
                 }
                 None => {
-                    let id = self.make(conn, &path[level], parent, summary)?;
+                    // A folder whose child the person took out keeps its own
+                    // collection where it is now, by its name, so the branch
+                    // is not split into a new one and the old.
+                    let elsewhere = self
+                        .by_name
+                        .get(&folded[level])
+                        .copied()
+                        .filter(|&id| self.reorganised(&folded[..=level]) && fits(self, id, level));
+                    let id = match elsewhere {
+                        Some(id) => id,
+                        None => self.make(conn, &path[level], parent, summary)?,
+                    };
                     self.placed.insert(key, id);
                     parent = Some(id);
                     level += 1;
@@ -878,6 +895,11 @@ mod tests {
         assert!(run(&file(&["https://a.example/", "https://c.example/"])).collections.is_empty());
         let in_docs: i64 = c.query_row("SELECT count(*) FROM bookmarks WHERE collection_id = ?1", [id("Docs")], |r| r.get(0)).unwrap();
         assert_eq!(in_docs, 3);
+        // A new link of Work itself, and of a new folder in it: in Work where it is, no «Work 2».
+        let mixed = [file(&["https://a.example/"]), folder_html(&["Work"], "https://w.example/"), folder_html(&["Work", "New"], "https://n.example/")].concat();
+        assert_eq!(run(&mixed).collections, ["Projects/Work/New"]);
+        let w: i64 = c.query_row("SELECT collection_id FROM bookmarks WHERE url = 'https://w.example/'", [], |r| r.get(0)).unwrap();
+        assert_eq!(w, id("Work"));
     }
 
     /// A parent is made for a child that gets a new bookmark; folders whose

@@ -744,7 +744,7 @@ test("import: browser folders become collections and tags, the report gives reas
 
   const report = page.getByRole("dialog", { name: "Import finished" });
   await expect(report.getByRole("status")).toHaveText("7 bookmarks added to Library");
-  await expect(report).toContainText("4 new collections: Работа, Rust and 2 more");
+  await expect(report).toContainText("4 new collections: Работа, Работа/Rust and 2 more");
   await expect(report).toContainText("Skipped3");
   await expect(report).toContainText("Repeated within the file1");
   await report.getByRole("button", { name: "Show the skipped addresses" }).click();

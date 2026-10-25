@@ -101,7 +101,7 @@ import { cursorAt, isAfter, ListOrder, listTime, matchesBookmark, orderOf, sortB
 import { suggestFrom } from "./triage";
 import { groupsOf, mergedFields } from "./duplicates";
 import { CommandError } from "./errors";
-import { buildTree, canCreateInside, canMoveInto, findNode, inTreeOrder, scopeIds, subtreeIds } from "./collectionTree";
+import { ancestors as ancestorsOf, buildTree, canCreateInside, canMoveInto, findNode, inTreeOrder, MAX_DEPTH, scopeIds, subtreeIds } from "./collectionTree";
 import { COLLECTION_ICONS, isEmoji, PALETTE } from "./collections";
 import { storedValue } from "./preferences";
 import { emailShape, length, MAX_MESSAGE } from "./feedback";
@@ -637,6 +637,92 @@ function freeName(name: string, own?: number): string {
     throw new CommandError("conflict", "UNIQUE constraint failed: collections.name", "collection_name_taken");
   return clean;
 }
+/**
+ * Where the folders of an import land (2.19.0), as `import.rs` `Collections` does: each folder
+ * is first the collection of its place under one of its names («Docs», «Docs (Work)», «Docs 2»);
+ * one the person moved is found where most of its links are now, and a branch they reorganised
+ * keeps its collections where they are; else a new one is made under the first free name.
+ */
+function folderPlaces(links: { url: string; path: string[] }[], created: Collection[]) {
+  const fold = (s: string) => s.toLocaleLowerCase();
+  const all = () => [...collections, ...created];
+  const byName = (name: string) => all().find((c) => fold(c.name) === fold(name));
+  const byId = (id: number) => all().find((c) => c.id === id);
+  const depth = (id: number) => {
+    const line = [id];
+    for (let up = byId(id)?.parent_id ?? null; up !== null && !line.includes(up); up = byId(up)?.parent_id ?? null) line.push(up);
+    return line.length;
+  };
+  const nameOf = (folder: string, parent: string | undefined, attempt: number) =>
+    attempt === 0 ? folder : parent ? (attempt === 1 ? `${folder} (${parent})` : `${folder} (${parent}) ${attempt}`) : `${folder} ${attempt + 1}`;
+  const madeOf = (name: string, folder: string) => {
+    const rest = fold(name).startsWith(fold(folder)) ? fold(name).slice(folder.length) : null;
+    return rest !== null && (rest === "" || /^ (\d{1,3}|\(.+\)( \d{1,3})?)$/.test(rest));
+  };
+  const keyOf = (path: string[]) => path.map(fold).join("\u0000");
+  // Each link the library has votes for where its folder is now, and up while the names hold.
+  const votes = new Map<string, Map<number, number>>();
+  for (const link of links) {
+    let id = bookmarks.find((b) => b.url === link.url)?.collection_id ?? null;
+    for (let path = link.path; id !== null && path.length && madeOf(byId(id)?.name ?? "", path[path.length - 1]); path = path.slice(0, -1)) {
+      const counted = votes.get(keyOf(path)) ?? new Map<number, number>();
+      counted.set(id, (counted.get(id) ?? 0) + 1);
+      votes.set(keyOf(path), counted);
+      id = byId(id)?.parent_id ?? null;
+    }
+  }
+  const moved = new Map([...votes].map(([key, counted]) => [key, [...counted].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0][0]]));
+  const reorganised = (prefix: string[]) => [...moved.keys()].some((key) => key.length > keyOf(prefix).length && key.startsWith(`${keyOf(prefix)}\u0000`));
+  const placed = new Map<string, number>();
+  const find = (folder: string, parent: number | null) => {
+    const up = parent === null ? undefined : byId(parent)?.name;
+    for (let attempt = 0; ; attempt++) {
+      const c = byName(nameOf(folder, up, attempt));
+      if (!c) return undefined;
+      if (c.parent_id === parent) return c.id;
+    }
+  };
+  const make = (folder: string, parent: number | null, id: number) => {
+    const up = parent === null ? undefined : byId(parent)?.name;
+    let attempt = 0;
+    while (byName(nameOf(folder, up, attempt))) attempt++;
+    const c: Collection = { id, name: nameOf(folder, up, attempt), color: null, icon: null, count: 0, created_at: new Date().toISOString(), parent_id: parent };
+    created.push(c);
+    return c.id;
+  };
+  return (path: string[], nextId: () => number): number | null => {
+    const fits = (id: number, level: number) => depth(id) + path.length - level - 1 <= MAX_DEPTH;
+    let parent: number | null = null;
+    for (let level = 0; level < path.length; ) {
+      const key: string = `${parent}\u0001${fold(path[level])}`;
+      const known: number | undefined = placed.get(key) ?? find(path[level], parent);
+      if (known !== undefined) {
+        placed.set(key, known);
+        parent = known;
+        level++;
+        continue;
+      }
+      let jump: [number, number] | undefined;
+      for (let at = path.length - 1; at >= level && !jump; at--) {
+        const id = moved.get(keyOf(path.slice(0, at + 1)));
+        if (id !== undefined && fits(id, at)) jump = [at, id];
+      }
+      if (jump) {
+        if (jump[0] === level) placed.set(key, jump[1]);
+        parent = jump[1];
+        level = jump[0] + 1;
+        continue;
+      }
+      const elsewhere = byName(path[level]);
+      const id: number = elsewhere && reorganised(path.slice(0, level + 1)) && fits(elsewhere.id, level) ? elsewhere.id : make(path[level], parent, nextId());
+      placed.set(key, id);
+      parent = id;
+      level++;
+    }
+    return parent;
+  };
+}
+
 /** The highest collection id handed out: like AUTOINCREMENT, a deleted one is not reused. */
 let lastCollection = 0;
 const nextCollection = () => {
@@ -1811,9 +1897,12 @@ export const demo = {
   async deleteCollection(id: number) {
     const gone = collections.find((c) => c.id === id);
     if (gone) {
+      // As `db::delete_collection`: children ordered by hand take the parent's spot, the siblings
+      // placed around them; unordered ones join the siblings by name, nobody else written.
       const order = siblingsOf(gone.parent_id).flatMap((c) => (c.id === id ? siblingsOf(id) : [c])).map((c) => c.id);
-      collections = collections.map((c) => (c.parent_id === id ? { ...c, parent_id: gone.parent_id } : c));
-      placeSiblings(order);
+      const ordered = gone.position !== undefined || siblingsOf(id).some((c) => c.position !== undefined);
+      collections = collections.map((c) => (c.parent_id === id ? { ...c, parent_id: gone.parent_id, position: ordered ? c.position : undefined } : c));
+      if (ordered) placeSiblings(order);
     }
     collections = collections.filter((c) => c.id !== id);
     bookmarks = bookmarks.map((b) =>
@@ -1845,30 +1934,13 @@ export const demo = {
     const added: Bookmark[] = [];
     const now = new Date().toISOString();
     let id = Math.max(Date.now(), ...bookmarks.map((b) => b.id + 1));
+    const place = folderPlaces(parsed.links, created);
     for (const [index, link] of parsed.links.entries()) {
       const previous = known.get(link.url);
       if (previous?.deleted_at) summary.in_trash++;
       else if (previous) summary.existing++;
       else {
-        // Folders nest (2.19.0): a collection of the same name under the same parent is reused; the
-        // name taken elsewhere becomes «Name (Parent)», then «Name (Parent) 2»…
-        let collectionId: number | null = null;
-        for (const folder of link.path) {
-          const all = [...collections, ...created];
-          const same = all.find((c) => c.parent_id === collectionId && c.name.toLocaleLowerCase() === folder.toLocaleLowerCase());
-          if (same) {
-            collectionId = same.id;
-            continue;
-          }
-          const taken = (name: string) => all.some((c) => c.name.toLocaleLowerCase() === name.toLocaleLowerCase());
-          const parent = all.find((c) => c.id === collectionId)?.name;
-          const base = taken(folder) && parent ? `${folder} (${parent})` : folder;
-          let name = base;
-          for (let n = 2; taken(name); n++) name = `${base} ${n}`;
-          const c: Collection = { id: id++, name, color: null, icon: null, count: 0, created_at: now, parent_id: collectionId };
-          created.push(c);
-          collectionId = c.id;
-        }
+        const collectionId = link.path.length ? place(link.path, () => id++) : null;
         const url = new URL(link.url);
         added.push({
           id: id++,
@@ -1904,7 +1976,9 @@ export const demo = {
     // Written at the end, like the transaction of the desktop app.
     bookmarks = [...added, ...bookmarks];
     collections = [...collections, ...created];
-    summary.collections = created.map((c) => c.name);
+    // With their paths, «Work/Docs», as `import.rs` names them.
+    const roots = buildTree(collections);
+    summary.collections = created.map((c) => [...ancestorsOf(roots, c.id).map((a) => a.name), c.name].join("/"));
     summary.tags = new Set(added.flatMap((b) => b.tags ?? []).filter((t) => !tagsBefore.has(t))).size;
     persist();
     invalidations.forEach((fn) => fn());

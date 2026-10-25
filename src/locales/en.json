@@ -1395,10 +1395,6 @@
     "design": "Design & UI",
     "reading": "Articles / To read",
     "links": {
-      "koona": {
-        "title": "Koona apps",
-        "description": "Other apps by Koona."
-      },
       "start": {
         "title": "Start here: how Koona Pin works",
         "description": "Save, sort and find links in a few minutes."
@@ -1408,9 +1404,6 @@
       },
       "bun": {
         "description": "A fast JavaScript runtime and toolkit."
-      },
-      "lunacy": {
-        "description": "A free design app with built-in graphics."
       }
     }
   },

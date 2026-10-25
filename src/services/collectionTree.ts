@@ -53,6 +53,18 @@ export function buildTree<T extends TreeItem>(items: readonly T[]): TreeNode<T>[
   return (kids.get(null) ?? []).map((item) => grow(item, 0));
 }
 
+const trees = new WeakMap<readonly TreeItem[], TreeNode[]>();
+
+/**
+ * `buildTree` once per list: the app state and the menus built on demand hold the same array of
+ * collections until it changes, so they share one tree.
+ */
+export function treeOf<T extends TreeItem>(items: readonly T[]): TreeNode<T>[] {
+  let tree = trees.get(items) as TreeNode<T>[] | undefined;
+  if (!tree) trees.set(items, (tree = buildTree(items)));
+  return tree;
+}
+
 /** Every node, depth first, in the order the sidebar shows them. */
 export function flatten<T extends TreeItem>(roots: readonly TreeNode<T>[], folded: ReadonlySet<number> = new Set()): TreeNode<T>[] {
   const out: TreeNode<T>[] = [];

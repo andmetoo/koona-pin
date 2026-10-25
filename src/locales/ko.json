@@ -1317,10 +1317,6 @@
     "design": "디자인 및 UI",
     "reading": "글 / 나중에 읽기",
     "links": {
-      "koona": {
-        "title": "Koona 앱",
-        "description": "Koona의 다른 앱."
-      },
       "start": {
         "title": "여기서 시작하세요: Koona Pin 사용법",
         "description": "몇 분 만에 링크를 저장하고 정리하고 찾아보세요."
@@ -1330,9 +1326,6 @@
       },
       "bun": {
         "description": "빠른 JavaScript 런타임이자 도구 모음."
-      },
-      "lunacy": {
-        "description": "그래픽이 내장된 무료 디자인 앱."
       }
     }
   },

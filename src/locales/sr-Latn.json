@@ -1473,10 +1473,6 @@
     "design": "Dizajn i UI",
     "reading": "Članci / Za čitanje",
     "links": {
-      "koona": {
-        "title": "Aplikacije Koona",
-        "description": "Druge aplikacije Koona."
-      },
       "start": {
         "title": "Počnite ovde: kako radi Koona Pin",
         "description": "Čuvajte, razvrstavajte i pronalazite veze za par minuta."
@@ -1486,9 +1482,6 @@
       },
       "bun": {
         "description": "Brzo okruženje za izvršavanje i skup alata za JavaScript."
-      },
-      "lunacy": {
-        "description": "Besplatan program za dizajn sa ugrađenom grafikom."
       }
     }
   },

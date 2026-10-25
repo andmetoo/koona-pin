@@ -1317,10 +1317,6 @@
     "design": "デザインと UI",
     "reading": "記事 / あとで読む",
     "links": {
-      "koona": {
-        "title": "Koona のアプリ",
-        "description": "Koona のほかのアプリ。"
-      },
       "start": {
         "title": "はじめに：Koona Pin の使い方",
         "description": "数分でリンクの保存・整理・検索を覚えられます。"
@@ -1330,9 +1326,6 @@
       },
       "bun": {
         "description": "高速な JavaScript ランタイム兼ツールキット。"
-      },
-      "lunacy": {
-        "description": "グラフィック素材を内蔵した無料のデザインアプリ。"
       }
     }
   },

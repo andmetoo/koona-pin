@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useHeight } from "../hooks/useHeight";
 import { usePreviewRefresh } from "../hooks/usePreviewRefresh";
@@ -19,7 +19,7 @@ import { notificationsOf } from "./notifications";
 import { type NoticeTiming, useNotices, useUndo } from "./notices";
 import { useReading } from "./reading";
 import { isNarrowed, sectionCount, sectionName } from "./sections";
-import { buildTree, findNode } from "../services/collectionTree";
+import { findNode, treeOf } from "../services/collectionTree";
 import { useAppSettings, useLibraryHealth, useSupporter } from "./status";
 import { useSurfaces } from "./surfaces";
 
@@ -85,8 +85,8 @@ export function useAppState(desktop: DesktopStatus | null, { noticeTiming }: { n
   const { filters } = nav;
   const { counts } = library;
   const collection = library.collections.find((c) => c.id === filters.collectionId);
-  // One tree per change of the collections, not per render (2.19.0).
-  const collectionTree = useMemo(() => buildTree(library.collections), [library.collections]);
+  // One tree per change of the collections, shared with the menus (2.19.0).
+  const collectionTree = treeOf(library.collections);
   const section = sectionName(filters, collection, t);
   const notifications = notificationsOf(
     {

@@ -157,7 +157,12 @@ export function Menu({
             if (query.trim() && items[0] && all[0]) select(items[0], all[0]);
           }
           else if (e.key === "Escape" || e.key === "Tab") close(e.key === "Tab" ? "outside" : "escape");
-          else return e.stopPropagation();
+          else {
+            // Nothing typed yet: the keys shown on the right still pick their item (1–9).
+            const match = query || e.ctrlKey || e.metaKey || e.altKey ? -1 : items.findIndex((item) => item.keys === e.key && !item.disabled);
+            if (match < 0 || !all[match]) return e.stopPropagation();
+            select(items[match], all[match]);
+          }
         } else if (e.key === "ArrowDown") focusItem(index + 1);
         else if (e.key === "ArrowUp") {
           if (index === 0 && field.current) field.current.focus();

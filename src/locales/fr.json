@@ -1473,10 +1473,6 @@
     "design": "Design et UI",
     "reading": "Articles / À lire",
     "links": {
-      "koona": {
-        "title": "Apps Koona",
-        "description": "Les autres apps de Koona."
-      },
       "start": {
         "title": "Commencer ici : comment marche Koona Pin",
         "description": "Enregistrez, triez et retrouvez vos liens en quelques minutes."
@@ -1486,9 +1482,6 @@
       },
       "bun": {
         "description": "Un environnement d’exécution et une boîte à outils JavaScript rapides."
-      },
-      "lunacy": {
-        "description": "Une application de design gratuite avec des visuels intégrés."
       }
     }
   },

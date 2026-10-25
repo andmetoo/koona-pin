@@ -1395,10 +1395,6 @@
     "design": "Tasarım ve UI",
     "reading": "Makaleler / Okunacaklar",
     "links": {
-      "koona": {
-        "title": "Koona uygulamaları",
-        "description": "Koona'nın diğer uygulamaları."
-      },
       "start": {
         "title": "Buradan başlayın: Koona Pin nasıl çalışır",
         "description": "Bağlantıları birkaç dakikada kaydedin, düzenleyin ve bulun."
@@ -1408,9 +1404,6 @@
       },
       "bun": {
         "description": "Hızlı bir JavaScript çalışma ortamı ve araç takımı."
-      },
-      "lunacy": {
-        "description": "Yerleşik grafikleriyle ücretsiz bir tasarım uygulaması."
       }
     }
   },

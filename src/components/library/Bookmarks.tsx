@@ -4,7 +4,7 @@ import { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Bookmark, Collection } from "../../types";
 import { collectionTint } from "../../services/collections";
-import { buildTree, flatten, MAX_DEPTH, pathPrefix, searchTree, TreeNode } from "../../services/collectionTree";
+import { flatten, MAX_DEPTH, pathPrefix, searchTree, TreeNode, treeOf } from "../../services/collectionTree";
 import { CollectionIcon } from "../ui/CollectionIcon";
 import { coverOf, monogram, pendingFor, siteName, VIEW } from "../../services/cover";
 import { shortcut } from "../../services/keys";
@@ -72,7 +72,7 @@ export function collectionEntries(
   current?: number | null,
 ): MenuEntry[] {
   // The tree, indented (2.19.0, frame N7); past eight a field finds one by name, its path before it.
-  const roots = buildTree(collections);
+  const roots = treeOf(collections);
   const entry = (node: TreeNode<Collection>, index: number, found = false): MenuItem => ({
     id: `c${node.item.id}`,
     label: node.item.name,
