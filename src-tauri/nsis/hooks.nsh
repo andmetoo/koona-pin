@@ -12,6 +12,10 @@
 !define NP_HOST_EXE "koonapin-host.exe"
 ; The MCP server an AI assistant runs (NP-091).
 !define NP_MCP_EXE "koonapin-mcp.exe"
+; The `.kpin` type's class, as tauri.conf.json names it (bundle.fileAssociations), and its icon,
+; which tauri.windows.conf.json installs beside the app (2.18.1).
+!define NP_LIST_CLASS "Koona Pin list"
+!define NP_LIST_ICON "kpin.ico"
 !define NP_BRAND_DIR "Koona"
 !define NP_DATA_DIR "Pin"
 ; The library folder of the builds before NP-112 (Р-56).
@@ -126,6 +130,13 @@ FunctionEnd
     WriteRegStr HKCU "${NP_RUN_KEY}" "${NP_PRODUCT}" '"$INSTDIR\${NP_EXE}" --autostart'
     DeleteRegValue HKCU "${NP_RUN_APPROVED_KEY}" "${NP_PRODUCT}"
   ${EndIf}
+
+  ; The template gives a `.kpin` the app's own icon (koonapin.exe,0): a list gets a page of its own,
+  ; and Explorer is told the association changed, which the template never does. The uninstaller
+  ; removes the whole class with this value.
+  WriteRegStr SHCTX "Software\Classes\${NP_LIST_CLASS}\DefaultIcon" "" "$INSTDIR\${NP_LIST_ICON},0"
+  ; SHCNE_ASSOCCHANGED, SHCNF_FLUSH.
+  System::Call "shell32::SHChangeNotify(i 0x08000000, i 0x1000, p 0, p 0)"
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
@@ -158,4 +169,8 @@ FunctionEnd
     ; A library an earlier build left there goes with the current one.
     RmDir /r "$APPDATA\${NP_LEGACY_DATA_DIR}"
   ${EndIf}
+
+  ; The template removed the `.kpin` class and its icon: Explorer is told, or it keeps drawing the
+  ; list's icon from its cache. SHCNE_ASSOCCHANGED, SHCNF_FLUSH.
+  System::Call "shell32::SHChangeNotify(i 0x08000000, i 0x1000, p 0, p 0)"
 !macroend

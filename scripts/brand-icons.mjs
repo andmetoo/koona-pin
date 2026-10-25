@@ -11,6 +11,7 @@ import { execFileSync } from "node:child_process";
 import { copyFile, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { ico } from "./lib/icons.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const brand = path.join(root, "design", "brand", "pin-spirit-flat");
@@ -87,26 +88,6 @@ async function png(svg, size, margin = 0, opaque = false) {
   await page.locator("img").evaluate((img) => img.decode());
   const shot = { clip: { x: 0, y: 0, width: size, height: size } };
   return opaque ? jpegToPng(await page.screenshot({ ...shot, type: "jpeg", quality: 100 })) : page.screenshot({ ...shot, omitBackground: true });
-}
-
-/** ICO with PNG entries (supported since Windows Vista). */
-function ico(entries) {
-  const header = Buffer.alloc(6 + 16 * entries.length);
-  header.writeUInt16LE(0, 0);
-  header.writeUInt16LE(1, 2);
-  header.writeUInt16LE(entries.length, 4);
-  let offset = header.length;
-  entries.forEach(({ size, data }, i) => {
-    const at = 6 + 16 * i;
-    header.writeUInt8(size >= 256 ? 0 : size, at);
-    header.writeUInt8(size >= 256 ? 0 : size, at + 1);
-    header.writeUInt16LE(1, at + 4);
-    header.writeUInt16LE(32, at + 6);
-    header.writeUInt32LE(data.length, at + 8);
-    header.writeUInt32LE(offset, at + 12);
-    offset += data.length;
-  });
-  return Buffer.concat([header, ...entries.map((e) => e.data)]);
 }
 
 const preview = process.argv.indexOf("--preview");

@@ -230,7 +230,9 @@ test("over the sidebar or the toolbar a drag from outside shows no zone and its 
   const zone = page.locator("[data-drop-zone]");
   const cards = await page.locator("[data-bookmark-id]").count();
   const inbox = await sidebar(page).getByRole("button", { name: /^Inbox/ }).first().textContent();
-  for (const where of ["sidebar", "toolbar"] as const) {
+  // The toolbar's title: the middle of the toolbar is the search field, whose drop is its own.
+  const title = page.locator("main [data-drop-head]").first().getByRole("heading").first();
+  for (const where of ["sidebar", title]) {
     expect(await dragAt(page, "dragenter", { link: "https://example.com/nowhere" }, where)).toBe("none");
     expect(await dragAt(page, "dragover", { link: "https://example.com/nowhere" }, where)).toBe("none");
     await expect(zone).toHaveCount(0);
@@ -410,6 +412,97 @@ test("a file dragged over the window: the hero, as real drags show it; the kind 
   await expect(zone).toHaveAttribute("data-drop-zone", "hero");
   await dragFiles(page, "dragleave", []);
   await expect(zone).toHaveCount(0);
+});
+
+test("the app's own drags are told by what they carry: one that never ends or was cancelled leaves later drags to the window", async ({ page }) => {
+  const zone = page.locator("[data-drop-zone]");
+  const cards = await page.locator("[data-bookmark-id]").count();
+  /**
+   * The app's own drag of a link: a `dragstart` on a probe element in the list area, then a drop of
+   * the same data over the list or a probe `field` there; with `cancel`, the probe cancels the start
+   * and nothing follows. Whether the page kept the webview from opening the drop.
+   */
+  const ownDrop = async (cancel: boolean, field?: string) =>
+    page.evaluate(
+      ({ cancel, field, at }) => {
+        const host = document.elementFromPoint(at.x, at.y)!;
+        const source = host.appendChild(document.createElement("span"));
+        if (cancel) source.addEventListener("dragstart", (e) => e.preventDefault());
+        const data = new DataTransfer();
+        data.setData("text/uri-list", "https://example.com/own");
+        source.dispatchEvent(new DragEvent("dragstart", { dataTransfer: data, bubbles: true, cancelable: true }));
+        // Its source leaves the page mid-drag: no `dragend` reaches the window.
+        source.remove();
+        // A cancelled drag never drops anywhere.
+        if (cancel) return true;
+        const target = field ? host.appendChild(Object.assign(document.createElement("input"), { type: field })) : host;
+        const box = target.getBoundingClientRect();
+        const point = { clientX: box.left + 2, clientY: box.top + 2 };
+        target.dispatchEvent(new DragEvent("dragenter", { dataTransfer: data, bubbles: true, cancelable: true, ...point }));
+        const drop = new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true, ...point });
+        target.dispatchEvent(drop);
+        if (field) target.remove();
+        return drop.defaultPrevented;
+      },
+      { cancel, field, at: await dropPoint(page) },
+    );
+  // The app's own link, dropped on the list or on a checkbox there: not saved, and not opened by
+  // the webview. On a text field it is the field's.
+  expect(await ownDrop(false)).toBe(true);
+  expect(await ownDrop(false, "checkbox")).toBe(true);
+  expect(await ownDrop(false, "text")).toBe(false);
+  // Neither that drag, which never ended, nor a cancelled one keeps a drag from outside untaken.
+  for (const cancel of [false, true]) {
+    if (cancel) await ownDrop(true);
+    await dragFiles(page, "dragenter", [{ name: "other.kpin" }], true);
+    await expect(zone).toHaveAttribute("data-drop-zone", "hero");
+    await dragFiles(page, "dragleave", [], true);
+    await expect(zone).toHaveCount(0);
+  }
+  await page.waitForTimeout(400);
+  await expect(page.locator("[data-glass-toast]")).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(cards);
+});
+
+test("nothing in the list starts a drag of its own: on a Mac a cancelled one leaves the next drag from outside without data", async ({ page }) => {
+  const draggable = await page.evaluate(() =>
+    Array.from(document.querySelectorAll("[data-no-native-drag] img, [data-no-native-drag] a, [data-no-native-drag] [data-bookmark-id]"), (element) =>
+      getComputedStyle(element).getPropertyValue("-webkit-user-drag"),
+    ),
+  );
+  expect(draggable.length).toBeGreaterThan(0);
+  expect(new Set(draggable)).toEqual(new Set(["none"]));
+  // A preview image's drag is not cancelled at its start: none starts.
+  const cancelled = await page.evaluate(() => {
+    const event = new DragEvent("dragstart", { bubbles: true, cancelable: true });
+    document.querySelector("[data-no-native-drag] [data-bookmark-id]")!.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  expect(cancelled).toBe(false);
+});
+
+test("a link or text dragged over the search field is the field's: no zone, and the window neither takes nor refuses it", async ({ page }) => {
+  const zone = page.locator("[data-drop-zone]");
+  const search = page.getByLabel("Search the library");
+  const cards = await page.locator("[data-bookmark-id]").count();
+  // From the list onto the field: the zone goes, and the window leaves the drag to the field.
+  await dragAt(page, "dragenter", { link: "https://example.com/typed" });
+  await expect(zone).toHaveAttribute("data-drop-zone", "link");
+  expect(await dragAt(page, "dragover", { link: "https://example.com/typed" }, search)).toBe("unset");
+  await expect(zone).toHaveCount(0);
+  expect(await dragAt(page, "drop", { link: "https://example.com/typed" }, search)).toBe("unset");
+  // Straight onto the field as well.
+  expect(await dragAt(page, "dragenter", { link: "https://example.com/typed" }, search)).toBe("unset");
+  expect(await dragAt(page, "drop", { link: "https://example.com/typed" }, search)).toBe("unset");
+  await expect(zone).toHaveCount(0);
+  // A file over the field is still refused: the webview would open it.
+  expect(await dragFiles(page, "dragenter", [{ name: "feeds.opml", text: OPML }], false, search)).toBe("none");
+  await dragFiles(page, "drop", [{ name: "feeds.opml", text: OPML }], false, search);
+  await page.waitForTimeout(400);
+  await expect(page.locator("[data-glass-toast]")).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(cards);
 });
 
 test("a dropped file goes by what it holds: a list, OPML, bookmarks and a backup open their dialogs; others are refused", async ({ page }) => {

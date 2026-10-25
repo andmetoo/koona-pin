@@ -184,13 +184,14 @@ function useSelectionFrame(
       window.addEventListener("pointerup", up);
       window.addEventListener("pointercancel", up);
     };
-    // A preview image would start the browser's own drag and cancel the pointer.
-    const native = (e: DragEvent) => e.preventDefault();
+    // A preview image or a link would start the browser's own drag and cancel the pointer.
+    // `[data-no-native-drag]` (app.css) keeps any from starting, rather than cancelling one at its
+    // start: on a Mac a cancelled drag leaves the next drag from outside without data.
+    scroller.setAttribute("data-no-native-drag", "");
     scroller.addEventListener("pointerdown", down);
-    scroller.addEventListener("dragstart", native);
     return () => {
+      scroller.removeAttribute("data-no-native-drag");
       scroller.removeEventListener("pointerdown", down);
-      scroller.removeEventListener("dragstart", native);
       stop();
     };
   }, [scrollRef, inner, geometry]);

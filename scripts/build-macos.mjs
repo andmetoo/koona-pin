@@ -69,14 +69,46 @@ function embedSafari(bundle, identity = "-") {
   run("ditto", [built, appex]);
   run("codesign", [...sign, "--options", "runtime",
     "--entitlements", path.join(project, "Extension", "KoonaPinSafari.entitlements"), appex]);
-  // Inside out, never --deep, which would sign the .appex again without its entitlements. The app keeps the
-  // entitlements and flags it had (none today, the hardened runtime in a release; a Tauri setting may add some).
+  seal(bundle, sign);
+}
+
+/**
+ * Signs the app at `bundle` again around an .appex just put in it: inside out, never --deep, which would
+ * sign the .appex again without its entitlements. The app keeps the entitlements and flags it had (none
+ * today, the hardened runtime in a release; a Tauri setting may add some).
+ */
+function seal(bundle, sign) {
   const entitlements = () => execFileSync("codesign", ["-d", "--entitlements", "-", "--xml", bundle],
     { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
   const before = entitlements();
   run("codesign", [...sign, "--preserve-metadata=entitlements,flags,runtime", bundle]);
   if (entitlements() !== before) throw new Error(`Signing ${app} again changed its entitlements`);
   run("codesign", ["--verify", "--strict", "--deep", "--verbose=2", bundle]);
+}
+
+/**
+ * The Quick Look thumbnail extension (src-tauri/macos/thumbnail, 2.18.1) into Contents/PlugIns of the
+ * app at `bundle`, in every build: a `.kpin` conforms to plain text for Quick Look, so without it Finder
+ * draws the list's text in place of its icon. swiftc builds it for this machine's architecture, as
+ * Tauri builds the app; the .appex carries the app's version and the sandbox, which Quick Look requires.
+ */
+function embedThumbnail(bundle, identity = "-") {
+  const sign = ["--force", "--sign", identity, ...(identity === "-" ? [] : ["--timestamp"])];
+  const source = path.join(root, "src-tauri", "macos", "thumbnail");
+  const appex = path.join(bundle, "Contents", "PlugIns", "Koona Pin Thumbnail.appex");
+  rmSync(appex, { recursive: true, force: true });
+  mkdirSync(path.join(appex, "Contents", "MacOS"), { recursive: true });
+  mkdirSync(path.join(appex, "Contents", "Resources"), { recursive: true });
+  const target = `${arch === "arm64" ? "arm64" : "x86_64"}-apple-macos15.0`;
+  run("xcrun", ["swiftc", "-swift-version", "5", "-parse-as-library", "-O", "-target", target,
+    "-module-name", "KoonaPinThumbnail", "-framework", "QuickLookThumbnailing", "-Xlinker", "-e", "-Xlinker", "_NSExtensionMain",
+    "-o", path.join(appex, "Contents", "MacOS", "KoonaPinThumbnail"), path.join(source, "ThumbnailProvider.swift")]);
+  const plist = path.join(appex, "Contents", "Info.plist");
+  cpSync(path.join(source, "Info.plist"), plist);
+  for (const key of ["CFBundleShortVersionString", "CFBundleVersion"]) run("plutil", ["-replace", key, "-string", version, plist]);
+  cpSync(path.join(root, "src-tauri", "macos", "kpin.icns"), path.join(appex, "Contents", "Resources", "kpin.icns"));
+  run("codesign", [...sign, "--options", "runtime", "--entitlements", path.join(source, "KoonaPinThumbnail.entitlements"), appex]);
+  seal(bundle, sign);
 }
 
 // Steps for the person testing Safari (NP-119, docs/macos-test.md «Safari»).
@@ -106,6 +138,7 @@ if (testBuild) {
   // An .appex of an earlier Safari build must not stay in a plain one.
   rmSync(path.join(output, app), { recursive: true, force: true });
   cpSync(path.join(bundleDir, "macos", app), path.join(output, app), { recursive: true });
+  embedThumbnail(path.join(output, app));
   if (safari) embedSafari(path.join(output, app));
   const archive = `koonapin-${version}-macos-${arch}-test.zip`;
   run("ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", app, archive], { cwd: output });
@@ -223,7 +256,9 @@ mkdirSync(output, { recursive: true });
 const base = `koonapin-${version}-macos-${arch}`;
 const built = path.join(bundleDir, "macos", app);
 const dmg = path.join(output, `${base}.dmg`);
-// Safari, signed with the app's Developer ID; then the app is notarized as a ZIP and the ticket stapled to it.
+// The thumbnail extension, and Safari, signed with the app's Developer ID (the thumbnails ad hoc without one);
+// then the app is notarized as a ZIP and the ticket stapled to it.
+embedThumbnail(built, identity);
 if (identity) embedSafari(built, identity);
 if (notarize) {
   const submission = path.join(root, "src-tauri", "target", "notarize", `${base}.zip`);

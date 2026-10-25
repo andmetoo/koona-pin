@@ -4,11 +4,11 @@
 // src-tauri/macos/dmg/settings.py, whose window size and icon positions this drawing follows.
 //
 //   bun scripts/dmg-assets.mjs [--preview out.png]
-import { chromium } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { svgRenderer } from "./lib/icons.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const brand = path.join(root, "design", "brand", "pin-spirit-flat");
@@ -68,21 +68,7 @@ const volume =
   mark(512, 470, 232, GREEN) +
   `</svg>`;
 
-const browser = await chromium.launch();
-const pages = {};
-/** A page at `scale` device pixels per CSS pixel. */
-async function page(scale) {
-  pages[scale] ??= await (await browser.newContext({ deviceScaleFactor: scale })).newPage();
-  return pages[scale];
-}
-/** Renders an SVG `width`×`height` CSS pixels large at `scale`, on a transparent background. */
-async function png(svg, width, height, scale = 1) {
-  const p = await page(scale);
-  await p.setViewportSize({ width, height });
-  await p.setContent(`<body style="margin:0;background:transparent"><img style="display:block;width:${width}px;height:${height}px" src="data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}"></body>`);
-  await p.locator("img").evaluate((img) => img.decode());
-  return p.screenshot({ omitBackground: true, clip: { x: 0, y: 0, width, height } });
-}
+const { png, page, close } = await svgRenderer();
 
 const preview = process.argv.indexOf("--preview");
 if (preview > 0) {
@@ -104,7 +90,7 @@ if (preview > 0) {
       `</body>`,
   );
   await p.screenshot({ path: process.argv[preview + 1] });
-  await browser.close();
+  await close();
   process.exit(0);
 }
 
@@ -126,5 +112,5 @@ for (const size of [16, 32, 128, 256, 512]) {
 }
 execFileSync("iconutil", ["-c", "icns", iconset, "-o", path.join(out, "volume.icns")]);
 
-await browser.close();
+await close();
 console.log("written: src-tauri/macos/dmg/background.tiff, src-tauri/macos/dmg/volume.icns");
