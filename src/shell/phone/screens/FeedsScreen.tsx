@@ -3,7 +3,7 @@ import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { BookmarkCheck, Plus, RefreshCw, Rss } from "lucide-react";
 import { usePhone } from "../PhoneContext";
-import { rememberPosts, usePosts, withKept } from "../feeds/posts";
+import { rememberPosts } from "../feeds/posts";
 import { Button, CircleButton } from "../ui/buttons";
 import { Chip, Segmented } from "../ui/controls";
 import { PhIcon } from "../ui/icons";
@@ -69,12 +69,12 @@ export function FeedsScreen({ hidden }: { hidden: boolean }) {
     window.addEventListener("koona-feeds-all", all);
     return () => window.removeEventListener("koona-feeds-all", all);
   }, []);
-  const { items, loaded, hasMore, loadMore } = useFeedItems(feedUid, "", app.feeds, scope === "unread");
-  // Posts read from this list stay on Unread until the feed, the switch or a check changes it.
+  // Posts read from this list stay on Unread until the feed, the switch or a check changes it:
+  // the query lists them among the unread (2.17.0), fresh, in their place.
   const [kept, setKept] = useState<ReadonlySet<number>>(() => new Set());
   useEffect(() => setKept(new Set()), [feedUid, scope]);
-  const keptPosts = usePosts(kept);
-  const shown = useMemo(() => (scope === "unread" ? withKept(items, keptPosts) : items), [scope, items, keptPosts]);
+  const keep = useMemo(() => [...kept], [kept]);
+  const { items, loaded, hasMore, loadMore } = useFeedItems(feedUid, "", app.feeds, scope === "unread", keep);
   useEffect(() => rememberPosts(items), [items]);
   const byUid = useMemo(() => new Map(feeds.map((f) => [f.uid, f])), [feeds]);
   // The screen's element attaches after the list's first layout: the virtualiser gets it on the next render.
@@ -111,7 +111,7 @@ export function FeedsScreen({ hidden }: { hidden: boolean }) {
   const chipRow = useRef<HTMLDivElement>(null);
   useChipInView(chipRow, feedUid);
 
-  const entries = useMemo(() => dayGroups(shown), [shown]);
+  const entries = useMemo(() => dayGroups(items), [items]);
   const first = entries[0]?.kind === "day" ? entries[0] : null;
   const rows = useMemo(() => (entries[0]?.kind === "day" ? entries.slice(1) : entries), [entries]);
   const total = feeds.reduce((sum, f) => sum + f.unread, 0);
@@ -173,7 +173,7 @@ export function FeedsScreen({ hidden }: { hidden: boolean }) {
           </div>
           <div className="ph-swipe" {...swipe.bind}>
             <div ref={swipe.page} className="ph-swipe-page">
-              {loaded && shown.length === 0 ? (
+              {loaded && items.length === 0 ? (
                 <div className="fd-none">
                   <p className="ph-subhead">{scope === "unread" ? t("phone.feeds.noUnread") : t("feeds.empty")}</p>
                   {scope === "unread" && (

@@ -265,6 +265,17 @@ test("Mark all read in the list header; Unread then says everything is read and 
   await open(page);
   await openFeeds(page);
   const markAll = page.locator("[data-feed-list]").getByRole("button", { name: "Mark all read" });
+  // A search narrows the list, not what is marked: the button waits until it is cleared.
+  await page.locator("[data-feed-list]").getByRole("button", { name: "Search posts" }).click();
+  await page.keyboard.type("potatoes");
+  await expect(markAll).toBeDisabled();
+  // ⇧A from outside the field waits too.
+  await page.locator("[data-feed-list] h1").click();
+  await page.keyboard.press("Shift+A");
+  await expect(page.getByText(/^Marked as read/)).toHaveCount(0);
+  await expect(row(page, "All feeds")).toContainText("11");
+  await page.locator("[data-feed-list]").getByRole("button", { name: "Search posts" }).click();
+  await expect(markAll).toBeEnabled();
   await page.getByRole("group", { name: "Show posts" }).getByRole("button", { name: "Unread" }).click();
   await markAll.click();
   await expect(page.getByText("Marked as read: 11")).toBeVisible();

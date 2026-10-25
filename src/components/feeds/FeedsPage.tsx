@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { HTMLAttributes, ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CheckCheck, Plus, Rss, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Bookmark, Feed, FeedItem } from "../../types";
@@ -88,7 +88,8 @@ export function FeedsPage({
   // Unread or All posts (2.17.0), kept like the library's view.
   const [show, setShow] = useState<FeedShow>(() => preference("feeds.show", ["unread", "all"], "all"));
   useEffect(() => savePreference("feeds.show", show), [show]);
-  const { items, loaded, hasMore, loadMore } = useFeedItems(feedUid, searching ? search : "", feeds, show === "unread", itemId);
+  const kept = useMemo(() => (itemId === null ? [] : [itemId]), [itemId]);
+  const { items, loaded, hasMore, loadMore } = useFeedItems(feedUid, searching ? search : "", feeds, show === "unread", kept);
   const list = useRef<FeedListHandle>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const sheetEl = useRef<HTMLElement>(null);
@@ -169,7 +170,10 @@ export function FeedsPage({
     const index = selected ? items.indexOf(selected) : -1;
     if (step > 0 && index === items.length - 1 && hasMore) {
       moveOn.current = true;
-      return loadMore();
+      // A page that brought nothing (or failed) ends the wait: a later reload must not move on by itself.
+      return void loadMore().then((added) => {
+        if (!added) moveOn.current = false;
+      });
     }
     const next = items[index < 0 ? (step > 0 ? 0 : items.length - 1) : Math.min(items.length - 1, Math.max(0, index + step))];
     if (!next || next.id === itemId) return;
@@ -251,12 +255,16 @@ export function FeedsPage({
   const toggleRead = () => {
     if (selected) void setFeedItemsRead([selected.id], !selected.read).catch(failed);
   };
+  // A search narrows the list, not what «Mark all read» marks: ✓✓ and ⇧A wait until it is cleared (2.17.0).
+  const narrowed = searching && !!search.trim();
   // Up to the newest post the page knew of: one a check brought since stays new.
-  const markAll = () =>
+  const markAll = () => {
+    if (narrowed) return;
     void markFeedRead(feedUid, newestOf(feeds, feedUid)).then(
       (count) => onNotice({ text: count ? t("feeds.notice.markedRead", { count }) : t("feeds.notice.allRead") }),
       failed,
     );
+  };
   const refresh = () => void refreshFeeds(feedUid).catch(failed);
 
   const expand = () => {
@@ -313,7 +321,7 @@ export function FeedsPage({
   const shown = feeds.filter((f) => feedUid === null || f.uid === feedUid);
   const unread = shown.reduce((sum, f) => sum + f.unread, 0);
   // «Everything is read» only where there are posts: a feed not fetched yet has none to read.
-  const allRead = show === "unread" && !(searching && search.trim()) && shown.some((f) => f.total > 0);
+  const allRead = show === "unread" && !narrowed && shown.some((f) => f.total > 0);
   const empty =
     feeds.length === 0 ? (
       <EmptyState icon={Rss} title={t("feeds.none.title")} text={t("feeds.none.text")}>
@@ -397,7 +405,7 @@ export function FeedsPage({
           onSearch={setSearch}
           show={show}
           onShow={setShow}
-          onMarkAll={unread > 0 ? markAll : undefined}
+          onMarkAll={unread > 0 && !narrowed ? markAll : undefined}
           listRef={list}
           empty={empty}
           narrow={narrow}
@@ -449,7 +457,7 @@ function EmptyState({
   text,
   children,
   ...rest
-}: { icon: LucideIcon; title: string; text?: string; children: ReactNode } & { "data-feed-all-read"?: boolean }) {
+}: { icon: LucideIcon; title: string; text?: string; children: ReactNode } & HTMLAttributes<HTMLDivElement>) {
   return (
     <div {...rest} className="flex flex-col items-center gap-3 px-6 py-16 text-center">
       <span className="flex size-12 items-center justify-center rounded-full bg-secondary text-icon">

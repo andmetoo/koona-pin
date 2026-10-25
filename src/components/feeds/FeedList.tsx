@@ -15,8 +15,11 @@ import type { FeedShow } from "./FeedsPage";
 /** The frame's rhythm (NP-132): rows 158 apart, a day label 22 high. */
 export const ROW = 158;
 const DAY = 22;
-/** A row's guess with its picture before it is measured (2.17.0): 16:9 of the 332 px column. */
-const PICTURE = 199;
+/**
+ * What a picture adds to a row's guess before it is measured (2.17.0): 12 + 187 (16:9 of the
+ * 332 px column) + 12 below the text, less the 23 px a row without one keeps under its excerpt.
+ */
+const PICTURE = 188;
 
 export interface FeedListHandle {
   /** Brings the post's row into view; `focus` also moves the focus to it once drawn. */

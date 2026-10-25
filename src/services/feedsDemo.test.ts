@@ -34,7 +34,7 @@ describe("the preview's feeds", () => {
     expect(unread.items.every((i) => i.feed_uid === "demo-feed-ars" && !i.read)).toBe(true);
     // The open post stays among the unread once read (2.17.0).
     const read = (await demo.listFeedItems({ feed_uid: "demo-feed-ars", unread_only: false, limit: 50 })).items.find((i) => i.read)!;
-    const kept = await demo.listFeedItems({ feed_uid: "demo-feed-ars", unread_only: true, keep: read.id, limit: 50 });
+    const kept = await demo.listFeedItems({ feed_uid: "demo-feed-ars", unread_only: true, keep: [read.id], limit: 50 });
     expect(kept.items.map((i) => i.id)).toContain(read.id);
     expect(kept.items).toHaveLength(unread.items.length + 1);
     const found = await demo.listFeedItems({ unread_only: false, search: "potatoes", limit: 50 });

@@ -35,11 +35,11 @@ const SEARCH_MS = 250;
 /**
  * The posts of one feed or of all (NP-132), newest first, a page at a time. Every change of
  * the feeds (`changed`) reads the loaded range again, so read marks and saves show at once.
- * `unreadOnly`: only the posts not read yet (the phone's Unread | All switch). `keep`: the open
- * post, listed by the query among the unread once read (2.17.0); a reload asks with the one open
- * then, so the post left goes at the next change.
+ * `unreadOnly`: only the posts not read yet (the Unread | All switch). `keep`: posts opened from
+ * the list, listed by the query among the unread once read (2.17.0); a reload asks with the ones
+ * kept then, so a post no longer kept goes at the next change.
  */
-export function useFeedItems(feedUid: string | null, typed: string, changed: unknown, unreadOnly = false, keep: number | null = null) {
+export function useFeedItems(feedUid: string | null, typed: string, changed: unknown, unreadOnly = false, keep: readonly number[] = []) {
   // The search waits for typing to settle: a query per keystroke would reload the list each time.
   const [search, setSearch] = useState(typed);
   useEffect(() => {
@@ -55,16 +55,16 @@ export function useFeedItems(feedUid: string | null, typed: string, changed: unk
     loaded: false,
   });
   const loaded = useRef(PAGE);
-  // The open post is not part of the key: opening one must not reload the list.
+  // The posts kept are not part of the key: opening one must not reload the list.
   const kept = useRef(keep);
   kept.current = keep;
   const query = () => ({
     feed_uid: feedUid ?? undefined,
     unread_only: unreadOnly,
-    keep: unreadOnly ? (kept.current ?? undefined) : undefined,
+    keep: unreadOnly && kept.current.length ? [...kept.current] : undefined,
     search: search.trim() || undefined,
   });
-  const loadingMore = useRef(false);
+  const loadingMore = useRef<Promise<boolean> | null>(null);
   // A saved post's bookmark trashed or deleted (Undo, the library) changes its «· saved»;
   // with no saved post in the list, a change elsewhere in the library changes nothing here.
   const [bookmarks, setBookmarks] = useState(0);
@@ -91,19 +91,22 @@ export function useFeedItems(feedUid: string | null, typed: string, changed: unk
   useEffect(() => {
     anySaved.current = state.items.some((item) => item.bookmark_id !== null);
   }, [state.items]);
-  const loadMore = useCallback(() => {
-    if (!current.next || loadingMore.current) return;
-    loadingMore.current = true;
+  /** The next page; true once it brought posts, false when there were none or it failed. */
+  const loadMore = useCallback((): Promise<boolean> => {
+    if (loadingMore.current) return loadingMore.current;
+    if (!current.next) return Promise.resolve(false);
     const after = current.next;
-    listFeedItems({ ...query(), limit: PAGE, after })
+    loadingMore.current = listFeedItems({ ...query(), limit: PAGE, after })
       .then((page) => {
         loaded.current += PAGE;
         setState((prev) => (prev.key === key && prev.next === after ? { key, items: [...prev.items, ...page.items], next: page.next, loaded: true } : prev));
+        return page.items.length > 0;
       })
-      .catch(() => {})
+      .catch(() => false)
       .finally(() => {
-        loadingMore.current = false;
+        loadingMore.current = null;
       });
+    return loadingMore.current;
   }, [current.next, key]);
   return { items: current.items, hasMore: !!current.next, loaded: current.loaded, loadMore };
 }
