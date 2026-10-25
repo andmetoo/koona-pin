@@ -53,7 +53,8 @@ const MAX_KEPT: usize = 6;
 /// A purchase asked about this recently is not asked about again on the way back to the screen.
 const FRESH: TimeDelta = TimeDelta::seconds(15);
 
-/// Where a Play purchase stands, or what it came to.
+/// Where a Play purchase stands, or what it came to. The App Store build's purchases
+/// (billing/appstore.rs) have the same states: its server answers exactly as `play_verify` does.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 #[ts(export)]
@@ -89,11 +90,13 @@ pub enum PlayState {
     Unavailable,
     /// Play failed before a purchase was made.
     Error,
+    /// «Restore purchases» (the App Store build) found nothing this Apple Account owns.
+    NothingToRestore,
 }
 
 impl PlayState {
     /// Still waiting for the person or for Play: kept with its purchase and shown by the sheet.
-    fn waiting(self) -> bool {
+    pub(super) fn waiting(self) -> bool {
         matches!(self, PlayState::Email | PlayState::SignIn | PlayState::Owned | PlayState::Pending | PlayState::Kept)
     }
 }
@@ -184,7 +187,13 @@ pub(super) enum Ask {
 /// and not claimed by an email is asked about without a session, so it is bound only through the
 /// email step.
 pub(super) fn ask_for(checkout: &PlayCheckout, signed_in: Option<&str>) -> Ask {
-    let owner = checkout.email.as_deref().or(checkout.account.as_deref());
+    ask_by(checkout.email.as_deref(), checkout.account.as_deref(), signed_in)
+}
+
+/// [`ask_for`] of any store's purchase: the email given for it, and the account signed in when it
+/// started.
+pub(super) fn ask_by(email: Option<&str>, account: Option<&str>, signed_in: Option<&str>) -> Ask {
+    let owner = email.or(account);
     match (owner, signed_in) {
         (_, None) | (None, Some(_)) => Ask::WithoutSession,
         (Some(owner), Some(email)) if owner.trim().eq_ignore_ascii_case(email.trim()) => Ask::WithSession,
@@ -206,18 +215,24 @@ pub(super) fn account_id(secret: &str) -> String {
     crate::hash::sha256_hex(secret.as_bytes())
 }
 
-/// What `play_verify` said.
+/// What `play_verify` (or `appstore_verify`) said.
 pub(super) struct Verdict {
-    state: PlayState,
+    pub(super) state: PlayState,
     /// The plan of `paid`, `already_supporter` and `suspended`.
-    answer: Option<Answer>,
+    pub(super) answer: Option<Answer>,
 }
 
 /// The server's answer to `play_verify`; an error for one that says nothing about the purchase
 /// (a server error, a refusal other than the claim's, a body that is not the function's).
 pub(super) fn verdict(status: reqwest::StatusCode, value: &Value) -> Result<Verdict, CommandError> {
-    // The server does not verify Play purchases now (not set up): the purchase stays, unclaimed.
-    if status == reqwest::StatusCode::NOT_FOUND && value["error"] == "play" {
+    verdict_of_store(status, value, "play", "billing play_verify")
+}
+
+/// The answer of a store's verify action, which answers as `play_verify` does: the store's own
+/// error name (`play`, `appstore`) when the server does not verify its purchases now.
+pub(super) fn verdict_of_store(status: reqwest::StatusCode, value: &Value, store: &str, action: &str) -> Result<Verdict, CommandError> {
+    // The server does not verify the store's purchases now (not set up): the purchase stays, unclaimed.
+    if status == reqwest::StatusCode::NOT_FOUND && value["error"] == store {
         return Ok(Verdict { state: PlayState::Unavailable, answer: None });
     }
     // The claim does not match the purchase, or the server has no such purchase: not this app's.
@@ -225,7 +240,7 @@ pub(super) fn verdict(status: reqwest::StatusCode, value: &Value) -> Result<Verd
         return Ok(Verdict { state: PlayState::Invalid, answer: None });
     }
     if !status.is_success() {
-        return Err(refused("billing play_verify", status));
+        return Err(refused(action, status));
     }
     let state = match value["status"].as_str() {
         Some("paid") => PlayState::Paid,
@@ -237,7 +252,7 @@ pub(super) fn verdict(status: reqwest::StatusCode, value: &Value) -> Result<Verd
         Some("pending") => PlayState::Pending,
         Some("other_account") => PlayState::OtherAccount,
         Some("invalid") => PlayState::Invalid,
-        _ => return Err(refused("billing play_verify", status)),
+        _ => return Err(refused(action, status)),
     };
     let answer = matches!(state, PlayState::Paid | PlayState::AlreadySupporter | PlayState::Suspended).then(|| Answer::of(value));
     Ok(Verdict { state, answer })
@@ -440,9 +455,15 @@ pub(super) fn after_buy(bought: &native::Bought, id: &str) -> AfterBuy {
 /// otherwise signing in to the account that owns it shows the plan. Only the server says it is
 /// another account's (`other_account`).
 pub(super) fn owned_elsewhere(plan_store: Option<PlanStore>, suspended: bool) -> PlayState {
+    owned_in(PlanStore::Play, plan_store, suspended)
+}
+
+/// [`owned_elsewhere`] for any store: the plan here is taken as the one owned only when it is paid
+/// through that `store`.
+pub(super) fn owned_in(store: PlanStore, plan_store: Option<PlanStore>, suspended: bool) -> PlayState {
     if suspended {
         PlayState::Suspended
-    } else if plan_store == Some(PlanStore::Play) {
+    } else if plan_store == Some(store) {
         PlayState::Paid
     } else {
         PlayState::Owned
@@ -453,7 +474,7 @@ fn too_many() -> CommandError {
     CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::PurchasesWaiting, "Paid Google Play purchases are still waiting here")
 }
 
-fn invalid_email() -> CommandError {
+pub(super) fn invalid_email() -> CommandError {
     CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::InvalidEmail, "The email address does not look right")
 }
 
@@ -471,13 +492,18 @@ pub(super) enum EmailAnswer {
 /// The server's answer to `play_email`: 400 `email` a bad address, 429 `email_changes` more than
 /// five emails for one purchase, 404 `claim` or `play`.
 pub(super) fn email_answer(status: reqwest::StatusCode, value: &Value) -> Result<EmailAnswer, CommandError> {
+    email_answer_of_store(status, value, "play", "billing play_email")
+}
+
+/// The answer of a store's email action, which answers as `play_email` does.
+pub(super) fn email_answer_of_store(status: reqwest::StatusCode, value: &Value, store: &str, action: &str) -> Result<EmailAnswer, CommandError> {
     match status.as_u16() {
-        404 if value["error"] == "play" => Ok(EmailAnswer::Unavailable),
+        404 if value["error"] == store => Ok(EmailAnswer::Unavailable),
         404 => Ok(EmailAnswer::Gone),
         429 => Err(CommandError::detailed(ErrorCode::Network, ErrorDetail::TooManyMessages, "Too many emails for this purchase")),
         400 | 422 => Err(invalid_email()),
         _ if status.is_success() && value["status"] == "code" => Ok(EmailAnswer::Code),
-        _ => Err(refused("billing play_email", status)),
+        _ => Err(refused(action, status)),
     }
 }
 
@@ -560,13 +586,23 @@ async fn within<T: Send + 'static>(
     limit: std::time::Duration,
     call: impl Future<Output = Result<T, native::Error>> + Send + 'static,
 ) -> Result<T, native::Error> {
+    within_or(limit, call, native::Error::NoAnswer).await
+}
+
+/// [`within`] for any store's plugin: `no_answer` when the call has not answered in time.
+#[cfg(any(test, play, appstore))]
+pub(super) async fn within_or<T: Send + 'static, E: Send + 'static>(
+    limit: std::time::Duration,
+    call: impl Future<Output = Result<T, E>> + Send + 'static,
+    no_answer: E,
+) -> Result<T, E> {
     let (answer, answered) = tokio::sync::oneshot::channel();
     tauri::async_runtime::spawn(async move {
         let _ = answer.send(call.await);
     });
     match tokio::time::timeout(limit, answered).await {
         Ok(Ok(result)) => result,
-        Ok(Err(_)) | Err(_) => Err(native::Error::NoAnswer),
+        Ok(Err(_)) | Err(_) => Err(no_answer),
     }
 }
 
@@ -976,7 +1012,7 @@ mod tests {
     #[test]
     fn the_lease_says_where_the_plan_is_paid() {
         use super::super::{plan_of, Store};
-        for (store, expected) in [("\"play\"", Some(Store::Play)), ("\"paddle\"", Some(Store::Paddle)), ("null", None), ("\"app_store\"", None)] {
+        for (store, expected) in [("\"play\"", Some(Store::Play)), ("\"paddle\"", Some(Store::Paddle)), ("\"appstore\"", Some(Store::AppStore)), ("\"app_store\"", None), ("null", None), ("\"microsoft_store\"", None)] {
             let (signed, key) = lease(store);
             let plan = plan_of(&signed, "anna@example.com", &key).expect("a store this build does not know keeps the plan");
             assert_eq!(plan.store, expected, "{store}");

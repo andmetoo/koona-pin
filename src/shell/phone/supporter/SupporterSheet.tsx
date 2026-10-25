@@ -9,7 +9,16 @@ import { Button } from "../ui/buttons";
 import { Sheet, useCloseSheet } from "../ui/Sheet";
 import { Shelf, ShelfRow } from "../ui/Shelf";
 import { AccountWell, CodeForm, Note, Notice, SeasonHeart } from "./parts";
-import { playBadge, playPlans, playPriceLine, playUnavailable, usePlayPurchase } from "./playFlow";
+import { api } from "../../../services/api";
+import { playBadge, playPlans, playPriceLine, playUnavailable, usePlayPurchase, type StoreChannel } from "./playFlow";
+
+/** Apple's rules for subscriptions (App Review 3.1.2): the sheet links to both. */
+export const TERMS_URL = "https://koona.app/pin/terms";
+export const PRIVACY_URL = "https://koona.app/pin/privacy";
+
+/** The sheet's words that name the store: the App Store build has its own for these. */
+const STORE_WORDS = new Set(["renews", "notAvailable", "offerFailed", "emailText", "pending", "pendingText", "alreadyText", "otherText", "ownerText", "suspendedText", "suspendedTerms"]);
+const storeKey = (channel: StoreChannel, key: string) => `phone.supporter.${channel === "appstore" && STORE_WORDS.has(key) ? "appstore" : "play"}.${key}`;
 
 export type SupporterSheetProps = Record<string, never>;
 
@@ -22,7 +31,10 @@ export type SupporterSheetProps = Record<string, never>;
  * you. The Play build (`purchase: "play"`, NP-154) sells through Google Play Billing.
  */
 export function SupporterSheet(_: { props: SupporterSheetProps }) {
-  return capabilities.purchase === "paddle" ? <PurchaseSheet /> : capabilities.purchase === "play" ? <PlaySheet /> : <PerksSheet />;
+  if (capabilities.purchase === "paddle") return <PurchaseSheet />;
+  if (capabilities.purchase === "play") return <PlaySheet channel="play" />;
+  if (capabilities.purchase === "appstore") return <PlaySheet channel="appstore" />;
+  return <PerksSheet />;
 }
 
 /** The sheet where nothing is sold: the perks and "I'm already a Supporter". */
@@ -240,14 +252,21 @@ function PurchaseSheet() {
  * the code sent to it; a slow payment; a Supporter buying again; a purchase that belongs to another
  * account; a failure under the plans. A purchase still waiting when the sheet opens resumes its step.
  * Nothing names where else Supporter is sold.
+ *
+ * The App Store build (`channel` "appstore") is the same sheet over StoreKit, with what App Review
+ * asks of subscriptions (3.1.2): each plan's price and period from StoreKit, what renews and how to
+ * cancel, «Restore purchases», the Terms of Use and the Privacy Policy. Either store: someone who is
+ * a Supporter already, through any channel, is told so and offered nothing to buy.
  */
-function PlaySheet() {
+function PlaySheet({ channel }: { channel: StoreChannel }) {
   const { app } = usePhone();
   const { t, supporter, setSurface } = app;
   const close = useCloseSheet();
   const formId = useId();
-  const purchase = usePlayPurchase(supporter);
-  const { step, error, busy, offer, offerFailed, askOffer, last, kept, retry, buy, email, setEmail, claim, code, setCode, verify, resend, wait, anotherEmail, codeReady, suspended, fixPayment } = purchase;
+  const purchase = usePlayPurchase(supporter, channel);
+  const { step, error, busy, offer, offerFailed, askOffer, last, kept, retry, buy, email, setEmail, claim, code, setCode, verify, resend, wait, anotherEmail, codeReady, suspended, fixPayment, restore } = purchase;
+  const words = (key: string, options?: Record<string, string>) => t(storeKey(channel, key) as "phone.supporter.play.renews", options);
+  const apple = channel === "appstore";
   const signIn = () => setSurface("signIn");
 
   if (step === "email" || step === "code") {
@@ -269,7 +288,7 @@ function PlaySheet() {
         <CodeForm
           id={formId}
           step={step}
-          text={onEmail ? t("phone.supporter.play.emailText") : t("phone.supporter.play.codeText", { email: email.trim() })}
+          text={onEmail ? words("emailText") : t("phone.supporter.play.codeText", { email: email.trim() })}
           email={email}
           onEmail={setEmail}
           code={code}
@@ -298,11 +317,11 @@ function PlaySheet() {
           </Button>
         }
       >
-        <p className="sp-text">{t("phone.supporter.play.pendingText")}</p>
+        <p className="sp-text">{words("pendingText")}</p>
         <div className="ys-card sp-waiting" data-play-step="pending">
           <span className="sp-spinner" aria-hidden="true" />
           <span role="status" className="sp-waiting-text">
-            {t("phone.supporter.play.pending")}
+            {words("pending")}
           </span>
         </div>
       </Sheet>
@@ -313,9 +332,9 @@ function PlaySheet() {
     // to sign in to — on one layout: a round well, the title, the words, the action.
     const ended = {
       paid: { title: t("supporter.thanksTitle"), text: t("phone.supporter.play.thanksText", { email: supporter?.email ?? email.trim() }) },
-      alreadySupporter: { title: t("phone.supporter.play.alreadyTitle"), text: t("phone.supporter.play.alreadyText") },
-      otherAccount: { title: t("phone.supporter.play.otherTitle"), text: t("phone.supporter.play.otherText") },
-      owner: { title: t("phone.supporter.play.ownerTitle"), text: t("phone.supporter.play.ownerText") },
+      alreadySupporter: { title: t("phone.supporter.play.alreadyTitle"), text: words("alreadyText") },
+      otherAccount: { title: t("phone.supporter.play.otherTitle"), text: words("otherText") },
+      owner: { title: t("phone.supporter.play.ownerTitle"), text: words("ownerText") },
     }[step];
     const toSignIn = step === "otherAccount" || step === "owner";
     return (
@@ -355,10 +374,10 @@ function PlaySheet() {
       <Sheet label={t("phone.supporter.title")} title={t("phone.supporter.title")} className="sp-sheet sp-play">
         <div data-play-step="suspended">
           <Notice tone="danger" title={t("phone.supporter.play.suspendedTitle")}>
-            {t("phone.supporter.play.suspendedText")}
+            {words("suspendedText")}
           </Notice>
           <Button kind="primary" block icon={ExternalLink} className="sp-fix" disabled={busy} onClick={() => void fixPayment()}>
-            {t("plan.fixInPlay")}
+            {t(apple ? "plan.fixInAppStore" : "plan.fixInPlay")}
           </Button>
           {error && (
             <Notice tone="danger" live="alert">
@@ -367,7 +386,8 @@ function PlaySheet() {
           )}
         </div>
         <Perks hero={false} plainFree />
-        <p className="sp-hint sp-terms">{t("phone.supporter.play.suspendedTerms")}</p>
+        <p className="sp-hint sp-terms">{words("suspendedTerms")}</p>
+        {apple && <Legal />}
       </Sheet>
     );
 
@@ -381,9 +401,32 @@ function PlaySheet() {
       <Perks hero={false} plainFree />
       <section className="ys-section sp-plan-section">
         <h3 className="ys-label">{t("phone.supporter.planLabel")}</h3>
-        {playUnavailable(offer) ? (
+        {supporter?.plan ? (
+          // A Supporter already, through any channel: nothing to buy twice.
+          <>
+            <Notice tone="amber" live="status" title={t("phone.supporter.play.alreadyTitle")}>
+              {t("phone.supporter.managed")}
+            </Notice>
+            {/* A purchase kept after the sign-in still says so, with Try again. */}
+            {error && (
+              <Notice
+                tone={kept ? "amber" : "danger"}
+                live="alert"
+                action={
+                  kept && (
+                    <Button kind="ghost" compact className="sp-notice-action" disabled={busy} onClick={() => void retry()}>
+                      {t("common.retry")}
+                    </Button>
+                  )
+                }
+              >
+                {error}
+              </Notice>
+            )}
+          </>
+        ) : playUnavailable(offer) ? (
           <Notice tone="amber" live="status">
-            {t("phone.supporter.play.notAvailable")}
+            {words("notAvailable")}
           </Notice>
         ) : offerFailed && !offer ? (
           <Notice
@@ -395,7 +438,7 @@ function PlaySheet() {
               </Button>
             }
           >
-            {t("phone.supporter.play.offerFailed")}
+            {words("offerFailed")}
           </Notice>
         ) : (
           <>
@@ -451,12 +494,34 @@ function PlaySheet() {
               )
             )}
             <div className="sp-terms" data-play-terms>
-              <p className="sp-hint">{t("phone.supporter.play.renews")}</p>
+              <p className="sp-hint">{words("renews")}</p>
               {offer?.lifetime && <p className="sp-hint">{t("phone.supporter.play.once")}</p>}
             </div>
+            {apple && (
+              <Button kind="clear" compact block className="sp-restore" disabled={busy} onClick={() => void restore()}>
+                {t("phone.supporter.appstore.restore")}
+              </Button>
+            )}
           </>
         )}
+        {apple && <Legal />}
       </section>
     </Sheet>
+  );
+}
+
+/** The Terms of Use and the Privacy Policy, opened in the browser (App Review 3.1.2). */
+function Legal() {
+  const { app } = usePhone();
+  const { t } = app;
+  return (
+    <p className="sp-legal" data-legal>
+      <Button kind="ghost" compact onClick={() => void api.openUrl(TERMS_URL)}>
+        {t("phone.supporter.appstore.terms")}
+      </Button>
+      <Button kind="ghost" compact onClick={() => void api.openUrl(PRIVACY_URL)}>
+        {t("phone.supporter.appstore.privacy")}
+      </Button>
+    </p>
   );
 }

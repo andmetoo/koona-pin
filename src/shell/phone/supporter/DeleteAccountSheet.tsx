@@ -2,7 +2,7 @@ import "../you/you.css";
 import "./supporter.css";
 import { useId, useRef, type ReactNode } from "react";
 import { Check, X } from "lucide-react";
-import { cancelsPlay, radioKeys, refundKey, useAccountDeletion } from "../../../components/accountDeletion";
+import { cancelsPlay, paymentsKey, radioKeys, refundKey, useAccountDeletion } from "../../../components/accountDeletion";
 import { longDate } from "../../../components/supporterFlow";
 import type { DeleteWhen } from "../../../types";
 import { usePhone } from "../PhoneContext";
@@ -85,7 +85,7 @@ function DeleteBody({ supporter }: { supporter: NonNullable<ReturnType<typeof us
           </section>
           {plan && (
             <p className="sp-text sp-delete-payments">
-              {[t("deleteAccount.payments"), cancelsPlay(plan) ? t("deleteAccount.paymentsPlay") : null, t(refundKey(plan))].filter(Boolean).join(" ")}
+              {[t(paymentsKey(plan)), cancelsPlay(plan) ? t("deleteAccount.paymentsPlay") : null, t(refundKey(plan))].filter(Boolean).join(" ")}
             </p>
           )}
           {error && <Note tone="danger">{error}</Note>}
