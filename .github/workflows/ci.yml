@@ -173,6 +173,13 @@ jobs:
             -configuration Release SYMROOT="$RUNNER_TEMP/safari/Products" OBJROOT="$RUNNER_TEMP/safari/Intermediates" \
             CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= build
           codesign --verify --strict "$RUNNER_TEMP/safari/Products/Release/Koona Pin Safari.appex"
+      # The Quick Look thumbnail extension of `.kpin` lists (2.18.1), compiled as embedThumbnail in
+      # scripts/build-macos.mjs compiles it, so a broken provider shows here. Not embedded, nothing uploaded.
+      - name: Thumbnail extension
+        run: |
+          xcrun swiftc -swift-version 5 -parse-as-library -O -target "$(uname -m)-apple-macos15.0" \
+            -module-name KoonaPinThumbnail -framework QuickLookThumbnailing -Xlinker -e -Xlinker _NSExtensionMain \
+            -o "$RUNNER_TEMP/KoonaPinThumbnail" src-tauri/macos/thumbnail/ThumbnailProvider.swift
 
   # The phone builds (NP-151): that main still builds for Android and the iOS Simulator, debug, one
   # architecture each. Nothing is signed for a store, run or uploaded; the checks on emulators and phones
