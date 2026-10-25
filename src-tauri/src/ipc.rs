@@ -1,5 +1,5 @@
 //! Every command the interface may call (NP-019, NP-072a): the shared ones first, then the Play
-//! build's behind `cfg(play)` (NP-154), then the desktop's, each behind `cfg(desktop)`. Per-item `cfg` lives here only; a phone never gets a desktop command.
+//! build's behind `cfg(play)` (NP-154) and the App Store build's behind `cfg(appstore)`, then the desktop's, each behind `cfg(desktop)`. Per-item `cfg` lives here only; a phone never gets a desktop command.
 //! The types they take and answer are never `cfg`-gated (docs/building.md), so `src/bindings` are the
 //! same whichever target wrote them.
 
@@ -142,6 +142,20 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         billing::play::play_claim_email,
         #[cfg(play)]
         billing::play::retry_play_purchase,
+        // The App Store (StoreKit 2): the App Store build only (`cfg(appstore)`, the feature
+        // `store-appstore` on iOS). `verify_sign_in_code` binds its purchases waiting too.
+        #[cfg(appstore)]
+        billing::appstore::get_appstore_offer,
+        #[cfg(appstore)]
+        billing::appstore::start_appstore_purchase,
+        #[cfg(appstore)]
+        billing::appstore::appstore_claim_email,
+        #[cfg(appstore)]
+        billing::appstore::retry_appstore_purchase,
+        #[cfg(appstore)]
+        billing::appstore::restore_appstore_purchases,
+        #[cfg(appstore)]
+        billing::appstore::manage_appstore_subscriptions,
         #[cfg(desktop)]
         desktop::commands::reveal_export,
         #[cfg(desktop)]

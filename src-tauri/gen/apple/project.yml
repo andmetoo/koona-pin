@@ -72,6 +72,9 @@ targets:
       environmentVariables:
         RUST_BACKTRACE: full
         RUST_LOG: info
+      # StoreKit Testing for the Supporter products, in a Run from Xcode (Debug) only: never part of
+      # an archive or the App Store build (commercial/koona-appstore).
+      storeKitConfiguration: Supporter.storekit
     settings:
       base:
         # iPhone only: an iPad opens it in compatibility mode, at a phone's size.

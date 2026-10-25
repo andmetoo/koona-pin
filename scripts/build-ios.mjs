@@ -1,5 +1,6 @@
 // Builds Koona Pin for the App Store (NP-078): an iPhone build signed for distribution, for TestFlight
-// and App Store Connect. The Simulator's build is build-ios-sim.mjs. Folders: scripts/lib/paths.mjs.
+// and App Store Connect, with Supporter through StoreKit (the feature store-appstore). The Simulator's
+// build is build-ios-sim.mjs. Folders: scripts/lib/paths.mjs.
 //   bun run build:ios                    archive, export and check → release/publish/ios/<version>/
 //                                        KoonaPin-<version>-<build>.ipa, its dSYMs in a ZIP, SHA256SUMS.txt
 //   bun run build:ios -- --build <n>     the build number (CFBundleVersion) instead of the commit count
@@ -146,7 +147,8 @@ try {
   // export signs. The store key, not notarization's, which a build Mac may not have.
   const tauriEnv = Object.fromEntries(Object.entries(env).filter(([name]) => !/^APPLE_(SIGNING_IDENTITY|CERTIFICATE|API_)/.test(name)));
   const config = JSON.stringify({ bundle: { iOS: { bundleVersion: build } } });
-  const result = spawnSync("bun", ["run", "tauri", "ios", "build", "--target", "aarch64", "--archive-only", "--ci", "--config", config], {
+  // The App Store build sells Supporter through StoreKit (feature store-appstore, commercial/koona-appstore).
+  const result = spawnSync("bun", ["run", "tauri", "ios", "build", "--target", "aarch64", "--archive-only", "--ci", "--features", "store-appstore", "--config", config], {
     cwd: root,
     stdio: "inherit",
     env: {

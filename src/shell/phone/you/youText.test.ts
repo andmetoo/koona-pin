@@ -88,6 +88,13 @@ describe("the Supporter card's line", () => {
     }
     expect(planLine(plan({ store: "play" }), t, "en-GB", false)).toBe("Thank you · yearly plan, renews 9 Oct 2027");
   });
+
+  it("sends a plan paid through the App Store to the App Store and Settings, in any build", () => {
+    for (const sells of [true, false]) {
+      expect(planLine(plan({ status: "past_due", store: "appstore" }), t, "en-GB", sells)).toBe(t("supporter.pastDueAppStore"));
+      expect(planLine(plan({ interval: "lifetime", also_renews: true, store: "appstore" }), t, "en-GB", sells)).toBe(t("supporter.alsoRenewsAppStore"));
+    }
+  });
 });
 
 describe("the Sync shelf", () => {

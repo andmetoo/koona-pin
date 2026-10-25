@@ -11,8 +11,10 @@
 //!
 //! The Google Play build sells through Play Billing instead of Paddle (NP-154, [`play`]): the
 //! purchase comes first, the email given after it claims it, and the server binds it once the code
-//! from that email has signed in.
+//! from that email has signed in. The App Store build sells through StoreKit 2 the same way
+//! ([`appstore`]).
 
+pub mod appstore;
 pub mod deletion;
 pub mod play;
 
@@ -71,11 +73,12 @@ pub struct Service {
 
 /// The account service of this build, if it sells anything.
 pub fn service() -> Option<Service> {
-    service_of(URL, KEY, ENVIRONMENT, cfg!(play), cfg!(debug_assertions))
+    service_of(URL, KEY, ENVIRONMENT, cfg!(play) || cfg!(appstore), cfg!(debug_assertions))
 }
 
 /// The account service from the build's settings. Paddle's environment says whether it is the
-/// sandbox; the Google Play build (`play`, NP-154) sells nothing through Paddle, so it needs only the
+/// sandbox; the Google Play build (`play`, NP-154) and the App Store build (`appstore`) sell nothing
+/// through Paddle (`play` is true for both), so they need only the
 /// accounts project, and without the setting it is production. A sandbox never reaches a build
 /// people install (`debug` false).
 fn service_of(url: Option<&'static str>, key: Option<&'static str>, environment: Option<&str>, play: bool, debug: bool) -> Option<Service> {
@@ -115,14 +118,16 @@ pub enum PlanInterval {
 }
 
 /// Where the plan is paid and managed (NP-154): the channel of the renewing subscription, else of
-/// the purchase that sets `valid_until`. «Manage» opens Paddle's portal or Google Play's
-/// subscriptions.
+/// the purchase that sets `valid_until`. «Manage» opens Paddle's portal, Google Play's
+/// subscriptions or the App Store's (`appstore`, as the server names it).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 #[ts(export)]
 pub enum Store {
     Paddle,
     Play,
+    #[serde(rename = "appstore")]
+    AppStore,
 }
 
 /// The plan as the server signed it.
@@ -284,6 +289,14 @@ struct Stored {
     /// The Play purchase the sheet follows in this run: the one bought last, or claimed by an email.
     #[serde(skip)]
     play_followed: Option<String>,
+    /// Purchases made here through the App Store and not bound to an account yet, oldest first
+    /// (billing/appstore.rs); kept over Sign out as Play's are.
+    #[serde(default)]
+    appstore: Vec<appstore::AppStoreCheckout>,
+    #[serde(skip)]
+    appstore_outcome: Option<(String, play::PlayState)>,
+    #[serde(skip)]
+    appstore_followed: Option<String>,
     /// The account is deleted on this date unless kept (billing/deletion.rs): what the server said last.
     #[serde(default)]
     delete_at: Option<DateTime<Utc>>,
@@ -307,7 +320,7 @@ impl Stored {
     /// Signed out, as «Sign out» leaves the file: the environment stays, and Play purchases not bound
     /// yet (NP-154), whose secrets are their only claim; the account and all of its state go.
     fn signed_out(&mut self) {
-        *self = Stored { sandbox: self.sandbox, play: std::mem::take(&mut self.play), ..Stored::default() };
+        *self = Stored { sandbox: self.sandbox, play: std::mem::take(&mut self.play), appstore: std::mem::take(&mut self.appstore), ..Stored::default() };
     }
 
     /// Keeps the server's signed plan and what of it verifies for the account signed in here.
@@ -470,6 +483,11 @@ pub struct SupporterStatus {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub play: Option<play::PlayProgress>,
+    /// The same for a purchase through the App Store (billing/appstore.rs). Only the App Store
+    /// build has one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub appstore: Option<play::PlayProgress>,
     /// The account is deleted on this date unless kept (billing/deletion.rs).
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional, type = "string")]
@@ -576,6 +594,7 @@ fn status(stored: &Stored, now: DateTime<Utc>) -> SupporterStatus {
         plan_unknown: stored.session.is_some() && stored.plan.is_none() && stored.check_failed,
         awaiting_sign_in: stored.awaiting_sign_in && stored.session.is_none(),
         play: stored.play_progress(),
+        appstore: stored.appstore_progress(),
         delete_at: stored.delete_at.filter(|_| stored.session.is_some()),
         deletion_pending: deletion::pending(stored, now),
         paid_again: stored.paid_again.then_some(true),
@@ -681,6 +700,9 @@ pub fn start(app: &AppHandle) {
     // Purchases through Google Play, on start and each time the app comes back (NP-154).
     #[cfg(play)]
     play::watch(app);
+    // Purchases through the App Store, the same way (billing/appstore.rs).
+    #[cfg(appstore)]
+    appstore::watch(app);
     let app = app.clone();
     let mut foreground = crate::lifecycle::foreground(&app);
     tauri::async_runtime::spawn(async move {
@@ -1189,6 +1211,7 @@ pub async fn verify_sign_in_code(app: AppHandle, email: String, code: String) ->
     // A Play purchase waiting for this sign-in is bound to the account now (NP-154); one that fails
     // here is asked about again when the app comes back to the screen.
     play::verify_waiting(&app).await;
+    appstore::verify_waiting(&app).await;
     // The review's answer carried its plan just now: asking again would only repeat it.
     if reviewed {
         return Ok(self::status(&billing.get(), Utc::now()));
@@ -1222,7 +1245,7 @@ pub async fn sign_out_supporter(app: AppHandle) -> Result<SupporterStatus, Comma
     // After a claim already asking: what it signs in is signed out here, and one starting later
     // finds no purchase.
     let _one_at_a_time = billing.claiming.lock().await;
-    // Play purchases not bound yet stay: their secrets are their only claim (NP-154).
+    // Play and App Store purchases not bound yet stay: their secrets are their only claim (NP-154).
     billing.update(&app, Stored::signed_out)
 }
 

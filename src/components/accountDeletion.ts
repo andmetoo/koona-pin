@@ -46,6 +46,16 @@ export const refundKey = (plan: Plan | null) =>
 /** The sentence about Google Play: only for a Google Play subscription, in the Play build (D2). */
 export const cancelsPlay = (plan: Plan | null) => capabilities.purchase === "play" && plan?.store === "play" && plan.interval !== "lifetime";
 
+/**
+ * The server cannot stop an App Store subscription: for a plan paid through the App Store that still
+ * renews (a subscription, or the one-time purchase bought over one), the person cancels it in
+ * Settings, in any build. The sentence replaces «Payments stop now».
+ */
+export const renewsInAppStore = (plan: Plan | null) => plan?.store === "appstore" && (plan.interval !== "lifetime" || plan.also_renews);
+
+/** The payments sentence: they stop now, or the App Store subscription is the person's to cancel. */
+export const paymentsKey = (plan: Plan | null) => (renewsInAppStore(plan) ? "deleteAccount.paymentsAppStore" : "deleteAccount.payments");
+
 /** What a failure says here: the deletion's own reasons first (payments is a server failure that has words). */
 function deletionFailure(error: unknown, t: TFunction): string {
   const detail = toCommandError(error).detail;

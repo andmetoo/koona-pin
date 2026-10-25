@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Check, Heart, TriangleAlert, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { DeleteWhen, SupporterStatus } from "../types";
-import { cancelsPlay, radioKeys, refundKey, useAccountDeletion, type DeleteStep } from "./accountDeletion";
+import { cancelsPlay, paymentsKey, radioKeys, refundKey, useAccountDeletion, type DeleteStep } from "./accountDeletion";
 import { Icon } from "./icons";
 import { longDate } from "./supporterFlow";
 import { Button } from "./ui/Button";
@@ -48,7 +48,7 @@ export function AccountDeletionDialog({ supporter, onClose }: { supporter: Suppo
       </Group>
       {(plan || sizing) && (
         <p className="mt-4 text-sm text-muted">
-          {[t("deleteAccount.payments"), cancelsPlay(plan) || sizing ? t("deleteAccount.paymentsPlay") : null, t(sizing ? "deleteAccount.refund" : refundKey(plan))].filter(Boolean).join(" ")}
+          {[t(paymentsKey(plan)), cancelsPlay(plan) || sizing ? t("deleteAccount.paymentsPlay") : null, t(sizing ? "deleteAccount.refund" : refundKey(plan))].filter(Boolean).join(" ")}
         </p>
       )}
       {failure && <FailureNote text={failure} live={!sizing} />}

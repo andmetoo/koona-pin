@@ -2,7 +2,7 @@
 
 /**
  * Where the plan is paid and managed (NP-154): the channel of the renewing subscription, else of
- * the purchase that sets `valid_until`. «Manage» opens Paddle's portal or Google Play's
- * subscriptions.
+ * the purchase that sets `valid_until`. «Manage» opens Paddle's portal, Google Play's
+ * subscriptions or the App Store's (`appstore`, as the server names it).
  */
-export type Store = "paddle" | "play";
+export type Store = "paddle" | "play" | "appstore";

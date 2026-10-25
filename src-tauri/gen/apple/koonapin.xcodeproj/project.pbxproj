@@ -85,6 +85,7 @@
 		3D77EEDC6002C1B943CFFD27 /* commands.rs */ = {isa = PBXFileReference; path = commands.rs; sourceTree = "<group>"; };
 		3EDD52300B6B36A78F8CB6F6 /* channel.rs */ = {isa = PBXFileReference; path = channel.rs; sourceTree = "<group>"; };
 		3F3033575178AC9B1542C3EC /* mcp.rs */ = {isa = PBXFileReference; path = mcp.rs; sourceTree = "<group>"; };
+		3F42D29BF6562C6EA462AFA8 /* appstore.rs */ = {isa = PBXFileReference; path = appstore.rs; sourceTree = "<group>"; };
 		40085160D7D884F33112B7C6 /* tray.rs */ = {isa = PBXFileReference; path = tray.rs; sourceTree = "<group>"; };
 		414F33319EDF1D3FDA14C58B /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/Localizable.strings; sourceTree = "<group>"; };
 		42B845BE7194FDC95A0C42CF /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
@@ -144,11 +145,13 @@
 		B66FA31C6FEA31874D3266D4 /* updates.rs */ = {isa = PBXFileReference; path = updates.rs; sourceTree = "<group>"; };
 		B6A09F8711EA5B5FACE2AE0E /* sync_library.rs */ = {isa = PBXFileReference; path = sync_library.rs; sourceTree = "<group>"; };
 		B6C1F659EC8C4BC80E6B3486 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		B9BE21BAC5B0AA9AA67C5249 /* secrets.rs */ = {isa = PBXFileReference; path = secrets.rs; sourceTree = "<group>"; };
 		BA9A36482436CAE77F3CB1EF /* error.rs */ = {isa = PBXFileReference; path = error.rs; sourceTree = "<group>"; };
 		BD4CC9361EA74C4A5524E6D3 /* commands.rs */ = {isa = PBXFileReference; path = commands.rs; sourceTree = "<group>"; };
 		C2F7E5577D76FB0738AAD2CC /* safari_socket.rs */ = {isa = PBXFileReference; path = safari_socket.rs; sourceTree = "<group>"; };
 		C34C550DC78A1D7A78ED6B8F /* library.rs */ = {isa = PBXFileReference; path = library.rs; sourceTree = "<group>"; };
 		C3C726ACC0E854A223EAC160 /* preview.rs */ = {isa = PBXFileReference; path = preview.rs; sourceTree = "<group>"; };
+		C3E27FFB7BBBB885039C7005 /* keychain.rs */ = {isa = PBXFileReference; path = keychain.rs; sourceTree = "<group>"; };
 		C3EE8BB4C315ACF021BD5638 /* save.rs */ = {isa = PBXFileReference; path = save.rs; sourceTree = "<group>"; };
 		C9B3E9E27CCE51FF08FAD7A3 /* lifecycle.rs */ = {isa = PBXFileReference; path = lifecycle.rs; sourceTree = "<group>"; };
 		CBD88E98A9846F70D20C97AB /* net_guard.rs */ = {isa = PBXFileReference; path = net_guard.rs; sourceTree = "<group>"; };
@@ -257,6 +260,14 @@
 			);
 			sourceTree = "<group>";
 		};
+		39572F8764EF715B0DEA15C3 /* secrets */ = {
+			isa = PBXGroup;
+			children = (
+				C3E27FFB7BBBB885039C7005 /* keychain.rs */,
+			);
+			path = secrets;
+			sourceTree = "<group>";
+		};
 		56F6B2FFEB5AD5BA4334D65F /* commercial */ = {
 			isa = PBXGroup;
 			children = (
@@ -306,6 +317,7 @@
 				9DFE8A8C82978DE1E40EC807 /* reading.rs */,
 				8304189821F26E92F3861204 /* refresh.rs */,
 				A862490C21A1B946FFA3EB3A /* restore.rs */,
+				B9BE21BAC5B0AA9AA67C5249 /* secrets.rs */,
 				345F73B1743B8E81E177FE82 /* share_queue.rs */,
 				7E78D54C942912DCDF194BAE /* shot_previews.rs */,
 				CD347B9DE86D3471E7529EF3 /* shots.rs */,
@@ -321,6 +333,7 @@
 				31A2F2A0B8402C75397D2357 /* feeds */,
 				D70B276F50E09C26864D45C9 /* lists */,
 				CC0A0850D12DA48C99260B42 /* mobile */,
+				39572F8764EF715B0DEA15C3 /* secrets */,
 			);
 			name = src;
 			path = ../../src;
@@ -329,6 +342,7 @@
 		8B2B52098DECA7735A3E6EBC /* billing */ = {
 			isa = PBXGroup;
 			children = (
+				3F42D29BF6562C6EA462AFA8 /* appstore.rs */,
 				765143491BA13E4D42584344 /* deletion.rs */,
 				2E4FF7D742C9723AC4917F66 /* play.rs */,
 			);
@@ -473,20 +487,6 @@
 			);
 			name = Queue;
 			path = "../../plugins/koona-share/ios-extension/Queue";
-			sourceTree = "<group>";
-		};
-		"TEMP_2C2D98A5-3CE0-41B4-B2C5-2F0A8A53C3A3" /* x86_64 */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = x86_64;
-			sourceTree = "<group>";
-		};
-		"TEMP_500AA566-5616-4026-8B57-972CCBD113B7" /* arm64 */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = arm64;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

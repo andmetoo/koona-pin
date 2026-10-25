@@ -333,15 +333,28 @@ export function useSignIn({ onClose }: { onClose: () => void }) {
 export const PLAY_SUBSCRIPTIONS_URL = "https://play.google.com/store/account/subscriptions?sku=supporter&package=app.koona.pin";
 
 /**
+ * The App Store's page of the Apple Account's subscriptions: where a plan bought through the App
+ * Store is managed or cancelled, from a build that has no StoreKit (the App Store build shows the
+ * system's own sheet instead).
+ */
+export const APP_STORE_SUBSCRIPTIONS_URL = "https://apps.apple.com/account/subscriptions";
+
+/**
  * What the plan's own action is: Manage in Paddle's portal, Try again, Update card, or nothing to
  * do but close; for a plan paid through Google Play (`store` "play"), Manage or Fix payment on
  * Google Play's page instead, never Paddle's portal.
  */
-export type PlanAction = "manage" | "retry" | "updateCard" | "close" | "manageInPlay" | "fixInPlay";
+export type PlanAction = "manage" | "retry" | "updateCard" | "close" | "manageInPlay" | "fixInPlay" | "manageInAppStore" | "fixInAppStore";
 
-/** The page an action opens: Paddle's portal, Google Play's subscriptions, or none. */
-export const planLink = (action: PlanAction): "portal" | "play" | null =>
-  action === "manage" || action === "updateCard" ? "portal" : action === "manageInPlay" || action === "fixInPlay" ? "play" : null;
+/** The page an action opens: Paddle's portal, Google Play's subscriptions, the App Store's, or none. */
+export const planLink = (action: PlanAction): "portal" | "play" | "appstore" | null =>
+  action === "manage" || action === "updateCard"
+    ? "portal"
+    : action === "manageInPlay" || action === "fixInPlay"
+      ? "play"
+      : action === "manageInAppStore" || action === "fixInAppStore"
+        ? "appstore"
+        : null;
 
 /**
  * The plan's state on its one line and the action beside it (sheet 45): a renewal, no renewal, a
@@ -362,16 +375,21 @@ function planStateOf(supporter: SupporterStatus, t: TFunction, language: string)
   const date = (iso: string) => longDate(iso, language);
   if (!plan) return { status: "", tone: "muted", action: "manage" };
   const play = plan.store === "play";
-  const manage = play ? "manageInPlay" : "manage";
+  // Paid through the App Store: managed there; the server cannot stop or change it.
+  const apple = plan.store === "appstore";
+  const manage = play ? "manageInPlay" : apple ? "manageInAppStore" : "manage";
   // Until when the signed plan is kept without the server (billing.rs, `offline_until`).
   if (supporter.check_failed) return { status: t("supporter.unchecked", { date: date(plan.offline_until) }), tone: "amber", action: "retry" };
   if (plan.status === "past_due")
     return play
       ? { status: t("supporter.pastDuePlay"), tone: "danger", action: "fixInPlay" }
-      : { status: t("supporter.pastDue"), tone: "danger", action: "updateCard" };
+      : apple
+        ? { status: t("supporter.pastDueAppStore"), tone: "danger", action: "fixInAppStore" }
+        : { status: t("supporter.pastDue"), tone: "danger", action: "updateCard" };
   if (plan.interval === "lifetime") {
     // Paid once: nothing to manage unless a subscription still renews too.
-    if (plan.also_renews) return { status: t(play ? "supporter.alsoRenewsPlay" : "supporter.alsoRenews"), tone: "amber", action: manage };
+    if (plan.also_renews)
+      return { status: t(play ? "supporter.alsoRenewsPlay" : apple ? "supporter.alsoRenewsAppStore" : "supporter.alsoRenews"), tone: "amber", action: manage };
     // No end, but a license tester's test purchase on Play has its one day.
     const status = plan.valid_until ? t("supporter.paidUntil", { date: date(plan.valid_until) }) : t("supporter.lifetimeLine");
     return { status, tone: "muted", action: "close" };
@@ -396,7 +414,7 @@ export function usePlan({ supporter, onClose, onUpgrade }: { supporter: Supporte
   // Paddle is asked only without them, and never for a plan that cannot switch (the one-time purchase,
   // canceling, past due).
   const renewing =
-    !!(plan?.renews_at && plan.status === "active" && plan.interval !== "lifetime" && plan.store !== "play") && capabilities.purchase === "paddle";
+    !!(plan?.renews_at && plan.status === "active" && plan.interval !== "lifetime" && plan.store !== "play" && plan.store !== "appstore") && capabilities.purchase === "paddle";
   const { prices } = useSupporterPrices(renewing ? "if_unknown" : "never");
   const offerSwitch = renewing && prices?.lifetime ? onUpgrade : undefined;
 
@@ -429,6 +447,8 @@ export function usePlan({ supporter, onClose, onUpgrade }: { supporter: Supporte
     const link = planLink(action);
     if (action === "retry") void run(() => api.refreshSupporter());
     else if (link === "play") void run(() => api.openUrl(PLAY_SUBSCRIPTIONS_URL));
+    else if (link === "appstore")
+      void run(() => (capabilities.purchase === "appstore" ? api.manageAppStoreSubscriptions() : api.openUrl(APP_STORE_SUBSCRIPTIONS_URL)));
     else if (link === "portal") void run(api.openSupporterPortal);
     else onClose();
   };
