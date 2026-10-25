@@ -74,9 +74,9 @@ describe("the caption under the picture", () => {
     expect(startsWithPicture('<p><a href="#"><img src="https://x.org/a.jpg"></a> Text</p>')).toBe(true);
     expect(startsWithPicture('<p>Text <img src="https://x.org/a.jpg"></p>')).toBe(false);
   });
-  it("loads pictures over https or inline only", () => {
+  it("loads pictures over https, plain http upgraded, or inline", () => {
     expect(pictureUrl("https://x.org/a.jpg")).toBe("https://x.org/a.jpg");
-    expect(pictureUrl("http://x.org/a.jpg")).toBeNull();
+    expect(pictureUrl("http://x.org/a.jpg")).toBe("https://x.org/a.jpg");
     expect(pictureUrl("data:image/png;base64,AAAA")).toBe("data:image/png;base64,AAAA");
     expect(pictureUrl("javascript:alert(1)")).toBeNull();
   });
@@ -121,7 +121,7 @@ describe("the cached article", () => {
     expect(about.getAttribute("target")).toBeNull();
     expect(notes.getAttribute("href")).toBe("#user-content-notes");
     const images = Array.from(body.querySelectorAll("img"));
-    expect(images.map((img) => img.getAttribute("src"))).toEqual(["https://blog.example.org/a.jpg"]);
+    expect(images.map((img) => img.getAttribute("src"))).toEqual(["https://blog.example.org/a.jpg", "https://plain.example/b.jpg"]);
     expect(images[0].getAttribute("referrerpolicy")).toBe("no-referrer");
     expect(article).toMatchObject({ title: "Title", author: "Ann", site: "Example", url: "https://blog.example.org/2026/post", description: null, language: "en-gb" });
     expect(article.words).toBe(2);
