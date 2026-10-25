@@ -52,10 +52,10 @@ class CatalogTest {
   fun aOneTimeProductIsBoughtThroughItsOptionWithoutAnOffer() {
     val options = listOf(
       OneTimeOption("launch", "token-launch", "€40.00", 40_000_000, "EUR"),
-      OneTimeOption(null, "token-buy", "€50.00", 50_000_000, "EUR"),
+      OneTimeOption(null, "token-buy", "€29.99", 29_990_000, "EUR"),
     )
     assertEquals("token-buy", Catalog.oneTimeOption(options)?.token)
-    assertEquals(Product("supporter_5_years", null, "€50.00", "EUR", 50_000_000, null), Catalog.oneTime("supporter_5_years", options))
+    assertEquals(Product("supporter_5_years", null, "€29.99", "EUR", 29_990_000, null), Catalog.oneTime("supporter_5_years", options))
     assertEquals("token-launch", Catalog.oneTimeOption(options.take(1))?.token)
     assertNull(Catalog.oneTime("supporter_5_years", emptyList()))
   }

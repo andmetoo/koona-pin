@@ -13,8 +13,8 @@ const day = (iso: string, language: string) => new Date(iso).toLocaleDateString(
 
 /**
  * The Supporter card's second line from the plan as kept: "Thank you · yearly plan, renews 9 Oct
- * 2027", "… ends 3 Nov 2026" when it does not renew, "… 5 years, until 18 Oct 2031" paid once;
- * a renewal that failed and a subscription still renewing beside five years say so, as the plan
+ * 2027", "… ends 3 Nov 2026" when it does not renew, "… one-time purchase, no end date" for the one-time purchase;
+ * a renewal that failed and a subscription still renewing beside the one-time purchase say so, as the plan
  * dialog does. Where the build sells nothing (`sells` false: the store build until NP-154) those two
  * say so without sending anyone to update a card or to Manage: no way to pay is named. A plan paid
  * through Google Play (NP-154) sends the person to Google Play, which the plan sheet links to.
@@ -22,15 +22,17 @@ const day = (iso: string, language: string) => new Date(iso).toLocaleDateString(
 export function planLine(plan: Plan, t: TFunction, language: string, sells = capabilities.purchase === "paddle"): string {
   const play = plan.store === "play";
   if (plan.status === "past_due")
-    return play ? t("supporter.pastDuePlay") : sells ? t("supporter.pastDue") : t("phone.supporter.pastDue", { date: day(plan.valid_until, language) });
-  if (plan.interval === "five_years") {
+    return play ? t("supporter.pastDuePlay") : sells ? t("supporter.pastDue") : t("phone.supporter.pastDue", { date: day(plan.valid_until!, language) });
+  if (plan.interval === "lifetime") {
     if (plan.also_renews) return t(play ? "supporter.alsoRenewsPlay" : sells ? "supporter.alsoRenews" : "phone.supporter.alsoRenews");
-    return t("phone.you.planLine", { plan: t("phone.you.plan.fiveYears"), when: t("phone.you.until", { date: day(plan.valid_until, language) }) });
+    // No end, but a license tester's test purchase on Play has its one day.
+    const when = plan.valid_until ? t("phone.you.until", { date: day(plan.valid_until, language) }) : t("phone.you.paidOnce");
+    return t("phone.you.planLine", { plan: t("phone.you.plan.lifetime"), when });
   }
   const kind = t(plan.interval === "month" ? "phone.you.plan.monthly" : "phone.you.plan.yearly");
   const when =
     plan.status === "canceling" || !plan.renews_at
-      ? t("phone.you.ends", { date: day(plan.valid_until, language) })
+      ? t("phone.you.ends", { date: day(plan.valid_until!, language) })
       : t("phone.you.renews", { date: day(plan.renews_at, language) });
   return t("phone.you.planLine", { plan: kind, when });
 }

@@ -962,6 +962,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
           sandbox={!!supporter?.sandbox}
           email={supporter?.email ?? null}
           awaitingSignIn={!!supporter?.awaiting_sign_in}
+          paidAgain={!!supporter?.paid_again}
           paid={!!supporter?.plan}
           planUnknown={!!supporter?.plan_unknown}
           onClose={() => setSurface(null)}
@@ -1012,7 +1013,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
           onSignIn={() => setSurface("signIn")}
         />
       )}
-      {/* Supporter → 5 years from a subscription (sheet 45): the plans dialog with the five years only,
+      {/* Supporter → the one-time purchase from a subscription (sheet 45): the plans dialog with it only,
           about the subscription as it was when the switch was chosen. */}
       {surface === "upgrade" && supporter && upgradeFrom && (
         <SupporterDialog

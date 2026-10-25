@@ -103,15 +103,15 @@ pub enum PlanStatus {
     Canceling,
 }
 
-/// What can be bought, and what the plan is: a subscription, or five years paid once
-/// (Supporter · 5 years), which never renews.
+/// What can be bought, and what the plan is: a subscription, or Supporter's one-time purchase, paid once,
+/// which never renews and never ends.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 #[ts(export)]
 pub enum PlanInterval {
     Month,
     Year,
-    FiveYears,
+    Lifetime,
 }
 
 /// Where the plan is paid and managed (NP-154): the channel of the renewing subscription, else of
@@ -131,8 +131,10 @@ pub enum Store {
 pub struct Plan {
     pub status: PlanStatus,
     pub interval: Option<PlanInterval>,
-    #[ts(type = "string")]
-    pub valid_until: DateTime<Utc>,
+    /// The end of the paid period; none for the one-time purchase, which has no end (a Play license tester's
+    /// test purchase of it has its one day).
+    #[ts(type = "string | null")]
+    pub valid_until: Option<DateTime<Utc>>,
     #[ts(type = "string | null")]
     pub renews_at: Option<DateTime<Utc>>,
     /// Kept until then without an answer from the server.
@@ -167,7 +169,7 @@ struct LeaseTerms {
 struct SignedPlan {
     status: PlanStatus,
     interval: Option<PlanInterval>,
-    valid_until: DateTime<Utc>,
+    valid_until: Option<DateTime<Utc>>,
     renews_at: Option<DateTime<Utc>>,
     #[serde(default)]
     also_renews: bool,
@@ -262,6 +264,11 @@ struct Stored {
     /// does, so the dialog says so whenever it is opened, whoever saw the payment first.
     #[serde(default)]
     awaiting_sign_in: bool,
+    /// The last purchase seen paid here was the one-time purchase bought again by an account that
+    /// has it, which the server refunds: the dialog says so instead of «thank you», whoever saw the
+    /// payment first. Cleared by the next purchase started here.
+    #[serde(default)]
+    paid_again: bool,
     /// The first builds (0.8.0) kept a single purchase; read once and moved into `checkouts`.
     #[serde(default, skip_serializing)]
     claim: Option<String>,
@@ -351,6 +358,7 @@ impl Stored {
     }
 
     fn add_checkout(&mut self, checkout: Checkout) {
+        self.paid_again = false;
         self.checkouts.push(checkout);
         let extra = self.checkouts.len().saturating_sub(MAX_CHECKOUTS);
         self.checkouts.drain(..extra);
@@ -378,6 +386,9 @@ impl Stored {
         if !self.same_account(&session.email) {
             self.delete_at = None;
         }
+        // A repeat purchase is said before the sign-in it waits for («Payment received»), and by the
+        // claim that signs in after this; any sign-in by code may be another account's, so it ends.
+        self.paid_again = false;
         self.session = Some(session);
         let kept = self.lease.take();
         self.keep_lease(kept, key);
@@ -388,12 +399,24 @@ impl Stored {
         self.awaiting_sign_in = false;
     }
 
+    /// The server no longer takes the refresh token of the session here: it ends. Only that session,
+    /// `refresh_token`: Sign out or another sign-in meanwhile wins.
+    fn session_ended(&mut self, refresh_token: &str) {
+        if self.session.as_ref().is_some_and(|now| now.refresh_token == refresh_token) {
+            self.session = None;
+            // As Sign out: a repeat said for that session is not the next one's.
+            self.paid_again = false;
+        }
+    }
+
     /// Paid with the email of an account that existed before: done here, sign in by code. Only
     /// while the purchase is still here, as `signed_in_by`.
-    fn paid_for_existing_account(&mut self, secret: &str) {
+    /// `again`: the one-time purchase bought again (the usual way a repeat is paid), refunded.
+    fn paid_for_existing_account(&mut self, secret: &str, again: bool) {
         if self.checkouts.iter().any(|c| c.secret == secret) {
             self.checkouts.retain(|c| c.secret != secret);
             self.awaiting_sign_in = true;
+            self.paid_again = again;
         }
     }
 
@@ -456,6 +479,10 @@ pub struct SupporterStatus {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub deletion_pending: Option<String>,
+    /// The last payment seen here was the one-time purchase bought again: it is refunded.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub paid_again: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -472,9 +499,9 @@ pub struct Price {
 pub struct SupporterPrices {
     pub month: Price,
     pub year: Price,
-    /// Supporter · 5 years, paid once; None while the server does not sell it.
+    /// Supporter's one-time purchase, paid once; None while the server does not sell it.
     #[serde(default)]
-    pub five_years: Option<Price>,
+    pub lifetime: Option<Price>,
 }
 
 /// What `poll_checkout` found.
@@ -511,7 +538,7 @@ fn due(stored: &Stored, now: DateTime<Utc>) -> bool {
     if stored.session.is_none() {
         return false;
     }
-    let ending = stored.plan.as_ref().is_some_and(|plan| now >= plan.valid_until - RENEWAL_WINDOW);
+    let ending = stored.plan.as_ref().and_then(|plan| plan.valid_until).is_some_and(|until| now >= until - RENEWAL_WINDOW);
     let every = if stored.check_failed {
         CHECK_AGAIN
     } else if ending {
@@ -544,13 +571,14 @@ fn status(stored: &Stored, now: DateTime<Utc>) -> SupporterStatus {
         sandbox: service.is_some_and(|s| s.sandbox),
         email: stored.session.as_ref().map(|s| s.email.clone()),
         // Said once it matters: the period is over, or the plan stops offline within a week.
-        check_failed: stored.check_failed && plan.as_ref().is_some_and(|p| now >= p.valid_until || p.offline_until - now <= WARN_OFFLINE),
+        check_failed: stored.check_failed && plan.as_ref().is_some_and(|p| p.valid_until.is_some_and(|until| now >= until) || p.offline_until - now <= WARN_OFFLINE),
         plan,
         plan_unknown: stored.session.is_some() && stored.plan.is_none() && stored.check_failed,
         awaiting_sign_in: stored.awaiting_sign_in && stored.session.is_none(),
         play: stored.play_progress(),
         delete_at: stored.delete_at.filter(|_| stored.session.is_some()),
         deletion_pending: deletion::pending(stored, now),
+        paid_again: stored.paid_again.then_some(true),
     }
 }
 
@@ -798,11 +826,7 @@ async fn fresh_token(app: &AppHandle, force: bool) -> Result<Option<String>, Com
         return Err(refused("auth refresh", status));
     }
     if ends_session(status) {
-        billing.update(app, |s| {
-            if same(s) {
-                s.session = None;
-            }
-        })?;
+        billing.update(app, |s| s.session_ended(&session.refresh_token))?;
         return Ok(None);
     }
     let fresh = session_of(&value).ok_or_else(|| refused("auth refresh", status))?;
@@ -911,7 +935,7 @@ async fn claim(app: &AppHandle) -> Result<CheckoutState, CommandError> {
     // Every answer is applied under the lock and only to a purchase still here: Sign out, or the
     // dialog and the background asking at once, never let a late answer undo what came after.
     let mut finished: Vec<String> = Vec::new();
-    let mut for_existing: Vec<String> = Vec::new();
+    let mut for_existing: Vec<(String, bool)> = Vec::new();
     let mut answered = false;
     let mut failure = None;
     for checkout in &checkouts {
@@ -926,14 +950,19 @@ async fn claim(app: &AppHandle) -> Result<CheckoutState, CommandError> {
         if status.as_u16() == 404 || value["status"] == "taken" {
             finished.push(checkout.secret.clone());
         } else if value["status"] == "sign_in" {
-            for_existing.push(checkout.secret.clone());
+            for_existing.push((checkout.secret.clone(), value["again"] == true));
         } else if value["status"] == "paid" {
             let session = session_of(&value["session"]).ok_or_else(|| refused("billing claim", status))?;
             // Signed in either way; a plan the reply does not give is not known yet, not «none».
             let answer = Answer::of(&value);
+            // The one-time purchase bought again (koona-services `boughtAgain`): refunded by the server.
+            let again = value["again"] == true;
             let mut signed_in = false;
             billing.update(app, |s| {
                 signed_in = s.signed_in_by(&checkout.secret, session, answer, &plan_key(), Utc::now());
+                if signed_in {
+                    s.paid_again = again;
+                }
                 s.checkouts.retain(|c| !finished.contains(&c.secret));
             })?;
             if signed_in {
@@ -943,8 +972,8 @@ async fn claim(app: &AppHandle) -> Result<CheckoutState, CommandError> {
     }
     if !finished.is_empty() || !for_existing.is_empty() {
         billing.update(app, |s| {
-            for secret in &for_existing {
-                s.paid_for_existing_account(secret);
+            for (secret, again) in &for_existing {
+                s.paid_for_existing_account(secret, *again);
             }
             s.checkouts.retain(|c| !finished.contains(&c.secret));
         })?;
@@ -989,6 +1018,8 @@ pub async fn get_supporter_prices(app: AppHandle) -> Result<SupporterPrices, Com
 pub async fn start_checkout(app: AppHandle, interval: PlanInterval) -> Result<String, CommandError> {
     let billing = app.state::<Billing>();
     if let Some(url) = billing.get().waiting(interval, Utc::now()).and_then(|c| c.url.clone()) {
+        // A purchase going on, as a new one: a repeat said before is not this one's.
+        billing.update(&app, |s| s.paid_again = false)?;
         open(&app, &url)?;
         return Ok(url);
     }
@@ -997,9 +1028,12 @@ pub async fn start_checkout(app: AppHandle, interval: PlanInterval) -> Result<St
     let name = match interval {
         PlanInterval::Month => "month",
         PlanInterval::Year => "year",
-        PlanInterval::FiveYears => "five_years",
+        PlanInterval::Lifetime => "lifetime",
     };
     let (status, value) = call(&app, json!({ "action": "checkout", "interval": name, "claim": secret }), token.as_deref()).await?;
+    if status.as_u16() == 409 && value["error"] == "already_supporter" {
+        return Err(CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::AlreadySupporter, "The account already has the one-time purchase"));
+    }
     let url = value["url"].as_str().filter(|_| status.is_success()).ok_or_else(|| refused("billing checkout", status))?.to_string();
     let checkout = Checkout { secret, started: Utc::now(), interval: Some(interval), url: Some(url.clone()) };
     billing.update(&app, |s| s.add_checkout(checkout))?;
@@ -1210,7 +1244,7 @@ mod tests {
             plan: Some(Plan {
                 status: PlanStatus::Active,
                 interval: Some(PlanInterval::Year),
-                valid_until: at(until),
+                valid_until: Some(at(until)),
                 renews_at: Some(at(until)),
                 offline_until: at(until) + TimeDelta::days(7),
                 also_renews: false,
@@ -1315,7 +1349,7 @@ mod tests {
             Some(Plan {
                 status: PlanStatus::Canceling,
                 interval: Some(PlanInterval::Month),
-                valid_until: at("2026-11-12T03:02:36.583Z"),
+                valid_until: Some(at("2026-11-12T03:02:36.583Z")),
                 renews_at: None,
                 offline_until: at("2026-11-11T12:00:00Z"),
                 also_renews: false,
@@ -1526,28 +1560,79 @@ mod tests {
     }
 
     #[test]
-    fn five_years_paid_once_come_signed_without_renewal() {
-        // As koona-services signs Supporter · 5 years.
-        let payload = r#"{"v":1,"email":"anna@example.com","plan":{"plan":"supporter","status":"active","interval":"five_years","valid_until":"2031-10-12T10:00:00.000Z","renews_at":null,"also_renews":true},"issued_at":"2026-10-12T12:00:00.000Z","offline_until":"2026-11-11T12:00:00.000Z"}"#;
+    fn lifetime_paid_once_comes_signed_without_an_end() {
+        // As koona-services signs Supporter's one-time purchase: no end, no renewal.
+        let payload = r#"{"v":1,"email":"anna@example.com","plan":{"plan":"supporter","status":"active","interval":"lifetime","valid_until":null,"renews_at":null,"also_renews":true},"issued_at":"2026-10-12T12:00:00.000Z","offline_until":"2026-11-11T12:00:00.000Z"}"#;
         let (signed, key) = lease(payload, 7);
         let plan = plan_of(&signed, "anna@example.com", &key).unwrap();
-        assert_eq!((plan.interval, plan.renews_at, plan.also_renews), (Some(PlanInterval::FiveYears), None, true));
-        assert_eq!(plan.valid_until, at("2031-10-12T10:00:00Z"));
-        // Checked weekly like any plan: a refund shows within a week.
+        assert_eq!((plan.interval, plan.renews_at, plan.also_renews), (Some(PlanInterval::Lifetime), None, true));
+        assert_eq!(plan.valid_until, None);
+        // Checked weekly like any plan: a refund shows within a week; never the daily checks of an ending period.
         let stored = Stored { plan: Some(plan), checked_at: Some(at("2026-10-12T12:00:00Z")), ..supporter("2031-10-12T10:00:00Z") };
         assert!(!due(&stored, at("2026-10-18T12:00:00Z")));
         assert!(due(&stored, at("2026-10-19T12:00:00Z")));
+        // A failed check says so only once the lease nears its end: there is no period to be over.
+        let failed = Stored { check_failed: true, ..stored.clone() };
+        assert!(!status(&failed, at("2026-10-20T12:00:00Z")).check_failed);
+        assert!(status(&failed, at("2026-11-05T12:00:00Z")).check_failed);
         // The prices of a server that does not sell them yet still read.
         let prices: SupporterPrices = serde_json::from_value(json!({
             "month": { "price_id": "m", "total": "$2.00", "currency": "USD" },
             "year": { "price_id": "y", "total": "$20.00", "currency": "USD" },
         }))
         .unwrap();
-        assert!(prices.five_years.is_none());
+        assert!(prices.lifetime.is_none());
     }
 
     fn checkout(secret: &str, started: &str, interval: PlanInterval) -> Checkout {
         Checkout { secret: secret.into(), started: at(started), interval: Some(interval), url: Some(format!("https://koona.app/pin/checkout/?_ptxn={secret}")) }
+    }
+
+    #[test]
+    fn a_one_time_purchase_bought_again_is_said_until_the_next_purchase_or_sign_in() {
+        let now = at("2026-10-12T12:00:00Z");
+        let mut stored = Stored { paid_again: true, ..supporter("2027-10-12T12:00:00Z") };
+        assert_eq!(status(&stored, now).paid_again, Some(true));
+        // Kept in account.json: the dialog says so whoever saw the payment first.
+        let kept: Stored = serde_json::from_value(serde_json::to_value(&stored).unwrap()).unwrap();
+        assert!(kept.paid_again);
+        stored.add_checkout(checkout("year1", "2026-10-12T11:00:00Z", PlanInterval::Year));
+        assert_eq!(status(&stored, now).paid_again, None);
+        // Another sign-in, or signing out, says nothing of it either.
+        let mut other = Stored { paid_again: true, ..supporter("2027-10-12T12:00:00Z") };
+        other.sign_in(Session { access_token: "b".into(), refresh_token: "r2".into(), expires_at: 0, email: "ben@example.com".into() }, &[]);
+        assert!(!other.paid_again);
+        let mut out = Stored { paid_again: true, ..supporter("2027-10-12T12:00:00Z") };
+        out.signed_out();
+        assert!(!out.paid_again);
+    }
+
+    #[test]
+    fn a_session_the_server_ended_ends_its_repeat_too_but_not_another_sessions() {
+        let mut stored = Stored { paid_again: true, ..supporter("2027-10-12T12:00:00Z") };
+        // A refresh for a session replaced meanwhile changes nothing.
+        stored.session_ended("old");
+        assert!(stored.session.is_some() && stored.paid_again);
+        stored.session_ended("r");
+        assert!(stored.session.is_none() && !stored.paid_again);
+    }
+
+    #[test]
+    fn a_repeat_paid_with_an_existing_accounts_email_is_said_until_the_code_signs_in() {
+        let now = at("2026-10-12T12:00:00Z");
+        let mut stored = Stored::default();
+        stored.add_checkout(checkout("once1", "2026-10-12T11:00:00Z", PlanInterval::Lifetime));
+        stored.paid_for_existing_account("once1", true);
+        assert_eq!((stored.settled(), status(&stored, now).paid_again), (CheckoutState::SignIn, Some(true)));
+        // The code signs in, whichever account: it is said no more (the open dialog keeps what it showed).
+        stored.sign_in(Session { access_token: "b".into(), refresh_token: "r2".into(), expires_at: 0, email: "ben@example.com".into() }, &[]);
+        assert!(!stored.paid_again && !stored.awaiting_sign_in);
+        assert_eq!(status(&stored, now).paid_again, None);
+        // Not a repeat: nothing said.
+        let mut plain = Stored::default();
+        plain.add_checkout(checkout("year1", "2026-10-12T11:00:00Z", PlanInterval::Year));
+        plain.paid_for_existing_account("year1", false);
+        assert_eq!(status(&plain, now).paid_again, None);
     }
 
     #[test]
@@ -1593,7 +1678,7 @@ mod tests {
     fn a_payment_for_an_existing_account_waits_for_the_code_whoever_saw_it() {
         let mut stored = Stored::default();
         stored.add_checkout(checkout("year1", "2026-10-12T11:00:00Z", PlanInterval::Year));
-        stored.paid_for_existing_account("year1");
+        stored.paid_for_existing_account("year1", false);
         assert!(stored.checkouts.is_empty());
         // The background saw it: the dialog's next ask, and a dialog opened later, still say so.
         assert_eq!(stored.settled(), CheckoutState::SignIn);
@@ -1601,7 +1686,7 @@ mod tests {
         assert!(status(&stored, at("2026-10-12T11:10:00Z")).awaiting_sign_in);
         // A late answer for a purchase gone after Sign out sets nothing.
         let mut signed_out = Stored::default();
-        signed_out.paid_for_existing_account("year1");
+        signed_out.paid_for_existing_account("year1", false);
         assert_eq!(signed_out.settled(), CheckoutState::None);
         // Signed in by the code: done.
         stored.session = supporter("2027-10-12T11:00:00Z").session;

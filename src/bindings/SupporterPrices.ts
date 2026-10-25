@@ -3,6 +3,6 @@ import type { Price } from "./Price";
 
 export type SupporterPrices = { month: Price, year: Price, 
 /**
- * Supporter · 5 years, paid once; None while the server does not sell it.
+ * Supporter's one-time purchase, paid once; None while the server does not sell it.
  */
-five_years: Price | null, };
+lifetime: Price | null, };

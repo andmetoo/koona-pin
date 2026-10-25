@@ -30,14 +30,15 @@ use ts_rs::TS;
 #[cfg(any(test, play))]
 use tauri_plugin_koona_play as native;
 
-/// Play's ids (Play Console): the subscription and its base plans, and Supporter · 5 years, which
-/// the server consumes once recorded, so it can be bought again.
+/// Play's ids (Play Console): the subscription and its base plans, and Supporter's one-time purchase, which
+/// the server consumes once recorded (the server, not Play, keeps the plan).
 pub const SUBSCRIPTION: &str = "supporter";
 pub const MONTHLY: &str = "monthly";
 /// The yearly base plan is `annual`: Play keeps a base plan's billing period once it is active, and
 /// the first two made for the year (`yearly`, `yearly-pin`) were saved as monthly and deactivated.
 pub const YEARLY: &str = "annual";
-pub const FIVE_YEARS: &str = "supporter_5_years";
+/// The five-year plan's product, renamed «One-time purchase» in Play Console (never bought as five years).
+pub const LIFETIME_PRODUCT: &str = "supporter_5_years";
 
 /// Play refunds a purchase not acknowledged within three days of its payment; a day more covers a
 /// slow clock. A slow payment still pending has no such limit.
@@ -115,7 +116,7 @@ pub struct PlayPrice {
     pub currency: String,
     /// The price in millionths of `currency`.
     pub micros: i64,
-    /// ISO 8601 (`P1M`, `P1Y`) for a subscription; none for five years paid once.
+    /// ISO 8601 (`P1M`, `P1Y`) for a subscription; none for the one-time purchase.
     pub period: Option<String>,
 }
 
@@ -127,7 +128,7 @@ pub struct PlayOffer {
     pub available: bool,
     pub month: Option<PlayPrice>,
     pub year: Option<PlayPrice>,
-    pub five_years: Option<PlayPrice>,
+    pub lifetime: Option<PlayPrice>,
     /// This Google account's Supporter subscription is on hold or paused: the sheet offers to fix
     /// the payment in Google Play instead of the plans.
     pub suspended: bool,
@@ -196,7 +197,7 @@ pub(super) fn product_of(interval: PlanInterval) -> (&'static str, Option<&'stat
     match interval {
         PlanInterval::Month => (SUBSCRIPTION, Some(MONTHLY)),
         PlanInterval::Year => (SUBSCRIPTION, Some(YEARLY)),
-        PlanInterval::FiveYears => (FIVE_YEARS, None),
+        PlanInterval::Lifetime => (LIFETIME_PRODUCT, None),
     }
 }
 
@@ -397,7 +398,7 @@ pub(super) fn offer_of(products: &[native::Product], suspended: bool) -> PlayOff
         available: true,
         month: price(SUBSCRIPTION, Some(MONTHLY), Some("P1M")),
         year: price(SUBSCRIPTION, Some(YEARLY), Some("P1Y")),
-        five_years: price(FIVE_YEARS, None, None),
+        lifetime: price(LIFETIME_PRODUCT, None, None),
         suspended,
     }
 }
@@ -862,7 +863,7 @@ mod commands {
     pub async fn get_play_offer(app: AppHandle) -> Result<PlayOffer, CommandError> {
         let play = plugin(&app)?;
         let asked = play.clone();
-        let prices = within(ASK_WAIT, async move { asked.products(&[SUBSCRIPTION], &[FIVE_YEARS]).await });
+        let prices = within(ASK_WAIT, async move { asked.products(&[SUBSCRIPTION], &[LIFETIME_PRODUCT]).await });
         let store = Play(play);
         let (products, owned) = tokio::join!(prices, store.owned());
         match products {
@@ -996,8 +997,8 @@ mod tests {
     fn each_plan_is_a_product_of_play() {
         assert_eq!(product_of(PlanInterval::Month), ("supporter", Some("monthly")));
         assert_eq!(product_of(PlanInterval::Year), ("supporter", Some("annual")));
-        assert_eq!(product_of(PlanInterval::FiveYears), ("supporter_5_years", None));
-        let fresh = started(PlanInterval::FiveYears, Some("anna@example.com".into()), at("2026-10-20T12:00:00Z"));
+        assert_eq!(product_of(PlanInterval::Lifetime), ("supporter_5_years", None));
+        let fresh = started(PlanInterval::Lifetime, Some("anna@example.com".into()), at("2026-10-20T12:00:00Z"));
         assert_eq!((fresh.product.as_str(), fresh.base_plan, fresh.token, fresh.state), ("supporter_5_years", None, None, None));
         assert_eq!(fresh.secret.len(), 64);
     }
@@ -1177,14 +1178,14 @@ mod tests {
             product("supporter", Some("annual"), "€20.00", 20_000_000, Some("P1Y")),
             product("supporter", Some("monthly"), "€2.00", 2_000_000, Some("P1M")),
             product("supporter", Some("weekly"), "€1.00", 1_000_000, Some("P1W")),
-            product("supporter_5_years", None, "€50.00", 50_000_000, None),
+            product("supporter_5_years", None, "€29.99", 29_990_000, None),
             ],
             false,
         );
         assert!(offer.available && !offer.suspended);
         assert_eq!(offer.month.as_ref().map(|p| (p.price.as_str(), p.period.as_deref())), Some(("€2.00", Some("P1M"))));
         assert_eq!(offer.year.as_ref().map(|p| p.micros), Some(20_000_000));
-        assert_eq!(offer.five_years.as_ref().map(|p| p.period.clone()), Some(None));
+        assert_eq!(offer.lifetime.as_ref().map(|p| p.period.clone()), Some(None));
         // A plan Play does not sell is none; no Play at all, nothing.
         assert_eq!(offer_of(&[product("supporter", Some("monthly"), "€2.00", 2_000_000, Some("P1M"))], false).year, None);
         assert!(!PlayOffer::default().available && !PlayOffer::default().suspended);
@@ -1227,7 +1228,7 @@ mod tests {
         
         assert_eq!(owned_elsewhere(None, true), PlayState::Suspended);
         assert_eq!(owned_elsewhere(Some(PlanStore::Play), true), PlayState::Suspended);
-        // Suspended: the subscription, on hold or paused; never five years paid once.
+        // Suspended: the subscription, on hold or paused; never the one-time purchase.
         let held = |products: &[&str], suspended| Purchase { products: products.iter().map(|p| p.to_string()).collect(), suspended, ..purchase("t", None, PurchaseState::Purchased) };
         assert!(suspended_of(&[held(&["supporter"], false), held(&["supporter"], true)]));
         assert!(!suspended_of(&[held(&["supporter"], false)]));

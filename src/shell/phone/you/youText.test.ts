@@ -70,19 +70,21 @@ describe("the Supporter card's line", () => {
     expect(planLine(plan({ status: "canceling", renews_at: null }), t, "en-GB")).toBe("Thank you · yearly plan, ends 9 Oct 2027");
   });
 
-  it("says until when five years run, and what needs the person", () => {
-    expect(planLine(plan({ interval: "five_years", renews_at: null }), t, "en-GB")).toBe("Thank you · 5 years, until 9 Oct 2027");
-    expect(planLine(plan({ interval: "five_years", also_renews: true }), t, "en-GB")).toBe(t("supporter.alsoRenews"));
+  it("says the one-time purchase has no end date, a test day until when, and what needs the person", () => {
+    expect(planLine(plan({ interval: "lifetime", valid_until: null, renews_at: null }), t, "en-GB")).toBe("Thank you · one-time purchase, no end date");
+    // A license tester's test purchase on Play: one day.
+    expect(planLine(plan({ interval: "lifetime", renews_at: null }), t, "en-GB")).toBe("Thank you · one-time purchase, until 9 Oct 2027");
+    expect(planLine(plan({ interval: "lifetime", also_renews: true }), t, "en-GB")).toBe(t("supporter.alsoRenews"));
     expect(planLine(plan({ status: "past_due" }), t, "en-GB")).toBe(t("supporter.pastDue"));
     // Where nothing is sold: no card to update, no Manage.
     expect(planLine(plan({ status: "past_due" }), t, "en-GB", false)).toMatch(/^The last payment didn't go through · Supporter until \d+ \w+ \d{4}$/);
-    expect(planLine(plan({ interval: "five_years", also_renews: true }), t, "en-GB", false)).toBe("Your subscription still renews as well");
+    expect(planLine(plan({ interval: "lifetime", also_renews: true }), t, "en-GB", false)).toBe("Your subscription still renews as well");
   });
 
   it("sends a plan paid through Google Play to Google Play, in any build (NP-154)", () => {
     for (const sells of [true, false]) {
       expect(planLine(plan({ status: "past_due", store: "play" }), t, "en-GB", sells)).toBe("The renewal didn't go through — fix the payment in Google Play");
-      expect(planLine(plan({ interval: "five_years", also_renews: true, store: "play" }), t, "en-GB", sells)).toBe(t("supporter.alsoRenewsPlay"));
+      expect(planLine(plan({ interval: "lifetime", also_renews: true, store: "play" }), t, "en-GB", sells)).toBe(t("supporter.alsoRenewsPlay"));
     }
     expect(planLine(plan({ store: "play" }), t, "en-GB", false)).toBe("Thank you · yearly plan, renews 9 Oct 2027");
   });

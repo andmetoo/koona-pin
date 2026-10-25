@@ -2,7 +2,7 @@ import "../you/you.css";
 import "./supporter.css";
 import { useId, useRef, type ReactNode } from "react";
 import { Check, X } from "lucide-react";
-import { cancelsPlay, radioKeys, useAccountDeletion } from "../../../components/accountDeletion";
+import { cancelsPlay, radioKeys, refundKey, useAccountDeletion } from "../../../components/accountDeletion";
 import { longDate } from "../../../components/supporterFlow";
 import type { DeleteWhen } from "../../../types";
 import { usePhone } from "../PhoneContext";
@@ -85,7 +85,7 @@ function DeleteBody({ supporter }: { supporter: NonNullable<ReturnType<typeof us
           </section>
           {plan && (
             <p className="sp-text sp-delete-payments">
-              {[t("deleteAccount.payments"), cancelsPlay(plan) ? t("deleteAccount.paymentsPlay") : null, t("deleteAccount.refund")].filter(Boolean).join(" ")}
+              {[t("deleteAccount.payments"), cancelsPlay(plan) ? t("deleteAccount.paymentsPlay") : null, t(refundKey(plan))].filter(Boolean).join(" ")}
             </p>
           )}
           {error && <Note tone="danger">{error}</Note>}
@@ -257,7 +257,7 @@ function DeleteBody({ supporter }: { supporter: NonNullable<ReturnType<typeof us
             <div className="ys-card ys-supporter sp-delete-plan">
               <SeasonHeart />
               <span className="ys-supporter-text">
-                <span className="ph-headline">{t(plan.interval === "five_years" ? "plan.fiveYears" : plan.interval === "month" ? "plan.monthly" : "plan.yearly")}</span>
+                <span className="ph-headline">{t(plan.interval === "lifetime" ? "plan.lifetime" : plan.interval === "month" ? "plan.monthly" : "plan.yearly")}</span>
                 <span className="ph-meta sp-email" data-user-text>
                   {email}
                 </span>

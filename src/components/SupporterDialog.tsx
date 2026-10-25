@@ -10,7 +10,6 @@ import { Icon } from "./icons";
 import {
   failureText,
   FALLBACK,
-  fiveYearsAfter,
   longDate,
   planBadge,
   planName,
@@ -33,13 +32,14 @@ const PERKS = ["sync", "backups", "reading", "badge"] as const;
  * height for all three (NP-118). The payment page asks for the email and the card; the server makes
  * the account from that email and the app is signed in as soon as the payment is seen.
  *
- * With `upgrade`, a subscription's «Switch to 5 years»: only the five years, which start when its
+ * With `upgrade`, a subscription's «Pay once»: only the one-time purchase, which starts when its
  * paid period ends; the server then cancels the subscription at that end.
  */
 export function SupporterDialog({
   sandbox,
   email,
   awaitingSignIn = false,
+  paidAgain = false,
   paid = false,
   planUnknown = false,
   upgrade,
@@ -52,12 +52,14 @@ export function SupporterDialog({
   pendingEmail?: string | null;
   /** Signed in without a plan: «Delete account…» on the account's line. */
   onDelete?: () => void;
-  /** The subscription being switched to five years. */
+  /** The subscription being switched to the one-time purchase. */
   upgrade?: Plan;
   sandbox: boolean;
   email: string | null;
   /** A payment here went through for an existing account: open on «Payment received». */
   awaitingSignIn?: boolean;
+  /** That payment, or the one seen, was the one-time purchase bought again: it is refunded. */
+  paidAgain?: boolean;
   /** Signed in, and the plan could not be checked yet (`plan_unknown`): the plans warn first. */
   planUnknown?: boolean;
   /** This computer has the plan: when it arrives while the dialog is open, the dialog thanks. */
@@ -67,9 +69,10 @@ export function SupporterDialog({
   onSignIn: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const { step, interval, setPlan, shown, plans, pay, openAgain, busy, error, checkout, paidEmail } = useSupporterPurchase({
+  const { step, interval, setPlan, shown, plans, pay, openAgain, busy, error, checkout, paidEmail, again } = useSupporterPurchase({
     email,
     awaitingSignIn,
+    paidAgain,
     paid,
     planUnknown,
     upgrade,
@@ -97,7 +100,7 @@ export function SupporterDialog({
           return (
             <PlanCard
               key={value}
-              wide={value === "five_years"}
+              wide={value === "lifetime"}
               checked={interval === value}
               onSelect={() => setPlan(value)}
               name={planName(value, t)}
@@ -158,26 +161,26 @@ export function SupporterDialog({
     </div>
   );
 
-  // «Switch to 5 years» (sheet 45): the five years and when they start and end, nothing to choose.
+  // «Pay once» (sheet 45): the one-time purchase and when it starts, nothing to choose.
   // The amount waits for Paddle's answer, in the text too: no dollars turning into euros.
   const upgradePanel = (plan: Plan, failure: string | null, sizing: boolean) => {
-    const price = shown?.five_years;
-    // Paddle answered and the server does not sell them (the button is not offered then either).
+    const price = shown?.lifetime;
+    // Paddle answered and the server does not sell it (the button is not offered then either).
     const notSold = !!shown && !price;
     return (
       <div className="flex flex-1 flex-col">
         <p className="text-sm text-muted">
           {price || sizing ? (
             t(plan.interval === "month" ? "supporter.upgradeTextMonthly" : "supporter.upgradeTextYearly", {
-              date: longDate(plan.valid_until, i18n.language),
-              price: whole((price ?? FALLBACK.five_years!).total),
+              date: longDate(plan.valid_until!, i18n.language),
+              price: whole((price ?? FALLBACK.lifetime!).total),
             })
           ) : (
             <span aria-hidden data-price-pending className="block h-9 animate-pulse rounded bg-secondary" />
           )}
         </p>
         <div className="mt-4">
-          <PlanCard checked wide name={t("supporter.fiveYears")} price={price ? priceLine("five_years", price.total, t) : <PricePending />} badge={t("supporter.save50")} />
+          <PlanCard checked wide name={t("supporter.lifetime")} price={price ? priceLine("lifetime", price.total, t) : <PricePending />} badge={t("supporter.bestValue")} />
         </div>
         {failure ? (
           <FailureNote text={failure} />
@@ -185,11 +188,11 @@ export function SupporterDialog({
           // Not a failure: nothing went wrong and the subscription goes on, so a notice, not an alert.
           <p role="status" className="mt-3 flex gap-2 rounded-lg bg-amber-soft px-3 py-2.5 text-xs leading-[17px] text-on-amber-soft">
             <Icon icon={TriangleAlert} size={14} className="mt-px shrink-0" />
-            {t("supporter.fiveYearsNotSold")}
+            {t("supporter.lifetimeNotSold")}
           </p>
         ) : (
           <p className="mt-3 text-xs leading-[17px] text-muted">
-            {t("supporter.upgradeHint", { date: longDate(fiveYearsAfter(plan.valid_until), i18n.language) })}
+            {t("supporter.upgradeHint")}
           </p>
         )}
         <footer className="mt-auto flex items-center justify-end gap-2 pt-5">
@@ -229,12 +232,13 @@ export function SupporterDialog({
     </div>
   );
 
-  const thanksPanel = (who: string | null) => (
+  // `bought`: the one-time purchase bought again, refunded; the sizing copy has that longer text.
+  const thanksPanel = (who: string | null, bought: boolean) => (
     <div className="flex flex-1 flex-col items-center text-center">
       <span className="mt-2 flex size-14 items-center justify-center rounded-full bg-season-soft text-season">
         <Heart size={24} fill="currentColor" aria-hidden />
       </span>
-      <p className="mt-4 max-w-[400px] text-sm text-muted">{t("supporter.thanksText", { email: who ?? "" })}</p>
+      <p className="mt-4 max-w-[400px] text-sm text-muted">{t(bought ? "supporter.againText" : "supporter.thanksText", { email: who ?? "" })}</p>
       <footer className="mt-auto flex w-full justify-end gap-2 pt-5">
         <Button variant="primary" size="lg" autoFocus onClick={onClose}>
           {t("supporter.done")}
@@ -245,12 +249,13 @@ export function SupporterDialog({
 
   // Paid with the email of an account that existed before: the purchase never signs it in by
   // itself, the code from that email does (koona-services, billing_fill_claim).
-  const signInPanel = () => (
+  // `bought`: the one-time purchase bought again, refunded; the sizing copy has that longer text.
+  const signInPanel = (bought: boolean) => (
     <div className="flex flex-1 flex-col items-center text-center">
       <span className="mt-2 flex size-14 items-center justify-center rounded-full bg-season-soft text-season">
         <Heart size={24} fill="currentColor" aria-hidden />
       </span>
-      <p className="mt-4 max-w-[400px] text-sm text-muted">{t("supporter.paidSignInText")}</p>
+      <p className="mt-4 max-w-[400px] text-sm text-muted">{t(bought ? "supporter.againSignInText" : "supporter.paidSignInText")}</p>
       <footer className="mt-auto flex w-full justify-end gap-2 pt-5">
         <Button variant="outline" size="lg" onClick={onClose}>
           {t("supporter.notNow")}
@@ -265,8 +270,8 @@ export function SupporterDialog({
   const title = {
     plans: upgrade ? t("supporter.upgradeTitle") : t("supporter.title"),
     waiting: t("supporter.waitingTitle"),
-    thanks: t("supporter.thanksTitle"),
-    signIn: t("supporter.paidTitle"),
+    thanks: t(again ? "supporter.againTitle" : "supporter.thanksTitle"),
+    signIn: t(again ? "supporter.againTitle" : "supporter.paidTitle"),
   }[step];
   return (
     <Dialog
@@ -284,8 +289,8 @@ export function SupporterDialog({
           if (state === "plans" && upgrade) return upgradePanel(upgrade, sizing ? t("supporter.unreachable") : error, sizing);
           if (state === "plans") return plansPanel(sizing ? t("supporter.unreachable") : error, sizing);
           if (state === "waiting") return waitingPanel();
-          if (state === "signIn") return signInPanel();
-          return thanksPanel(sizing ? "someone.with.a.long.address@example.com" : paidEmail);
+          if (state === "signIn") return signInPanel(sizing || again);
+          return sizing ? thanksPanel("someone.with.a.long.address@example.com", true) : thanksPanel(paidEmail, again);
         }}
       </StatePanels>
     </Dialog>
@@ -320,7 +325,7 @@ function PlanCard({
   name: string;
   price: ReactNode;
   badge: string | null;
-  /** Across both columns: Supporter · 5 years under the two subscriptions. */
+  /** Across both columns: the one-time purchase under the two subscriptions. */
   wide?: boolean;
 }) {
   const className = `flex flex-col gap-1.5 rounded-[10px] px-3.5 py-3 text-left transition-colors duration-150 ${wide ? "col-span-2" : ""} ${
@@ -649,7 +654,7 @@ export function PlanDialog({
   badge: boolean;
   onBadge: (shown: boolean) => void;
   onClose: () => void;
-  /** «Switch to 5 years», offered while a subscription renews. */
+  /** «Pay once», offered while a subscription renews. */
   onUpgrade?: () => void;
   /** «Delete account…»: its dialog instead of this one. */
   onDelete?: () => void;
@@ -684,12 +689,12 @@ export function PlanDialog({
         {t("plan.manage")} ↗
       </Button>
     );
-  // A subscription that renews can become five years paid once, from the end of its period.
+  // A subscription that renews can become the one-time purchase from the end of its period.
   if (offerSwitch && kind === "manage")
     action = (
       <>
         <Button variant="outline" size="lg" onClick={offerSwitch}>
-          {t("plan.switchToFiveYears")}
+          {t("plan.switchToLifetime")}
         </Button>
         {action}
       </>
@@ -704,7 +709,7 @@ export function PlanDialog({
             <Heart size={20} fill="currentColor" aria-hidden />
           </span>
           <div className="min-w-0 text-xs leading-[17px]">
-            <p className="text-[15px] leading-5 font-semibold text-ink">{t(plan?.interval === "five_years" ? "plan.fiveYears" : plan?.interval === "month" ? "plan.monthly" : "plan.yearly")}</p>
+            <p className="text-[15px] leading-5 font-semibold text-ink">{t(plan?.interval === "lifetime" ? "plan.lifetime" : plan?.interval === "month" ? "plan.monthly" : "plan.yearly")}</p>
             <p className="truncate text-muted">{supporter.email}</p>
             {/* The state of the plan always takes this one line, so the dialog keeps its height. */}
             <p role={tone === "muted" ? undefined : "status"} className={`min-h-[17px] ${toneClass}`}>

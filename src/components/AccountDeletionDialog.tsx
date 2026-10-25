@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Check, Heart, TriangleAlert, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { DeleteWhen, SupporterStatus } from "../types";
-import { cancelsPlay, radioKeys, useAccountDeletion, type DeleteStep } from "./accountDeletion";
+import { cancelsPlay, radioKeys, refundKey, useAccountDeletion, type DeleteStep } from "./accountDeletion";
 import { Icon } from "./icons";
 import { longDate } from "./supporterFlow";
 import { Button } from "./ui/Button";
@@ -48,7 +48,7 @@ export function AccountDeletionDialog({ supporter, onClose }: { supporter: Suppo
       </Group>
       {(plan || sizing) && (
         <p className="mt-4 text-sm text-muted">
-          {[t("deleteAccount.payments"), cancelsPlay(plan) || sizing ? t("deleteAccount.paymentsPlay") : null, t("deleteAccount.refund")].filter(Boolean).join(" ")}
+          {[t("deleteAccount.payments"), cancelsPlay(plan) || sizing ? t("deleteAccount.paymentsPlay") : null, t(sizing ? "deleteAccount.refund" : refundKey(plan))].filter(Boolean).join(" ")}
         </p>
       )}
       {failure && <FailureNote text={failure} live={!sizing} />}
@@ -227,7 +227,7 @@ export function AccountDeletionDialog({ supporter, onClose }: { supporter: Suppo
             </span>
             <div className="min-w-0 text-xs leading-[17px]">
               <p className="text-[15px] leading-5 font-semibold text-ink">
-                {t(plan?.interval === "five_years" ? "plan.fiveYears" : plan?.interval === "month" ? "plan.monthly" : "plan.yearly")}
+                {t(plan?.interval === "lifetime" ? "plan.lifetime" : plan?.interval === "month" ? "plan.monthly" : "plan.yearly")}
               </p>
               <p className="truncate text-muted">{sizing ? LONG_EMAIL : email}</p>
               <p className="text-muted">{t("deleteAccount.endsOn", { date: on })}</p>

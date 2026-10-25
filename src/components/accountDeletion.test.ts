@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import i18n from "../i18n";
 import type { Plan, SupporterStatus } from "../types";
-import { cancelsPlay } from "./accountDeletion";
+import { cancelsPlay, refundKey } from "./accountDeletion";
 import { planState } from "./supporterFlow";
 
 const t = i18n.getFixedT("en");
@@ -31,6 +31,12 @@ describe("deleting the account", () => {
     // Vitest runs as a desktop build (purchase "paddle"): never, even for a plan paid through Play.
     expect(cancelsPlay(plan({ store: "play" }))).toBe(false);
     expect(cancelsPlay(null)).toBe(false);
+  });
+
+  it("says the one-time purchase goes with the account, a subscription's paid time is not refunded", () => {
+    expect(t(refundKey(plan({ interval: "lifetime", valid_until: null, renews_at: null })))).toMatch(/^Your one-time purchase goes with the account/);
+    // A Play license tester's test day, and subscriptions, keep the paid-time sentence.
+    for (const p of [plan({ interval: "lifetime", renews_at: null }), plan(), plan({ interval: "month" }), null]) expect(refundKey(p)).toBe("deleteAccount.refund");
   });
 
   it("puts a scheduled deletion on the plan's line, after what needs doing", () => {

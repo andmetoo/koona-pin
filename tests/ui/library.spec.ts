@@ -2461,12 +2461,14 @@ test("Supporter: nothing in a build that does not sell it; the row, the plan, th
   await expect(plans).toContainText("Test payments");
   // Sync, backups to a folder, the reading themes (NP-124), the badge.
   await expect(plans.getByRole("listitem")).toHaveCount(4);
-  // The yearly plan is chosen first; whole prices without cents.
+  // The yearly plan is chosen first; prices drop only ".00".
   await expect(plans.getByRole("radio", { name: /Yearly/ })).toHaveAttribute("aria-checked", "true");
-  await expect(plans.getByRole("radio", { name: /Yearly/ })).toContainText("$20 a year");
-  // Five years paid once, under the two subscriptions.
-  await expect(plans.getByRole("radio", { name: /5 years/ })).toContainText("$50 once");
-  await expect(plans.getByRole("radio", { name: /5 years/ })).toContainText("Save 50%");
+  await expect(plans.getByRole("radio", { name: /Yearly/ })).toContainText("$9.99 a year");
+  await expect(plans.getByRole("radio", { name: /Yearly/ })).toContainText("Save 44%");
+  await expect(plans.getByRole("radio", { name: /Monthly/ })).toContainText("$1.49 a month");
+  // The one-time purchase, under the two subscriptions.
+  await expect(plans.getByRole("radio", { name: /One-time/ })).toContainText("$29.99 once");
+  await expect(plans.getByRole("radio", { name: /One-time/ })).toContainText("Best value");
   await plans.getByRole("radio", { name: /Monthly/ }).click();
   await expect(plans.getByRole("radio", { name: /Monthly/ })).toHaveAttribute("aria-checked", "true");
   // «Continue» opens the payment in the browser; the dialog waits and sees it paid by itself.
@@ -2520,9 +2522,9 @@ test("Supporter: the dialog of the plan says when it does not renew, a payment f
     ["canceling", "canceling", "Doesn't renew · Supporter until"],
     ["past_due", "past_due", "The renewal didn't go through — update the card"],
     ["offline", "unchecked", "Couldn't check the plan — it stays on until"],
-    // Supporter · 5 years: nothing to manage, unless a subscription still renews too.
-    ["five_years", "active", "Paid once · Supporter until"],
-    ["five_years_renewing", "active", "Your subscription still renews — cancel it in Manage"],
+    // Supporter's one-time purchase: no end, nothing to manage, unless a subscription still renews too.
+    ["lifetime", "active", "One-time purchase · no renewal, no end date"],
+    ["lifetime_renewing", "active", "Your subscription still renews — cancel it in Manage"],
   ] as const) {
     await page.evaluate((k) => localStorage.setItem("koonapin.demo.supporter", k), kind);
     await page.reload();
@@ -2530,9 +2532,10 @@ test("Supporter: the dialog of the plan says when it does not renew, a payment f
     const plan = page.getByRole("dialog", { name: "Supporter" });
     await expect(plan.locator("[data-plan-dialog]")).toHaveAttribute("data-plan-dialog", state);
     await expect(plan).toContainText(text);
-    if (kind.startsWith("five_years")) {
-      await expect(plan).toContainText("Supporter · 5 years");
-      await expect(plan.getByRole("button", { name: "Manage ↗" })).toHaveCount(kind === "five_years" ? 0 : 1);
+    if (kind.startsWith("lifetime")) {
+      await expect(plan).toContainText("Supporter · one-time purchase");
+      await expect(plan).not.toContainText("Supporter until");
+      await expect(plan.getByRole("button", { name: "Manage ↗" })).toHaveCount(kind === "lifetime" ? 0 : 1);
     }
     heights.push(Math.round((await plan.boundingBox())!.height));
   }
@@ -2545,7 +2548,7 @@ test("Supporter: the dialog of the plan says when it does not renew, a payment f
   await expect(page.locator("[data-plan-dialog]")).toHaveAttribute("data-plan-dialog", "active");
 });
 
-test("Supporter: a plan paid through Google Play is managed in Google Play, never in Paddle's portal, with no switch to five years (NP-154)", async ({ page }) => {
+test("Supporter: a plan paid through Google Play is managed in Google Play, never in Paddle's portal, with no switch to the one-time purchase (NP-154)", async ({ page }) => {
   const playPage = "https://play.google.com/store/account/subscriptions?sku=supporter&package=app.koona.pin";
   for (const [kind, text, button] of [
     ["supporter", "Renews on", "Manage in Google Play ↗"],
@@ -2566,22 +2569,23 @@ test("Supporter: a plan paid through Google Play is managed in Google Play, neve
     });
     await plan.getByRole("button", { name: button }).click();
     expect(await page.evaluate(() => (window as unknown as { opened: string[] }).opened)).toEqual([playPage]);
-    for (const name of ["Manage ↗", "Update card ↗", "Switch to 5 years"]) await expect(plan.getByRole("button", { name, exact: true })).toHaveCount(0);
+    for (const name of ["Manage ↗", "Update card ↗", "Pay once"]) await expect(plan.getByRole("button", { name, exact: true })).toHaveCount(0);
     await expect(plan).not.toContainText(/card/i);
   }
 });
 
-test("Supporter: a subscription switches to five years from the end of its paid period; a server that does not sell five years offers neither (NP-066, sheet 45)", async ({ page }) => {
+test("Supporter: a subscription switches to the one-time purchase from the end of its paid period; a server that does not sell it offers neither (NP-066, sheet 45)", async ({ page }) => {
   await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "supporter"));
   await page.reload();
   await page.locator("[data-plan-row]").click();
   const plan = page.getByRole("dialog", { name: "Supporter" });
   await expect(plan).toContainText("Supporter · yearly");
-  await plan.getByRole("button", { name: "Switch to 5 years" }).click();
-  const upgrade = page.getByRole("dialog", { name: "Switch to 5 years" });
-  await expect(upgrade).toContainText("Pay $50 once instead of renewing. Your yearly plan stays until");
-  await expect(upgrade).toContainText("$50 once");
-  await expect(upgrade).toContainText("Supporter then lasts until");
+  await plan.getByRole("button", { name: "Pay once" }).click();
+  const upgrade = page.getByRole("dialog", { name: "Switch to a one-time purchase" });
+  await expect(upgrade).toContainText("Pay $29.99 once instead of renewing. Your yearly plan stays until");
+  await expect(upgrade).toContainText("the one-time purchase takes over that day.");
+  await expect(upgrade).toContainText("$29.99 once");
+  await expect(upgrade).toContainText("Supporter then has no end date.");
   // Nothing to choose, and no «I'm already a Supporter»: the account is signed in.
   await expect(upgrade.getByRole("radio")).toHaveCount(0);
   await expect(upgrade.getByRole("button", { name: "I'm already a Supporter" })).toHaveCount(0);
@@ -2589,27 +2593,28 @@ test("Supporter: a subscription switches to five years from the end of its paid 
   await expect(page.getByRole("dialog", { name: "Thank you for supporting Koona Pin" })).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Done" }).click();
   await page.locator("[data-plan-row]").click();
-  await expect(page.getByRole("dialog", { name: "Supporter" })).toContainText("Supporter · 5 years");
-  // Five years and a plan that does not renew offer no switch.
-  await expect(page.getByRole("dialog", { name: "Supporter" }).getByRole("button", { name: "Switch to 5 years" })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Supporter" })).toContainText("Supporter · one-time purchase");
+  await expect(page.getByRole("dialog", { name: "Supporter" })).toContainText("One-time purchase · no renewal, no end date");
+  // The one-time purchase and a plan that does not renew offer no switch.
+  await expect(page.getByRole("dialog", { name: "Supporter" }).getByRole("button", { name: "Pay once" })).toHaveCount(0);
 
-  // A server that does not sell five years offers neither the card nor the switch.
+  // A server that does not sell the one-time purchase offers neither the card nor the switch.
   await page.evaluate(() => {
     localStorage.setItem("koonapin.demo.supporter", "free");
-    localStorage.setItem("koonapin.demo.fiveYears", "off");
+    localStorage.setItem("koonapin.demo.lifetime", "off");
   });
   await page.reload();
   await page.locator("[data-plan-row]").click();
   const plans = page.getByRole("dialog", { name: "Support Koona Pin" });
-  await expect(plans.getByRole("radio", { name: /Yearly/ })).toContainText("$20 a year");
-  await expect(plans.getByRole("radio", { name: /5 years/ })).toHaveCount(0);
+  await expect(plans.getByRole("radio", { name: /Yearly/ })).toContainText("$9.99 a year");
+  await expect(plans.getByRole("radio", { name: /One-time/ })).toHaveCount(0);
   await expect(plans.getByRole("radio", { name: /Yearly/ })).toHaveAttribute("aria-checked", "true");
   await plans.getByRole("button", { name: "Not now" }).click();
   await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "supporter"));
   await page.reload();
   await page.locator("[data-plan-row]").click();
   await expect(plan.getByRole("button", { name: "Manage ↗" })).toBeVisible();
-  await expect(plan.getByRole("button", { name: "Switch to 5 years" })).toHaveCount(0);
+  await expect(plan.getByRole("button", { name: "Pay once" })).toHaveCount(0);
 });
 
 test("Supporter: the dialog asks for the plan when it opens and when the window comes back — a change in the portal shows (NP-066)", async ({ page }) => {
@@ -2693,6 +2698,53 @@ test("Supporter: a payment with the email of an existing account signs in only w
   await code.getByLabel("Code").fill("482913");
   await code.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(row).toHaveAttribute("data-plan-row", "supporter");
+});
+
+test("Supporter: a one-time purchase bought again says the payment is refunded, never thanks, signed in or by code", async ({ page }) => {
+  const row = page.locator("[data-plan-row]");
+  for (const [kind, title, text] of [
+    ["free", "You already have the one-time purchase", "The account anna@example.com already has it, so this payment is refunded"],
+    ["existing", "You already have the one-time purchase", "The email of this payment is an account that already has it, so the payment is refunded"],
+  ] as const) {
+    await page.evaluate((k) => {
+      localStorage.setItem("koonapin.demo.supporter", k);
+      localStorage.setItem("koonapin.demo.paidAgain", "on");
+    }, kind);
+    await page.reload();
+    await row.click();
+    const plans = page.getByRole("dialog", { name: "Support Koona Pin" });
+    await expect(plans).toContainText("$29.99 once");
+    const height = Math.round((await plans.boundingBox())!.height);
+    await plans.getByRole("radio", { name: /One-time/ }).click();
+    await plans.getByRole("button", { name: "Continue" }).click();
+    const done = page.getByRole("dialog", { name: title });
+    await expect(done).toContainText(text, { timeout: 15_000 });
+    // Never the thanks or «Payment received» first, and the longer text never makes the dialog
+    // grow (a long title sits 2 px lower than the plans' short one, as the thanks always did).
+    await expect(page.getByRole("dialog", { name: "Thank you for supporting Koona Pin" })).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: "Payment received" })).toHaveCount(0);
+    expect(Math.round((await done.boundingBox())!.height), kind).toBeLessThanOrEqual(height);
+    await page.keyboard.press("Escape");
+  }
+});
+
+test("Supporter: a repeat said for an earlier payment never labels a new one", async ({ page }) => {
+  const row = page.locator("[data-plan-row]");
+  for (const kind of ["free", "later_paid"] as const) {
+    await page.evaluate((k) => {
+      localStorage.setItem("koonapin.demo.supporter", k);
+      localStorage.setItem("koonapin.demo.paidAgain", "stale");
+    }, kind);
+    await page.reload();
+    await row.click();
+    const plans = page.getByRole("dialog", { name: "Support Koona Pin" });
+    // later_paid: a yearly plan bought elsewhere arrives while the plans show; free: a yearly payment here.
+    if (kind === "free") await plans.getByRole("button", { name: "Continue" }).click();
+    const thanks = page.getByRole("dialog", { name: "Thank you for supporting Koona Pin" });
+    await expect(thanks, kind).toContainText("Supporter is active", { timeout: 15_000 });
+    await expect(page.getByRole("dialog", { name: "You already have the one-time purchase" })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+  }
 });
 
 test("Supporter: a payment the app saw first in the background still ends in thanks; what it finds by itself moves an open dialog on (NP-066)", async ({ page }) => {
@@ -2794,38 +2846,41 @@ test("Supporter: the plans show the prices Paddle gave last time at once, not do
   await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
   await page.reload();
   await page.locator("[data-plan-row]").click();
-  await expect(page.getByRole("dialog", { name: "Support Koona Pin" })).toContainText("$20 a year");
-  expect(JSON.parse((await page.evaluate(() => localStorage.getItem("koonapin.supporterPrices")))!).prices.year.total).toBe("$20.00");
+  await expect(page.getByRole("dialog", { name: "Support Koona Pin" })).toContainText("$9.99 a year");
+  expect(JSON.parse((await page.evaluate(() => localStorage.getItem("koonapin.supporterPrices")))!).prices.year.total).toBe("$9.99");
   // Euros last time and no answer now: euros, not the dollars kept for when nothing is known.
-  const remember = (daysAgo: number, fiveYears: boolean | "unknown" = true) =>
+  // `old`: remembered before the one-time purchase was sold, with the one-time plan under its old key.
+  const remember = (daysAgo: number, lifetime: boolean | "old" = true) =>
     page.evaluate(
-      ([days, five]) => {
+      ([days, sold]) => {
         localStorage.setItem("koonapin.demo.supporter", "no_server");
-        const prices: Record<string, unknown> = { month: { price_id: "m", total: "€2.00", currency: "EUR" }, year: { price_id: "y", total: "€20.00", currency: "EUR" } };
-        if (five !== "unknown") prices.five_years = five ? { price_id: "f", total: "€50.00", currency: "EUR" } : null;
+        const prices: Record<string, unknown> = { month: { price_id: "m", total: "€1.49", currency: "EUR" }, year: { price_id: "y", total: "€9.99", currency: "EUR" } };
+        if (sold === "old") prices.five_years = { price_id: "f", total: "€50.00", currency: "EUR" };
+        else prices.lifetime = sold ? { price_id: "l", total: "€29.99", currency: "EUR" } : null;
         localStorage.setItem("koonapin.supporterPrices", JSON.stringify({ at: Date.now() - (days as number) * 86_400_000, prices }));
       },
-      [daysAgo, fiveYears] as const,
+      [daysAgo, lifetime] as const,
     );
   await remember(1);
   await page.reload();
   await page.locator("[data-plan-row]").click();
   const plans = page.getByRole("dialog", { name: "Support Koona Pin" });
-  await expect(plans).toContainText("€20 a year");
-  await expect(plans).toContainText("€2 a month");
-  await expect(plans).toContainText("€50 once");
+  await expect(plans).toContainText("€9.99 a year");
+  await expect(plans).toContainText("€1.49 a month");
+  await expect(plans).toContainText("€29.99 once");
   // Remembered more than a week ago: not shown first; with no answer, the prices nothing depends on.
   await remember(8);
   await page.reload();
   await page.locator("[data-plan-row]").click();
-  await expect(plans).toContainText("$20 a year");
-  // Remembered by 0.10, which knew nothing of five years: not shown first either, so the five-year
-  // card never appears only after Paddle's answer.
-  await remember(1, "unknown");
+  await expect(plans).toContainText("$9.99 a year");
+  // Remembered before the one-time purchase, under the old one-time key: forgotten, so those prices never
+  // show first and its card never appears only after Paddle's answer.
+  await remember(1, "old");
   await page.reload();
   await page.locator("[data-plan-row]").click();
-  await expect(plans.getByRole("radio", { name: /5 years/ })).toBeVisible();
-  await expect(plans).toContainText("$20 a year");
+  await expect(plans.getByRole("radio", { name: /One-time/ })).toBeVisible();
+  await expect(plans).toContainText("$9.99 a year");
+  await expect(plans).not.toContainText("€");
 });
 
 test("feedback: from Settings, checked before sending, a failure keeps the draft, Try again sends it (NP-088)", async ({ page }) => {

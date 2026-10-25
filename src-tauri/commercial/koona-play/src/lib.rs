@@ -251,11 +251,11 @@ mod tests {
             }]
         );
         let product: Product = serde_json::from_value(json!({
-            "product": "supporter_5_years", "basePlan": null, "price": "€50.00",
-            "currency": "EUR", "micros": 50_000_000i64, "period": null
+            "product": "supporter_5_years", "basePlan": null, "price": "€29.99",
+            "currency": "EUR", "micros": 29_990_000i64, "period": null
         }))
         .unwrap();
-        assert_eq!((product.base_plan, product.micros, product.period), (None, 50_000_000, None));
+        assert_eq!((product.base_plan, product.micros, product.period), (None, 29_990_000, None));
     }
 
     #[test]
