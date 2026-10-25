@@ -31,7 +31,7 @@ describe("the plan's action by where it is paid", () => {
       expect(action({ store })).toBe("manage");
       expect(action({ store, status: "canceling", renews_at: null })).toBe("manage");
       expect(action({ store, status: "past_due" })).toBe("updateCard");
-      expect(action({ store, interval: "five_years", renews_at: null, also_renews: true })).toBe("manage");
+      expect(action({ store, interval: "lifetime", renews_at: null, also_renews: true })).toBe("manage");
     }
     expect(planState(supporter({ status: "past_due" }), t, "en").status).toBe(t("supporter.pastDue"));
   });
@@ -40,18 +40,18 @@ describe("the plan's action by where it is paid", () => {
     expect(action({ store: "play" })).toBe("manageInPlay");
     expect(action({ store: "play", status: "canceling", renews_at: null })).toBe("manageInPlay");
     expect(action({ store: "play", status: "past_due" })).toBe("fixInPlay");
-    expect(action({ store: "play", interval: "five_years", renews_at: null, also_renews: true })).toBe("manageInPlay");
+    expect(action({ store: "play", interval: "lifetime", renews_at: null, also_renews: true })).toBe("manageInPlay");
     const pastDue = planState(supporter({ store: "play", status: "past_due" }), t, "en");
     expect(pastDue).toMatchObject({ status: t("supporter.pastDuePlay"), tone: "danger" });
     expect(pastDue.status).not.toMatch(/card/);
-    expect(planState(supporter({ store: "play", interval: "five_years", renews_at: null, also_renews: true }), t, "en").status).toBe(
+    expect(planState(supporter({ store: "play", interval: "lifetime", renews_at: null, also_renews: true }), t, "en").status).toBe(
       t("supporter.alsoRenewsPlay"),
     );
   });
 
   it("is the same for both stores where there is nothing to manage or the plan is not checked", () => {
     for (const store of ["paddle", "play"] as const) {
-      expect(action({ store, interval: "five_years", renews_at: null })).toBe("close");
+      expect(action({ store, interval: "lifetime", renews_at: null })).toBe("close");
       expect(action({ store }, true)).toBe("retry");
     }
   });

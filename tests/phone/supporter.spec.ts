@@ -116,7 +116,7 @@ test("where nothing is sold, the plan sheet links to no Paddle page: a failed re
   await expect(plan.locator("[data-plan-sheet]")).toHaveAttribute("data-plan-sheet", "past_due");
   await expect(plan.getByRole("status")).toHaveText(/^The last payment didn't go through · Supporter until \w+ \d+, \d{4}$/);
   await expect(plan).toContainText("Your plan is managed where you started it.");
-  for (const name of ["Manage", "Update card", "Switch to 5 years"]) await expect(plan.getByRole("button", { name })).toHaveCount(0);
+  for (const name of ["Manage", "Update card", "Switch to Lifetime"]) await expect(plan.getByRole("button", { name })).toHaveCount(0);
   await expect(plan).not.toContainText(/card|Paddle|browser/i);
   await expect(plan.getByRole("button", { name: "Sign out" })).toBeVisible();
 });
@@ -202,10 +202,10 @@ test("the plan sheet: the plan, its state, the perks with the heart's switch, si
   await expect(plan).toContainText("anna@example.com");
   await expect(plan).toContainText(/Renews on/);
   await expect(plan.getByRole("button", { name: /Sync/ })).toContainText("Synced just now");
-  // The phone sells nothing: no Paddle portal, no switch to five years.
+  // The phone sells nothing: no Paddle portal, no switch to Lifetime.
   await expect(plan.getByRole("button", { name: "Manage" })).toHaveCount(0);
   await expect(plan).toContainText("Your plan is managed where you started it.");
-  await expect(plan.getByRole("button", { name: "Switch to 5 years" })).toHaveCount(0);
+  await expect(plan.getByRole("button", { name: "Switch to Lifetime" })).toHaveCount(0);
   await expect(plan).not.toContainText(/folder/i);
 
   const heart = plan.getByRole("switch", { name: "The Supporter heart" });
@@ -271,13 +271,13 @@ test("a build that sells through Paddle: the plans, Continue to the checkout, th
   await you.locator('[data-supporter="free"]').click();
   const supporter = sheet(page, "supporter");
   const plans = supporter.getByRole("radiogroup", { name: "Plan" });
-  await expect(plans.getByRole("radio")).toHaveText([/Yearly.*\$20 a year/, /Monthly.*\$2 a month/, /5 years.*\$50 once/]);
+  await expect(plans.getByRole("radio")).toHaveText([/Yearly.*\$9\.99 a year.*Save 44%/, /Monthly.*\$1\.49 a month/, /Lifetime.*\$29\.99 once.*Best value/]);
   await expect(plans.getByRole("radio", { name: /Yearly/ })).toHaveAttribute("aria-checked", "true");
   await expect(supporter).toContainText("Payment opens in your browser");
   await expect(supporter.getByRole("button", { name: "I'm already a Supporter" })).toBeVisible();
 
-  await plans.getByRole("radio", { name: /5 years/ }).click();
-  await expect(plans.getByRole("radio", { name: /5 years/ })).toHaveAttribute("aria-checked", "true");
+  await plans.getByRole("radio", { name: /Lifetime/ }).click();
+  await expect(plans.getByRole("radio", { name: /Lifetime/ })).toHaveAttribute("aria-checked", "true");
   await supporter.getByRole("button", { name: "Continue" }).click();
   await expect(supporter.getByRole("dialog", { name: "Finish in your browser" })).toBeVisible();
   await expect(supporter.getByRole("status")).toContainText("Waiting for the payment");
@@ -287,19 +287,19 @@ test("a build that sells through Paddle: the plans, Continue to the checkout, th
   await expect(supporter).toContainText("anna@example.com");
   await supporter.getByRole("button", { name: "Done" }).click();
   await expect(sheet(page, "supporter")).toHaveCount(0);
-  // The checkout was started for the plan chosen: the demo grants five years for five years.
+  // The checkout was started for the plan chosen: the demo grants Lifetime for Lifetime.
   await expect(you).toHaveCount(0);
-  await expect((await openYou(page)).locator('[data-supporter="plan"]')).toContainText(/5 years, until/);
+  await expect((await openYou(page)).locator('[data-supporter="plan"]')).toContainText("Thank you · Lifetime, paid once");
 });
 
-test("a build that sells through Paddle offers the switch to five years on a renewing plan", async ({ page }) => {
+test("a build that sells through Paddle offers the switch to Lifetime on a renewing plan", async ({ page }) => {
   await openPhone(page, { settings: SUPPORTER, capabilities: PADDLE });
   const you = await openYou(page);
   await you.locator('[data-supporter="plan"]').click();
   const plan = sheet(page, "plan");
-  await plan.getByRole("button", { name: "Switch to 5 years" }).click();
+  await plan.getByRole("button", { name: "Switch to Lifetime" }).click();
   await expect(sheet(page, "plan")).toHaveCount(0);
-  await expect(sharedDialog(page)).toContainText("Switch to 5 years");
+  await expect(sharedDialog(page)).toContainText("Switch to Lifetime");
 });
 
 test("the sign-in's action stays above the keyboard", async ({ page }) => {
@@ -356,11 +356,11 @@ test("the Play build: «I'm already a Supporter» first, Google Play's prices wi
   expect(await body.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
   await expect(body.locator(":scope > *").first()).toHaveText("I'm already a Supporter");
   const plans = supporter.getByRole("list", { name: "Plan" }).getByRole("listitem");
-  await expect(plans).toHaveText([/Yearly.*2 months free.*€20\.00 a year.*Subscribe/, /Monthly.*€2\.00 a month.*Subscribe/, /5 years.*Save 50%.*€50\.00 once.*Buy/]);
-  for (const name of ["Subscribe · Yearly", "Subscribe · Monthly", "Buy · 5 years"]) await expect(supporter.getByRole("button", { name })).toBeEnabled();
+  await expect(plans).toHaveText([/Yearly.*Save 44%.*€9\.99 a year.*Subscribe/, /Monthly.*€1\.49 a month.*Subscribe/, /Lifetime.*Best value.*€29\.99 once.*Buy/]);
+  for (const name of ["Subscribe · Yearly", "Subscribe · Monthly", "Buy · Lifetime"]) await expect(supporter.getByRole("button", { name })).toBeEnabled();
   await expect(supporter.locator("[data-play-terms] p")).toHaveText([
     "Yearly and monthly renew automatically at their price until you cancel. Cancel any time in Google Play.",
-    "5 years are paid once and don't renew.",
+    "Lifetime is paid once and doesn't renew.",
   ]);
   await expect(supporter.getByRole("radio")).toHaveCount(0);
   for (const text of ELSEWHERE) await expect(supporter).not.toContainText(text);
@@ -441,7 +441,7 @@ test("the Play build: a slow payment waits for Google Play, and the sheet opens 
 
 test("the Play build: a Supporter buying again is refunded; another account's purchase asks to sign in to it", async ({ page }) => {
   const { supporter } = await openPlay(page, { ...FREE, "demo.play": "already_supporter" });
-  await supporter.getByRole("button", { name: "Buy · 5 years" }).click();
+  await supporter.getByRole("button", { name: "Buy · Lifetime" }).click();
   await expect(supporter.getByRole("dialog", { name: "You already have Supporter" })).toBeVisible();
   await expect(supporter).toContainText("Google Play refunds this purchase.");
   await supporter.getByRole("button", { name: "Done" }).click();
@@ -575,7 +575,7 @@ test("the Play build: a plan paid through Google Play whose renewal failed is fi
   await recordLinks(page);
   await plan.getByRole("button", { name: "Fix payment in Google Play" }).click();
   expect(await opened(page)).toEqual([PLAY_PAGE]);
-  for (const name of ["Manage", "Update card", "Switch to 5 years"]) await expect(plan.getByRole("button", { name, exact: true })).toHaveCount(0);
+  for (const name of ["Manage", "Update card", "Switch to Lifetime"]) await expect(plan.getByRole("button", { name, exact: true })).toHaveCount(0);
   for (const text of ELSEWHERE) await expect(plan).not.toContainText(text);
 });
 
@@ -585,7 +585,7 @@ test("the Play build: a plan bought through Paddle on a computer links to no Pad
   await you.locator('[data-supporter="plan"]').click();
   const plan = sheet(page, "plan");
   await expect(plan).toContainText("Your plan is managed where you started it.");
-  for (const name of ["Manage", "Manage in Google Play", "Switch to 5 years"]) await expect(plan.getByRole("button", { name, exact: true })).toHaveCount(0);
+  for (const name of ["Manage", "Manage in Google Play", "Switch to Lifetime"]) await expect(plan.getByRole("button", { name, exact: true })).toHaveCount(0);
 });
 
 const codeField = (sheetLocator: ReturnType<typeof sheet>) => sheetLocator.getByRole("textbox", { name: "Code" });

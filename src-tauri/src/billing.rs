@@ -103,15 +103,15 @@ pub enum PlanStatus {
     Canceling,
 }
 
-/// What can be bought, and what the plan is: a subscription, or five years paid once
-/// (Supporter · 5 years), which never renews.
+/// What can be bought, and what the plan is: a subscription, or Supporter · Lifetime, paid once,
+/// which never renews and never ends.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 #[ts(export)]
 pub enum PlanInterval {
     Month,
     Year,
-    FiveYears,
+    Lifetime,
 }
 
 /// Where the plan is paid and managed (NP-154): the channel of the renewing subscription, else of
@@ -131,8 +131,10 @@ pub enum Store {
 pub struct Plan {
     pub status: PlanStatus,
     pub interval: Option<PlanInterval>,
-    #[ts(type = "string")]
-    pub valid_until: DateTime<Utc>,
+    /// The end of the paid period; none for Lifetime, which has no end (a Play license tester's
+    /// test purchase of it has its one day).
+    #[ts(type = "string | null")]
+    pub valid_until: Option<DateTime<Utc>>,
     #[ts(type = "string | null")]
     pub renews_at: Option<DateTime<Utc>>,
     /// Kept until then without an answer from the server.
@@ -167,7 +169,7 @@ struct LeaseTerms {
 struct SignedPlan {
     status: PlanStatus,
     interval: Option<PlanInterval>,
-    valid_until: DateTime<Utc>,
+    valid_until: Option<DateTime<Utc>>,
     renews_at: Option<DateTime<Utc>>,
     #[serde(default)]
     also_renews: bool,
@@ -472,9 +474,9 @@ pub struct Price {
 pub struct SupporterPrices {
     pub month: Price,
     pub year: Price,
-    /// Supporter · 5 years, paid once; None while the server does not sell it.
+    /// Supporter · Lifetime, paid once; None while the server does not sell it.
     #[serde(default)]
-    pub five_years: Option<Price>,
+    pub lifetime: Option<Price>,
 }
 
 /// What `poll_checkout` found.
@@ -511,7 +513,7 @@ fn due(stored: &Stored, now: DateTime<Utc>) -> bool {
     if stored.session.is_none() {
         return false;
     }
-    let ending = stored.plan.as_ref().is_some_and(|plan| now >= plan.valid_until - RENEWAL_WINDOW);
+    let ending = stored.plan.as_ref().and_then(|plan| plan.valid_until).is_some_and(|until| now >= until - RENEWAL_WINDOW);
     let every = if stored.check_failed {
         CHECK_AGAIN
     } else if ending {
@@ -544,7 +546,7 @@ fn status(stored: &Stored, now: DateTime<Utc>) -> SupporterStatus {
         sandbox: service.is_some_and(|s| s.sandbox),
         email: stored.session.as_ref().map(|s| s.email.clone()),
         // Said once it matters: the period is over, or the plan stops offline within a week.
-        check_failed: stored.check_failed && plan.as_ref().is_some_and(|p| now >= p.valid_until || p.offline_until - now <= WARN_OFFLINE),
+        check_failed: stored.check_failed && plan.as_ref().is_some_and(|p| p.valid_until.is_some_and(|until| now >= until) || p.offline_until - now <= WARN_OFFLINE),
         plan,
         plan_unknown: stored.session.is_some() && stored.plan.is_none() && stored.check_failed,
         awaiting_sign_in: stored.awaiting_sign_in && stored.session.is_none(),
@@ -997,7 +999,7 @@ pub async fn start_checkout(app: AppHandle, interval: PlanInterval) -> Result<St
     let name = match interval {
         PlanInterval::Month => "month",
         PlanInterval::Year => "year",
-        PlanInterval::FiveYears => "five_years",
+        PlanInterval::Lifetime => "lifetime",
     };
     let (status, value) = call(&app, json!({ "action": "checkout", "interval": name, "claim": secret }), token.as_deref()).await?;
     let url = value["url"].as_str().filter(|_| status.is_success()).ok_or_else(|| refused("billing checkout", status))?.to_string();
@@ -1210,7 +1212,7 @@ mod tests {
             plan: Some(Plan {
                 status: PlanStatus::Active,
                 interval: Some(PlanInterval::Year),
-                valid_until: at(until),
+                valid_until: Some(at(until)),
                 renews_at: Some(at(until)),
                 offline_until: at(until) + TimeDelta::days(7),
                 also_renews: false,
@@ -1315,7 +1317,7 @@ mod tests {
             Some(Plan {
                 status: PlanStatus::Canceling,
                 interval: Some(PlanInterval::Month),
-                valid_until: at("2026-11-12T03:02:36.583Z"),
+                valid_until: Some(at("2026-11-12T03:02:36.583Z")),
                 renews_at: None,
                 offline_until: at("2026-11-11T12:00:00Z"),
                 also_renews: false,
@@ -1526,24 +1528,28 @@ mod tests {
     }
 
     #[test]
-    fn five_years_paid_once_come_signed_without_renewal() {
-        // As koona-services signs Supporter · 5 years.
-        let payload = r#"{"v":1,"email":"anna@example.com","plan":{"plan":"supporter","status":"active","interval":"five_years","valid_until":"2031-10-12T10:00:00.000Z","renews_at":null,"also_renews":true},"issued_at":"2026-10-12T12:00:00.000Z","offline_until":"2026-11-11T12:00:00.000Z"}"#;
+    fn lifetime_paid_once_comes_signed_without_an_end() {
+        // As koona-services signs Supporter · Lifetime: no end, no renewal.
+        let payload = r#"{"v":1,"email":"anna@example.com","plan":{"plan":"supporter","status":"active","interval":"lifetime","valid_until":null,"renews_at":null,"also_renews":true},"issued_at":"2026-10-12T12:00:00.000Z","offline_until":"2026-11-11T12:00:00.000Z"}"#;
         let (signed, key) = lease(payload, 7);
         let plan = plan_of(&signed, "anna@example.com", &key).unwrap();
-        assert_eq!((plan.interval, plan.renews_at, plan.also_renews), (Some(PlanInterval::FiveYears), None, true));
-        assert_eq!(plan.valid_until, at("2031-10-12T10:00:00Z"));
-        // Checked weekly like any plan: a refund shows within a week.
+        assert_eq!((plan.interval, plan.renews_at, plan.also_renews), (Some(PlanInterval::Lifetime), None, true));
+        assert_eq!(plan.valid_until, None);
+        // Checked weekly like any plan: a refund shows within a week; never the daily checks of an ending period.
         let stored = Stored { plan: Some(plan), checked_at: Some(at("2026-10-12T12:00:00Z")), ..supporter("2031-10-12T10:00:00Z") };
         assert!(!due(&stored, at("2026-10-18T12:00:00Z")));
         assert!(due(&stored, at("2026-10-19T12:00:00Z")));
+        // A failed check says so only once the lease nears its end: there is no period to be over.
+        let failed = Stored { check_failed: true, ..stored.clone() };
+        assert!(!status(&failed, at("2026-10-20T12:00:00Z")).check_failed);
+        assert!(status(&failed, at("2026-11-05T12:00:00Z")).check_failed);
         // The prices of a server that does not sell them yet still read.
         let prices: SupporterPrices = serde_json::from_value(json!({
             "month": { "price_id": "m", "total": "$2.00", "currency": "USD" },
             "year": { "price_id": "y", "total": "$20.00", "currency": "USD" },
         }))
         .unwrap();
-        assert!(prices.five_years.is_none());
+        assert!(prices.lifetime.is_none());
     }
 
     fn checkout(secret: &str, started: &str, interval: PlanInterval) -> Checkout {

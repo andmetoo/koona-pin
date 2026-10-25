@@ -2,7 +2,7 @@
 
 What Play Console asks for before a closed test, for the app `app.koona.pin` (English (US) by default, free). The owner fills the console; this folder keeps the texts and the pictures. Prepared on 20 October 2026 for app 2.8.0, before Share (the phone's share sheet), sync on phones and store purchases: update the texts when they land. Updated for 2.9.0, where the Play build sells Supporter through Google Play Billing.
 
-**Before a build with Play Billing goes up** (`bun run build:android -- --play`), Play Console's Monetisation setup must exist: the organization's payments profile, the subscription `supporter` with the auto-renewing base plans `monthly` and `annual` (yearly; `yearly` and `yearly-pin` were saved as monthly by mistake and are inactive), and the one-time product `supporter_5_years`. Those ids are the app's (`src-tauri/src/billing/play.rs`) and the server's secrets; a product Play does not know is simply not offered.
+**Before a build with Play Billing goes up** (`bun run build:android -- --play`), Play Console's Monetisation setup must exist: the organization's payments profile, the subscription `supporter` with the auto-renewing base plans `monthly` and `annual` (yearly; `yearly` and `yearly-pin` were saved as monthly by mistake and are inactive), and the one-time product `supporter_lifetime` (Lifetime; `supporter_5_years` was the five-year plan it replaced and is inactive). Those ids are the app's (`src-tauri/src/billing/play.rs`) and the server's secrets; a product Play does not know is simply not offered.
 
 The App Bundle is `release/publish/android/<version>/koona-pin-<version>-<build>.aab` from `bun run build:android` with the upload key ([docs/building.md](../../../docs/building.md)).
 
@@ -53,7 +53,7 @@ Bring your bookmarks
 Import bookmarks from a browser's HTML export, and feeds from OPML.
 
 Supporter
-Koona Pin is free. Supporter is an optional subscription, or five years paid once, bought in the app through Google Play: it adds sync between your phone and your computers, the Paper and Sepia reading themes and the Supporter heart.
+Koona Pin is free. Supporter is an optional subscription, or Lifetime paid once, bought in the app through Google Play: it adds sync between your phone and your computers, the Paper and Sepia reading themes and the Supporter heart.
 ```
 
 ## Release notes of the first closed test
@@ -66,7 +66,7 @@ The first test build of Koona Pin for Android: the library, the Inbox, search, c
 
 - **Privacy policy:** https://koona.app/pin/privacy. Before the closed test it needs a section for the phone apps (the plan's "The site"): the phone keeps the library in the app's own folder, Android backup and device transfer are off, and what a phone sends is what the desktop sends.
 - **Ads:** No, the app contains no ads.
-- **App access:** "All or some functionality is restricted". Instructions for the reviewer: "Everything in the app works without signing in: saving links, the Inbox, search, collections, the Reading list, reading mode and feeds. Supporter is sold in the app through Google Play Billing: a subscription (monthly or yearly) or five years paid once. To reach the purchase sheet: tap the gear at the top right of the library (You & sync), then the Supporter card. After paying, the app asks for an email and a one-time code sent to it; that email becomes the Supporter account. Signing in on its own (I'm already a Supporter) is only for sync and for someone who already has Supporter." If Play asks for a login anyway, the owner decides whether to make a review account (a fixed code needs a change on the server).
+- **App access:** "All or some functionality is restricted". Instructions for the reviewer: "Everything in the app works without signing in: saving links, the Inbox, search, collections, the Reading list, reading mode and feeds. Supporter is sold in the app through Google Play Billing: a subscription (monthly or yearly) or Lifetime, paid once. To reach the purchase sheet: tap the gear at the top right of the library (You & sync), then the Supporter card. After paying, the app asks for an email and a one-time code sent to it; that email becomes the Supporter account. Signing in on its own (I'm already a Supporter) is only for sync and for someone who already has Supporter." If Play asks for a login anyway, the owner decides whether to make a review account (a fixed code needs a change on the server).
 - **Content rating:** the IARC questionnaire, below.
 - **Target audience:** 18 and over. Not designed for children; nothing appeals to them. Younger groups can be added later without the Families policy as long as under 13 stays out.
 - **News app:** No (it reads feeds the person chooses; it publishes no news).
@@ -83,7 +83,7 @@ Category: **Utility, Productivity, Communication, or Other** (or "All Other App 
 | Gambling, simulated gambling | No |
 | Users interact or exchange content with other users | No (sync goes between one person's own devices) |
 | Shares the user's current location with other users | No |
-| Allows purchases of digital goods | Yes: Supporter, as subscriptions (monthly, yearly) and a one-time «5 years», through Google Play Billing |
+| Allows purchases of digital goods | Yes: Supporter, as subscriptions (monthly, yearly) and a one-time «Lifetime», through Google Play Billing |
 | Web browser or search engine | No |
 | Unrestricted internet access, if asked | Yes: reading mode and feeds show pages and posts of any site the person chooses |
 

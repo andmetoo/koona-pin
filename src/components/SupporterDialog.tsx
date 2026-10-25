@@ -10,7 +10,6 @@ import { Icon } from "./icons";
 import {
   failureText,
   FALLBACK,
-  fiveYearsAfter,
   longDate,
   planBadge,
   planName,
@@ -33,7 +32,7 @@ const PERKS = ["sync", "backups", "reading", "badge"] as const;
  * height for all three (NP-118). The payment page asks for the email and the card; the server makes
  * the account from that email and the app is signed in as soon as the payment is seen.
  *
- * With `upgrade`, a subscription's «Switch to 5 years»: only the five years, which start when its
+ * With `upgrade`, a subscription's «Switch to Lifetime»: only Lifetime, which starts when its
  * paid period ends; the server then cancels the subscription at that end.
  */
 export function SupporterDialog({
@@ -52,7 +51,7 @@ export function SupporterDialog({
   pendingEmail?: string | null;
   /** Signed in without a plan: «Delete account…» on the account's line. */
   onDelete?: () => void;
-  /** The subscription being switched to five years. */
+  /** The subscription being switched to Lifetime. */
   upgrade?: Plan;
   sandbox: boolean;
   email: string | null;
@@ -97,7 +96,7 @@ export function SupporterDialog({
           return (
             <PlanCard
               key={value}
-              wide={value === "five_years"}
+              wide={value === "lifetime"}
               checked={interval === value}
               onSelect={() => setPlan(value)}
               name={planName(value, t)}
@@ -158,26 +157,26 @@ export function SupporterDialog({
     </div>
   );
 
-  // «Switch to 5 years» (sheet 45): the five years and when they start and end, nothing to choose.
+  // «Switch to Lifetime» (sheet 45): Lifetime and when it starts, nothing to choose.
   // The amount waits for Paddle's answer, in the text too: no dollars turning into euros.
   const upgradePanel = (plan: Plan, failure: string | null, sizing: boolean) => {
-    const price = shown?.five_years;
-    // Paddle answered and the server does not sell them (the button is not offered then either).
+    const price = shown?.lifetime;
+    // Paddle answered and the server does not sell it (the button is not offered then either).
     const notSold = !!shown && !price;
     return (
       <div className="flex flex-1 flex-col">
         <p className="text-sm text-muted">
           {price || sizing ? (
             t(plan.interval === "month" ? "supporter.upgradeTextMonthly" : "supporter.upgradeTextYearly", {
-              date: longDate(plan.valid_until, i18n.language),
-              price: whole((price ?? FALLBACK.five_years!).total),
+              date: longDate(plan.valid_until!, i18n.language),
+              price: whole((price ?? FALLBACK.lifetime!).total),
             })
           ) : (
             <span aria-hidden data-price-pending className="block h-9 animate-pulse rounded bg-secondary" />
           )}
         </p>
         <div className="mt-4">
-          <PlanCard checked wide name={t("supporter.fiveYears")} price={price ? priceLine("five_years", price.total, t) : <PricePending />} badge={t("supporter.save50")} />
+          <PlanCard checked wide name={t("supporter.lifetime")} price={price ? priceLine("lifetime", price.total, t) : <PricePending />} badge={t("supporter.bestValue")} />
         </div>
         {failure ? (
           <FailureNote text={failure} />
@@ -185,11 +184,11 @@ export function SupporterDialog({
           // Not a failure: nothing went wrong and the subscription goes on, so a notice, not an alert.
           <p role="status" className="mt-3 flex gap-2 rounded-lg bg-amber-soft px-3 py-2.5 text-xs leading-[17px] text-on-amber-soft">
             <Icon icon={TriangleAlert} size={14} className="mt-px shrink-0" />
-            {t("supporter.fiveYearsNotSold")}
+            {t("supporter.lifetimeNotSold")}
           </p>
         ) : (
           <p className="mt-3 text-xs leading-[17px] text-muted">
-            {t("supporter.upgradeHint", { date: longDate(fiveYearsAfter(plan.valid_until), i18n.language) })}
+            {t("supporter.upgradeHint")}
           </p>
         )}
         <footer className="mt-auto flex items-center justify-end gap-2 pt-5">
@@ -320,7 +319,7 @@ function PlanCard({
   name: string;
   price: ReactNode;
   badge: string | null;
-  /** Across both columns: Supporter · 5 years under the two subscriptions. */
+  /** Across both columns: Supporter · Lifetime under the two subscriptions. */
   wide?: boolean;
 }) {
   const className = `flex flex-col gap-1.5 rounded-[10px] px-3.5 py-3 text-left transition-colors duration-150 ${wide ? "col-span-2" : ""} ${
@@ -649,7 +648,7 @@ export function PlanDialog({
   badge: boolean;
   onBadge: (shown: boolean) => void;
   onClose: () => void;
-  /** «Switch to 5 years», offered while a subscription renews. */
+  /** «Switch to Lifetime», offered while a subscription renews. */
   onUpgrade?: () => void;
   /** «Delete account…»: its dialog instead of this one. */
   onDelete?: () => void;
@@ -684,12 +683,12 @@ export function PlanDialog({
         {t("plan.manage")} ↗
       </Button>
     );
-  // A subscription that renews can become five years paid once, from the end of its period.
+  // A subscription that renews can become Lifetime, paid once, from the end of its period.
   if (offerSwitch && kind === "manage")
     action = (
       <>
         <Button variant="outline" size="lg" onClick={offerSwitch}>
-          {t("plan.switchToFiveYears")}
+          {t("plan.switchToLifetime")}
         </Button>
         {action}
       </>
@@ -704,7 +703,7 @@ export function PlanDialog({
             <Heart size={20} fill="currentColor" aria-hidden />
           </span>
           <div className="min-w-0 text-xs leading-[17px]">
-            <p className="text-[15px] leading-5 font-semibold text-ink">{t(plan?.interval === "five_years" ? "plan.fiveYears" : plan?.interval === "month" ? "plan.monthly" : "plan.yearly")}</p>
+            <p className="text-[15px] leading-5 font-semibold text-ink">{t(plan?.interval === "lifetime" ? "plan.lifetime" : plan?.interval === "month" ? "plan.monthly" : "plan.yearly")}</p>
             <p className="truncate text-muted">{supporter.email}</p>
             {/* The state of the plan always takes this one line, so the dialog keeps its height. */}
             <p role={tone === "muted" ? undefined : "status"} className={`min-h-[17px] ${toneClass}`}>

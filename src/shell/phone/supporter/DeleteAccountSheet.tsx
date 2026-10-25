@@ -257,7 +257,7 @@ function DeleteBody({ supporter }: { supporter: NonNullable<ReturnType<typeof us
             <div className="ys-card ys-supporter sp-delete-plan">
               <SeasonHeart />
               <span className="ys-supporter-text">
-                <span className="ph-headline">{t(plan.interval === "five_years" ? "plan.fiveYears" : plan.interval === "month" ? "plan.monthly" : "plan.yearly")}</span>
+                <span className="ph-headline">{t(plan.interval === "lifetime" ? "plan.lifetime" : plan.interval === "month" ? "plan.monthly" : "plan.yearly")}</span>
                 <span className="ph-meta sp-email" data-user-text>
                   {email}
                 </span>

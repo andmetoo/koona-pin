@@ -6,7 +6,12 @@ import type { Store } from "./Store";
 /**
  * The plan as the server signed it.
  */
-export type Plan = { status: PlanStatus, interval: PlanInterval | null, valid_until: string, renews_at: string | null, 
+export type Plan = { status: PlanStatus, interval: PlanInterval | null, 
+/**
+ * The end of the paid period; none for Lifetime, which has no end (a Play license tester's
+ * test purchase of it has its one day).
+ */
+valid_until: string | null, renews_at: string | null, 
 /**
  * Kept until then without an answer from the server.
  */

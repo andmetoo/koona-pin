@@ -25,13 +25,13 @@ export function failureText(error: unknown, t: TFunction): string {
 /** How often the payment step asks whether the payment went through; only while it is open. */
 export const POLL_MS = 3000;
 /**
- * Shown when Paddle's own prices cannot be had and none are remembered (Р-64: $2 a month, $20 a
- * year; $50 once for 5 years).
+ * Shown when Paddle's own prices cannot be had and none are remembered (Р-64, 2026-10-25: $1.49 a
+ * month, $9.99 a year; $29.99 once for Lifetime).
  */
 export const FALLBACK: SupporterPrices = {
-  month: { price_id: "", total: "$2", currency: "USD" },
-  year: { price_id: "", total: "$20", currency: "USD" },
-  five_years: { price_id: "", total: "$50", currency: "USD" },
+  month: { price_id: "", total: "$1.49", currency: "USD" },
+  year: { price_id: "", total: "$9.99", currency: "USD" },
+  lifetime: { price_id: "", total: "$29.99", currency: "USD" },
 };
 /**
  * The prices Paddle gave last time, shown at once next time: dollars turning into euros while the
@@ -45,9 +45,9 @@ function rememberedPrices(): SupporterPrices | null {
   try {
     const kept = JSON.parse(storedValue(PRICES_KEY) ?? "null") as RememberedPrices | null;
     const fresh = kept && Date.now() - kept.at < PRICES_KEPT_MS && kept.at <= Date.now();
-    // Kept by 0.10, before five years were sold, the prices say nothing about them (no key, not
-    // null): forgotten, or their card would appear only once Paddle answers.
-    const complete = kept?.prices?.month?.total && kept.prices.year?.total && "five_years" in kept.prices;
+    // Kept before Lifetime was sold (five years then, under another key), the prices say nothing
+    // about it (no key, not null): forgotten, or its card would appear only once Paddle answers.
+    const complete = kept?.prices?.month?.total && kept.prices.year?.total && "lifetime" in kept.prices;
     return fresh && complete ? kept.prices : null;
   } catch {
     return null;
@@ -83,26 +83,19 @@ export function useSupporterPrices(ask: "always" | "if_unknown" | "never" = "alw
   return { prices, failed };
 }
 
-/** «$20.00» → «$20», «20,00 €» → «20 €»: whole prices without their cents, as on the page of prices. */
+/** «$20.00» → «$20», «20,00 €» → «20 €»: whole prices without their cents, as on the page of prices («$9.99» stays). */
 export const whole = (price: string) => price.replace(/([.,])00(?!\d)/, "");
 
 /** A date as the dialogs write it: «October 11, 2027». */
 export const longDate = (iso: string, language: string) => new Date(iso).toLocaleDateString(language, { day: "numeric", month: "long", year: "numeric" });
 
-/** Five years after a date, as the server counts them (koona-services `upgrade`). */
-export function fiveYearsAfter(iso: string): string {
-  const date = new Date(iso);
-  date.setUTCFullYear(date.getUTCFullYear() + 5);
-  return date.toISOString();
-}
-
-/** A plan's price as its card says it: «$20 a year», «$2 a month», «$50 once». */
+/** A plan's price as its card says it: «$9.99 a year», «$1.49 a month», «$29.99 once». */
 export const priceLine = (value: PlanInterval, price: string, t: TFunction) =>
   t(value === "year" ? "supporter.perYear" : value === "month" ? "supporter.perMonth" : "supporter.once", { price: whole(price) });
 export const planName = (value: PlanInterval, t: TFunction) =>
-  t(value === "year" ? "supporter.yearly" : value === "month" ? "supporter.monthly" : "supporter.fiveYears");
+  t(value === "year" ? "supporter.yearly" : value === "month" ? "supporter.monthly" : "supporter.lifetime");
 export const planBadge = (value: PlanInterval, t: TFunction) =>
-  value === "year" ? t("supporter.twoMonthsFree") : value === "five_years" ? t("supporter.save50") : null;
+  value === "year" ? t("supporter.save44") : value === "lifetime" ? t("supporter.bestValue") : null;
 
 export type PurchaseStep = "plans" | "waiting" | "thanks" | "signIn";
 /** Steps where the dialog has not heard how the payment ended. */
@@ -112,7 +105,7 @@ const unanswered = (s: PurchaseStep) => s === "plans" || s === "waiting";
  * The purchase (sheet 45): the plan → the payment in the browser → thank you, or «Payment received»
  * with a sign-in when the email of the payment already had an account. The payment page asks for the
  * email and the card; the server makes the account from that email and the app is signed in as soon
- * as the payment is seen. With `upgrade`, a subscription's «Switch to 5 years»: only the five years.
+ * as the payment is seen. With `upgrade`, a subscription's «Switch to Lifetime»: only Lifetime.
  */
 export function useSupporterPurchase({
   email,
@@ -155,7 +148,7 @@ export function useSupporterPurchase({
     setPaidEmail(email);
     setStep((s) => (unanswered(s) || s === "signIn" ? "thanks" : s));
   }, [paid, email]);
-  const [interval, setPlan] = useState<PlanInterval>(upgrade ? "five_years" : "year");
+  const [interval, setPlan] = useState<PlanInterval>(upgrade ? "lifetime" : "year");
   const { prices, failed: pricesFailed } = useSupporterPrices();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -182,8 +175,8 @@ export function useSupporterPurchase({
             // paid, the purchase is gone here but the plan is already in place.
             const status = await api.getSupporterStatus();
             if (!alive) return;
-            // A subscriber switching to five years has a plan all along: only the five years count.
-            if (upgrade ? status.plan?.interval === "five_years" : status.plan) {
+            // A subscriber switching to Lifetime has a plan all along: only Lifetime counts.
+            if (upgrade ? status.plan?.interval === "lifetime" : status.plan) {
               setPaidEmail(status.email);
               setStep("thanks");
             } else {
@@ -216,13 +209,13 @@ export function useSupporterPurchase({
 
   // Nothing remembered and no answer yet: the cards keep their room with no price in it.
   const shown = prices ?? (pricesFailed ? FALLBACK : null);
-  // Five years paid once, while the server sells them: their card waits for the prices too.
-  const fiveYearsSold = !shown || !!shown.five_years;
-  const plans = fiveYearsSold ? (["year", "month", "five_years"] as const) : (["year", "month"] as const);
+  // Lifetime, paid once, while the server sells it: its card waits for the prices too.
+  const lifetimeSold = !shown || !!shown.lifetime;
+  const plans = lifetimeSold ? (["year", "month", "lifetime"] as const) : (["year", "month"] as const);
   // Chosen before Paddle's answer said they are not sold: back to the yearly plan, never a hidden choice.
   useEffect(() => {
-    if (!fiveYearsSold && !upgrade) setPlan((chosen) => (chosen === "five_years" ? "year" : chosen));
-  }, [fiveYearsSold, upgrade]);
+    if (!lifetimeSold && !upgrade) setPlan((chosen) => (chosen === "lifetime" ? "year" : chosen));
+  }, [lifetimeSold, upgrade]);
 
   return { step, setStep, interval, setPlan, shown, plans, pay, openAgain, busy, error, checkout, paidEmail };
 }
@@ -321,7 +314,7 @@ export const planLink = (action: PlanAction): "portal" | "play" | null =>
 
 /**
  * The plan's state on its one line and the action beside it (sheet 45): a renewal, no renewal, a
- * failed payment, a plan that could not be checked, five years paid once. A plan paid through
+ * failed payment, a plan that could not be checked, Lifetime paid once. A plan paid through
  * Google Play is managed there.
  */
 export function planState(supporter: SupporterStatus, t: TFunction, language: string): { status: string; tone: "muted" | "danger" | "amber"; action: PlanAction } {
@@ -345,17 +338,19 @@ function planStateOf(supporter: SupporterStatus, t: TFunction, language: string)
     return play
       ? { status: t("supporter.pastDuePlay"), tone: "danger", action: "fixInPlay" }
       : { status: t("supporter.pastDue"), tone: "danger", action: "updateCard" };
-  if (plan.interval === "five_years") {
+  if (plan.interval === "lifetime") {
     // Paid once: nothing to manage unless a subscription still renews too.
     if (plan.also_renews) return { status: t(play ? "supporter.alsoRenewsPlay" : "supporter.alsoRenews"), tone: "amber", action: manage };
-    return { status: t("supporter.paidUntil", { date: date(plan.valid_until) }), tone: "muted", action: "close" };
+    // No end, but a license tester's test purchase on Play has its one day.
+    const status = plan.valid_until ? t("supporter.paidUntil", { date: date(plan.valid_until) }) : t("supporter.lifetimeLine");
+    return { status, tone: "muted", action: "close" };
   }
-  if (plan.status === "canceling") return { status: t("supporter.endsOn", { date: date(plan.valid_until) }), tone: "muted", action: manage };
+  if (plan.status === "canceling") return { status: t("supporter.endsOn", { date: date(plan.valid_until!) }), tone: "muted", action: manage };
   return { status: plan.renews_at ? t("supporter.renewsOn", { date: date(plan.renews_at) }) : "", tone: "muted", action: manage };
 }
 
 /**
- * The Supporter's plan (sheet 45): its state, its action, «Switch to 5 years» where it is offered,
+ * The Supporter's plan (sheet 45): its state, its action, «Switch to Lifetime» where it is offered,
  * and sign out. The plan is asked of the server when it opens and each time the window comes back
  * into focus, as after «Manage».
  */
@@ -364,15 +359,15 @@ export function usePlan({ supporter, onClose, onUpgrade }: { supporter: Supporte
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const plan = supporter.plan;
-  // «Switch to 5 years» only for a renewing subscription, only where the build sells through
+  // «Switch to Lifetime» only for a renewing subscription, only where the build sells through
   // Paddle (a phone's store build does not), never for a plan paid through Google Play (the switch
   // is Paddle's), and only while the server sells them: the prices remembered this week say so,
-  // Paddle is asked only without them, and never for a plan that cannot switch (five years,
+  // Paddle is asked only without them, and never for a plan that cannot switch (Lifetime,
   // canceling, past due).
   const renewing =
-    !!(plan?.renews_at && plan.status === "active" && plan.interval !== "five_years" && plan.store !== "play") && capabilities.purchase === "paddle";
+    !!(plan?.renews_at && plan.status === "active" && plan.interval !== "lifetime" && plan.store !== "play") && capabilities.purchase === "paddle";
   const { prices } = useSupporterPrices(renewing ? "if_unknown" : "never");
-  const offerSwitch = renewing && prices?.five_years ? onUpgrade : undefined;
+  const offerSwitch = renewing && prices?.lifetime ? onUpgrade : undefined;
 
   const run = async (action: () => Promise<unknown>, closeAfter = false) => {
     setBusy(true);

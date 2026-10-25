@@ -378,7 +378,7 @@ export function noticeBanner(notice: SyncNotice, t: TFunction, language: string)
 
 /** Supporter ends within a month and does not renew: sync stops then (frame 11). */
 export function planEndsBanner(plan: Plan | null | undefined, t: TFunction, language: string, now = Date.now()): SyncBanner | null {
-  if (!plan || plan.status !== "canceling") return null;
+  if (!plan || plan.status !== "canceling" || !plan.valid_until) return null;
   const end = Date.parse(plan.valid_until);
   if (!(end > now) || end - now > 31 * 86_400_000) return null;
   const date = new Date(end).toLocaleDateString(language, { day: "numeric", month: "long" });

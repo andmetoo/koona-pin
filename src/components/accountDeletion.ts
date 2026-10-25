@@ -36,7 +36,7 @@ export type DeleteFailure = "payments" | "pending" | "other";
 type Purpose = "delete" | "keep" | "now" | "resume";
 
 /** The sentence about Google Play: only for a Google Play subscription, in the Play build (D2). */
-export const cancelsPlay = (plan: Plan | null) => capabilities.purchase === "play" && plan?.store === "play" && plan.interval !== "five_years";
+export const cancelsPlay = (plan: Plan | null) => capabilities.purchase === "play" && plan?.store === "play" && plan.interval !== "lifetime";
 
 /** What a failure says here: the deletion's own reasons first (payments is a server failure that has words). */
 function deletionFailure(error: unknown, t: TFunction): string {

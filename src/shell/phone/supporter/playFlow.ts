@@ -79,7 +79,7 @@ export function resumedStep(play: PlayProgress | null | undefined): PlayStep {
  */
 export const resumedFailure = (play: PlayProgress | null | undefined): PlayFailure | null => (play?.state === "kept" ? "kept" : null);
 
-const PLAY_PLANS: readonly PlanInterval[] = ["year", "month", "five_years"];
+const PLAY_PLANS: readonly PlanInterval[] = ["year", "month", "lifetime"];
 
 /** The plans the sheet shows: all three while Play's prices are on their way, then those Play sells. */
 export const playPlans = (offer: PlayOffer | null): PlanInterval[] => (offer ? PLAY_PLANS.filter((value) => !!offer[value]) : [...PLAY_PLANS]);
@@ -90,7 +90,7 @@ export const playPlans = (offer: PlayOffer | null): PlanInterval[] => (offer ? P
  * base plan only with the period its card names).
  */
 export const playPriceLine = (value: PlanInterval, price: PlayPrice, t: TFunction) => {
-  const per = price.period === "P1Y" ? "year" : price.period === "P1M" ? "month" : price.period === null || value === "five_years" ? "once" : value;
+  const per = price.period === "P1Y" ? "year" : price.period === "P1M" ? "month" : price.period === null || value === "lifetime" ? "once" : value;
   return t(per === "year" ? "supporter.perYear" : per === "month" ? "supporter.perMonth" : "supporter.once", { price: price.price });
 };
 
@@ -98,16 +98,16 @@ export const playPriceLine = (value: PlanInterval, price: PlayPrice, t: TFunctio
 export const playUnavailable = (offer: PlayOffer | null) => !!offer && (!offer.available || playPlans(offer).length === 0);
 
 /**
- * The badge of a card, only where Play's prices make it true: «2 months free» for a year at most ten
- * months' price, «Save 50%» for five years at most half of five yearly payments. Prices in another
+ * The badge of a card, only where Play's prices make it true: «Save 44%» for a year at most 56% of
+ * twelve months' price; «Best value» for Lifetime below four yearly payments. Prices in another
  * currency than the yearly one say nothing.
  */
 export function playBadge(value: PlanInterval, offer: PlayOffer | null, t: TFunction): string | null {
   const year = offer?.year;
   if (!year) return null;
   const same = (other: PlayPrice | null) => other && other.currency === year.currency && other.micros > 0;
-  if (value === "year" && same(offer.month) && year.micros <= offer.month!.micros * 10) return t("supporter.twoMonthsFree");
-  if (value === "five_years" && same(offer.five_years) && offer.five_years!.micros * 2 <= year.micros * 5) return t("supporter.save50");
+  if (value === "year" && same(offer.month) && year.micros * 100 <= offer.month!.micros * 12 * 56) return t("supporter.save44");
+  if (value === "lifetime" && same(offer.lifetime) && offer.lifetime!.micros < year.micros * 4) return t("supporter.bestValue");
   return null;
 }
 

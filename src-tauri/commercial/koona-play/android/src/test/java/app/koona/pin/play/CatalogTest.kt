@@ -52,12 +52,12 @@ class CatalogTest {
   fun aOneTimeProductIsBoughtThroughItsOptionWithoutAnOffer() {
     val options = listOf(
       OneTimeOption("launch", "token-launch", "€40.00", 40_000_000, "EUR"),
-      OneTimeOption(null, "token-buy", "€50.00", 50_000_000, "EUR"),
+      OneTimeOption(null, "token-buy", "€29.99", 29_990_000, "EUR"),
     )
     assertEquals("token-buy", Catalog.oneTimeOption(options)?.token)
-    assertEquals(Product("supporter_5_years", null, "€50.00", "EUR", 50_000_000, null), Catalog.oneTime("supporter_5_years", options))
+    assertEquals(Product("supporter_lifetime", null, "€29.99", "EUR", 29_990_000, null), Catalog.oneTime("supporter_lifetime", options))
     assertEquals("token-launch", Catalog.oneTimeOption(options.take(1))?.token)
-    assertNull(Catalog.oneTime("supporter_5_years", emptyList()))
+    assertNull(Catalog.oneTime("supporter_lifetime", emptyList()))
   }
 
   @Test
@@ -72,7 +72,7 @@ class CatalogTest {
   @Test
   fun anUpdateAboutAnotherPurchaseIsNotTheAnswerOfTheOneWaiting() {
     val mine = PurchaseFacts("m", listOf("supporter"), PurchaseState.PURCHASED, false, false, "mine")
-    val earlier = PurchaseFacts("e", listOf("supporter_5_years"), PurchaseState.PURCHASED, false, false, "earlier")
+    val earlier = PurchaseFacts("e", listOf("supporter_lifetime"), PurchaseState.PURCHASED, false, false, "earlier")
     assertTrue(Catalog.answers(BillingResponseCode.OK, listOf(earlier, mine), "mine"))
     assertFalse("a slow payment completing while the sheet is open", Catalog.answers(BillingResponseCode.OK, listOf(earlier), "mine"))
     assertTrue("a failure answers the purchase", Catalog.answers(BillingResponseCode.USER_CANCELED, emptyList(), "mine"))

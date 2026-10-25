@@ -1012,7 +1012,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
           onSignIn={() => setSurface("signIn")}
         />
       )}
-      {/* Supporter → 5 years from a subscription (sheet 45): the plans dialog with the five years only,
+      {/* Supporter → Lifetime from a subscription (sheet 45): the plans dialog with Lifetime only,
           about the subscription as it was when the switch was chosen. */}
       {surface === "upgrade" && supporter && upgradeFrom && (
         <SupporterDialog

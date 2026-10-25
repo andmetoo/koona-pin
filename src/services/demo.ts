@@ -171,7 +171,7 @@ let demoDownload: number | null = null;
  * after two polls; `existing` pays with the email of an account that existed before, so the payment
  * asks for the code; `background` has the app see the payment before the dialog does;
  * `later_sign_in` and `later_paid` have it see an earlier purchase while the dialog shows the plans; `supporter`, `canceling`, `past_due`, `offline`,
- * `five_years`, `five_years_renewing` are the states of the plan dialog; `deleting` is a canceling plan whose account is
+ * `lifetime`, `lifetime_renewing` are the states of the plan dialog; `deleting` is a canceling plan whose account is
  * deleted at its end (`delete_at`); `no_server` makes every request fail. Without the key the build sells nothing, as a release.
  */
 export const DEMO_SUPPORTER_KEY = "koonapin.demo.supporter";
@@ -212,10 +212,10 @@ function demoPlanOf(kind: string | null): SupporterStatus["plan"] {
   if (kind === "canceling" || kind === "deleting") return { ...plan, status: "canceling", interval: "year", valid_until: inDays(20), renews_at: null, offline_until: inDays(30) };
   if (kind === "past_due") return { ...plan, status: "past_due", interval: "month", valid_until: inDays(20), renews_at: inDays(20), offline_until: inDays(27) };
   if (kind === "offline") return { ...plan, status: "active", interval: "year", valid_until: inDays(-2), renews_at: inDays(-2), offline_until: inDays(5) };
-  // Supporter · 5 years, paid once; `five_years_renewing` while a subscription still renews too.
-  const fiveYears = { status: "active", interval: "five_years", valid_until: inDays(1826), renews_at: null, offline_until: inDays(30) } as const;
-  if (kind === "five_years") return { ...fiveYears, also_renews: false };
-  if (kind === "five_years_renewing") return { ...fiveYears, also_renews: true };
+  // Supporter · Lifetime, paid once, with no end; `lifetime_renewing` while a subscription still renews too.
+  const lifetime = { status: "active", interval: "lifetime", valid_until: null, renews_at: null, offline_until: inDays(30) } as const;
+  if (kind === "lifetime") return { ...lifetime, also_renews: false };
+  if (kind === "lifetime_renewing") return { ...lifetime, also_renews: true };
   return null;
 }
 let demoSupporter: SupporterStatus | null = null;
@@ -230,7 +230,7 @@ function currentDemoSupporter(): SupporterStatus {
     check_failed: kind === "offline",
     plan_unknown: false,
     awaiting_sign_in: false,
-    ...(kind === "deleting" && plan ? { delete_at: plan.valid_until } : {}),
+    ...(kind === "deleting" && plan?.valid_until ? { delete_at: plan.valid_until } : {}),
     // A deletion sent before a restart whose answer did not come (billing/deletion.rs, deletion_sent).
     ...(demoSwitch("koonapin.demo.deletionPending") === "on" && plan ? { deletion_pending: "anna@example.com" } : {}),
   };
@@ -252,12 +252,12 @@ const DEMO_PLAY_KEY = "koonapin.demo.play";
 function demoPlayVerdict(interval: PlanInterval): PlayState {
   const now = currentDemoSupporter();
   const state = (demoSwitch(DEMO_PLAY_KEY) as PlayState | null) ?? (now.email ? "paid" : "email");
-  const plan = state === "paid" ? demoPlan(interval === "five_years" ? "five_years" : "supporter") : now.plan;
+  const plan = state === "paid" ? demoPlan(interval === "lifetime" ? "lifetime" : "supporter") : now.plan;
   setDemoSupporter({ ...now, plan: plan && { ...plan, store: "play" }, play: { state, email: null } });
   return state;
 }
 const demoPlayPrice = (price: string, micros: number, period: string | null) => ({ price, currency: "EUR", micros, period });
-/** The plan of the last purchase started: five years paid once become that plan. */
+/** The plan of the last purchase started: Lifetime, paid once, becomes that plan. */
 let demoBought: PlanInterval | null = null;
 
 /** Backups to a folder (commercial/backup_folder.rs): `koonapin.demo.backupFolder` = `unreachable` starts with a folder that cannot be reached. */
@@ -495,7 +495,9 @@ async function demoFreshSignIn(code: string | null) {
 async function demoDeletionInfo(code: string | null): Promise<DeleteInfo> {
   await demoFreshSignIn(code);
   const status = currentDemoSupporter();
-  const waitUntil = status.plan && new Date(status.plan.valid_until).getTime() > Date.now() ? status.plan.valid_until : null;
+  // Lifetime has no end to wait for, as the server says (koona-services `paidUntil`).
+  const until = status.plan?.valid_until ?? null;
+  const waitUntil = until && new Date(until).getTime() > Date.now() ? until : null;
   // The account answered: a deletion sent earlier did not delete it.
   if (status.deletion_pending) setDemoSupporter({ ...status, deletion_pending: undefined });
   return { email: status.email ?? "", can_wait: !!waitUntil, wait_until: waitUntil, scheduled: status.delete_at ?? null };
@@ -2543,10 +2545,10 @@ export const demo = {
     await new Promise((resolve) => setTimeout(resolve, 200));
     noServer();
     return {
-      month: { price_id: "pri_month", total: "$2.00", currency: "USD" },
-      year: { price_id: "pri_year", total: "$20.00", currency: "USD" },
-      // `koonapin.demo.fiveYears` = `off`: a server that does not sell them.
-      five_years: demoSwitch("koonapin.demo.fiveYears") === "off" ? null : { price_id: "pri_5y", total: "$50.00", currency: "USD" },
+      month: { price_id: "pri_month", total: "$1.49", currency: "USD" },
+      year: { price_id: "pri_year", total: "$9.99", currency: "USD" },
+      // `koonapin.demo.lifetime` = `off`: a server that does not sell it.
+      lifetime: demoSwitch("koonapin.demo.lifetime") === "off" ? null : { price_id: "pri_lifetime", total: "$29.99", currency: "USD" },
     };
   },
   async startCheckout(interval: PlanInterval) {
@@ -2564,7 +2566,7 @@ export const demo = {
       setDemoSupporter({ ...currentDemoSupporter(), awaiting_sign_in: true });
       return "sign_in";
     }
-    setDemoSupporter({ ...currentDemoSupporter(), email: "anna@example.com", plan: demoPlan(demoBought === "five_years" ? "five_years" : "supporter"), check_failed: false });
+    setDemoSupporter({ ...currentDemoSupporter(), email: "anna@example.com", plan: demoPlan(demoBought === "lifetime" ? "lifetime" : "supporter"), check_failed: false });
     // The app's own background check saw the payment first: the purchase is gone, the plan is here.
     if (storedSupporter() === "background") return "none";
     return "paid";
@@ -2596,9 +2598,9 @@ export const demo = {
     const sells = demoSwitch("koonapin.demo.playProducts") !== "none";
     return {
       available: true,
-      month: sells ? demoPlayPrice("€2.00", 2_000_000, "P1M") : null,
-      year: sells ? demoPlayPrice("€20.00", 20_000_000, "P1Y") : null,
-      five_years: sells ? demoPlayPrice("€50.00", 50_000_000, null) : null,
+      month: sells ? demoPlayPrice("€1.49", 1_490_000, "P1M") : null,
+      year: sells ? demoPlayPrice("€9.99", 9_990_000, "P1Y") : null,
+      lifetime: sells ? demoPlayPrice("€29.99", 29_990_000, null) : null,
       suspended: demoSwitch("koonapin.demo.playSuspended") === "on",
     };
   },
@@ -2639,7 +2641,7 @@ export const demo = {
     const waiting = currentDemoSupporter().play;
     const binds = waiting?.state === "sign_in" && demoSwitch("koonapin.demo.playBind") !== "fail";
     const play = binds ? ({ state: "paid", email: null } as const) : waiting;
-    const bought = play?.state === "paid" ? demoPlan(demoBought === "five_years" ? "five_years" : "supporter") : null;
+    const bought = play?.state === "paid" ? demoPlan(demoBought === "lifetime" ? "lifetime" : "supporter") : null;
     const plan = bought ? { ...bought, store: "play" as const } : address.startsWith("free@") || unknown ? null : demoPlan("supporter");
     setDemoSupporter({ ...currentDemoSupporter(), email: email.trim(), plan, check_failed: unknown, plan_unknown: unknown, awaiting_sign_in: false, play });
     return currentDemoSupporter();

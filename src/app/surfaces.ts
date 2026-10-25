@@ -25,7 +25,7 @@ export const IMPORT_SURFACES: Surface[] = ["import", "importFeeds", "importFile"
  */
 export function useSurfaces({ supporter, sync, update }: { supporter: SupporterStatus | null; sync: SyncStatus | null; update: UpdateStatus | null }) {
   const [surface, setSurface] = useState<Surface>(null);
-  /** The subscription «Switch to 5 years» was chosen for: the step says when it ends. */
+  /** The subscription «Switch to Lifetime» was chosen for: the step says when it ends. */
   const [upgradeFrom, setUpgradeFrom] = useState<Plan | null>(null);
   // Kept while the app runs: closing the dialog or a failed send loses nothing (NP-088).
   const [feedbackDraft, setFeedbackDraft] = useState<FeedbackDraft>(emptyDraft);

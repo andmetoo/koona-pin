@@ -1,6 +1,6 @@
 # Koona Pin Commercial License
 
-Version 1.2, 12 October 2026.
+Version 1.3, 25 October 2026.
 
 Copyright (c) 2026 Radik Ilin. All rights reserved except as expressly granted below.
 
@@ -24,13 +24,13 @@ This permission does not allow routine personal or business use of commercial fe
 
 During an active, paid Supporter subscription, Licensor grants you a non-exclusive license to install and run the unmodified Commercial Software, including as part of an official Koona Pin build, for your personal use or your organization's internal work. You may make reasonable installation and backup copies for that use. Unless your order expressly provides more seats, the subscription covers one individual user on devices that user owns or controls. An organization may purchase subscriptions for its users; a seat may not be shared by multiple people at the same time.
 
-The subscription includes access to updates released for your subscribed plan during the paid term. It does not promise any particular future feature, a release schedule, perpetual access to Supporter features, or updates after the subscription ends. Any trial, additional seats, hosted services or other entitlements must be expressly stated in the offer. This license alone grants no access to a hosted service.
+The subscription includes access to updates released for your subscribed plan during the paid term, or for as long as a Lifetime permission lasts (section 4). It does not promise any particular future feature or a release schedule. A recurring subscription does not include access to Supporter features or updates after it ends. Any trial, additional seats, hosted services or other entitlements must be expressly stated in the offer. This license alone grants no access to a hosted service.
 
 ## 4. Paddle purchases and renewal
 
 Supporter subscriptions are sold through Paddle as merchant of record and authorized reseller. Your payment transaction with Paddle is governed by the [Paddle Buyer Terms](https://www.paddle.com/legal/buyer-terms) and the terms presented at checkout; this document governs your use of the Commercial Software. Licensor remains the software provider.
 
-Plans may be billed monthly or annually, or paid once for a fixed term, such as five years. A plan paid once is a subscription for that term: it does not renew, needs no cancellation, and ends when the term ends; a further purchase adds its term after the current one. The price, currency, applicable taxes, billing period, renewal terms and any trial are disclosed at checkout and in your purchase confirmation. Prices may vary by country and currency; this license does not set a fixed global price. A recurring subscription renews as disclosed at checkout until canceled. Any renewal price change is subject to the notice and consent requirements in the applicable purchase terms and law.
+Plans may be billed monthly or annually, or paid once as Lifetime. Lifetime is a permission without an end date: it does not renew, needs no cancellation, and lasts for as long as Licensor offers the Commercial Software; section 6 says what happens if Supporter or Koona Pin is discontinued. Lifetime covers the Supporter features as they are offered from time to time, under the same terms as a subscription otherwise. Bought while a recurring subscription is active, Lifetime takes over when that subscription's paid period ends, and the subscription is not renewed. The price, currency, applicable taxes, billing period, renewal terms and any trial are disclosed at checkout and in your purchase confirmation. Prices may vary by country and currency; this license does not set a fixed global price. A recurring subscription renews as disclosed at checkout until canceled. Any renewal price change is subject to the notice and consent requirements in the applicable purchase terms and law.
 
 You may cancel renewal through the subscription-management link in your Paddle confirmation email or by contacting [Paddle buyer support](https://paddle.net/). Cancellation normally takes effect at the end of the paid billing period, with access continuing until then. Refunds, statutory withdrawal rights and payment disputes are handled under the applicable Paddle purchase terms and mandatory law. This license does not impose a separate no-refund rule or waive those rights.
 
@@ -48,11 +48,11 @@ These restrictions apply to the Commercial Software covered by this license. The
 
 ## 6. Expiry and breach
 
-Your subscription permission ends when its paid term ends without renewal, or when the subscription is validly terminated under the applicable purchase terms or this license. You must then stop using the commercial features, unless another express permission applies. Cancellation or expiry does not revoke your open-source rights in the community code or transfer any rights in your own data to Licensor. The separate development permission in section 2 remains available while you comply with it.
+Your subscription permission ends when its paid term ends without renewal, or when the subscription is validly terminated under the applicable purchase terms or this license. A Lifetime permission has no paid term to end: it ends only when validly terminated in the same way, or as the last paragraph of this section provides. You must then stop using the commercial features, unless another express permission applies. Cancellation or expiry does not revoke your open-source rights in the community code or transfer any rights in your own data to Licensor. The separate development permission in section 2 remains available while you comply with it.
 
 For a material breach of this license, Licensor may terminate the affected commercial permission after written notice and 30 days to remedy the breach, if it can be remedied. Immediate suspension is permitted where reasonably necessary to stop unauthorized redistribution, fraud or a security threat, subject to mandatory law and applicable purchase terms. These provisions do not shorten a paid term merely because you cancel renewal. Termination does not affect rights and obligations that have already arisen, or statutory remedies and refund rights.
 
-If Licensor stops offering Supporter while your paid term is running, your paid term is kept: if Supporter is replaced by another plan, your permission continues until the end of that term. If Supporter or Koona Pin itself is discontinued, Licensor will release a final official update in which the commercial features work without Licensor's servers or plan checks, with a permission to use them that does not end, and will publish the source code of the server-side services behind paid features, such as sync, so that anyone can run them.
+If Licensor stops offering Supporter while your paid term is running, your paid term is kept: if Supporter is replaced by another plan, your permission continues until the end of that term, and a Lifetime permission continues under the replacement without an end date. If Supporter or Koona Pin itself is discontinued, Licensor will release a final official update in which the commercial features work without Licensor's servers or plan checks, with a permission to use them that does not end, and will publish the source code of the server-side services behind paid features, such as sync, so that anyone can run them.
 
 ## 7. Warranty and liability
 

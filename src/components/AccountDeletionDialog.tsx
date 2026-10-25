@@ -227,7 +227,7 @@ export function AccountDeletionDialog({ supporter, onClose }: { supporter: Suppo
             </span>
             <div className="min-w-0 text-xs leading-[17px]">
               <p className="text-[15px] leading-5 font-semibold text-ink">
-                {t(plan?.interval === "five_years" ? "plan.fiveYears" : plan?.interval === "month" ? "plan.monthly" : "plan.yearly")}
+                {t(plan?.interval === "lifetime" ? "plan.lifetime" : plan?.interval === "month" ? "plan.monthly" : "plan.yearly")}
               </p>
               <p className="truncate text-muted">{sizing ? LONG_EMAIL : email}</p>
               <p className="text-muted">{t("deleteAccount.endsOn", { date: on })}</p>
