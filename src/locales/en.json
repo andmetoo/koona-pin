@@ -1511,6 +1511,7 @@
     "payments": "Payments stop now.",
     "paymentsPlay": "We cancel your Google Play subscription, so there is nothing to do in the Play Store.",
     "refund": "Time already paid for is not refunded, except as the refund policy allows.",
+    "refundOneTime": "Your one-time purchase goes with the account: it can't be moved to a new account and isn't refunded, except as the refund policy allows.",
     "continue": "Continue",
     "whenTitle": "When should we delete it?",
     "paidUntil": "You have Supporter until {{date}}.",

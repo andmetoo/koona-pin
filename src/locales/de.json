@@ -1511,6 +1511,7 @@
     "payments": "Zahlungen enden jetzt.",
     "paymentsPlay": "Wir kündigen Ihr Google-Play-Abo, im Play Store müssen Sie nichts tun.",
     "refund": "Bereits bezahlte Zeit wird nicht erstattet, außer die Erstattungsregeln erlauben es.",
+    "refundOneTime": "Ihr Einmalkauf geht mit dem Konto: Er lässt sich nicht auf ein neues Konto übertragen und wird nicht erstattet, außer die Erstattungsregeln erlauben es.",
     "continue": "Weiter",
     "whenTitle": "Wann sollen wir es löschen?",
     "paidUntil": "Sie haben Supporter bis {{date}}.",

@@ -1511,6 +1511,7 @@
     "payments": "Ödemeler şimdi durur.",
     "paymentsPlay": "Google Play aboneliğinizi biz iptal ederiz; Play Store'da yapmanız gereken bir şey yok.",
     "refund": "Önceden ödenmiş süre, iade politikasının izin verdiği durumlar dışında iade edilmez.",
+    "refundOneTime": "Tek seferlik satın almanız hesapla birlikte gider: yeni bir hesaba taşınamaz ve iade politikasının izin verdiği durumlar dışında iade edilmez.",
     "continue": "Devam",
     "whenTitle": "Ne zaman silelim?",
     "paidUntil": "Supporter'ınız {{date}} tarihine kadar geçerli.",

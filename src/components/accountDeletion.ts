@@ -35,6 +35,14 @@ export type DeleteFailure = "payments" | "pending" | "other";
  */
 type Purpose = "delete" | "keep" | "now" | "resume";
 
+/**
+ * The sentence about refunds: the one-time purchase (no end date) is lost with the account, which a
+ * subscription's «time already paid for» does not say. Never longer than the Google Play sentence
+ * and the subscription's together, which the sizing copy shows.
+ */
+export const refundKey = (plan: Plan | null) =>
+  plan?.interval === "lifetime" && plan.valid_until === null ? "deleteAccount.refundOneTime" : "deleteAccount.refund";
+
 /** The sentence about Google Play: only for a Google Play subscription, in the Play build (D2). */
 export const cancelsPlay = (plan: Plan | null) => capabilities.purchase === "play" && plan?.store === "play" && plan.interval !== "lifetime";
 

@@ -1408,6 +1408,7 @@
     "payments": "결제는 지금 중지됩니다.",
     "paymentsPlay": "Google Play 구독은 저희가 취소하므로 Play 스토어에서 할 일이 없습니다.",
     "refund": "이미 결제한 기간은 환불 정책이 허용하는 경우를 제외하고 환불되지 않습니다.",
+    "refundOneTime": "1회 구매는 계정과 함께 사라집니다. 새 계정으로 옮길 수 없으며 환불 정책이 허용하는 경우를 제외하고 환불되지 않습니다.",
     "continue": "계속",
     "whenTitle": "언제 삭제할까요?",
     "paidUntil": "Supporter 이용 기간: {{date}}까지.",

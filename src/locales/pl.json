@@ -1717,6 +1717,7 @@
     "payments": "Płatności zatrzymują się teraz.",
     "paymentsPlay": "Anulujemy Twoją subskrypcję Google Play, więc w Sklepie Play nie trzeba nic robić.",
     "refund": "Już opłacony czas nie jest zwracany, chyba że pozwalają na to zasady zwrotów.",
+    "refundOneTime": "Twój jednorazowy zakup znika razem z kontem: nie można go przenieść na nowe konto i nie jest zwracany, chyba że pozwalają na to zasady zwrotów.",
     "continue": "Dalej",
     "whenTitle": "Kiedy je usunąć?",
     "paidUntil": "Masz Supportera do {{date}}.",

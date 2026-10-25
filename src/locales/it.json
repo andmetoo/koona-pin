@@ -1614,6 +1614,7 @@
     "payments": "I pagamenti si fermano ora.",
     "paymentsPlay": "Annulliamo noi il tuo abbonamento Google Play, quindi non devi fare nulla nel Play Store.",
     "refund": "Il tempo già pagato non viene rimborsato, salvo quanto consente la politica di rimborso.",
+    "refundOneTime": "Il tuo acquisto singolo se ne va con l’account: non può essere trasferito a un nuovo account e non viene rimborsato, salvo quanto consente la politica di rimborso.",
     "continue": "Continua",
     "whenTitle": "Quando eliminarlo?",
     "paidUntil": "Hai Supporter fino al {{date}}.",

@@ -1628,6 +1628,7 @@
     "payments": "Plaćanja prestaju sada.",
     "paymentsPlay": "Mi otkazujemo vašu Google Play pretplatu, pa u Play prodavnici ne morate ništa da radite.",
     "refund": "Već plaćeno vreme se ne vraća, osim koliko dozvoljavaju pravila o povraćaju.",
+    "refundOneTime": "Vaša jednokratna kupovina nestaje zajedno sa nalogom: ne može se preneti na novi nalog i ne vraća se, osim koliko dozvoljavaju pravila o povraćaju.",
     "continue": "Nastavi",
     "whenTitle": "Kada da ga obrišemo?",
     "paidUntil": "Imate Supporter do {{date}}.",

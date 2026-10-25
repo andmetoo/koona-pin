@@ -1614,6 +1614,7 @@
     "payments": "Los pagos se detienen ahora.",
     "paymentsPlay": "Cancelamos tu suscripción de Google Play, así que no tienes que hacer nada en Play Store.",
     "refund": "El tiempo ya pagado no se reembolsa, salvo lo que permita la política de reembolsos.",
+    "refundOneTime": "Tu pago único se va con la cuenta: no se puede pasar a una cuenta nueva y no se reembolsa, salvo lo que permita la política de reembolsos.",
     "continue": "Continuar",
     "whenTitle": "¿Cuándo la eliminamos?",
     "paidUntil": "Tienes Supporter hasta el {{date}}.",

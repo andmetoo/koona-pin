@@ -1614,6 +1614,7 @@
     "payments": "Les paiements s’arrêtent maintenant.",
     "paymentsPlay": "Nous résilions votre abonnement Google Play : rien à faire dans le Play Store.",
     "refund": "Le temps déjà payé n’est pas remboursé, sauf si la politique de remboursement le permet.",
+    "refundOneTime": "Votre achat unique disparaît avec le compte : il ne peut pas être transféré vers un nouveau compte et n’est pas remboursé, sauf si la politique de remboursement le permet.",
     "continue": "Continuer",
     "whenTitle": "Quand le supprimer ?",
     "paidUntil": "Vous avez Supporter jusqu’au {{date}}.",

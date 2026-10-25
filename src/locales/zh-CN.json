@@ -1408,6 +1408,7 @@
     "payments": "付款现在停止。",
     "paymentsPlay": "我们会取消你的 Google Play 订阅，无需在 Play 商店中操作。",
     "refund": "已付费的时间不予退款，退款政策允许的情况除外。",
+    "refundOneTime": "你的一次性购买会随账号一并失效：无法转移到新账号，退款政策允许的情况除外，否则不予退款。",
     "continue": "继续",
     "whenTitle": "何时删除？",
     "paidUntil": "你的 Supporter 有效期至 {{date}}。",

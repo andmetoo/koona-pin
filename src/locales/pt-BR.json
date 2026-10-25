@@ -1614,6 +1614,7 @@
     "payments": "Os pagamentos param agora.",
     "paymentsPlay": "Nós cancelamos sua assinatura do Google Play, então não há nada a fazer na Play Store.",
     "refund": "O tempo já pago não é reembolsado, exceto quando a política de reembolso permite.",
+    "refundOneTime": "Sua compra única vai embora com a conta: não pode ser transferida para uma conta nova e não é reembolsada, exceto quando a política de reembolso permite.",
     "continue": "Continuar",
     "whenTitle": "Quando devemos excluí-la?",
     "paidUntil": "Você tem Supporter até {{date}}.",
