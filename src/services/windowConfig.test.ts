@@ -45,3 +45,19 @@ describe("the macOS document type", () => {
     expect(readFileSync("src-tauri/macos/kpin.icns").subarray(0, 4).toString()).toBe("icns");
   });
 });
+
+// Tauri's installer gives the type the app's own icon; src-tauri/nsis/hooks.nsh points the class
+// tauri.conf.json names at the ICO that tauri.windows.conf.json installs (2.18.1).
+describe("the Windows document type", () => {
+  const [association] = JSON.parse(readFileSync("src-tauri/tauri.conf.json", "utf8")).bundle.fileAssociations;
+  const resources = JSON.parse(readFileSync("src-tauri/tauri.windows.conf.json", "utf8")).bundle.resources;
+  const hooks = readFileSync("src-tauri/nsis/hooks.nsh", "utf8");
+
+  it("gets the installed icon in the class of tauri.conf.json", () => {
+    expect(hooks).toContain(`!define NP_LIST_CLASS "${association.name}"`);
+    expect(hooks).toContain(`!define NP_LIST_ICON "kpin.ico"`);
+    expect(Object.entries(resources)).toContainEqual(["windows/kpin.ico", "kpin.ico"]);
+    // An ICO: reserved 0, type 1.
+    expect([...readFileSync("src-tauri/windows/kpin.ico").subarray(0, 4)]).toEqual([0, 0, 1, 0]);
+  });
+});

@@ -1,12 +1,14 @@
-// The icon Finder shows on a `.kpin` list (2.18.1): a page with a folded corner, the app's tile on it
-// and «KPIN» under it, drawn from design/brand/pin-spirit-flat like scripts/brand-icons.mjs. Tauri's
-// file associations name no document icon, so src-tauri/macos/Info.plist names this one and
-// tauri.macos.conf.json puts it in the bundle's Resources. Writes src-tauri/macos/kpin.icns; the ICNS
-// is put together here from PNGs, so it is made on any system, without iconutil.
+// The icon Finder and Explorer show on a `.kpin` list (2.18.1): a page with a folded corner, the app's
+// tile on it and «KPIN» under it, drawn from design/brand/pin-spirit-flat like scripts/brand-icons.mjs.
+// Tauri's file associations name no document icon. On a Mac src-tauri/macos/Info.plist names this one
+// and tauri.macos.conf.json puts it in the bundle's Resources; on Windows tauri.windows.conf.json
+// installs the ICO beside the app and src-tauri/nsis/hooks.nsh points the type's DefaultIcon at it.
+// Writes src-tauri/macos/kpin.icns and src-tauri/windows/kpin.ico, both put together here from PNGs,
+// so they are made on any system, without iconutil.
 //
 //   bun scripts/document-icon.mjs [--preview out.png]
 import { chromium } from "@playwright/test";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -91,5 +93,26 @@ head.write("icns", 0, "ascii");
 head.writeUInt32BE(body.length + 8, 4);
 await writeFile(path.join(root, "src-tauri", "macos", "kpin.icns"), Buffer.concat([head, body]));
 
+// The ICO: a directory of 16-byte entries, then a PNG for each size Explorer asks for.
+const sizes = [16, 20, 24, 32, 40, 48, 64, 256];
+const pngs = [];
+for (const size of sizes) pngs.push(await png(documentIcon(size), size));
+const directory = Buffer.alloc(6 + 16 * sizes.length);
+directory.writeUInt16LE(1, 2);
+directory.writeUInt16LE(sizes.length, 4);
+let offset = directory.length;
+sizes.forEach((size, i) => {
+  const at = 6 + 16 * i;
+  directory.writeUInt8(size >= 256 ? 0 : size, at);
+  directory.writeUInt8(size >= 256 ? 0 : size, at + 1);
+  directory.writeUInt16LE(1, at + 4);
+  directory.writeUInt16LE(32, at + 6);
+  directory.writeUInt32LE(pngs[i].length, at + 8);
+  directory.writeUInt32LE(offset, at + 12);
+  offset += pngs[i].length;
+});
+await mkdir(path.join(root, "src-tauri", "windows"), { recursive: true });
+await writeFile(path.join(root, "src-tauri", "windows", "kpin.ico"), Buffer.concat([directory, ...pngs]));
+
 await browser.close();
-console.log("written: src-tauri/macos/kpin.icns");
+console.log("written: src-tauri/macos/kpin.icns, src-tauri/windows/kpin.ico");
