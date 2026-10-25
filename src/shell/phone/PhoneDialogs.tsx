@@ -7,6 +7,8 @@ import { SupporterDialog } from "../../components/SupporterDialog";
 import { capabilities } from "../../platform/capabilities";
 import { api } from "../../services/api";
 import { bundle } from "../../services/bundle";
+import { findNode } from "../../services/collectionTree";
+import { childrenMoveUp } from "../../services/collections";
 import { openRequests } from "../../services/openRequests";
 import { usePhone } from "./PhoneContext";
 import { useSupporterSheets } from "./supporter/useSupporterSheets";
@@ -56,17 +58,14 @@ export function PhoneDialogs() {
     purging,
     setPurging,
     feedMenu,
+    collectionTree,
   } = app;
   useSupporterSheets();
   // A parent's children move up a level with everything inside them (2.19.0): the dialog says so, as the desktop's.
   const deleteCollectionText = (collection: { id: number; name: string }) => {
-    const kids = library.collections.filter((c) => c.parent_id === collection.id).map((c) => c.name);
     const text = t("confirm.deleteCollectionText", { name: collection.name });
-    if (!kids.length) return text;
-    // Intl.ListFormat is in the browsers and webviews we ship, not in the project's TypeScript lib.
-    const list = new (Intl as unknown as { ListFormat: new (lang: string, o: object) => { format: (items: string[]) => string } }).ListFormat(i18n.language, { type: "conjunction" });
-    const more = kids.length === 1 ? t("confirm.deleteCollectionChild", { name: kids[0] }) : t("confirm.deleteCollectionChildren", { names: list.format(kids) });
-    return `${text} ${more}`;
+    const more = childrenMoveUp(t, i18n.language, (findNode(collectionTree, collection.id)?.children ?? []).map((n) => n.item.name));
+    return more ? `${text} ${more}` : text;
   };
   const openSettings = () => {
     setSurface(null);

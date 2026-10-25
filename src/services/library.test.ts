@@ -9,7 +9,6 @@ import {
   matchesBookmark,
   matchesFilters,
   mergeBookmark,
-  moveCollection,
   orderOf,
   siteOf,
   sortBookmarks,
@@ -218,7 +217,5 @@ describe("the orders of NP-114", () => {
       { id: 4, name: "Bücher" },
     ];
     expect(sortCollections(collections, "de").map((c) => c.id)).toEqual([3, 2, 4, 1]);
-    expect(moveCollection(sortCollections(collections, "de"), 3, 0)).toEqual([1, 3, 2, 4]);
-    expect(moveCollection(collections, 0, 9)).toEqual([2, 3, 4, 1]);
   });
 });

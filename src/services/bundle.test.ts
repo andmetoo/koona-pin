@@ -200,6 +200,10 @@ describe("«Add {view}» (N6)", () => {
     expect(view({ tag: "crypto" })).toEqual({ kind: "tag", name: "crypto" });
   });
 
+  it("marks a collection with «Only this collection» ticked (2.19.0)", () => {
+    expect(view({ collectionId: 4, onlyCollection: true })).toEqual({ kind: "collection", collection: collections[0], only: true });
+  });
+
   it("puts everything else into Links", () => {
     for (const extra of [{}, { search: "rust" }, { onlyInbox: true }, { onlyFavorites: true }, { onlyReading: true }, { collectionId: 4, search: "x" }])
       expect(view(extra)?.kind).toBe("links");

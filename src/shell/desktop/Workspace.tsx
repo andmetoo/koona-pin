@@ -27,7 +27,8 @@ import { BookmarkList } from "../../components/library/BookmarkList";
 import { Preview } from "../../components/library/Bookmarks";
 import { CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "../../components/library/Dialogs";
 import { CollectionHeader } from "../../components/library/CollectionHeader";
-import { buildTree, findNode } from "../../services/collectionTree";
+import { findNode } from "../../services/collectionTree";
+import { childrenMoveUp } from "../../services/collections";
 import type { Collection } from "../../types";
 import { DragStack } from "../../components/library/DragStack";
 import { DuplicatesPage } from "../../components/library/DuplicatesPage";
@@ -199,7 +200,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
   const bundleCount = useSyncExternalStore(bundle.subscribe, () => itemCount(bundle.get()));
   /** «New collection inside» (2.19.0): the parent the name dialog makes it in. */
   const [newInside, setNewInside] = useState<Collection | null>(null);
-  const collectionTree = buildTree(library.collections);
+  const { collectionTree } = app;
   const collectionNode = filters.collectionId === null ? undefined : findNode(collectionTree, filters.collectionId);
   const editor = editing && (
     <BookmarkEditor
@@ -439,15 +440,8 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
   );
   const padding = narrow ? "px-6" : "px-8";
   /** The second paragraph of «Delete collection?» when it has children (2.19.0, frame N6): they move up. */
-  const deleteChildren = (c: Collection) => {
-    const children = findNode(collectionTree, c.id)?.children ?? [];
-    if (!children.length) return undefined;
-    // «Rust, Web and Tools» in the interface's language; the ES2020 types do not know ListFormat yet.
-    const List = (Intl as unknown as { ListFormat: new (language: string, options: { type: string }) => { format: (items: string[]) => string } }).ListFormat;
-    const names = new List(i18n.language, { type: "conjunction" }).format(children.map((n) => n.item.name));
-    // One or several, not a plural rule: in Russian «one» is also 21, and 21 names take a plural verb.
-    return children.length === 1 ? t("confirm.deleteCollectionChild", { name: names }) : t("confirm.deleteCollectionChildren", { names });
-  };
+  const deleteChildren = (c: Collection) =>
+    childrenMoveUp(t, i18n.language, (findNode(collectionTree, c.id)?.children ?? []).map((n) => n.item.name));
   return (
     <div className="flex h-full bg-bg text-ink">
       {/* Under the reading mode the library waits as it was (scroll, selection) and takes no focus;

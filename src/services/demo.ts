@@ -102,7 +102,7 @@ import { suggestFrom } from "./triage";
 import { groupsOf, mergedFields } from "./duplicates";
 import { CommandError } from "./errors";
 import { buildTree, canCreateInside, canMoveInto, findNode, inTreeOrder, scopeIds, subtreeIds } from "./collectionTree";
-import { PALETTE } from "./collections";
+import { COLLECTION_ICONS, isEmoji, PALETTE } from "./collections";
 import { storedValue } from "./preferences";
 import { emailShape, length, MAX_MESSAGE } from "./feedback";
 import i18n, { resolveLanguage, storedLanguage } from "../i18n";
@@ -1803,6 +1803,7 @@ export const demo = {
   async setCollectionStyle(id: number, color: string | null, icon: string | null) {
     if (!collections.some((c) => c.id === id)) throw new CommandError("not_found", "No such collection");
     if (color !== null && !(PALETTE as readonly string[]).includes(color)) throw new CommandError("invalid_request", "Unknown colour");
+    if (icon !== null && !(COLLECTION_ICONS as readonly string[]).includes(icon) && !isEmoji(icon)) throw new CommandError("invalid_request", "Not an icon or an emoji");
     collections = collections.map((c) => (c.id === id ? { ...c, color, icon } : c));
     persist();
   },

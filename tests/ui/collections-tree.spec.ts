@@ -190,8 +190,20 @@ test("the row menu renames in place, styles the collection and makes one inside"
   await expect(style.getByRole("radio", { name: "globe" })).toHaveAttribute("aria-checked", "true");
   await expect(item(page, "Frontend").locator("svg.lucide-globe")).toBeVisible();
   await page.screenshot({ path: "test-results/tree-n5.png" });
-  await style.getByRole("textbox", { name: "Or type an emoji" }).fill("🚀");
+  const emoji = style.getByRole("textbox", { name: "Or type an emoji" });
+  await emoji.fill("🚀");
   await expect(item(page, "Frontend")).toContainText("🚀");
+  // A new emoji after the old one replaces it; a letter of a Cyrillic word is no icon;
+  // an icon picked since empties the field (2.19.0).
+  await emoji.press("End");
+  await emoji.pressSequentially("🎉");
+  await expect(item(page, "Frontend")).toContainText("🎉");
+  await expect(emoji).toHaveValue("🎉");
+  await emoji.fill("Р");
+  await expect(item(page, "Frontend")).toContainText("🎉");
+  await style.getByRole("radio", { name: "globe" }).click();
+  await expect(emoji).toHaveValue("");
+  await expect(item(page, "Frontend").locator("svg.lucide-globe")).toBeVisible();
   await style.getByRole("button", { name: "Use a dot" }).click();
   await style.getByRole("button", { name: "Done" }).click();
   await expect(style).toHaveCount(0);

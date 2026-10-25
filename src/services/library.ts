@@ -195,14 +195,6 @@ export function sortCollections<T extends Pick<Collection, "name" | "position">>
   return [...placed, ...rest];
 }
 
-/** The ids of `collections` with the one at `from` put at `to` (both in the sidebar's order). */
-export function moveCollection(collections: Pick<Collection, "id">[], from: number, to: number): number[] {
-  const ids = collections.map((c) => c.id);
-  const [moved] = ids.splice(from, 1);
-  ids.splice(Math.max(0, Math.min(to, ids.length)), 0, moved);
-  return ids;
-}
-
 export function sortBookmarks(bookmarks: Bookmark[], order: ListOrder = NEWEST): Bookmark[] {
   return [...bookmarks].sort((a, b) => compareBookmarks(a, b, order));
 }

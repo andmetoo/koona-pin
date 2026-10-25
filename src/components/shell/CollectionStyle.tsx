@@ -3,21 +3,10 @@ import { createPortal } from "react-dom";
 import { Smile } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Collection } from "../../types";
-import { COLLECTION_ICONS, collectionTint, iconKind, PALETTE } from "../../services/collections";
+import { COLLECTION_ICONS, collectionTint, iconKind, PALETTE, typedEmoji } from "../../services/collections";
 import { COLLECTION_GLYPHS, CollectionIcon } from "../ui/CollectionIcon";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
-
-/** At most this many bytes of emoji, as `db::set_collection_style` takes (2.19.0). */
-const EMOJI_BYTES = 16;
-/** The first grapheme of what was typed or pasted: one emoji, flags and families whole. */
-function firstEmoji(text: string): string | null {
-  const trimmed = text.trim();
-  if (!trimmed || !/[^\x00-\x7f]/.test(trimmed)) return null;
-  const Segmenter = (Intl as unknown as { Segmenter?: new (l?: string, o?: { granularity: string }) => { segment: (s: string) => Iterable<{ segment: string }> } }).Segmenter;
-  const first = Segmenter ? [...new Segmenter(undefined, { granularity: "grapheme" }).segment(trimmed)][0]?.segment : [...trimmed][0];
-  return first && new TextEncoder().encode(first).length <= EMOJI_BYTES && /[^\x00-\x7f]/.test(first) ? first : null;
-}
 
 /**
  * «Icon and colour» (2.19.0, frame N5): the collection's name, five colours,
@@ -39,8 +28,12 @@ export function CollectionStyle({
   const ref = useRef<HTMLDivElement>(null);
   const returnTo = useRef<HTMLElement | null>(null);
   const [position, setPosition] = useState({ left: -9999, top: -9999 });
-  const [emoji, setEmoji] = useState(iconKind(collection.icon)?.kind === "emoji" ? collection.icon! : "");
   const kind = iconKind(collection.icon);
+  /** The saved emoji, from the collection itself: an icon or a dot picked since clears the field (2.19.0). */
+  const saved = kind?.kind === "emoji" ? kind.text : "";
+  /** What is typed that is no emoji yet (an IME's word, a letter); dropped once the icon changes. */
+  const [draft, setDraft] = useState<string | null>(null);
+  useEffect(() => setDraft(null), [collection.icon]);
   const tint = collectionTint(collection);
   const chosenColor = (PALETTE as readonly string[]).includes(collection.color ?? "") ? collection.color : null;
 
@@ -108,7 +101,7 @@ export function CollectionStyle({
               aria-label={t(`collectionStyle.colours.${name}`)}
               title={t(`collectionStyle.colours.${name}`)}
               tabIndex={on || (!chosenColor && name === PALETTE[0]) ? 0 : -1}
-              onClick={() => onStyle(name, collection.icon)}
+              onClick={() => onStyle(name, kind ? collection.icon : null)}
               className={`flex size-[26px] items-center justify-center rounded-full ${on ? "shadow-[0_0_0_2px_var(--np-card),0_0_0_3.5px_var(--np-ink)]" : ""}`}
               style={{ background: `var(--np-${name})` }}
             />
@@ -126,7 +119,7 @@ export function CollectionStyle({
               aria-checked={on}
               aria-label={name.replace(/-\d+$/, "").replace(/-/g, " ")}
               tabIndex={on || (kind?.kind !== "lucide" && i === 0) ? 0 : -1}
-              onClick={() => onStyle(collection.color, name)}
+              onClick={() => onStyle(chosenColor, name)}
               className={`flex size-8 items-center justify-center rounded-lg transition-colors duration-100 hover:bg-hover ${on ? "bg-hover shadow-[inset_0_0_0_1.5px_var(--np-accent)]" : "text-icon"}`}
               style={on ? { color: tint } : undefined}
             >
@@ -139,14 +132,15 @@ export function CollectionStyle({
       <label className="flex h-[34px] items-center gap-2 rounded-lg border border-border bg-card px-2.5 focus-within:border-accent">
         <Icon icon={Smile} className="text-subtle" />
         <input
-          value={emoji}
+          value={draft ?? saved}
           aria-label={t("collectionStyle.emoji")}
           placeholder={t("collectionStyle.emoji")}
           onChange={(e) => {
-            const typed = e.target.value;
-            const one = firstEmoji(typed);
-            setEmoji(one ?? typed);
-            if (one) onStyle(collection.color, one);
+            // The newest emoji replaces the saved one, wherever it was typed or pasted.
+            const one = typedEmoji(e.target.value, saved || null);
+            if (!one) setDraft(e.target.value);
+            else if (one !== saved) onStyle(chosenColor, one);
+            else setDraft(null);
           }}
           className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-subtle"
         />
@@ -154,10 +148,7 @@ export function CollectionStyle({
       <div className="flex items-center justify-between">
         <button
           type="button"
-          onClick={() => {
-            setEmoji("");
-            onStyle(collection.color, null);
-          }}
+          onClick={() => onStyle(collection.color, null)}
           className="rounded-sm px-1 py-0.5 text-sm text-ink hover:text-accent disabled:text-subtle"
           disabled={!kind}
         >

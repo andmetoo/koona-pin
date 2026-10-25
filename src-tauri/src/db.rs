@@ -1538,11 +1538,30 @@ pub const ICONS: [&str; 40] = [
     "sun",
 ];
 
-/// An icon of [`ICONS`], or an emoji: a short text with at least one
-/// character outside ASCII and nothing invisible (2.19.0).
+/// The most bytes an emoji icon takes; the interface caps the field the same (2.19.0).
+pub const EMOJI_BYTES: usize = 16;
+
+/// A character an emoji starts with: the blocks that hold every
+/// `Extended_Pictographic` one and the regional indicators of flags. std
+/// has no Unicode properties; a little wider than the interface's
+/// `\p{Extended_Pictographic}` so whatever it saves passes here (2.19.0).
+fn emoji_base(c: char) -> bool {
+    matches!(c as u32,
+        0xA9 | 0xAE | 0x203C | 0x2049 | 0x2122 | 0x2139 | 0x2194..=0x21AA | 0x231A..=0x23FA | 0x24C2
+        | 0x25AA..=0x25FE | 0x2600..=0x27BF | 0x2934..=0x2935 | 0x2B05..=0x2B55 | 0x3030 | 0x303D | 0x3297 | 0x3299
+        | 0x1F000..=0x1FAFF | 0x1FC00..=0x1FFFD)
+}
+
+/// An icon of [`ICONS`], or an emoji: emoji characters with the joiner,
+/// VS16 and keycap between them, at most [`EMOJI_BYTES`] (2.19.0). Letters
+/// are refused: the field writes on every key, and «Р» of a Cyrillic word
+/// is no icon.
 pub fn valid_icon(icon: &str) -> bool {
+    let joiner = |c: char| matches!(c, '\u{200D}' | '\u{FE0F}' | '\u{20E3}');
     ICONS.contains(&icon)
-        || (icon.len() <= 16 && !icon.is_ascii() && !icon.chars().any(|c| c.is_control() || c.is_whitespace()))
+        || (icon.len() <= EMOJI_BYTES
+            && icon.chars().next().is_some_and(emoji_base)
+            && icon.chars().all(|c| emoji_base(c) || joiner(c)))
 }
 
 /// Why a change of the collections was refused (2.19.0).
@@ -1728,29 +1747,6 @@ pub fn collection_path(conn: &Connection, id: i64) -> Result<Vec<String>> {
         .collect::<Result<_>>()?;
     let forest = Forest::load(conn)?;
     Ok(forest.line(id).iter().rev().filter_map(|x| names.get(x).cloned()).collect())
-}
-
-/// Siblings in the order given, `ids` from first to last (NP-114): one left
-/// out keeps its place, unknown ids change nothing; only the keys that must
-/// change are written (Р-68). The interface moves one collection at a time
-/// with [`move_collection`] since 2.19.0; restoring a backup still orders a
-/// whole level at once.
-pub fn reorder_collections(conn: &Connection, ids: &[i64]) -> Result<()> {
-    let tx = conn.unchecked_transaction()?;
-    let keys: HashMap<i64, Option<String>> = tx
-        .prepare("SELECT id, position_key FROM collections")?
-        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
-        .collect::<Result<_>>()?;
-    let mut seen = std::collections::HashSet::new();
-    let listed: Vec<i64> = ids.iter().copied().filter(|id| keys.contains_key(id) && seen.insert(*id)).collect();
-    let current: Vec<Option<&str>> = listed.iter().map(|id| keys[id].as_deref()).collect();
-    {
-        let mut place = tx.prepare("UPDATE collections SET position_key = ?1 WHERE id = ?2")?;
-        for (at, key) in crate::position_keys::reorder(&current) {
-            place.execute(params![key, listed[at]])?;
-        }
-    }
-    tx.commit()
 }
 
 /// Whether another collection than `except` has the name, in any case.
@@ -2074,28 +2070,34 @@ pub fn delete_collection(conn: &Connection, id: i64) -> Result<()> {
     let place: Option<(Option<i64>, Option<String>)> = tx
         .query_row("SELECT parent_id, position_key FROM collections WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))
         .optional()?;
-    let children: Vec<i64> = tx
-        .prepare(&format!("SELECT id FROM collections WHERE parent_id = ?1 ORDER BY {SIBLING_ORDER}"))?
-        .query_map([id], |r| r.get(0))?
+    let children: Vec<(i64, Option<String>)> = tx
+        .prepare(&format!("SELECT id, position_key FROM collections WHERE parent_id = ?1 ORDER BY {SIBLING_ORDER}"))?
+        .query_map([id], |r| Ok((r.get(0)?, r.get(1)?)))?
         .collect::<Result<_>>()?;
     if let (Some((parent, key)), false) = (place, children.is_empty()) {
+        let others: Vec<String> = tx
+            .prepare("SELECT position_key FROM collections WHERE parent_id IS ?1 AND id <> ?2 AND position_key IS NOT NULL")?
+            .query_map(params![parent, id], |r| r.get(0))?
+            .collect::<Result<Vec<String>>>()?
+            .into_iter()
+            .filter(|k| valid(k))
+            .collect();
         let keys: Vec<Option<String>> = match key.filter(|k| valid(k)) {
             Some(key) => {
-                let others: Vec<String> = tx
-                    .prepare("SELECT position_key FROM collections WHERE parent_id IS ?1 AND id <> ?2 AND position_key IS NOT NULL")?
-                    .query_map(params![parent, id], |r| r.get(0))?
-                    .collect::<Result<Vec<String>>>()?
-                    .into_iter()
-                    .filter(|k| valid(k))
-                    .collect();
                 let lo = others.iter().filter(|k| **k < key).max();
                 let hi = others.iter().filter(|k| **k > key).min();
                 spread(lo.map(String::as_str), hi.map(String::as_str), children.len()).into_iter().map(Some).collect()
             }
+            // An unplaced parent has no place to give: the children keep their
+            // own order after the placed siblings (2.19.0); with no keys
+            // anywhere, by name as before.
+            None if !others.is_empty() || children.iter().any(|c| c.1.as_deref().is_some_and(valid)) => {
+                spread(others.iter().max().map(String::as_str), None, children.len()).into_iter().map(Some).collect()
+            }
             None => vec![None; children.len()],
         };
         let mut up = tx.prepare("UPDATE collections SET parent_id = ?1, position_key = ?2 WHERE id = ?3")?;
-        for (child, key) in children.iter().zip(keys) {
+        for ((child, _), key) in children.iter().zip(keys) {
             up.execute(params![parent, key, child])?;
         }
     }
@@ -3311,18 +3313,21 @@ mod tests {
         // Never moved: by name.
         assert_eq!(names(&conn), ["Articles / To read", "Design & UI", "Development"]);
         let ids: Vec<i64> = get_collections(&conn).unwrap().iter().map(|c| c.id).collect();
-        reorder_collections(&conn, &[ids[2], ids[0], ids[1]]).unwrap();
+        // The first move to the end among unplaced siblings places them all.
+        move_collection(&conn, ids[0], None, None).unwrap();
+        move_collection(&conn, ids[1], None, None).unwrap();
         assert_eq!(names(&conn), ["Development", "Articles / To read", "Design & UI"]);
         assert_eq!(get_collections(&conn).unwrap()[0].position, Some(0));
-        // A new one goes to the end whatever its name; unknown ids change nothing.
+        // A new one goes to the end whatever its name; an unknown id changes nothing.
         create_collection(&conn, "Aardvark", None, None).unwrap();
-        reorder_collections(&conn, &[9_999]).unwrap();
+        assert!(matches!(move_collection(&conn, 9_999, None, None), Err(CollectionError::NotFound)));
         assert_eq!(names(&conn), ["Development", "Articles / To read", "Design & UI", "Aardvark"]);
         delete_collection(&conn, ids[0]).unwrap();
         assert_eq!(names(&conn), ["Development", "Design & UI", "Aardvark"]);
-        // Moving again writes every place.
+        // Moving again: the last first, the first last.
         let ids: Vec<i64> = get_collections(&conn).unwrap().iter().map(|c| c.id).collect();
-        reorder_collections(&conn, &[ids[2], ids[1], ids[0]]).unwrap();
+        move_collection(&conn, ids[2], None, Some(ids[0])).unwrap();
+        move_collection(&conn, ids[0], None, None).unwrap();
         assert_eq!(names(&conn), ["Aardvark", "Design & UI", "Development"]);
     }
 
@@ -3603,6 +3608,52 @@ mod tests {
         assert_eq!(tree(&conn), [pair("C", None), pair("Q", None), pair("Y", None), pair("P", Some("Y")), pair("A", None)]);
         assert_eq!(get_collections(&conn).unwrap().iter().find(|col| col.id == p).unwrap().position, None);
         delete_collection(&conn, 9_999).unwrap();
+    }
+
+    /// An unplaced parent (2.19.0): its children keep the order they were
+    /// given, after the placed siblings, not back by name.
+    #[test]
+    fn children_of_an_unplaced_parent_keep_their_order() {
+        let conn = setup_test_db();
+        conn.execute("DELETE FROM collections", []).unwrap();
+        let make = |name: &str, parent: Option<i64>| create_collection_in(&conn, name, parent, None, None).unwrap().id;
+        let m = (make("A", None), make("M", None)).1;
+        let (x, y) = (make("X", Some(m)), make("Y", Some(m)));
+        // Y before X by hand; M itself never placed.
+        move_collection(&conn, y, Some(m), Some(x)).unwrap();
+        assert_eq!(get_collections(&conn).unwrap().iter().find(|c| c.id == m).unwrap().position, None);
+        delete_collection(&conn, m).unwrap();
+        assert_eq!(tree(&conn), [pair("Y", None), pair("X", None), pair("A", None)]);
+        // Unplaced children of an unplaced parent: after the placed siblings
+        // (B has a key from the start), by name among themselves.
+        let p = (make("B", None), make("P", None)).1;
+        make("R", Some(p));
+        make("Q", Some(p));
+        conn.execute("UPDATE collections SET position_key = NULL WHERE parent_id = ?1 OR id = ?1", [p]).unwrap();
+        delete_collection(&conn, p).unwrap();
+        let names: Vec<String> = tree(&conn).into_iter().map(|t| t.0).collect();
+        let at = |n: &str| names.iter().position(|x| x == n).unwrap();
+        assert!(at("Q") < at("R"), "by name among themselves: {names:?}");
+        assert!(at("B") < at("Q"), "after the placed ones: {names:?}");
+        let empty = setup_test_db();
+        empty.execute("DELETE FROM collections", []).unwrap();
+        let made = |name: &str, parent: Option<i64>| create_collection_in(&empty, name, parent, None, None).unwrap().id;
+        let d = (made("C", None), made("D", None)).1;
+        made("T", Some(d));
+        made("S", Some(d));
+        delete_collection(&empty, d).unwrap();
+        assert!(get_collections(&empty).unwrap().iter().all(|c| c.position.is_none()), "no keys anywhere: still none");
+        assert_eq!(tree(&empty).into_iter().map(|t| t.0).collect::<Vec<_>>(), ["C", "S", "T"]);
+    }
+
+    #[test]
+    fn an_emoji_icon_is_an_emoji() {
+        for icon in ["📚", "🇷🇸", "👍🏽", "👩‍💻", "❤️", "☕", "rocket"] {
+            assert!(valid_icon(icon), "{icon}");
+        }
+        for icon in ["Р", "Работа", "é", "rocketship", "a", "📚a", "\u{200D}📚", "1\u{FE0F}\u{20E3}", "📚📚📚📚📚", ""] {
+            assert!(!valid_icon(icon), "{icon:?}");
+        }
     }
 
     #[test]

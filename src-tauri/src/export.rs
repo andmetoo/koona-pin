@@ -633,7 +633,7 @@ mod tests {
         let (zeta, alpha) = (make("Zeta", None), make("Alpha", None));
         let (deep, _empty) = (make("Deep", Some(zeta)), make("Empty", Some(zeta)));
         let leaf = make("Leaf", Some(deep));
-        db::reorder_collections(&c, &[zeta, alpha]).unwrap();
+        db::move_collection(&c, zeta, None, Some(alpha)).unwrap();
         let add = |url: &str, collection: i64| {
             crate::import::import(&c, &crate::import::parse(&format!("<DL><DT><A HREF=\"{url}\">T</A></DL>"), Utc::now()), false, |_, _| {}).unwrap();
             let id: i64 = c.query_row("SELECT id FROM bookmarks WHERE url = ?1", [url], |r| r.get(0)).unwrap();

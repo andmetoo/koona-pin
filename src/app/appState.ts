@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useHeight } from "../hooks/useHeight";
 import { usePreviewRefresh } from "../hooks/usePreviewRefresh";
@@ -85,6 +85,8 @@ export function useAppState(desktop: DesktopStatus | null, { noticeTiming }: { n
   const { filters } = nav;
   const { counts } = library;
   const collection = library.collections.find((c) => c.id === filters.collectionId);
+  // One tree per change of the collections, not per render (2.19.0).
+  const collectionTree = useMemo(() => buildTree(library.collections), [library.collections]);
   const section = sectionName(filters, collection, t);
   const notifications = notificationsOf(
     {
@@ -151,9 +153,10 @@ export function useAppState(desktop: DesktopStatus | null, { noticeTiming }: { n
     ...inbox,
     counts,
     collection,
+    collectionTree,
     section,
     // A collection counts what is inside it too, unless «Only this collection» (2.19.0).
-    sectionCount: sectionCount(filters, counts, collection && { count: filters.onlyCollection ? collection.count : (findNode(buildTree(library.collections), collection.id)?.total ?? collection.count) }),
+    sectionCount: sectionCount(filters, counts, collection && { count: filters.onlyCollection ? collection.count : (findNode(collectionTree, collection.id)?.total ?? collection.count) }),
     narrowed: isNarrowed(filters),
     notifications,
     clearNotifications,

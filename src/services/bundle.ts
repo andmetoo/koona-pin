@@ -269,7 +269,8 @@ export const bundle = createBundle();
  * into Feeds. Trash offers nothing.
  */
 export type BundleView =
-  | { kind: "collection"; collection: Collection }
+  /** `only`: «Only this collection» is ticked (2.19.0), so the add takes its own links, as the list shows. */
+  | { kind: "collection"; collection: Collection; only?: boolean }
   | { kind: "tag"; name: string }
   | { kind: "links"; label: string; filters: Partial<FilterState> }
   | { kind: "feeds"; label: string; feeds: Feed[] };
@@ -303,7 +304,7 @@ export function bundleView({
   const anySection = filters.onlyFavorites || filters.onlyInbox || filters.onlyReading || filters.onlyOffline;
   if (plain && filters.tag && !filters.collectionId && !anySection) return { kind: "tag", name: filters.tag };
   const collection = filters.collectionId ? collections.find((c) => c.id === filters.collectionId) : undefined;
-  if (plain && !filters.tag && collection) return { kind: "collection", collection };
+  if (plain && !filters.tag && collection) return { kind: "collection", collection, ...(filters.onlyCollection ? { only: true } : {}) };
   return { kind: "links", label: filters.tag && !collection && !anySection ? filters.tag : section, filters };
 }
 

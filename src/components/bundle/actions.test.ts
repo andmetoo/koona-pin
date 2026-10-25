@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Bookmark } from "../../types";
+import type { Bookmark, Collection } from "../../types";
 
 // The prune after library changes (share-bundle.md, piece B): serialised, and never dropping an add
 // made while its ids were read.
-const api = vi.hoisted(() => ({ getBookmarkIds: vi.fn(), listFeeds: vi.fn() }));
+const api = vi.hoisted(() => ({ getBookmarkIds: vi.fn(), listFeeds: vi.fn(), getBookmarks: vi.fn() }));
 vi.mock("../../services/api", () => ({ api }));
 const { bundle } = await import("../../services/bundle");
-const { pruneBundle } = await import("./actions");
+const { addView, pruneBundle } = await import("./actions");
 
 const b = (id: number) => ({ id, url: `https://example.com/${id}`, title: `Page ${id}`, deleted_at: null, notes: null }) as Bookmark;
 const ids = () => bundle.get().sections.flatMap((s) => s.entries.map((e) => e.kind === "bookmark" && e.bookmark.id));
@@ -72,5 +72,22 @@ describe("pruneBundle", () => {
     await expect(first).rejects.toThrow("busy");
     expect(await second).toBe(1);
     expect(api.getBookmarkIds).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("addView", () => {
+  afterEach(() => {
+    bundle.reset();
+    vi.resetAllMocks();
+  });
+
+  it("reads only the collection's own links when «Only this collection» is ticked (2.19.0)", async () => {
+    api.getBookmarks.mockResolvedValue({ items: [b(1)], next: null });
+    const collection = { id: 4, name: "Dev" } as Collection;
+    await addView({ kind: "collection", collection, only: true });
+    expect(api.getBookmarks.mock.calls[0][0]).toEqual({ collectionId: 4, onlyCollection: true });
+    bundle.reset();
+    await addView({ kind: "collection", collection });
+    expect(api.getBookmarks.mock.calls[1][0]).toEqual({ collectionId: 4, onlyCollection: false });
   });
 });

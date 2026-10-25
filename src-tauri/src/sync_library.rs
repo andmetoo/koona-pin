@@ -467,17 +467,17 @@ mod tests {
         let undone = clocks(&conn, |conn| drop(journal.undo(conn, command).unwrap()));
         assert_eq!(undone, set([(BOOKMARK, b.id, 5), (LINK, b.id, three), (LINK, b.id, four)]));
 
-        // Collections: new ones; the first move gives every listed one a key,
-        // the next writes one; a new one has its key from the start; deleting.
+        // Collections: new ones; the first move among unplaced siblings gives
+        // each one a key, the next writes one; a new one has its key from the start; deleting.
         let (mut x, mut y) = (0, 0);
         let created = clocks(&conn, |conn| {
             x = db::create_collection(conn, "X", None, None).unwrap().id;
             y = db::create_collection(conn, "Y", None, None).unwrap().id;
         });
         assert_eq!(created, set([(COLLECTION, x, -1), (COLLECTION, y, -1)]));
-        let first = clocks(&conn, |conn| db::reorder_collections(conn, &[y, shelf.id, x]).unwrap());
+        let first = clocks(&conn, |conn| db::move_collection(conn, shelf.id, None, None).unwrap());
         assert_eq!(first, set([(COLLECTION, y, 3), (COLLECTION, shelf.id, 3), (COLLECTION, x, 3)]));
-        let moved = clocks(&conn, |conn| db::reorder_collections(conn, &[shelf.id, y, x]).unwrap());
+        let moved = clocks(&conn, |conn| db::move_collection(conn, shelf.id, None, Some(y)).unwrap());
         assert_eq!(moved.len(), 1, "{moved:?}");
         let mut z = 0;
         let last = clocks(&conn, |conn| z = db::create_collection(conn, "Z", None, None).unwrap().id);

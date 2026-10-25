@@ -268,11 +268,20 @@ export function CollectionTree(props: CollectionTreeProps) {
       )
     ));
 
-  // Every row is counted in its own group: the posinset among its siblings.
-  const siblingsOf = (node: TreeNode<Collection>) => {
-    const parent = ancestors(roots, node.item.id).at(-1);
-    return parent ? findNode(roots, parent.id)!.children : roots;
-  };
+  // Every row is counted in its own group: the posinset among its siblings. One lookup per
+  // tree, not a walk up the ancestors per row (2.19.0).
+  const groupOf = useMemo(() => {
+    const groups = new Map<number, TreeNode<Collection>[]>();
+    const walk = (level: TreeNode<Collection>[]) => {
+      for (const n of level) {
+        groups.set(n.item.id, level);
+        walk(n.children);
+      }
+    };
+    walk(roots);
+    return groups;
+  }, [roots]);
+  const siblingsOf = (node: TreeNode<Collection>) => groupOf.get(node.item.id) ?? roots;
 
   return (
     <>

@@ -959,7 +959,7 @@ mod tests {
         let ids: Vec<i64> = db::get_collections(&conn).unwrap().iter().map(|c| c.id).collect();
         let keys = |conn: &Connection| rows(conn, "SELECT position_key FROM collections ORDER BY id");
         let before = keys(&conn);
-        db::reorder_collections(&conn, &[ids[3], ids[0], ids[1], ids[2]]).unwrap();
+        db::move_collection(&conn, ids[3], None, Some(ids[0])).unwrap();
         let after = keys(&conn);
         assert_eq!(before.iter().zip(&after).filter(|(a, b)| a != b).count(), 1);
         assert_eq!(db::get_collections(&conn).unwrap()[0].name, "Aardvark");

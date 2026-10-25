@@ -580,11 +580,11 @@ mod tests {
     fn the_sidebar_order_comes_back_with_a_replace_and_follows_in_a_merge() {
         let names = |c: &Connection| db::get_collections(c).unwrap().into_iter().map(|c| c.name).collect::<Vec<_>>();
         let source = library();
-        let mut ids: Vec<i64> = db::get_collections(&source).unwrap().iter().map(|c| c.id).collect();
-        ids.reverse();
-        db::reorder_collections(&source, &ids).unwrap();
+        let id = |name: &str| source.query_row("SELECT id FROM collections WHERE name = ?1", [name], |r| r.get::<_, i64>(0)).unwrap();
+        db::move_collection(&source, id("Чтение"), None, Some(id("Работа"))).unwrap();
         let moved = names(&source);
-        assert_ne!(moved, { let mut by_name = moved.clone(); by_name.sort(); by_name }, "the test needs an order that is not by name");
+        let at = |name: &str| moved.iter().position(|n| n == name).unwrap();
+        assert!(at("Чтение") < at("Работа"), "the move took: {moved:?}");
         let text = copy_of(&source);
 
         let replaced = database();
@@ -593,7 +593,7 @@ mod tests {
 
         let merged = database();
         let own = db::create_collection(&merged, "Ящик", None, None).unwrap();
-        db::reorder_collections(&merged, &[own.id]).unwrap();
+        merged.execute("UPDATE collections SET position_key = ?1 WHERE id = ?2", params![crate::position_keys::between(None, None), own.id]).unwrap();
         restore(&merged, &check(&text).unwrap(), RestoreMode::Merge, &folder()).unwrap();
         // Its own first; the copy's top-level ones after it by name, each followed by what is inside it.
         assert_eq!(names(&merged), ["Ящик", "Работа", "Rust", "Async", "Чтение"]);
@@ -694,10 +694,12 @@ mod tests {
         let source = database();
         let upper = db::create_collection(&source, "Work", Some("#ff0000"), Some("briefcase")).unwrap();
         let lower = db::create_collection(&source, "work", Some("#00ff00"), Some("star")).unwrap();
-        let ids: Vec<i64> = db::get_collections(&source).unwrap().iter().map(|c| c.id).collect();
-        let mut order: Vec<i64> = ids.iter().copied().filter(|id| ![upper.id, lower.id].contains(id)).collect();
-        order.splice(0..0, [lower.id, upper.id]);
-        db::reorder_collections(&source, &order).unwrap();
+        // «work» first, «Work» second, the rest after them.
+        let first = db::get_collections(&source).unwrap()[0].id;
+        if first != upper.id {
+            db::move_collection(&source, upper.id, None, Some(first)).unwrap();
+        }
+        db::move_collection(&source, lower.id, None, Some(upper.id)).unwrap();
         crate::import::import(&source, &crate::import::parse(r#"<a href="https://a.example/">A</a><a href="https://b.example/">B</a>"#, Utc::now()), false, |_, _| {}).unwrap();
         let id = |url: &str| source.query_row("SELECT id FROM bookmarks WHERE url = ?1", [url], |r| r.get::<_, i64>(0)).unwrap();
         db::update_bookmark(&source, id("https://a.example/"), None, None, None, Some(Some(upper.id)), None).unwrap();

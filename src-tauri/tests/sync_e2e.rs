@@ -896,9 +896,12 @@ async fn three_devices_sync_through_the_local_relay() {
     c.with(|conn| db::update_bookmark(conn, id(conn, shared[1]), None, None, None, Some(Some(cooking)), None)).unwrap();
     a.with(|conn| db::trash_bookmark(conn, id(conn, "https://c.example/1"))).unwrap();
     b.with(|conn| db::create_collection(conn, "Inbox Zero", Some("#123456"), None)).unwrap();
-    let mut order: Vec<i64> = c.with(|conn| db::get_collections(conn).unwrap().into_iter().map(|x| x.id).collect());
-    order.reverse();
-    c.with(|conn| db::reorder_collections(conn, &order)).unwrap();
+    // Every level reversed: each one to the end of its parent, the last first.
+    c.with(|conn| {
+        for x in db::get_collections(conn).unwrap().into_iter().rev() {
+            db::move_collection(conn, x.id, x.parent_id, None).unwrap();
+        }
+    });
     converge(&meter, "edits, round 1", &[&a, &b, &c]).await;
 
     b.with(|conn| db::restore_bookmark(conn, id(conn, "https://c.example/1"), false)).unwrap();
@@ -910,13 +913,11 @@ async fn three_devices_sync_through_the_local_relay() {
     });
     a.with(|conn| db::update_bookmark(conn, id(conn, "https://b.example/2"), None, Some("Read on the train".into()), Some(true), None, None))
         .unwrap();
-    let order: Vec<i64> = a.with(|conn| {
-        let mut ids: Vec<i64> = db::get_collections(conn).unwrap().into_iter().map(|x| x.id).collect();
-        let moved = ids.remove(0);
-        ids.insert(2, moved);
-        ids
+    // The first top-level collection moves down two places.
+    a.with(|conn| {
+        let top: Vec<i64> = db::get_collections(conn).unwrap().into_iter().filter(|x| x.parent_id.is_none()).map(|x| x.id).collect();
+        db::move_collection(conn, top[0], None, top.get(3).copied()).unwrap();
     });
-    a.with(|conn| db::reorder_collections(conn, &order)).unwrap();
     converge(&meter, "edits, round 2", &[&a, &b, &c]).await;
     eprintln!("[e2e] both rounds of edits converged in {:.2} s", edits.elapsed().as_secs_f64());
 
