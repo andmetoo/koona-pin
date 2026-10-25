@@ -1,0 +1,6 @@
+/* Written from src/locales/zh-CN.json (phone.share) by `bun run locales:ios`; do not edit. */
+"saved" = "已保存到 Koona Pin";
+"inInbox" = "在收件箱中 · %1$@";
+"done" = "完成";
+"noLink" = "没有可保存的链接";
+"failed" = "无法保存链接";

@@ -1,6 +1,6 @@
 //! Links shared into the app from other apps (NP-071). A phone's share sheet runs without the app
-//! (on Android `ShareActivity` of plugins/koona-share, in a process of its own; later an iOS share
-//! extension) and leaves each link in the queue folder, one JSON file per share; the format is in
+//! (on Android `ShareActivity` of plugins/koona-share, in a process of its own; on iOS its share
+//! extension, writing to the App Group's container) and leaves each link in the queue folder, one JSON file per share; the format is in
 //! that plugin's lib.rs, its examples in its `queue-fixtures`. The app takes the queue in when the
 //! library opens and whenever it comes back to the screen.
 //!

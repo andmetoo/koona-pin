@@ -21,6 +21,10 @@
 // the repository root; a variable already set in the environment wins. Needs what build-ios-sim.mjs
 // needs, with the Rust target aarch64-apple-ios instead of the Simulator's.
 //
+// The share extension (PlugIns/KoonaPinShare.appex, koona-share) is signed and checked with the app: both
+// carry the App Group group.app.koona.pin, which the app id, the extension's id app.koona.pin.share and the
+// group itself need in the developer account (Xcode's cloud signing registers what is missing).
+//
 // Tauri's CLI runs the archive (Xcode's «Build Rust Code» phase talks to it) and writes the team and the
 // build number into the committed Xcode project and Info.plist; this script puts both files back as they
 // were, whatever happens. The archive is not signed; the export signs it.
@@ -32,7 +36,7 @@ import os from "node:os";
 import path from "node:path";
 import { args, buildNumber, cleanMain, option, writeChecksums } from "./lib/store-build.mjs";
 import { loadEnv } from "./lib/env.mjs";
-import { app, appleProject, bundleId, requireLlvmTools, version } from "./lib/ios.mjs";
+import { app, appGroup, appleProject, bundleId, extensions, requireLlvmTools, version } from "./lib/ios.mjs";
 import { publish, root, test } from "./lib/paths.mjs";
 
 if (process.platform !== "darwin") throw new Error("Build this on a Mac with Xcode");
@@ -154,6 +158,19 @@ try {
 }
 if (!existsSync(archive)) throw new Error(`The build left no ${path.relative(root, archive)}`);
 
+// The share extension's entitlements (the App Group of its queue) through the export. Tauri archives
+// with code signing off when an API key is set and then signs only the app's own binary with a dummy
+// certificate, so its entitlements survive `-exportArchive`; an appex left unsigned is exported with
+// the profile's defaults alone and loses the App Group (tauri-apps/tauri#15663, open for Tauri 2.12).
+// Signing each appex ad hoc with its own entitlements file first keeps them; the export re-signs both
+// with the distribution certificate. Harmless once Tauri does it itself.
+const archivedApp = path.join(archive, "Products", "Applications", app);
+for (const { appex, entitlements } of extensions) {
+  const archived = path.join(archivedApp, "PlugIns", appex);
+  if (!existsSync(archived)) throw new Error(`The archive has no PlugIns/${appex}`);
+  execFileSync("codesign", ["--force", "--sign", "-", "--timestamp=none", "--entitlements", entitlements, archived]);
+}
+
 // 2. The export for App Store Connect, signed by Xcode with the key: the team's cloud-managed Apple
 // Distribution certificate and an App Store profile it makes or renews. Its own options file per build:
 // ExportOptions.plist (debugging) stays as Tauri's Simulator builds want it.
@@ -216,9 +233,32 @@ const profileFile = path.join(work, "profile.plist");
 writeFileSync(profileFile, execFileSync("security", ["cms", "-D", "-i", path.join(bundle, "embedded.mobileprovision")]));
 if (plist(profileFile, "ProvisionedDevices") !== undefined) failures.push("the profile lists devices: it is not an App Store profile");
 expect("the profile's team", plist(profileFile, "TeamIdentifier:0"), team);
+// The App Group on the app and the extension (koona-share's queue), and the extension signed and versioned as the app.
+const groups = (file) => plist(file, "com.apple.security.application-groups") ?? "";
+if (!groups(entitlementsFile).includes(appGroup)) failures.push(`the app's entitlements have no App Group ${appGroup}`);
+for (const { appex, id } of extensions) {
+  const extension = path.join(bundle, "PlugIns", appex);
+  if (!existsSync(extension)) {
+    failures.push(`PlugIns/${appex} is missing`);
+    continue;
+  }
+  const extensionInfo = path.join(extension, "Info.plist");
+  expect(`${appex}'s CFBundleIdentifier`, plist(extensionInfo, "CFBundleIdentifier"), id);
+  expect(`${appex}'s CFBundleShortVersionString`, plist(extensionInfo, "CFBundleShortVersionString"), version);
+  expect(`${appex}'s CFBundleVersion`, plist(extensionInfo, "CFBundleVersion"), build);
+  if (!existsSync(path.join(extension, "PrivacyInfo.xcprivacy"))) failures.push(`${appex} has no PrivacyInfo.xcprivacy`);
+  const extensionSignature = spawnSync("codesign", ["-dv", "--verbose=4", extension], { encoding: "utf8" }).stderr;
+  if (!/^Authority=Apple Distribution: /m.test(extensionSignature)) failures.push(`${appex} is not signed with an Apple Distribution certificate`);
+  const extensionEntitlements = path.join(work, `${appex}.entitlements.plist`);
+  writeFileSync(extensionEntitlements, execFileSync("codesign", ["-d", "--entitlements", ":-", extension]));
+  expect(`${appex}'s application-identifier`, plist(extensionEntitlements, "application-identifier"), `${team}.${id}`);
+  if (!groups(extensionEntitlements).includes(appGroup)) failures.push(`${appex}'s entitlements have no App Group ${appGroup} (tauri#15663)`);
+  if (plist(extensionEntitlements, "get-task-allow") === "true") failures.push(`${appex}'s get-task-allow is on`);
+  if (!existsSync(path.join(extension, "embedded.mobileprovision"))) failures.push(`${appex} has no provisioning profile`);
+}
 if (failures.length > 0) throw new Error(`The IPA fails its checks:\n- ${failures.join("\n- ")}`);
 console.log(`Checked: ${bundleId} ${version} (${build}), Apple Distribution, the team of APPLE_TEAM_ID, an App Store profile, `
-  + "no export compliance key, the privacy manifest present");
+  + `no export compliance key, the privacy manifest present; the share extension signed alike, with the App Group ${appGroup}`);
 
 // 4. The IPA, its dSYMs and the checksums of the folder.
 const target = publishable ? publish.ios(version) : test.ios(version);
