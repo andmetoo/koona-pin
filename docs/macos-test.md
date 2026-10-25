@@ -19,6 +19,8 @@ bun run build:macos:test
 
 The Rust HTTP tests model different hosts with loopback addresses `127.0.0.2` through `127.0.0.11`. macOS requires them to be configured explicitly; the workflow adds aliases to `lo0` before the tests. The first ARM run exposed this prerequisite (`AddrNotAvailable`), rather than an application failure; no network tests are skipped.
 
+Both builds put the Quick Look thumbnail extension `src-tauri/macos/thumbnail` (2.18.1) in `Contents/PlugIns/Koona Pin Thumbnail.appex`: a `.kpin` conforms to plain text so that Quick Look shows it as UTF-8, and without the extension Finder draws the list's text in icon and list view in place of `kpin.icns`. `swiftc` builds it for the machine's architecture (no Xcode project); it is sandboxed, signed ad hoc in a test build and with the Developer ID in a release, and the app is signed again around it. macOS's thumbnail agent may keep its list of extensions from before the install: if Finder still shows text, `pluginkit -m -i app.koona.pin.thumbnail` should list it, and logging out (or `killall -9 com.apple.quicklook.ThumbnailsAgent`) refreshes the list.
+
 ### Release build
 
 `bun run build:macos` (`scripts/build-macos.mjs` without `--test`) builds the app with `--features public-release` and `src-tauri/tauri.macos-release.conf.json` (`icon.icns`, hardened runtime, macOS 15.0 minimum), so it needs `KOONAPIN_FEEDBACK_URL` in the environment or `.env`. The output is `release/publish/macos/<version>/<arch>/`: `koonapin-<version>-macos-<arch>.zip` (`Koona Pin.app` at its top, made with `ditto`), `koonapin-<version>-macos-<arch>.dmg` and `SHA256SUMS.txt`, whose last line says whether the build is signed and notarized.

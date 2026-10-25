@@ -230,7 +230,9 @@ test("over the sidebar or the toolbar a drag from outside shows no zone and its 
   const zone = page.locator("[data-drop-zone]");
   const cards = await page.locator("[data-bookmark-id]").count();
   const inbox = await sidebar(page).getByRole("button", { name: /^Inbox/ }).first().textContent();
-  for (const where of ["sidebar", "toolbar"] as const) {
+  // The toolbar's title: the middle of the toolbar is the search field, whose drop is its own.
+  const title = page.locator("main [data-drop-head]").first().getByRole("heading").first();
+  for (const where of ["sidebar", title]) {
     expect(await dragAt(page, "dragenter", { link: "https://example.com/nowhere" }, where)).toBe("none");
     expect(await dragAt(page, "dragover", { link: "https://example.com/nowhere" }, where)).toBe("none");
     await expect(zone).toHaveCount(0);
@@ -447,6 +449,39 @@ test("a drag cancelled at its start leaves later drags to the window; a drop the
   await page.waitForTimeout(400);
   await expect(page.locator("[data-glass-toast]")).toHaveCount(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("the list's pictures and links start no drag of their own: on a Mac a cancelled one leaves the next drag from outside without data", async ({ page }) => {
+  const draggable = await page.evaluate(() =>
+    Array.from(document.querySelectorAll("[data-bookmark-list] img, [data-bookmark-list] a"), (element) =>
+      getComputedStyle(element).getPropertyValue("-webkit-user-drag"),
+    ),
+  );
+  expect(draggable.length).toBeGreaterThan(0);
+  expect(new Set(draggable)).toEqual(new Set(["none"]));
+});
+
+test("a link or text dragged over the search field is the field's: no zone, and the window neither takes nor refuses it", async ({ page }) => {
+  const zone = page.locator("[data-drop-zone]");
+  const search = page.getByLabel("Search the library");
+  const cards = await page.locator("[data-bookmark-id]").count();
+  // From the list onto the field: the zone goes, and the window leaves the drag to the field.
+  await dragAt(page, "dragenter", { link: "https://example.com/typed" });
+  await expect(zone).toHaveAttribute("data-drop-zone", "link");
+  expect(await dragAt(page, "dragover", { link: "https://example.com/typed" }, search)).toBe("unset");
+  await expect(zone).toHaveCount(0);
+  expect(await dragAt(page, "drop", { link: "https://example.com/typed" }, search)).toBe("unset");
+  // Straight onto the field as well.
+  expect(await dragAt(page, "dragenter", { link: "https://example.com/typed" }, search)).toBe("unset");
+  expect(await dragAt(page, "drop", { link: "https://example.com/typed" }, search)).toBe("unset");
+  await expect(zone).toHaveCount(0);
+  // A file over the field is still refused: the webview would open it.
+  expect(await dragFiles(page, "dragenter", [{ name: "feeds.opml", text: OPML }], false, search)).toBe("none");
+  await dragFiles(page, "drop", [{ name: "feeds.opml", text: OPML }], false, search);
+  await page.waitForTimeout(400);
+  await expect(page.locator("[data-glass-toast]")).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(cards);
 });
 
 test("a dropped file goes by what it holds: a list, OPML, bookmarks and a backup open their dialogs; others are refused", async ({ page }) => {

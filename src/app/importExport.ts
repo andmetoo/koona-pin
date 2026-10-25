@@ -134,6 +134,7 @@ export function useImportExport(
       if (!accepting) return;
       depth++;
       if (accepting === "dialog") return keepOut(e);
+      if (fieldTakes(e)) return;
       e.preventDefault();
       show(e);
     };
@@ -143,17 +144,32 @@ export function useImportExport(
       e.preventDefault();
       if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
     };
+    /** Whether the pointer is over a field: a link or text dropped there is the field's, as typed. */
+    const inField = (e: DragEvent) => {
+      const target = e.target instanceof Element ? e.target : null;
+      return !!target?.closest("input, textarea, [contenteditable]:not([contenteditable=false])");
+    };
+    /**
+     * A link or text the window would save, over a field (the search, say): the field takes it and
+     * no zone shows. A file is never the field's.
+     */
+    const fieldTakes = (e: DragEvent) => {
+      if (accepting !== "link" || !inField(e)) return false;
+      lastArea = null;
+      setVeil(null);
+      return true;
+    };
     /**
      * A drag the window does not take: WebKit would open a dropped file or link in place of the
      * app, so it is refused, but over a field, whose drop is its own.
      */
     const refuse = (e: DragEvent) => {
-      const target = e.target instanceof Element ? e.target : null;
-      if (!target?.closest("input, textarea, [contenteditable]:not([contenteditable=false])")) keepOut(e);
+      if (!inField(e)) keepOut(e);
     };
     const over = (e: DragEvent) => {
       if (!accepting) return refuse(e);
       if (accepting === "dialog") return keepOut(e);
+      if (fieldTakes(e)) return;
       e.preventDefault();
       show(e);
     };
@@ -168,11 +184,13 @@ export function useImportExport(
     };
     const drop = (e: DragEvent) => {
       if (!accepting) return refuse(e);
-      e.preventDefault();
+      const field = fieldTakes(e);
+      if (!field) e.preventDefault();
       const kind = accepting;
       depth = 0;
       accepting = null;
       setVeil(null);
+      if (field) return;
       // The dialog under the pointer took it, or it fell beside the dialog.
       if (kind === "dialog") return;
       // Over the sidebar or the toolbar a drop does nothing; a drop at 0,0 goes by the last dragover.

@@ -184,7 +184,9 @@ function useSelectionFrame(
       window.addEventListener("pointerup", up);
       window.addEventListener("pointercancel", up);
     };
-    // A preview image would start the browser's own drag and cancel the pointer.
+    // A preview image would start the browser's own drag and cancel the pointer. `[data-bookmark-list]`
+    // (app.css) keeps one from starting at all: on a Mac a cancelled drag leaves the next drag from
+    // outside without data. This catches what is draggable still.
     const native = (e: DragEvent) => e.preventDefault();
     scroller.addEventListener("pointerdown", down);
     scroller.addEventListener("dragstart", native);
@@ -355,7 +357,7 @@ export function BookmarkList({
   }, [hasMore, loadingMore, count, last, margin, onMore]);
 
   return (
-    <div ref={box} data-view={view} data-loaded={bookmarks.length} data-dragging={dragging || undefined} data-has-selection={selected.size > 0 || undefined}>
+    <div ref={box} data-bookmark-list data-view={view} data-loaded={bookmarks.length} data-dragging={dragging || undefined} data-has-selection={selected.size > 0 || undefined}>
       {/* What a selected card or row adds to its name for a screen reader (NP-123). */}
       <span id={SELECTED_NOTE} hidden>
         {t("card.selected")}
