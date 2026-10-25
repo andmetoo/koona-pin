@@ -1778,6 +1778,29 @@ mod tests {
     }
 
     #[test]
+    fn an_account_that_cannot_be_read_now_is_read_again_and_never_overwritten() {
+        let folder = std::env::temp_dir().join(format!("koonapin-billing-unread-{}", uuid::Uuid::new_v4().simple()));
+        let path = folder.join(FILE);
+        // A folder where the file should be: reading fails, as a locked Keychain would.
+        std::fs::create_dir_all(&path).unwrap();
+        let billing = Billing::load(path.clone());
+        assert!(billing.get().session.is_none(), "shown as signed out meanwhile");
+        assert!(billing.apply(|s| s.checked_at = Some(Utc::now())).is_err(), "nothing is written over it");
+        assert!(path.is_dir());
+        // Readable again: the real account is read, then changed.
+        std::fs::remove_dir(&path).unwrap();
+        let mut real = Stored::default();
+        real.sandbox = service().is_some_and(|s| s.sandbox);
+        real.appstore_adopted = vec!["kept".into()];
+        std::fs::write(&path, serde_json::to_string(&real).unwrap()).unwrap();
+        assert_eq!(billing.get().appstore_adopted, ["kept"]);
+        billing.apply(|s| s.checked_at = Some(Utc::now())).unwrap();
+        let written: Stored = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(written.appstore_adopted, ["kept"]);
+        let _ = std::fs::remove_dir_all(folder);
+    }
+
+    #[test]
     fn updates_are_written_one_at_a_time_and_a_failed_write_changes_nothing() {
         let folder = std::env::temp_dir().join(format!("koonapin-billing-{}", new_secret()));
         let billing = std::sync::Arc::new(Billing::load(folder.join(FILE)));

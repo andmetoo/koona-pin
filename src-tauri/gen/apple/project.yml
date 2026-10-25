@@ -105,7 +105,10 @@ targets:
       # and cargo are, wherever they were installed.
       - script: |
           if ! command -v bun >/dev/null 2>&1; then
-            PATH="$("${SHELL:-/bin/zsh}" -ilc 'printf %s "$PATH"' 2>/dev/null):$PATH"; export PATH
+            # Only the marked line counts: whatever the shell's own files print is left out, and
+            # nothing waits on input.
+            found="$("${SHELL:-/bin/zsh}" -ilc 'printf "\n__KOONA_PATH__=%s\n" "$PATH"' </dev/null 2>/dev/null | sed -n 's/^__KOONA_PATH__=//p' | tail -n 1)"
+            if [ -n "$found" ]; then PATH="$found:$PATH"; export PATH; fi
           fi
           cd "${SRCROOT:?}/../../.." && bun run tauri ios xcode-script -v --platform "${PLATFORM_DISPLAY_NAME:?}" --sdk-root "${SDKROOT:?}" --framework-search-paths "${FRAMEWORK_SEARCH_PATHS:?}" --header-search-paths "${HEADER_SEARCH_PATHS:?}" --gcc-preprocessor-definitions "${GCC_PREPROCESSOR_DEFINITIONS:-}" --configuration "${CONFIGURATION:?}" ${FORCE_COLOR} ${ARCHS:?}
         name: Build Rust Code

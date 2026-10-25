@@ -30,6 +30,14 @@ const CHIPS = 5;
 const LIFT = 90;
 
 /**
+ * The share sheet's hint only where shared links really arrive (an iPhone needs its App Group):
+ * asked of the app once per run, since it can't change while the app runs.
+ */
+let shareReady: boolean | undefined = capabilities.share_intake ? undefined : false;
+let asking: Promise<boolean> | null = null;
+const askShareReady = () => (asking ??= api.shareIntakeReady().then((ready) => (shareReady = ready), () => false));
+
+/**
  * I1–I3 and E1, the Inbox (NP-072b): with links waiting, triage — "Sort inbox" with "5 of 12" and
  * Done, the progress, the card stack with swipes, "File into a collection" chips with the
  * suggested one, the decision pill; sorted, the summary (I3); nothing waiting, "All sorted" (E1).
@@ -46,12 +54,11 @@ export function InboxScreen({ hidden }: { hidden: boolean }) {
   const { t } = app;
   const triage = useTriage(app);
   const { state } = triage;
-  // The share sheet's hint only where shared links really arrive (an iPhone needs its App Group).
-  const [shareIntake, setShareIntake] = useState(false);
+  const [shareIntake, setShareIntake] = useState(() => shareReady ?? false);
   useEffect(() => {
-    if (!capabilities.share_intake) return;
+    if (shareReady !== undefined) return;
     let live = true;
-    api.shareIntakeReady().then((ready) => live && setShareIntake(ready), () => {});
+    void askShareReady().then((ready) => live && setShareIntake(ready));
     return () => {
       live = false;
     };

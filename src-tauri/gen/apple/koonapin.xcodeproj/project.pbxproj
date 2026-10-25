@@ -643,7 +643,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if ! command -v bun >/dev/null 2>&1; then\n  PATH=\"$(\"${SHELL:-/bin/zsh}\" -ilc 'printf %s \"$PATH\"' 2>/dev/null):$PATH\"; export PATH\nfi\ncd \"${SRCROOT:?}/../../..\" && bun run tauri ios xcode-script -v --platform \"${PLATFORM_DISPLAY_NAME:?}\" --sdk-root \"${SDKROOT:?}\" --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration \"${CONFIGURATION:?}\" ${FORCE_COLOR} ${ARCHS:?}\n";
+			shellScript = "if ! command -v bun >/dev/null 2>&1; then\n  # Only the marked line counts: whatever the shell's own files print is left out, and\n  # nothing waits on input.\n  found=\"$(\"${SHELL:-/bin/zsh}\" -ilc 'printf \"\\n__KOONA_PATH__=%s\\n\" \"$PATH\"' </dev/null 2>/dev/null | sed -n 's/^__KOONA_PATH__=//p' | tail -n 1)\"\n  if [ -n \"$found\" ]; then PATH=\"$found:$PATH\"; export PATH; fi\nfi\ncd \"${SRCROOT:?}/../../..\" && bun run tauri ios xcode-script -v --platform \"${PLATFORM_DISPLAY_NAME:?}\" --sdk-root \"${SDKROOT:?}\" --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration \"${CONFIGURATION:?}\" ${FORCE_COLOR} ${ARCHS:?}\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

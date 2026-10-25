@@ -89,6 +89,8 @@ enum ShareQueue {
     var written = 0
     while written < bytes.count {
       let n = bytes[written...].withUnsafeBytes { Darwin.write(fd, $0.baseAddress, $0.count) }
+      // A write a signal interrupted is tried again.
+      if n < 0 && errno == EINTR { continue }
       if n <= 0 {
         close(fd)
         unlink(partial.path)

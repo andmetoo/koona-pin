@@ -230,6 +230,18 @@ mod tests {
     use std::fs;
 
     #[test]
+    fn a_store_that_cannot_be_read_now_is_an_error_not_damage() {
+        // A folder where the file should be: reading fails as a locked Keychain would.
+        let dir = folder("unreadable");
+        let path = dir.join(FILE);
+        fs::create_dir_all(&path).unwrap();
+        assert!(Identity::load_or_create(&path).is_err());
+        assert!(!damaged_path(&path).exists(), "nothing set aside");
+        assert!(path.is_dir(), "nothing replaced");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn a_random_letter_is_a_latin_capital() {
         for _ in 0..200 {
             assert!(random_letter().is_ascii_uppercase());
