@@ -104,6 +104,8 @@ tauri-plugin-deep-link = "2.6"
 # tree through the updater's TLS verifier.
 [target.'cfg(target_os = "ios")'.dependencies]
 security-framework = { version = "3.7", default-features = false }
+# The App Store build only (feature `store-appstore`): StoreKit 2, under the commercial license.
+tauri-plugin-koona-appstore = { path = "commercial/koona-appstore", optional = true }
 
 # Phones only (NP-151): our own plugin for system Back, the iOS edge swipe, renderer loss, the
 # insets, and (NP-072b) the signals of the phone's look and the haptics (plugins/koona-mobile).
@@ -117,10 +119,6 @@ libc = "0.2"
 # The Play build only (feature `store-play`, NP-154): Play Billing, under the commercial license.
 [target.'cfg(target_os = "android")'.dependencies]
 tauri-plugin-koona-play = { path = "commercial/koona-play", optional = true }
-
-# The App Store build only (feature `store-appstore`): StoreKit 2, under the commercial license.
-[target.'cfg(target_os = "ios")'.dependencies]
-tauri-plugin-koona-appstore = { path = "commercial/koona-appstore", optional = true }
 
 [dev-dependencies]
 # `trace`: the example `query_plans` prints the plan of every statement a command runs (NP-114).

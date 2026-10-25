@@ -41,4 +41,8 @@ share_intake: boolean,
 /**
  * Haptic feedback.
  */
-haptics: boolean, purchase: Purchase, };
+haptics: boolean, 
+/**
+ * Site icons from Google's icon service; a phone asks only the site (`metadata::fetched_icon`).
+ */
+icon_service: boolean, purchase: Purchase, };

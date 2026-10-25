@@ -166,7 +166,7 @@ test("without a file manager the Saved notice offers no «Show»", async ({ page
   await page.addInitScript(() => {
     (window as { __KOONA__?: unknown }).__KOONA__ = {
       platform: "desktop",
-      capabilities: { file_manager: false, tray: true, autostart: true, updates: "self", browser_capture: true, mcp: true, quit: true, folder_picker: true, share_intake: false, haptics: false, purchase: "paddle" },
+      capabilities: { file_manager: false, tray: true, autostart: true, updates: "self", browser_capture: true, mcp: true, quit: true, folder_picker: true, share_intake: false, haptics: false, icon_service: true, purchase: "paddle" },
     };
   });
   await page.reload();

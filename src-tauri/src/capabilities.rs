@@ -69,6 +69,8 @@ pub struct Capabilities {
     pub share_intake: bool,
     /// Haptic feedback.
     pub haptics: bool,
+    /// Site icons from Google's icon service; a phone asks only the site (`metadata::fetched_icon`).
+    pub icon_service: bool,
     pub purchase: Purchase,
 }
 
@@ -105,6 +107,7 @@ impl AppInfo {
                 share_intake: share_intake(platform),
                 // Played by the `haptic` command of koona-mobile, a plugin registered on phones only.
                 haptics: !desktop,
+                icon_service: desktop,
                 purchase: purchase(desktop),
             },
         }

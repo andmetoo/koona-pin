@@ -25,6 +25,7 @@ const desktop: AppInfo = {
     folder_picker: true,
     share_intake: false,
     haptics: false,
+    icon_service: true,
     purchase: "paddle",
   },
 };

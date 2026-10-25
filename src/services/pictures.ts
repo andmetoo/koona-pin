@@ -1,7 +1,7 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { isTauri } from "./api";
 import { pictureUrl } from "./feedsView";
-import { isMobile } from "../platform/platform";
+import { capabilities } from "../platform/capabilities";
 
 /**
  * The pictures the app keeps a local copy of (NP-146): a bookmark's preview and
@@ -23,7 +23,7 @@ const FEED_KINDS: ReadonlySet<PictureKind> = new Set(["post-thumb", "feed-icon"]
 export function pictureSource(kind: PictureKind, sourceUrl: string | null | undefined): string | null {
   if (!sourceUrl) return null;
   if (FEED_KINDS.has(kind)) return pictureUrl(sourceUrl);
-  return isMobile && kind === "bookmark-icon" ? siteIcon(sourceUrl) : sourceUrl;
+  return !capabilities.icon_service && kind === "bookmark-icon" ? siteIcon(sourceUrl) : sourceUrl;
 }
 
 const ICON_SERVICE = "https://www.google.com/s2/favicons?domain=";
