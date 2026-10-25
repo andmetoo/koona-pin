@@ -23,10 +23,13 @@
 //
 // The share extension (PlugIns/KoonaPinShare.appex, koona-share) is signed and checked with the app: both
 // carry the App Group group.app.koona.pin, which the app id, the extension's id app.koona.pin.share and the
-// group itself need in the developer account (Xcode's cloud signing registers what is missing).
+// group itself need in the developer account. Those are made once in the developer portal: an App Store
+// Connect API key cannot reach App Groups (Xcode's request answers 401); with them in place, cloud signing
+// makes the extension's App Store profile.
 //
 // Tauri's CLI runs the archive (Xcode's «Build Rust Code» phase talks to it) and writes the team and the
-// build number into the committed Xcode project and Info.plist; this script puts both files back as they
+// build number into the committed Xcode project and the Info.plist files (the app's and the share
+// extension's); this script puts the files back as they
 // were, whatever happens. The archive is not signed; the export signs it.
 import { execFileSync, spawnSync } from "node:child_process";
 import {
@@ -52,12 +55,13 @@ const plist = (file, key) => {
   return result.status === 0 ? result.stdout.trim() : undefined;
 };
 
-// The two files Tauri's archive edits. While its edits are on disk, Git skips them (below); a build that
+// The files Tauri's archive edits. While its edits are on disk, Git skips them (below); a build that
 // was killed (SIGKILL, a closed terminal) could not put them back, and Git still skips them, hiding them
 // from `git status`. That is undone first, whatever this run does next.
 const touched = [
   path.join(appleProject, "koonapin.xcodeproj", "project.pbxproj"),
   path.join(appleProject, "koonapin_iOS", "Info.plist"),
+  path.join(appleProject, "koonapin_Share", "Info.plist"),
 ];
 const skipWorktree = (on) => git("update-index", on ? "--skip-worktree" : "--no-skip-worktree", ...touched);
 const skipped = git("ls-files", "-v", "--", ...touched).split("\n").filter((line) => /^[Ss] /.test(line));
@@ -95,7 +99,7 @@ if (given) {
   process.exit(0);
 }
 
-// A killed build also left Tauri's lines in the two files: the team (which must never reach a commit, the
+// A killed build also left Tauri's lines in the files: the team (which must never reach a commit, the
 // repository is public) and a build number, which the restore below would save as the original. Both
 // are refused until the files are checked out.
 const [project, infoPlist] = touched;
@@ -123,8 +127,8 @@ if (!publishable) console.warn(`Not a clean commit of origin/main: a test build 
 
 requireLlvmTools();
 
-// 1. The archive, by Tauri's CLI, with the two files it edits put back afterwards. While Tauri's edits
-// are on disk, Git skips the two files, so a `git add` elsewhere stages nothing of them.
+// 1. The archive, by Tauri's CLI, with the files it edits put back afterwards. While Tauri's edits
+// are on disk, Git skips the files, so a `git add` elsewhere stages nothing of them.
 skipWorktree(true);
 const saved = touched.map((file) => [file, readFileSync(file)]);
 const restore = () => {
@@ -196,7 +200,9 @@ const exportRun = spawnSync("xcodebuild", ["-exportArchive", "-archivePath", arc
 { stdio: "inherit" });
 if (exportRun.status !== 0) {
   throw new Error(`The export failed with status ${exportRun.status}. «Cloud signing permission error» means the API key `
-    + "has no access to cloud-managed distribution certificates: an Admin key does (docs/building.md).");
+    + "has no access to cloud-managed distribution certificates: an Admin key does. «No profiles for 'app.koona.pin.share'» "
+    + "with «Authentication failed» means the developer portal lacks the App Group group.app.koona.pin or the extension's id "
+    + "with it, which the API key cannot make (docs/building.md).");
 }
 const ipaName = readdirSync(exported).find((name) => name.endsWith(".ipa"));
 if (!ipaName) throw new Error("The export left no IPA");

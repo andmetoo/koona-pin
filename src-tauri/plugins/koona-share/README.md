@@ -38,5 +38,7 @@ never say "Saved" for a link the app puts aside.
   locked SQLite file in a shared container gets a suspended app killed (`0xdead10cc`).
 - The extension's versions are the app's, copied in at build time. `bun run build:ios` signs the
   extension ad hoc with its entitlements before the export (tauri-apps/tauri#15663) and checks the
-  App Group in the signed IPA.
+  App Group in the signed IPA. The App Group `group.app.koona.pin`, the extension's id
+  `app.koona.pin.share` and the App Groups capability on both ids are made once in the developer
+  portal: the App Store Connect API key cannot reach App Groups.
 - After editing `project.yml`, regenerate the project: `cd src-tauri/gen/apple && xcodegen generate`.
