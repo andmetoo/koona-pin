@@ -7,9 +7,9 @@
 // so they are made on any system, without iconutil.
 //
 //   bun scripts/document-icon.mjs [--preview out.png]
-import { chromium } from "@playwright/test";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { ico, svgRenderer } from "./lib/icons.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const brand = path.join(root, "design", "brand", "pin-spirit-flat");
@@ -47,15 +47,7 @@ function documentIcon(size) {
   );
 }
 
-const browser = await chromium.launch();
-const page = await browser.newPage();
-/** Renders an SVG at `size` pixels on a transparent background. */
-async function png(svg, size) {
-  await page.setViewportSize({ width: size, height: size });
-  await page.setContent(`<body style="margin:0;background:transparent"><img style="display:block;width:${size}px;height:${size}px" src="data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}"></body>`);
-  await page.locator("img").evaluate((img) => img.decode());
-  return page.screenshot({ omitBackground: true, clip: { x: 0, y: 0, width: size, height: size } });
-}
+const { png, page: pageAt, close } = await svgRenderer();
 
 const preview = process.argv.indexOf("--preview");
 if (preview > 0) {
@@ -63,6 +55,7 @@ if (preview > 0) {
   const sizes = [512, 128, 64, 32, 16];
   const pngs = [];
   for (const s of sizes) pngs.push((await png(documentIcon(s), s * (s <= 32 ? 2 : 1))).toString("base64"));
+  const page = await pageAt(1);
   await page.setViewportSize({ width: 1000, height: 560 });
   await page.setContent(
     `<body style="margin:0;display:flex">` +
@@ -71,7 +64,7 @@ if (preview > 0) {
       `</body>`,
   );
   await page.screenshot({ path: process.argv[preview + 1] });
-  await browser.close();
+  await close();
   process.exit(0);
 }
 
@@ -93,26 +86,11 @@ head.write("icns", 0, "ascii");
 head.writeUInt32BE(body.length + 8, 4);
 await writeFile(path.join(root, "src-tauri", "macos", "kpin.icns"), Buffer.concat([head, body]));
 
-// The ICO: a directory of 16-byte entries, then a PNG for each size Explorer asks for.
-const sizes = [16, 20, 24, 32, 40, 48, 64, 256];
-const pngs = [];
-for (const size of sizes) pngs.push(await png(documentIcon(size), size));
-const directory = Buffer.alloc(6 + 16 * sizes.length);
-directory.writeUInt16LE(1, 2);
-directory.writeUInt16LE(sizes.length, 4);
-let offset = directory.length;
-sizes.forEach((size, i) => {
-  const at = 6 + 16 * i;
-  directory.writeUInt8(size >= 256 ? 0 : size, at);
-  directory.writeUInt8(size >= 256 ? 0 : size, at + 1);
-  directory.writeUInt16LE(1, at + 4);
-  directory.writeUInt16LE(32, at + 6);
-  directory.writeUInt32LE(pngs[i].length, at + 8);
-  directory.writeUInt32LE(offset, at + 12);
-  offset += pngs[i].length;
-});
+// The ICO: a PNG for each size Explorer asks for.
+const entries = [];
+for (const size of [16, 20, 24, 32, 40, 48, 64, 256]) entries.push({ size, data: await png(documentIcon(size), size) });
 await mkdir(path.join(root, "src-tauri", "windows"), { recursive: true });
-await writeFile(path.join(root, "src-tauri", "windows", "kpin.ico"), Buffer.concat([directory, ...pngs]));
+await writeFile(path.join(root, "src-tauri", "windows", "kpin.ico"), ico(entries));
 
-await browser.close();
+await close();
 console.log("written: src-tauri/macos/kpin.icns, src-tauri/windows/kpin.ico");

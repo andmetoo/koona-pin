@@ -20,9 +20,11 @@ describe("the macOS document type", () => {
   const [association] = JSON.parse(read("tauri.conf.json")).bundle.fileAssociations;
   const macos = JSON.parse(read("tauri.macos.conf.json")).bundle;
   const plist = read(macos.macOS.infoPlist);
-  /** The strings of the plist under `key`: the string itself, or those of its array. */
+  /** The strings of the plist under `key`: the string itself, or those of its array; a missing key fails. */
   const strings = (key: string, from = plist) => {
-    const after = from.slice(from.indexOf(`<key>${key}</key>`) + key.length + 11).trimStart();
+    const at = from.indexOf(`<key>${key}</key>`);
+    if (at < 0) throw new Error(`no ${key} in src-tauri/${macos.macOS.infoPlist}`);
+    const after = from.slice(at + key.length + 11).trimStart();
     const value = after.startsWith("<array>") ? after.slice(0, after.indexOf("</array>")) : after.slice(0, after.indexOf("</string>") + 9);
     return [...value.matchAll(/<string>([^<]*)<\/string>/g)].map((m) => m[1]);
   };

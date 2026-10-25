@@ -169,4 +169,8 @@ FunctionEnd
     ; A library an earlier build left there goes with the current one.
     RmDir /r "$APPDATA\${NP_LEGACY_DATA_DIR}"
   ${EndIf}
+
+  ; The template removed the `.kpin` class and its icon: Explorer is told, or it keeps drawing the
+  ; list's icon from its cache. SHCNE_ASSOCCHANGED, SHCNF_FLUSH.
+  System::Call "shell32::SHChangeNotify(i 0x08000000, i 0x1000, p 0, p 0)"
 !macroend

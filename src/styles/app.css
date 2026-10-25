@@ -449,10 +449,11 @@
     user-select: none;
   }
   /* WebKit on a Mac gives the next drag from outside no types and no files once the page has
-     cancelled a drag at its start (2.18.1), so a list or OPML dropped after it went untaken. The
-     list's pictures and links are never dragged: no drag starts there to be cancelled. */
-  [data-bookmark-list] img,
-  [data-bookmark-list] a {
+     cancelled a drag at its start (2.18.1), so a list or OPML dropped after it went untaken.
+     Nothing in the list's scroller is dragged (its selection frame is a pointer drag): no drag
+     starts there to be cancelled. The property is not inherited, so it goes on every element. */
+  [data-no-native-drag],
+  [data-no-native-drag] * {
     -webkit-user-drag: none;
   }
   ::selection {

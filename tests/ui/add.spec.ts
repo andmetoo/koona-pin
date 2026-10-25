@@ -414,51 +414,72 @@ test("a file dragged over the window: the hero, as real drags show it; the kind 
   await expect(zone).toHaveCount(0);
 });
 
-test("a drag cancelled at its start leaves later drags to the window; a drop the window does not take is still refused", async ({ page }) => {
+test("the app's own drags are told by what they carry: one that never ends or was cancelled leaves later drags to the window", async ({ page }) => {
   const zone = page.locator("[data-drop-zone]");
-  /** A `dragstart` on `selector`; whether the page cancelled it. */
-  const dragStart = (selector: string) =>
-    page.evaluate((selector) => {
-      const event = new DragEvent("dragstart", { bubbles: true, cancelable: true });
-      document.querySelector(selector)!.dispatchEvent(event);
-      return event.defaultPrevented;
-    }, selector);
-  /** A drop over the list; whether the page kept the webview from opening it. */
-  const dropKept = async (init: { link?: string; file?: string }) =>
+  const cards = await page.locator("[data-bookmark-id]").count();
+  /**
+   * The app's own drag of a link: a `dragstart` on a probe element in the list area, then a drop of
+   * the same data over the list or a probe `field` there; with `cancel`, the probe cancels the start
+   * and nothing follows. Whether the page kept the webview from opening the drop.
+   */
+  const ownDrop = async (cancel: boolean, field?: string) =>
     page.evaluate(
-      ({ init, at }) => {
+      ({ cancel, field, at }) => {
+        const host = document.elementFromPoint(at.x, at.y)!;
+        const source = host.appendChild(document.createElement("span"));
+        if (cancel) source.addEventListener("dragstart", (e) => e.preventDefault());
         const data = new DataTransfer();
-        if (init.link) data.setData("text/uri-list", init.link);
-        if (init.file) data.items.add(new File(["x"], init.file));
-        const event = new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true, clientX: at.x, clientY: at.y });
-        (document.elementFromPoint(at.x, at.y) ?? document.body).dispatchEvent(event);
-        return event.defaultPrevented;
+        data.setData("text/uri-list", "https://example.com/own");
+        source.dispatchEvent(new DragEvent("dragstart", { dataTransfer: data, bubbles: true, cancelable: true }));
+        // Its source leaves the page mid-drag: no `dragend` reaches the window.
+        source.remove();
+        // A cancelled drag never drops anywhere.
+        if (cancel) return true;
+        const target = field ? host.appendChild(Object.assign(document.createElement("input"), { type: field })) : host;
+        const box = target.getBoundingClientRect();
+        const point = { clientX: box.left + 2, clientY: box.top + 2 };
+        target.dispatchEvent(new DragEvent("dragenter", { dataTransfer: data, bubbles: true, cancelable: true, ...point }));
+        const drop = new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true, ...point });
+        target.dispatchEvent(drop);
+        if (field) target.remove();
+        return drop.defaultPrevented;
       },
-      { init, at: await dropPoint(page) },
+      { cancel, field, at: await dropPoint(page) },
     );
-  // The list cancels a preview image's own drag (macOS, 2.18.0): no `dragend` follows it.
-  expect(await dragStart("[data-bookmark-id]")).toBe(true);
-  await dragFiles(page, "dragenter", [{ name: "other.kpin" }], true);
-  await expect(zone).toHaveAttribute("data-drop-zone", "hero");
-  await dragFiles(page, "dragleave", [], true);
-  await expect(zone).toHaveCount(0);
-  // The app's own drag, dropped on the window: not taken, and still not opened by the webview.
-  expect(await dragStart("main")).toBe(false);
-  expect(await dropKept({ file: "photo.png" })).toBe(true);
-  expect(await dropKept({ link: "https://example.com/own" })).toBe(true);
+  // The app's own link, dropped on the list or on a checkbox there: not saved, and not opened by
+  // the webview. On a text field it is the field's.
+  expect(await ownDrop(false)).toBe(true);
+  expect(await ownDrop(false, "checkbox")).toBe(true);
+  expect(await ownDrop(false, "text")).toBe(false);
+  // Neither that drag, which never ended, nor a cancelled one keeps a drag from outside untaken.
+  for (const cancel of [false, true]) {
+    if (cancel) await ownDrop(true);
+    await dragFiles(page, "dragenter", [{ name: "other.kpin" }], true);
+    await expect(zone).toHaveAttribute("data-drop-zone", "hero");
+    await dragFiles(page, "dragleave", [], true);
+    await expect(zone).toHaveCount(0);
+  }
   await page.waitForTimeout(400);
   await expect(page.locator("[data-glass-toast]")).toHaveCount(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(cards);
 });
 
-test("the list's pictures and links start no drag of their own: on a Mac a cancelled one leaves the next drag from outside without data", async ({ page }) => {
+test("nothing in the list starts a drag of its own: on a Mac a cancelled one leaves the next drag from outside without data", async ({ page }) => {
   const draggable = await page.evaluate(() =>
-    Array.from(document.querySelectorAll("[data-bookmark-list] img, [data-bookmark-list] a"), (element) =>
+    Array.from(document.querySelectorAll("[data-no-native-drag] img, [data-no-native-drag] a, [data-no-native-drag] [data-bookmark-id]"), (element) =>
       getComputedStyle(element).getPropertyValue("-webkit-user-drag"),
     ),
   );
   expect(draggable.length).toBeGreaterThan(0);
   expect(new Set(draggable)).toEqual(new Set(["none"]));
+  // A preview image's drag is not cancelled at its start: none starts.
+  const cancelled = await page.evaluate(() => {
+    const event = new DragEvent("dragstart", { bubbles: true, cancelable: true });
+    document.querySelector("[data-no-native-drag] [data-bookmark-id]")!.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  expect(cancelled).toBe(false);
 });
 
 test("a link or text dragged over the search field is the field's: no zone, and the window neither takes nor refuses it", async ({ page }) => {

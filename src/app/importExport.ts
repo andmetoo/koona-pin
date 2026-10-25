@@ -19,6 +19,13 @@ import { IMPORT_SURFACES, type Surfaces } from "./surfaces";
 /** Columns of the CSV, titled in the interface's language (NP-032). */
 const CSV_COLUMNS = ["title", "url", "domain", "collection", "tags", "notes", "favorite", "inbox", "saved"] as const;
 
+/** The type every drag the app starts carries, so the window tells it from a drag from outside. */
+const OWN_DRAG = "application/x-koona-pin-drag";
+/** The fields text can be dropped into; anything else would leave a dropped link to the webview. */
+const TEXT_FIELD =
+  "input:not([type=checkbox], [type=radio], [type=range], [type=color], [type=file], [type=button], [type=submit], [type=reset], [type=image], [readonly], [disabled])," +
+  " textarea:not([readonly], [disabled]), [contenteditable]:not([contenteditable=false])";
+
 /** A drag from outside over the list area: where the zone lies, Shift for a link, or a file to import (K9). */
 type FileZone = DropZoneState & { link?: false };
 export type Veil = { inbox: boolean; file?: FileZone; area: DropArea } | null;
@@ -90,11 +97,12 @@ export function useImportExport(
     /** Where the zone last lay: some webviews (WebKitGTK, WebView2) give a drop no coordinates. */
     let lastArea: DropArea | null = null;
     let said = false;
-    let own = false;
-    // A drag the page cancels at its start (a preview image in the list) is no drag and ends with
-    // no `dragend`: counted as ours, it would leave every later drag from outside untaken.
-    const start = (e: DragEvent) => (own = !e.defaultPrevented);
-    const end = () => (own = false);
+    // The app's own drags carry OWN_DRAG, so a drag is told by what it carries. A flag set at
+    // `dragstart` stayed on when the drag never ended where the window hears it (a cancelled
+    // start, a source gone from the page mid-drag), and every later drag from outside went untaken.
+    const start = (e: DragEvent) => {
+      if (!e.defaultPrevented) e.dataTransfer?.setData(OWN_DRAG, "1");
+    };
     /**
      * The list area under the pointer, or null outside it: the view's `[data-drop-area]` (the
      * library's cards or rows, the posts and the article of Feeds, the content of Settings) below
@@ -123,6 +131,7 @@ export function useImportExport(
     };
     const enter = (e: DragEvent) => {
       if (depth === 0) {
+        const own = Array.from(e.dataTransfer?.types ?? []).includes(OWN_DRAG);
         const file = own ? null : draggedFile(e.dataTransfer);
         const taker = !own && (file || carriesLink(e.dataTransfer?.types)) && document.querySelector("[data-drop-accepts]");
         accepting = taker ? "dialog" : file ? "file" : !own && carriesLink(e.dataTransfer?.types) && !quickBlocked() ? "link" : null;
@@ -144,10 +153,14 @@ export function useImportExport(
       e.preventDefault();
       if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
     };
-    /** Whether the pointer is over a field: a link or text dropped there is the field's, as typed. */
+    /**
+     * Whether the pointer is over a field text can be dropped into: a link or text dropped there is
+     * the field's, as typed. A checkbox, a button or a read-only field takes no drop, and the
+     * webview would open the link in place of the app.
+     */
     const inField = (e: DragEvent) => {
       const target = e.target instanceof Element ? e.target : null;
-      return !!target?.closest("input, textarea, [contenteditable]:not([contenteditable=false])");
+      return !!target?.closest(TEXT_FIELD);
     };
     /**
      * A link or text the window would save, over a field (the search, say): the field takes it and
@@ -208,14 +221,12 @@ export function useImportExport(
       if (url) quickSaveRef.current(url, e.shiftKey);
     };
     window.addEventListener("dragstart", start);
-    window.addEventListener("dragend", end);
     window.addEventListener("dragenter", enter);
     window.addEventListener("dragover", over);
     window.addEventListener("dragleave", leave);
     window.addEventListener("drop", drop);
     return () => {
       window.removeEventListener("dragstart", start);
-      window.removeEventListener("dragend", end);
       window.removeEventListener("dragenter", enter);
       window.removeEventListener("dragover", over);
       window.removeEventListener("dragleave", leave);
