@@ -5,6 +5,7 @@
     <title>Example Kitchen</title>
     <link>https://kitchen.example.com/</link>
     <description>Recipes tested twice.</description>
+    <language>en_GB</language>
     <item>
       <title>Crisp roast potatoes</title>
       <link>https://kitchen.example.com/posts/roast-potatoes</link>

@@ -2,8 +2,10 @@
    live here once and switch with data-theme on <html> (Р-5). */
 @import "tailwindcss";
 @import "@fontsource-variable/inter";
-/* The serif of reading (NP-124, B8): Literata, SIL OFL 1.1. */
-@import "@fontsource-variable/literata";
+@import "@fontsource-variable/inter/wght-italic.css";
+/* The serif of reading (NP-124, B8): Literata, SIL OFL 1.1, with its optical sizes and real italics. */
+@import "@fontsource-variable/literata/opsz.css";
+@import "@fontsource-variable/literata/opsz-italic.css";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
@@ -216,17 +218,22 @@
    that language's form, not the one the browser happens to pick (NP-090).
    Windows first; macOS and Linux names for the later builds. No CJK font is
    bundled: one weighs about as much as the whole installer. The extension and
-   the site name the same fonts: src/styles/fonts.test.ts keeps them equal. */
-:root {
+   the site name the same fonts: src/styles/fonts.test.ts keeps them equal. An article in
+   reading mode takes them again by its own `lang`, for its Sans (`data-reader-font`). */
+:root,
+.reader-article {
   --np-font: "Inter Variable", "Inter", system-ui, sans-serif;
 }
-:root:lang(zh) {
+:root:lang(zh),
+.reader-article:lang(zh) {
   --np-font: "Inter Variable", "Inter", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
 }
-:root:lang(ja) {
+:root:lang(ja),
+.reader-article:lang(ja) {
   --np-font: "Inter Variable", "Inter", "Yu Gothic UI", "Meiryo UI", "Hiragino Sans", "Noto Sans CJK JP", system-ui, sans-serif;
 }
-:root:lang(ko) {
+:root:lang(ko),
+.reader-article:lang(ko) {
   --np-font: "Inter Variable", "Inter", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans CJK KR", system-ui, sans-serif;
 }
 
@@ -1093,12 +1100,44 @@
 
 /* The article of the reading sheet (frame A) and of the reading mode (NP-122): one
    column of Literata by default. The Aa panel (NP-124) sets the font, size, line and width as
-   --reader-font, --reader-size, --reader-line and --reader-width (src/services/readerLook.ts). */
+   --reader-font, --reader-size, --reader-line and --reader-width (src/services/readerLook.ts).
+   Everything inside the body is in em of the chosen size, so headings, gaps and code grow with
+   the text; Literata's optical sizes draw the title and the body each at its own size. */
 @layer components {
+  /* The serif, once: on the root for the queue's titles (`read-serif`), in the interface's
+     language, and again on the article, in the article's own `lang`. Chinese, Japanese and
+     Korean name their own serif after Literata, as --np-font does for the sans (NP-090);
+     the others leave it to `serif`, which the engine picks by the language. A font stack set
+     on the mode's root would be resolved there, in the interface's language: the Aa panel's
+     choice comes as `data-reader-font` instead, and the article sets --reader-font itself. */
+  :root,
   .reader-article {
     --reader-serif: "Literata Variable", Literata, Georgia, "Times New Roman", serif;
+  }
+  :root:lang(zh),
+  .reader-article:lang(zh) {
+    --reader-serif: "Literata Variable", Literata, Georgia, "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", SimSun, serif;
+  }
+  :root:is(:lang(zh-Hant), :lang(zh-TW), :lang(zh-HK), :lang(zh-MO)),
+  .reader-article:is(:lang(zh-Hant), :lang(zh-TW), :lang(zh-HK), :lang(zh-MO)) {
+    --reader-serif: "Literata Variable", Literata, Georgia, "Noto Serif CJK TC", "Source Han Serif TC", "Songti TC", PMingLiU, serif;
+  }
+  :root:lang(ja),
+  .reader-article:lang(ja) {
+    --reader-serif: "Literata Variable", Literata, Georgia, "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif CJK JP", "Source Han Serif JP", serif;
+  }
+  :root:lang(ko),
+  .reader-article:lang(ko) {
+    --reader-serif: "Literata Variable", Literata, Georgia, "Noto Serif CJK KR", "Source Han Serif K", AppleMyungjo, Batang, serif;
+  }
+  [data-reader-font="sans"] .reader-article {
+    --reader-font: var(--np-font);
+  }
+  .reader-article {
     color: var(--np-sheet-ink);
     overflow-wrap: break-word;
+    font-optical-sizing: auto;
+    font-kerning: normal;
   }
   .reader-meta {
     font-size: 13px;
@@ -1109,47 +1148,72 @@
   .reader-title {
     margin: 16px 0 24px;
     font-family: var(--reader-font, var(--reader-serif));
-    font-size: 34px;
-    line-height: 42px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
+    /* 34 px on 18, a step bigger or smaller with the text. */
+    font-size: calc(var(--reader-size, 18px) * 1.2 + 12.4px);
+    line-height: 1.18;
+    font-weight: 620;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
   }
   /* The dek (frame B3): the page's description under the title, when the text does not open with it. */
   .reader-dek {
-    margin: -8px 0 24px;
+    margin: -8px 0 28px;
     font-family: var(--reader-font, var(--reader-serif));
-    font-size: 19px;
-    line-height: 28px;
-    color: color-mix(in srgb, var(--np-sheet-ink) 72%, transparent);
+    font-size: calc(var(--reader-size, 18px) * 1.06);
+    line-height: 1.5;
+    color: color-mix(in srgb, var(--np-sheet-ink) 68%, transparent);
+    text-wrap: pretty;
   }
   .reader-body {
     font-family: var(--reader-font, var(--reader-serif));
     font-size: var(--reader-size, 18px);
     line-height: var(--reader-line, 30px);
+    font-variant-ligatures: common-ligatures;
+  }
+  /* Hyphens only by the article's own language: without one, `lang` would come from the
+     interface and break English by Russian rules. Never inside an address shown as a link. */
+  .reader-article[lang] .reader-body {
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    hyphenate-limit-chars: 7 3 3;
+  }
+  .reader-body a {
+    hyphens: manual;
+    -webkit-hyphens: manual;
   }
   .reader-body > :first-child {
     margin-top: 0;
   }
-  .reader-body :is(p, ul, ol, blockquote, pre, figure, table, hr) {
-    margin: 0 0 18px;
+  .reader-body :is(p, ul, ol, blockquote, pre, table) {
+    margin: 0 0 1em;
   }
+  .reader-body :is(p, li, blockquote, figcaption) {
+    text-wrap: pretty;
+  }
+  /* Headings step down from the text's own size and keep close to what they name. */
   .reader-body :is(h1, h2, h3, h4, h5, h6) {
-    margin: 32px 0 12px;
-    font-weight: 600;
-    line-height: 1.3;
+    margin: 1.75em 0 0.5em;
+    font-weight: 620;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    hyphens: manual;
+    text-wrap: balance;
   }
-  .reader-body h1,
+  .reader-body h1 {
+    font-size: 1.55em;
+  }
   .reader-body h2 {
-    font-size: 24px;
+    font-size: 1.36em;
   }
   .reader-body h3 {
-    font-size: 20px;
+    font-size: 1.16em;
   }
   .reader-body :is(h4, h5, h6) {
-    font-size: 18px;
+    margin-top: 1.5em;
+    font-size: 1em;
   }
   .reader-body :is(ul, ol) {
-    padding-left: 1.4em;
+    padding-left: 1.3em;
   }
   .reader-body ul {
     list-style: disc;
@@ -1157,15 +1221,36 @@
   .reader-body ol {
     list-style: decimal;
   }
-  .reader-body li + li {
-    margin-top: 6px;
+  .reader-body li::marker {
+    color: var(--np-meta);
   }
+  .reader-body li + li,
+  .reader-body li > :is(ul, ol) {
+    margin-top: 0.35em;
+  }
+  .reader-body li > :is(ul, ol) {
+    margin-bottom: 0;
+  }
+  /* Exponents and footnote marks do not push their line apart. */
+  .reader-body :is(sup, sub) {
+    line-height: 0;
+  }
+  /* Coloured enough to find, quiet enough to read past: the line is a tint until hovered. */
   .reader-body a[href] {
     color: var(--np-accent);
     text-decoration: underline;
-    text-underline-offset: 3px;
+    text-decoration-color: color-mix(in srgb, var(--np-accent) 38%, transparent);
+    text-underline-offset: 0.2em;
     text-decoration-thickness: 1px;
+    text-decoration-skip-ink: auto;
     cursor: pointer;
+    transition: text-decoration-color 120ms;
+  }
+  .reader-body a[href]:hover {
+    text-decoration-color: currentColor;
+  }
+  .reader-body figure {
+    margin: 1.6em 0;
   }
   .reader-body img {
     display: block;
@@ -1181,55 +1266,76 @@
     margin: 0;
     border-radius: 0;
   }
-  /* A picture that failed, and the figure it was alone in. */
-  .reader-body [hidden] {
-    display: none;
-  }
   .reader-body figcaption {
-    margin-top: 8px;
+    margin-top: 10px;
     font-family: var(--font-sans);
-    font-size: 13px;
-    line-height: 18px;
+    font-size: max(13px, 0.72em);
+    line-height: 1.45;
     color: var(--np-meta);
+    hyphens: manual;
+  }
+  /* A picture on its own, outside a figure, keeps the figure's room above and below. */
+  .reader-body > img,
+  .reader-body > p > img:only-child {
+    margin-block: 1.6em;
   }
   .reader-body blockquote {
-    border-left: 3px solid var(--np-sheet-line);
-    padding-left: 18px;
-    color: var(--np-icon);
+    border-left: 2px solid color-mix(in srgb, var(--np-sheet-ink) 22%, transparent);
+    padding-left: 1.1em;
+    font-style: italic;
+    color: color-mix(in srgb, var(--np-sheet-ink) 82%, transparent);
   }
-  .reader-body :is(pre, code) {
-    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-    font-size: 14px;
+  .reader-body blockquote :is(em, i) {
+    font-style: normal;
+  }
+  .reader-body blockquote > :last-child {
+    margin-bottom: 0;
+  }
+  .reader-body :is(pre, code, kbd, samp) {
+    font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.82em;
+    font-variant-ligatures: none;
+    hyphens: manual;
   }
   .reader-body code {
     border-radius: 4px;
     background: var(--np-secondary);
-    padding: 1px 4px;
+    padding: 0.1em 0.3em;
   }
   .reader-body pre {
     overflow-x: auto;
-    border-radius: 10px;
+    border-radius: 8px;
     background: var(--np-secondary);
-    padding: 14px 16px;
-    line-height: 22px;
+    padding: 1em 1.15em;
+    line-height: 1.6;
+    tab-size: 4;
   }
   .reader-body pre code {
     background: none;
     padding: 0;
+    font-size: inherit;
   }
   .reader-body table {
     display: block;
     overflow-x: auto;
     border-collapse: collapse;
-    font-size: 15px;
-    line-height: 22px;
+    font-size: 0.85em;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
   }
   .reader-body :is(th, td) {
-    border: 1px solid var(--np-sheet-line);
-    padding: 6px 10px;
+    border-bottom: 1px solid var(--np-sheet-line);
+    padding: 0.5em 0.9em 0.5em 0;
     text-align: left;
+    vertical-align: top;
   }
+  .reader-body th {
+    font-weight: 620;
+  }
+  /* A section break: a short rule in the middle, not a line across the page. */
   .reader-body hr {
+    width: 72px;
+    margin: 2em auto;
     border: 0;
     border-top: 1px solid var(--np-sheet-line);
   }
@@ -1448,7 +1554,6 @@
     --np-hover: var(--np-read-track);
     --np-secondary: var(--np-read-well);
     --np-focus: var(--np-read-ink);
-    --reader-serif: "Literata Variable", Literata, Georgia, "Times New Roman", serif;
   }
   /* The column of the mode: the Aa panel's width (560, 640, 760); the sheet keeps its 600. */
   .reading-mode {
@@ -2984,7 +3089,7 @@
   .feed-article .reader-title {
     max-width: 600px;
     margin: 16px 0 10px;
-    line-height: 40px;
+    line-height: 1.18;
   }
   /* The date line stands apart from the text under it; the text a step smaller than reading mode's. */
   .feed-byline {

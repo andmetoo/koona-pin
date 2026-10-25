@@ -2,6 +2,7 @@
   "language": { "name": "日本語" },
   "common": {
     "ctrl": "Ctrl",
+    "shift": "Shift",
     "close": "閉じる",
     "soon": "今後のバージョンで対応予定",
     "keep": "残す",
@@ -1753,6 +1754,9 @@
     "search": "投稿を検索",
     "searchPlaceholder": "タイトルと抜粋",
     "clearSearch": "検索をクリア",
+    "allPosts": "すべて",
+    "show": "表示する投稿",
+    "showAll": "すべての投稿を表示",
     "unread": "未読",
     "saved": "保存済み",
     "empty": "まだ投稿はありません。次の確認で新しい投稿が届きます。",

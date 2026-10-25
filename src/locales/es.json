@@ -2,6 +2,7 @@
   "language": { "name": "Español" },
   "common": {
     "ctrl": "Ctrl",
+    "shift": "Mayús",
     "close": "Cerrar",
     "soon": "Llegará en una versión posterior",
     "keep": "Conservar",
@@ -1973,6 +1974,9 @@
     "search": "Buscar entradas",
     "searchPlaceholder": "Títulos y extractos",
     "clearSearch": "Borrar búsqueda",
+    "allPosts": "Todas",
+    "show": "Mostrar entradas",
+    "showAll": "Mostrar todas las entradas",
     "unread": "Sin leer",
     "saved": "guardada",
     "empty": "Aún no hay entradas. Las nuevas llegan tras la próxima comprobación.",

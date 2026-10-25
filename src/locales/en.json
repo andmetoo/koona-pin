@@ -2,6 +2,7 @@
   "language": { "name": "English" },
   "common": {
     "ctrl": "Ctrl",
+    "shift": "Shift",
     "close": "Close",
     "soon": "Coming in a later version",
     "keep": "Keep",
@@ -1863,6 +1864,9 @@
     "search": "Search posts",
     "searchPlaceholder": "Titles and excerpts",
     "clearSearch": "Clear search",
+    "allPosts": "All",
+    "show": "Show posts",
+    "showAll": "Show all posts",
     "unread": "Unread",
     "saved": "saved",
     "empty": "No posts yet. New ones appear after the next check.",

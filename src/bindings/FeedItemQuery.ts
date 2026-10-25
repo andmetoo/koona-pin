@@ -13,6 +13,11 @@ feed_uid?: string, unread_only: boolean,
  */
 search?: string, 
 /**
+ * With `unread_only`, these posts are listed too once read: the ones opened from the list stay
+ * in their place while they are read (2.17.0).
+ */
+keep?: Array<number>, 
+/**
  * `FeedItemPage::next` of the page before; none for the first.
  */
 after?: string, limit: number, };
