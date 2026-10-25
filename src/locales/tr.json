@@ -1051,6 +1051,15 @@
     "offlineBanner": "Bağlantı yok — {{date}} tarihinde kaydedilen çevrimdışı kopyayı okuyorsunuz",
     "tryLive": "Canlı sayfayı dene"
   },
+  "viewer": {
+    "label": "Resim",
+    "close": "Kapat",
+    "zoomIn": "Yakınlaştır",
+    "zoomOut": "Uzaklaştır",
+    "fit": "Pencereye sığdır",
+    "zoom": "Yakınlaştırma",
+    "openLink": "Bağlantıyı aç"
+  },
   "offline": {
     "save": "Çevrimdışı kaydet",
     "saved": "Çevrimdışı kaydedildi",

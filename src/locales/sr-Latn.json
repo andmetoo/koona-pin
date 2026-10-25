@@ -1130,6 +1130,15 @@
     "offlineBanner": "Nema veze — čitate kopiju sačuvanu {{date}}",
     "tryLive": "Pokušaj stranicu uživo"
   },
+  "viewer": {
+    "label": "Slika",
+    "close": "Zatvori",
+    "zoomIn": "Uvećaj",
+    "zoomOut": "Umanji",
+    "fit": "Prema prozoru",
+    "zoom": "Uvećanje",
+    "openLink": "Otvori vezu"
+  },
   "offline": {
     "save": "Sačuvaj van mreže",
     "saved": "Sačuvano van mreže",

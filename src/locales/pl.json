@@ -1205,6 +1205,15 @@
     "offlineBanner": "Brak połączenia — czytasz kopię offline zapisaną {{date}}",
     "tryLive": "Spróbuj strony online"
   },
+  "viewer": {
+    "label": "Obraz",
+    "close": "Zamknij",
+    "zoomIn": "Powiększ",
+    "zoomOut": "Pomniejsz",
+    "fit": "Dopasuj do okna",
+    "zoom": "Powiększenie",
+    "openLink": "Otwórz link"
+  },
   "offline": {
     "save": "Zapisz offline",
     "saved": "Zapisano offline",

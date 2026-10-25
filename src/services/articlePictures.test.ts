@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { addLeadPicture, parseSrcset, pictureAddress, preparePictures, restorePictures, watchPictures } from "./articlePictures";
+import { addLeadPicture, figureCaption, markViewable, parseSrcset, pictureAddress, pictureFor, preparePictures, restorePictures, unmarkViewable, viewable, viewerSource, watchPictures } from "./articlePictures";
 import { articleOfPost } from "./feedsView";
 import { extractArticle } from "./reader";
 
@@ -168,5 +168,79 @@ describe("pictures on screen", () => {
     img("icon").dispatchEvent(new Event("load"));
     expect(img("icon").hasAttribute("data-inline")).toBe(true);
     again();
+  });
+});
+
+describe("what the viewer shows", () => {
+  const img = (html: string) => {
+    document.body.innerHTML = html;
+    return document.querySelector("img")!;
+  };
+
+  it("takes the widest of the srcset, behind the picture already shown", () => {
+    const source = viewerSource(img(`<img src="https://a.example/p-640.jpg" srcset="https://a.example/p-640.jpg 640w, https://a.example/p-1600.jpg 1600w, https://a.example/p-1024.jpg 1024w">`));
+    expect(source).toEqual({ shown: "https://a.example/p-640.jpg", large: "https://a.example/p-1600.jpg", largeWidth: 1600, link: null });
+  });
+
+  it("takes a link to the picture's file as the large one, and offers a link to a page", () => {
+    expect(viewerSource(img(`<a href="https://a.example/full/p.png"><img src="https://a.example/p.png"></a>`))).toMatchObject({ large: "https://a.example/full/p.png", link: null });
+    expect(viewerSource(img(`<a href="https://a.example/story"><img src="https://a.example/p.png"></a>`))).toMatchObject({ large: null, link: "https://a.example/story" });
+    expect(viewerSource(img(`<a href="#user-content-note"><img src="https://a.example/p.png"></a>`)).link).toBeNull();
+  });
+
+  it("opens pictures, not badges in the line or hidden ones", () => {
+    const picture = img(`<figure><img src="https://a.example/p.png"></figure>`);
+    Object.defineProperty(picture, "naturalWidth", { value: 800 });
+    expect(viewable(picture)).toBe(true);
+    picture.dataset.inline = "";
+    expect(viewable(picture)).toBe(false);
+    delete picture.dataset.inline;
+    picture.closest("figure")!.hidden = true;
+    expect(viewable(picture)).toBe(false);
+  });
+});
+
+describe("pictures from the keyboard", () => {
+  it("makes a loaded picture a button named by its alt, caption or the label; one in a link stays the link's", () => {
+    document.body.innerHTML = `<div id="body"><figure><img id="captioned" src="https://a.example/a.jpg"><figcaption>The  lake
+      at dawn</figcaption></figure><img id="alt" alt="A chart" src="https://a.example/b.jpg"><img id="bare" src="https://a.example/c.jpg">
+      <a href="https://a.example/story"><img id="linked" src="https://a.example/d.jpg"></a></div>`;
+    const stop = watchPictures(document.getElementById("body")!, "Picture");
+    for (const id of ["captioned", "alt", "bare", "linked"]) {
+      const img = document.getElementById(id) as HTMLImageElement;
+      Object.defineProperty(img, "naturalWidth", { value: 800 });
+      Object.defineProperty(img, "naturalHeight", { value: 500 });
+      img.dispatchEvent(new Event("load"));
+    }
+    const img = (id: string) => document.getElementById(id) as HTMLImageElement;
+    expect(img("captioned").getAttribute("role")).toBe("button");
+    expect(img("captioned").tabIndex).toBe(0);
+    expect(img("captioned").getAttribute("aria-label")).toBe("The lake at dawn");
+    expect(img("alt").getAttribute("aria-label")).toBeNull();
+    expect(img("bare").getAttribute("aria-label")).toBe("Picture");
+    expect(img("linked").hasAttribute("role")).toBe(false);
+    stop();
+  });
+
+  it("finds the picture a key opens: a focused one, or a link that is only a picture", () => {
+    document.body.innerHTML = `<img id="a" src="x"><a id="b" href="#"><img id="c" src="y"></a><a id="d" href="#">Words <img src="z"></a>`;
+    const $ = (id: string) => document.getElementById(id)!;
+    expect(pictureFor($("a"))).toBe($("a"));
+    expect(pictureFor($("b"))).toBe($("c"));
+    expect(pictureFor($("d"))).toBeNull();
+    expect(figureCaption($("a") as HTMLImageElement)).toBeNull();
+  });
+});
+
+describe("a picture as a button", () => {
+  it("is named in the new language when marked again, and is no button once it fails", () => {
+    document.body.innerHTML = `<figure><img id="lead" src="https://a.example/a.jpg"></figure>`;
+    const img = document.getElementById("lead") as HTMLImageElement;
+    markViewable(img, "Picture");
+    expect(img.getAttribute("aria-label")).toBe("Picture");
+    markViewable(img, "Bild");
+    expect(img.getAttribute("aria-label")).toBe("Bild");
+    unmarkViewable(img);
+    expect(["tabindex", "role", "aria-haspopup", "aria-label"].map((name) => img.hasAttribute(name))).toEqual([false, false, false, false]);
   });
 });

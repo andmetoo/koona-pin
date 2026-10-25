@@ -1,11 +1,12 @@
-import { Fragment, MouseEvent, ReactNode, useEffect, useRef, useState } from "react";
+import { Fragment, KeyboardEvent, MouseEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { ArrowUpRight, FileX, WifiOff } from "lucide-react";
 import { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { watchPictures } from "../../services/articlePictures";
+import { figureCaption, pictureFor, viewable, viewerSource, type ViewerSource, watchPictures } from "../../services/articlePictures";
 import { Article, openArticle, ReadFailure, readingMinutes } from "../../services/reader";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
+import { PictureViewer } from "./PictureViewer";
 import { HelpLink } from "../ui/HelpLink";
 
 type State = { url: string } & (
@@ -166,8 +167,11 @@ export function ArticleView({
   const [full, setFull] = useState<{ busy: boolean; failure: string | null }>({ busy: false, failure: null });
   const article = state.kind === "article" ? state.article : null;
   const body = useRef<HTMLDivElement>(null);
-  // Broken pictures hide, small ones stay in the line: per article on screen.
-  useEffect(() => (body.current ? watchPictures(body.current) : undefined), [article?.html]);
+  // Broken pictures hide, small ones stay in the line, the rest are buttons named in the
+  // interface's language: per article on screen, and again when the language changes.
+  useEffect(() => (body.current ? watchPictures(body.current, t("viewer.label")) : undefined), [article?.html, i18n.language]);
+  /** A picture of the article over the window (#400), with where it came from. */
+  const [viewing, setViewing] = useState<{ img: HTMLImageElement; source: ViewerSource; caption: string | null } | null>(null);
   useEffect(() => {
     if (article) onReady?.(article);
     // Once per article, not per render of the caller.
@@ -180,6 +184,28 @@ export function ArticleView({
   const copySaved = state.kind === "article" && state.offlineAt && offlineAt ? offlineAt : null;
 
   if (state.kind === "failed" && failure) return failure(state.failure);
+
+  // A picture opens in the viewer, even one inside a link (the viewer offers the link); a link in
+  // the text opens in the browser.
+  const view = (img: HTMLImageElement) => setViewing({ img, source: viewerSource(img), caption: figureCaption(img) });
+  const click = (e: MouseEvent<HTMLElement>) => {
+    const img = (e.target as HTMLElement).closest("img");
+    if (img instanceof HTMLImageElement && viewable(img)) {
+      e.preventDefault();
+      view(img);
+      return;
+    }
+    if ((e.target as HTMLElement).closest(".reader-body")) follow(e);
+  };
+  // Enter or Space on a focused picture, or on a link that is only a picture, as a click on it.
+  const key = (e: KeyboardEvent<HTMLElement>) => {
+    if ((e.key !== "Enter" && e.key !== " ") || e.ctrlKey || e.metaKey || e.altKey) return;
+    const img = pictureFor(e.target as Element);
+    if (!img || !viewable(img)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    view(img);
+  };
 
   const follow = (e: MouseEvent<HTMLElement>) => {
     const link = (e.target as HTMLElement).closest<HTMLAnchorElement>("a[href]");
@@ -210,7 +236,8 @@ export function ArticleView({
     );
 
   return (
-    <article lang={article?.language ?? undefined} aria-busy={!article || undefined} className="reader-article mx-auto w-full max-w-[var(--reader-column,600px)]">
+    <>
+    <article lang={article?.language ?? undefined} aria-busy={!article || undefined} onClick={click} onKeyDown={key} className="reader-article mx-auto w-full max-w-[var(--reader-column,600px)]">
       {header ?? (
       <p className="reader-meta">
         {[
@@ -233,7 +260,7 @@ export function ArticleView({
       {article?.description && <p className="reader-dek">{article.description}</p>}
       {lead}
       {article ? (
-        <div ref={body} className="reader-body" onClick={follow} dangerouslySetInnerHTML={{ __html: article.html }} />
+        <div ref={body} className="reader-body" dangerouslySetInnerHTML={{ __html: article.html }} />
       ) : (
         <div role="status" aria-label={t("reader.loading")} className="flex flex-col gap-3 pt-2">
           {[100, 96, 88, 100, 72].map((width, i) => (
@@ -259,6 +286,16 @@ export function ArticleView({
         </div>
       )}
     </article>
+    {viewing && (
+      <PictureViewer
+        img={viewing.img}
+        source={viewing.source}
+        caption={viewing.caption}
+        onOpen={onOpen}
+        onClose={() => setViewing(null)}
+      />
+    )}
+    </>
   );
 }
 

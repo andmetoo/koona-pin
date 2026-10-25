@@ -3,6 +3,7 @@ import { ArrowDown, ArrowLeft, ArrowUp, BookOpen, Check, ChevronDown, ChevronUp,
 import { useTranslation } from "react-i18next";
 import type { Bookmark, Feed, FeedArticle as CachedPost, FeedItem } from "../../types";
 import { feedName, getFeedArticle } from "../../services/feeds";
+import { markViewable, unmarkViewable } from "../../services/articlePictures";
 import { articleOfPost, captionOf, pictureUrl, publishedLine, startsWithPicture } from "../../services/feedsView";
 import { Article, cachedArticle, readingMinutes } from "../../services/reader";
 import { ReaderChoice, ReaderLook, readerStyle } from "../../services/readerLook";
@@ -222,8 +223,16 @@ function Post({ item, feed, onOpen, onFeed }: { item: FeedItem; feed: Feed | und
   );
   const lead = leadImage.src ? (
     <figure className="feed-lead">
-      <img src={leadImage.src} alt="" referrerPolicy="no-referrer" onError={leadImage.onError}
-        onLoad={leadImage.onLoad}
+      {/* It opens in the picture viewer (ArticleView), by Tab and Enter too, once it has loaded. */}
+      <img src={leadImage.src} alt="" referrerPolicy="no-referrer"
+        onError={(e) => {
+          unmarkViewable(e.currentTarget);
+          leadImage.onError();
+        }}
+        onLoad={(e) => {
+          leadImage.onLoad(e);
+          markViewable(e.currentTarget, t("viewer.label"));
+        }}
         className="aspect-[680/382] w-full rounded-2xl bg-well object-cover" />
       {caption && <figcaption className="feed-caption">{caption}</figcaption>}
     </figure>

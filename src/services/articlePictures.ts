@@ -223,7 +223,7 @@ const INLINE_WIDTH = 240;
  * broken; a 1 × 1 one is hidden too; a small one stays in its line. Returns the
  * cleanup for an effect.
  */
-export function watchPictures(body: HTMLElement): () => void {
+export function watchPictures(body: HTMLElement, label = "Picture"): () => void {
   const hide = (img: HTMLImageElement) => {
     const figure = img.closest("figure");
     if (figure && body.contains(figure) && figure.querySelectorAll("img").length === 1) figure.hidden = true;
@@ -232,6 +232,8 @@ export function watchPictures(body: HTMLElement): () => void {
   const settle = (img: HTMLImageElement) => {
     if (!img.naturalWidth || !img.naturalHeight || (img.naturalWidth <= 1 && img.naturalHeight <= 1)) hide(img);
     else if (img.naturalHeight <= INLINE_HEIGHT && img.naturalWidth <= INLINE_WIDTH) img.dataset.inline = "";
+    // It opens in the viewer: reachable by Tab and Enter too. One inside a link is reached by the link.
+    else if (!img.closest("a[href]")) markViewable(img, label);
   };
   const onLoad = (e: Event) => e.target instanceof HTMLImageElement && settle(e.target);
   const onError = (e: Event) => e.target instanceof HTMLImageElement && hide(e.target);
@@ -245,3 +247,69 @@ export function watchPictures(body: HTMLElement): () => void {
     body.removeEventListener("error", onError, true);
   };
 }
+
+/** The caption of the figure a picture is in, as one line. */
+export const figureCaption = (img: HTMLImageElement) => img.closest("figure")?.querySelector("figcaption")?.textContent?.replace(/\s+/g, " ").trim() || null;
+
+/**
+ * A loaded picture as a button that opens the viewer, for Tab and Enter: named by its alt, else
+ * its figure's caption, else `label`. Again with a new `label` renames it (a new language).
+ */
+export function markViewable(img: HTMLImageElement, label: string) {
+  img.tabIndex = 0;
+  img.setAttribute("role", "button");
+  img.setAttribute("aria-haspopup", "dialog");
+  if (!img.alt.trim()) img.setAttribute("aria-label", figureCaption(img) ?? label);
+}
+
+/** A picture that failed, or is loading another source: no button to press until it shows. */
+export function unmarkViewable(img: HTMLImageElement) {
+  for (const name of ["tabindex", "role", "aria-haspopup", "aria-label"]) img.removeAttribute(name);
+}
+
+/** A link to a picture file rather than a page. */
+const PICTURE_FILE = /\.(?:jpe?g|png|gif|webp|avif)$/i;
+
+/** What the viewer shows for a picture of the article: where to get it large, and a page it links to. */
+export interface ViewerSource {
+  /** The picture as the article shows it, loaded already: the viewer opens with it. */
+  shown: string;
+  /** A larger one, when the srcset or a link to the file names it; loaded behind the shown one. */
+  large: string | null;
+  /** Its width in pixels as the srcset gives it, for the fit before it arrives. */
+  largeWidth: number | null;
+  /** A page the picture links to (not the picture file itself), for «Open link». */
+  link: string | null;
+}
+
+/** The sources of a picture on screen: the largest `w` of its srcset, else a file its link names. */
+export function viewerSource(img: HTMLImageElement): ViewerSource {
+  const shown = img.currentSrc || img.src;
+  let large: string | null = null;
+  let largeWidth: number | null = null;
+  for (const { url, descriptor } of parseSrcset(img.getAttribute("srcset") ?? "")) {
+    const width = /^(\d+)w$/.exec(descriptor)?.[1];
+    const address = pictureAddress(url, img.baseURI);
+    if (address && width && Number(width) > (largeWidth ?? 0)) [large, largeWidth] = [address, Number(width)];
+  }
+  const href = img.closest("a[href]")?.getAttribute("href") ?? null;
+  let link: string | null = null;
+  if (href && /^https?:/i.test(href)) {
+    const file = pictureAddress(href);
+    if (file && PICTURE_FILE.test(new URL(file).pathname)) {
+      if (!large) large = file;
+    } else link = href;
+  }
+  return { shown, large: large && large !== shown ? large : null, largeWidth, link };
+}
+
+/** The picture a key opens: the focused picture, or the one a focused link holds with no words of its own. */
+export function pictureFor(target: Element): HTMLImageElement | null {
+  if (target instanceof HTMLImageElement) return target;
+  if (!(target instanceof HTMLAnchorElement) || target.textContent?.trim()) return null;
+  const img = target.querySelector("img");
+  return img instanceof HTMLImageElement ? img : null;
+}
+
+/** A picture of the article that opens in the viewer: not a badge in the line, not a hidden one. */
+export const viewable = (img: HTMLImageElement) => !img.hasAttribute("data-inline") && !img.closest("[hidden]") && img.naturalWidth > 1;

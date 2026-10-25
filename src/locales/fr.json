@@ -1128,6 +1128,15 @@
     "offlineBanner": "Pas de connexion — lecture de la copie enregistrée le {{date}}",
     "tryLive": "Essayer la page en ligne"
   },
+  "viewer": {
+    "label": "Image",
+    "close": "Fermer",
+    "zoomIn": "Agrandir",
+    "zoomOut": "Réduire",
+    "fit": "Ajuster à la fenêtre",
+    "zoom": "Zoom",
+    "openLink": "Ouvrir le lien"
+  },
   "offline": {
     "save": "Enregistrer hors ligne",
     "saved": "Enregistré hors ligne",

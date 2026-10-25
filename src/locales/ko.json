@@ -974,6 +974,15 @@
     "offlineBanner": "연결 없음 — {{date}}에 저장한 오프라인 사본을 읽는 중",
     "tryLive": "실제 페이지 시도"
   },
+  "viewer": {
+    "label": "그림",
+    "close": "닫기",
+    "zoomIn": "확대",
+    "zoomOut": "축소",
+    "fit": "창에 맞추기",
+    "zoom": "확대/축소",
+    "openLink": "링크 열기"
+  },
   "offline": {
     "save": "오프라인 저장",
     "saved": "오프라인 저장됨",

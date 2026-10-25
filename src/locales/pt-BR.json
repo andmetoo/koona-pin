@@ -1128,6 +1128,15 @@
     "offlineBanner": "Sem conexão — lendo a cópia offline salva em {{date}}",
     "tryLive": "Tentar a página online"
   },
+  "viewer": {
+    "label": "Imagem",
+    "close": "Fechar",
+    "zoomIn": "Ampliar",
+    "zoomOut": "Reduzir",
+    "fit": "Ajustar à janela",
+    "zoom": "Zoom",
+    "openLink": "Abrir link"
+  },
   "offline": {
     "save": "Salvar offline",
     "saved": "Salvo offline",

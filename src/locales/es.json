@@ -1128,6 +1128,15 @@
     "offlineBanner": "Sin conexión — lees la copia guardada el {{date}}",
     "tryLive": "Probar la página en línea"
   },
+  "viewer": {
+    "label": "Imagen",
+    "close": "Cerrar",
+    "zoomIn": "Acercar",
+    "zoomOut": "Alejar",
+    "fit": "Ajustar a la ventana",
+    "zoom": "Zoom",
+    "openLink": "Abrir enlace"
+  },
   "offline": {
     "save": "Guardar sin conexión",
     "saved": "Guardado sin conexión",

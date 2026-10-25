@@ -1051,6 +1051,15 @@
     "offlineBanner": "No connection — reading the offline copy saved {{date}}",
     "tryLive": "Try live page"
   },
+  "viewer": {
+    "label": "Picture",
+    "close": "Close",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "fit": "Fit to window",
+    "zoom": "Zoom",
+    "openLink": "Open link"
+  },
   "offline": {
     "save": "Save offline",
     "saved": "Saved offline",
