@@ -67,7 +67,10 @@ describe("resolution of the look", () => {
     const paid = resolveReaderLook(paper, { appDark: true, unlocked: true });
     expect(paid.theme).toBe("paper");
     expect(paid.palette.read).toBe("#f4eee2");
-    expect(resolveReaderLook(choice(), { appDark: false, unlocked: false }).fontStack).toBeNull();
+    // The font is never a variable on the root: there it would take the interface's language.
+    for (const font of ["serif", "sans"] as const) {
+      expect(readerStyle(resolveReaderLook(choice({ font }), { appDark: false, unlocked: false }))).not.toHaveProperty("--reader-font");
+    }
   });
   test("size, line and column", () => {
     const look = resolveReaderLook(choice({ size: 24, column: "wide" }), { appDark: false, unlocked: false });

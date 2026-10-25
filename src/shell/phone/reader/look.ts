@@ -1,5 +1,5 @@
 import { type RefObject, useLayoutEffect } from "react";
-import { type ReaderChoice, type ReaderLook, relativeLuminance, SIZES } from "../../../services/readerLook";
+import { type ReaderChoice, type ReaderFont, type ReaderLook, relativeLuminance, SIZES } from "../../../services/readerLook";
 
 /** What the reading look puts on the reader's or the post view's screen. */
 export type PhoneReaderLook = {
@@ -7,6 +7,8 @@ export type PhoneReaderLook = {
   style: Record<string, string>;
   /** A chosen theme's tone, for the glass over it (`data-page`); null: the app's own. */
   page: "dark" | "light" | null;
+  /** The Aa panel's font, as `data-reader-font`: the article resolves it by its own language. */
+  font: ReaderFont;
 };
 
 /**
@@ -19,11 +21,10 @@ export type PhoneReaderLook = {
 export function phoneReaderLook(look: ReaderLook, choice: ReaderChoice): PhoneReaderLook {
   const size = look.size + 1;
   const style: Record<string, string> = {
-    ...(look.fontStack && { "--rd-font": look.fontStack }),
     "--rd-size": `${size}px`,
     "--rd-line": `${Math.round((size * 30) / 19)}px`,
   };
-  if (choice.theme === "auto") return { style, page: null };
+  if (choice.theme === "auto") return { style, page: null, font: look.font };
   const p = look.palette;
   const dark = relativeLuminance(p.read) < 0.2;
   Object.assign(style, {
@@ -46,7 +47,7 @@ export function phoneReaderLook(look: ReaderLook, choice: ReaderChoice): PhoneRe
     "--ph-accent-shadow": `0 4px 12px -6px ${dark ? "rgb(143 208 174 / 0.35)" : "rgb(47 107 79 / 0.35)"}`,
     colorScheme: dark ? "dark" : "light",
   });
-  return { style, page: dark ? "dark" : "light" };
+  return { style, page: dark ? "dark" : "light", font: look.font };
 }
 
 /**
@@ -54,18 +55,20 @@ export function phoneReaderLook(look: ReaderLook, choice: ReaderChoice): PhoneRe
  * its top edge's fade and everything in it follow the tokens, the glass the page's tone. What a
  * new look no longer has is taken off again.
  */
-export function useScreenLook(screen: RefObject<HTMLElement | null>, { style, page }: PhoneReaderLook) {
+export function useScreenLook(screen: RefObject<HTMLElement | null>, { style, page, font }: PhoneReaderLook) {
   useLayoutEffect(() => {
     const element = screen.current;
     if (!element) return;
     const entries = Object.entries(style).map(([name, value]) => [name === "colorScheme" ? "color-scheme" : name, value]);
     for (const [name, value] of entries) element.style.setProperty(name, value);
     if (page) element.dataset.page = page;
+    element.dataset.readerFont = font;
     return () => {
       entries.forEach(([name]) => element.style.removeProperty(name));
       delete element.dataset.page;
+      delete element.dataset.readerFont;
     };
-  }, [screen, style, page]);
+  }, [screen, style, page, font]);
 }
 
 /** The Aa sheet's size steps: one smaller or larger, none past either end. */

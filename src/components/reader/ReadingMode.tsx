@@ -370,6 +370,7 @@ export function ReadingMode({
       role="region"
       aria-label={t("readingMode.label")}
       data-reader-look={look.theme}
+      data-reader-font={look.font}
       style={readerStyle(look)}
       className="reading-mode fixed inset-0 z-40 flex bg-read text-read-text"
     >

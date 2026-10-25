@@ -81,6 +81,8 @@ CREATE TABLE feed_seen (
      CREATE INDEX feed_items_list ON feed_items (feed_uid, COALESCE(published_at, fetched_at) DESC, id DESC);
      CREATE INDEX feed_items_all ON feed_items (COALESCE(published_at, fetched_at) DESC, id DESC);
      CREATE INDEX feed_items_counts ON feed_items (feed_uid, read_at, fetched_at);",
+    // v5: the feed's language, the `lang` of its posts in the reader.
+    "ALTER TABLE feed_state ADD COLUMN language TEXT;",
 ];
 
 /// The newest cache version this build makes.
@@ -329,11 +331,11 @@ pub fn store_fetch(
     let tx = conn.unchecked_transaction()?;
     // What the feed says of itself; a field it stopped sending keeps the last one.
     tx.execute(
-        "INSERT INTO feed_state (feed_uid, title, site_url, icon_url, description) VALUES (?1, ?2, ?3, ?4, ?5)
+        "INSERT INTO feed_state (feed_uid, title, site_url, icon_url, description, language) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
          ON CONFLICT (feed_uid) DO UPDATE SET title = COALESCE(excluded.title, title),
             site_url = COALESCE(excluded.site_url, site_url), icon_url = COALESCE(excluded.icon_url, icon_url),
-            description = COALESCE(excluded.description, description)",
-        params![feed_uid, feed.title, feed.site_url, feed.icon_url, feed.description],
+            description = COALESCE(excluded.description, description), language = COALESCE(excluded.language, language)",
+        params![feed_uid, feed.title, feed.site_url, feed.icon_url, feed.description, feed.language],
     )?;
     let first = !tx.query_row("SELECT EXISTS (SELECT 1 FROM feed_items WHERE feed_uid = ?1)", [feed_uid], |r| r.get::<_, bool>(0))?;
 
@@ -634,7 +636,8 @@ pub fn list_items(conn: &Connection, query: &FeedItemQuery) -> rusqlite::Result<
 /// One post to read; a post without content reads as its excerpt.
 pub fn article(conn: &Connection, id: i64) -> rusqlite::Result<FeedArticle> {
     conn.query_row(
-        "SELECT id, url, title, author, published_at, content_html, excerpt, full FROM feed_items WHERE id = ?1",
+        "SELECT i.id, i.url, i.title, i.author, i.published_at, i.content_html, i.excerpt, i.full, s.language
+         FROM feed_items i LEFT JOIN feed_state s ON s.feed_uid = i.feed_uid WHERE i.id = ?1",
         [id],
         |r| {
             let html: Option<String> = r.get(5)?;
@@ -649,6 +652,7 @@ pub fn article(conn: &Connection, id: i64) -> rusqlite::Result<FeedArticle> {
                     .filter(|h| !h.trim().is_empty())
                     .unwrap_or_else(|| format!("<p>{}</p>", escape(&excerpt.unwrap_or_default()))),
                 full: r.get(7)?,
+                language: r.get(8)?,
             })
         },
     )
@@ -1151,6 +1155,12 @@ mod tests {
         assert_eq!(article(&conn, id("full")).unwrap().html, "<p>All of full</p>");
         assert_eq!(article(&conn, id("bare")).unwrap().html, "<p>Fish &amp; &lt;chips&gt;</p>");
         assert!(matches!(article(&conn, 9999), Err(rusqlite::Error::QueryReturnedNoRows)));
+        assert_eq!(article(&conn, id("full")).unwrap().language, None);
+
+        // The feed's language is its posts'; a fetch that no longer names one keeps the last.
+        store_fetch(&conn, "f", &ParsedFeed { language: Some("de".into()), ..document(vec![]) }, NOW).unwrap();
+        store_fetch(&conn, "f", &document(vec![]), NOW).unwrap();
+        assert_eq!(article(&conn, id("bare")).unwrap().language.as_deref(), Some("de"));
     }
 
     #[test]

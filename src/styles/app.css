@@ -218,17 +218,22 @@
    that language's form, not the one the browser happens to pick (NP-090).
    Windows first; macOS and Linux names for the later builds. No CJK font is
    bundled: one weighs about as much as the whole installer. The extension and
-   the site name the same fonts: src/styles/fonts.test.ts keeps them equal. */
-:root {
+   the site name the same fonts: src/styles/fonts.test.ts keeps them equal. An article in
+   reading mode takes them again by its own `lang`, for its Sans (`data-reader-font`). */
+:root,
+.reader-article {
   --np-font: "Inter Variable", "Inter", system-ui, sans-serif;
 }
-:root:lang(zh) {
+:root:lang(zh),
+.reader-article:lang(zh) {
   --np-font: "Inter Variable", "Inter", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
 }
-:root:lang(ja) {
+:root:lang(ja),
+.reader-article:lang(ja) {
   --np-font: "Inter Variable", "Inter", "Yu Gothic UI", "Meiryo UI", "Hiragino Sans", "Noto Sans CJK JP", system-ui, sans-serif;
 }
-:root:lang(ko) {
+:root:lang(ko),
+.reader-article:lang(ko) {
   --np-font: "Inter Variable", "Inter", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans CJK KR", system-ui, sans-serif;
 }
 
@@ -1102,8 +1107,9 @@
   /* The serif, once: on the root for the queue's titles (`read-serif`), in the interface's
      language, and again on the article, in the article's own `lang`. Chinese, Japanese and
      Korean name their own serif after Literata, as --np-font does for the sans (NP-090);
-     the others leave it to `serif`, which the engine picks by the language. The Serif of
-     the Aa panel sets no --reader-font, so this choice is not made once on the mode's root. */
+     the others leave it to `serif`, which the engine picks by the language. A font stack set
+     on the mode's root would be resolved there, in the interface's language: the Aa panel's
+     choice comes as `data-reader-font` instead, and the article sets --reader-font itself. */
   :root,
   .reader-article {
     --reader-serif: "Literata Variable", Literata, Georgia, "Times New Roman", serif;
@@ -1112,8 +1118,8 @@
   .reader-article:lang(zh) {
     --reader-serif: "Literata Variable", Literata, Georgia, "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", SimSun, serif;
   }
-  :root:is(:lang(zh-Hant), :lang(zh-TW), :lang(zh-HK)),
-  .reader-article:is(:lang(zh-Hant), :lang(zh-TW), :lang(zh-HK)) {
+  :root:is(:lang(zh-Hant), :lang(zh-TW), :lang(zh-HK), :lang(zh-MO)),
+  .reader-article:is(:lang(zh-Hant), :lang(zh-TW), :lang(zh-HK), :lang(zh-MO)) {
     --reader-serif: "Literata Variable", Literata, Georgia, "Noto Serif CJK TC", "Source Han Serif TC", "Songti TC", PMingLiU, serif;
   }
   :root:lang(ja),
@@ -1123,6 +1129,9 @@
   :root:lang(ko),
   .reader-article:lang(ko) {
     --reader-serif: "Literata Variable", Literata, Georgia, "Noto Serif CJK KR", "Source Han Serif K", AppleMyungjo, Batang, serif;
+  }
+  [data-reader-font="sans"] .reader-article {
+    --reader-font: var(--np-font);
   }
   .reader-article {
     color: var(--np-sheet-ink);

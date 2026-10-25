@@ -10,7 +10,7 @@ describe("the phone's reading look", () => {
     const { style, page } = lookOf(choice());
     expect(style["--rd-size"]).toBe("19px");
     expect(style["--rd-line"]).toBe("30px");
-    expect(style["--rd-font"]).toBeUndefined();
+    expect(lookOf(choice()).font).toBe("serif");
     expect(page).toBeNull();
   });
 
@@ -32,8 +32,8 @@ describe("the phone's reading look", () => {
   });
 
   it("takes the font and size of the choice", () => {
-    const { style } = lookOf(choice({ font: "sans", size: 22 }));
-    expect(style["--rd-font"]).toBe("var(--np-font)");
+    const { style, font } = lookOf(choice({ font: "sans", size: 22 }));
+    expect(font).toBe("sans");
     expect(style["--rd-size"]).toBe("23px");
     expect(style["--rd-line"]).toBe("36px");
   });

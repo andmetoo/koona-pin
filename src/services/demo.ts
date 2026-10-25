@@ -2980,7 +2980,7 @@ export const demo = {
   async getFeedArticle(id: number): Promise<FeedArticle> {
     const item = feedsState().items.find((i) => i.id === id);
     if (!item) throw new CommandError("not_found", "Query returned no rows");
-    return { id, url: item.url, title: item.title, author: item.author, published_at: item.published_at, html: item.html, full: item.full };
+    return { id, url: item.url, title: item.title, author: item.author, published_at: item.published_at, html: item.html, full: item.full, language: i18n.language };
   },
   async setFeedItemsRead(ids: number[], read: boolean): Promise<void> {
     const now = new Date().toISOString();

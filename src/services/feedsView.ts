@@ -156,7 +156,8 @@ export function articleOfPost(post: FeedArticle, site: string | null): Article {
     site,
     published: post.published_at,
     description: null,
-    language: doc.documentElement.lang || null,
+    // The feed names it; the post's HTML is a fragment with no <html lang> of its own.
+    language: post.language ?? null,
     html,
     words: countWords(textOf(html), null),
     linkDensity: 0,
