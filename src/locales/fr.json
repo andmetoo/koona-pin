@@ -937,7 +937,7 @@
     "connections": "Connexions",
     "syncAndBackups": "Synchronisation et sauvegardes",
     "storage": "Stockage",
-    "summaryConnected": "{{browsers}} connecté",
+    "summaryConnected": "Connecté : {{browsers}}",
     "summaryAssistantsOn": "Assistants IA activés",
     "summaryAssistantsOff": "Assistants IA désactivés",
     "summaryOffline": "Hors ligne : {{articles}} · {{size}}",
@@ -2043,7 +2043,7 @@
       "clear": "Vider le cache des flux",
       "clearHint": "Les articles sont récupérés à nouveau. Ceux enregistrés restent dans votre bibliothèque.",
       "clearButton": "Vider",
-      "summaryEvery": "Toutes les {{interval}}"
+      "summaryEvery": "Vérification : {{interval}}"
     }
   },
   "bundle": {

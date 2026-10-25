@@ -2057,7 +2057,7 @@
       "clear": "Obriši keš fidova",
       "clearHint": "Objave se ponovo preuzimaju. Sačuvane ostaju u biblioteci.",
       "clearButton": "Obriši",
-      "summaryEvery": "Na svakih {{interval}}"
+      "summaryEvery": "Provera: {{interval}}"
     }
   },
   "bundle": {

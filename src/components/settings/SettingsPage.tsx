@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useId, useState } from "react";
+import { ReactNode, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { ChevronDown, ChevronRight } from "lucide-react";
@@ -139,25 +139,26 @@ export function SettingsPage({
   const [open, setOpen] = useState(storedGroups);
   // A capture problem opens Connections (S3, A and B); folded by hand, it stays folded (C). Opened so,
   // it is not the person's choice and is not kept for the next visit.
-  const [autoOpened, setAutoOpened] = useState(false);
+  const autoOpened = useRef(false);
   const problem = capture?.state === "lost" || capture?.state === "incompatible" || capture?.state === "failing";
   useEffect(() => {
-    if (!problem || open.has("connections")) return;
-    setOpen((prev) => new Set(prev).add("connections"));
-    setAutoOpened(true);
+    if (!problem) return;
+    setOpen((prev) => {
+      if (prev.has("connections")) return prev;
+      autoOpened.current = true;
+      return new Set(prev).add("connections");
+    });
   }, [problem]);
+  // Kept with the click itself, so a reload or quit right after it keeps the choice.
   const toggle = (id: GroupId) => {
+    if (id === "connections") autoOpened.current = false;
     setOpen((prev) => {
       const next = new Set(prev);
       if (!next.delete(id)) next.add(id);
+      savePreference("settingsGroups", [...next].filter((group) => !(autoOpened.current && group === "connections")).join(","));
       return next;
     });
-    if (id === "connections") setAutoOpened(false);
   };
-  // What is kept is what the person opened: Connections opened by a problem stays out.
-  useEffect(() => {
-    savePreference("settingsGroups", [...open].filter((group) => !(autoOpened && group === "connections")).join(","));
-  }, [open, autoOpened]);
 
   useEffect(() => {
     void api.getDataSummary().then(setData).catch(() => {});

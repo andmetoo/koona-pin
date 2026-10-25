@@ -1933,7 +1933,7 @@
       "clear": "Feed-Cache leeren",
       "clearHint": "Beiträge werden neu geladen. Gespeicherte bleiben in deiner Bibliothek.",
       "clearButton": "Leeren",
-      "summaryEvery": "Alle {{interval}}"
+      "summaryEvery": "Prüfung: {{interval}}"
     }
   },
   "bundle": {

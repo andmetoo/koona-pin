@@ -2043,7 +2043,7 @@
       "clear": "Обриши кеш фидова",
       "clearHint": "Објаве се поново преузимају. Сачуване остају у библиотеци.",
       "clearButton": "Обриши",
-      "summaryEvery": "На сваких {{interval}}"
+      "summaryEvery": "Провера: {{interval}}"
     }
   },
   "bundle": {

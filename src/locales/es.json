@@ -937,7 +937,7 @@
     "connections": "Conexiones",
     "syncAndBackups": "Sincronización y copias",
     "storage": "Almacenamiento",
-    "summaryConnected": "{{browsers}} conectado",
+    "summaryConnected": "Conectado: {{browsers}}",
     "summaryAssistantsOn": "Asistentes de IA activados",
     "summaryAssistantsOff": "Asistentes de IA desactivados",
     "summaryOffline": "Sin conexión: {{articles}} · {{size}}",
