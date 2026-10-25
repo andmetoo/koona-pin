@@ -14,7 +14,7 @@
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-#[cfg(target_os = "ios")]
+#[cfg(any(target_os = "ios", test))]
 mod keychain;
 
 /// The secrets, by the file name they have on a computer.
@@ -168,8 +168,8 @@ fn damaged(path: &Path) -> PathBuf {
 }
 
 #[cfg(target_os = "ios")]
-fn store() -> Moving<keychain::Keychain, Files> {
-    Moving { primary: keychain::Keychain, legacy: Files }
+fn store() -> Moving<keychain::Keychain<keychain::System>, Files> {
+    Moving { primary: keychain::Keychain(keychain::System), legacy: Files }
 }
 
 #[cfg(not(target_os = "ios"))]
