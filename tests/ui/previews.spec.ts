@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { bell, centre, openApp } from "../fixtures/app";
+import { bell, centre, openApp, settingsGroup } from "../fixtures/app";
 
 // «Refresh previews» for many bookmarks: Settings → Data, the selection bar, after an import; its
 // progress and result in the notification centre, and the link check of the pages it couldn't open.
@@ -12,6 +12,7 @@ const counts = (page: Page) =>
 const settings = async (page: Page) => {
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+  await settingsGroup(page, "storage");
 };
 
 test("Settings → Data: the choice with its counts, progress with Stop, the result in the centre", async ({ page }) => {

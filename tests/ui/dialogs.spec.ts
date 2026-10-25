@@ -2,7 +2,7 @@ import { test, expect, type FileChooser, type Locator, type Page } from "@playwr
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { catalog, copyBookmark, failOnce, jsonCopy, text } from "../fixtures/app";
+import { catalog, copyBookmark, failOnce, jsonCopy, settingsGroup, text } from "../fixtures/app";
 
 // NP-118: a dialog has one height for its whole life. Each one is walked through its states in the
 // demo, in English, German and Russian, in the smallest and a wide window: its box stays the same.
@@ -173,6 +173,7 @@ for (const code of ["en", "de", "ru"]) {
 
       // Import opened empty (Settings → Feeds → Import…): the same box once a file is chosen.
       await settings();
+      await settingsGroup(page, "feeds");
       await page.getByRole("button", { name: t("feeds.settings.import"), exact: true }).click();
       await track.open("import feeds, empty");
       const opml = '<?xml version="1.0"?><opml version="2.0"><body><outline text="A" xmlUrl="https://example.org/a.xml"/></body></opml>';
@@ -183,6 +184,7 @@ for (const code of ["en", "de", "ru"]) {
       await expect(dialog).toHaveCount(0);
 
       // Restore a backup: the list, the confirmation and back, the report, a refused file.
+      await settingsGroup(page, "backups");
       await page.getByRole("button", { name: t("settings.restore"), exact: true }).click();
       await track.open("backup");
       await expect(dialog.getByRole("radio").first()).toBeVisible();
@@ -235,6 +237,7 @@ for (const code of ["en", "de", "ru"]) {
       await button("import.done").click();
 
       // Feedback: the form, the report shown, a wrong address, a failure, sent.
+      await settingsGroup(page, "support");
       await page.getByRole("button", { name: t("settings.feedbackButton") }).click();
       await track.open("feedback");
       await button("feedback.showReport").click();
@@ -300,6 +303,7 @@ test("dialogs with tabs keep their size and place when the tab changes", async (
   await page.getByRole("button", { name: "No browser yet" }).click();
   await steady("Connect browser", ["Edge", "Firefox", "Chrome"]);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await settingsGroup(page, "connections");
   await page.getByRole("switch", { name: "Let AI assistants use your library" }).click();
   await page.getByRole("button", { name: "How to connect…" }).click();
   await steady("Connect an AI assistant", ["Claude Code", "ChatGPT", "Custom", "Claude Desktop"]);

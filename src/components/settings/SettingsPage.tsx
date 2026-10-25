@@ -1,9 +1,10 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { AppSettings, CaptureStatus, DataSummary, Desktop, McpAccess, McpStatus, OfflineStats, PreviewCounts, PreviewRefresh, PreviewScope, SupporterStatus, SyncStatus, UpdateStatus } from "../../types";
 import { useSyncSettingsLine } from "../commercial/SyncRows";
-import { api, desktopApi, desktopOnly, isTauri } from "../../services/api";
+import { api, desktopApi, desktopOnly } from "../../services/api";
 import { capabilities } from "../../platform/capabilities";
 import {
   appIsOlder,
@@ -22,7 +23,7 @@ import { GITHUB_ISSUES_URL, licensesUrl } from "../../services/feedback";
 import { shortcut } from "../../services/keys";
 import { changelogUrl, offer, percent } from "../../services/update";
 import { languages, LanguageSetting, setLanguage, storedLanguage, systemLanguage } from "../../i18n";
-import { OpenLinks, Theme } from "../../services/preferences";
+import { OpenLinks, savePreference, storedValue, Theme } from "../../services/preferences";
 import { Button } from "../ui/Button";
 import { Dot, Segmented, Switch } from "../ui/Controls";
 import { Kbd } from "../ui/Hint";
@@ -30,7 +31,20 @@ import { ConfirmDialog } from "../library/Dialogs";
 import { Menu } from "../ui/Menu";
 import { helpUrl } from "../../services/help";
 
-/** Settings in the main area (frame «14 · Настройки»), column 680 px. */
+/** The groups that fold (sheet S1–S3); General is always open. */
+type GroupId = "connections" | "reading" | "feeds" | "backups" | "storage" | "support";
+const GROUPS: GroupId[] = ["connections", "reading", "feeds", "backups", "storage", "support"];
+
+/** The open groups, kept between visits; none at first. */
+function storedGroups(): Set<GroupId> {
+  const saved = storedValue("settingsGroups")?.split(",") ?? [];
+  return new Set(GROUPS.filter((id) => saved.includes(id)));
+}
+
+/**
+ * Settings in the main area (sheet S1–S3), column 680 px. General is always open; the other groups
+ * fold and show a summary while folded. A row the build can't do is not shown at all.
+ */
 export function SettingsPage({
   theme,
   onTheme,
@@ -65,14 +79,14 @@ export function SettingsPage({
   onImportFeeds: () => void;
   /** «Export feeds (OPML)…»: the Save dialog and its notice are the caller's. */
   onExportFeeds: () => Promise<unknown>;
-  /** «Refresh previews» of Data: the run of this session, if any. */
+  /** «Refresh previews» of Storage: the run of this session, if any. */
   previews: PreviewRefresh | null;
   onRefreshPreviews: (scope: PreviewScope) => void;
   onStopPreviews: () => void;
   /** «Open links» (Р-69, point 5, frame B10): what a title, a double-click and Enter do. */
   openLinks: OpenLinks;
   onOpenLinks: (target: OpenLinks) => void;
-  /** Supporter and its sync (sheet 46): the «Sync» row of Data. */
+  /** Supporter and its sync (sheet 46): the «Sync» row of Sync and backups. */
   supporter: SupporterStatus | null;
   sync: SyncStatus | null;
   /** «Set up…» / «Manage…»: the Sync dialog. */
@@ -104,7 +118,6 @@ export function SettingsPage({
   dataVersion: number;
 }) {
   const { t, i18n } = useTranslation();
-  const inApp = isTauri();
   // Sync (sheet 46, frame 10): only in a build that sells Supporter and has a relay.
   const syncShown = !!supporter?.available && !!sync?.available;
   const hasPlan = !!supporter?.plan;
@@ -117,11 +130,30 @@ export function SettingsPage({
   const [removingCopies, setRemovingCopies] = useState(false);
   const [version, setVersion] = useState("");
   const [system, setSystem] = useState<Desktop | null>(null);
+  const mcp = useMcpStatus(onNotice);
   // Without a tray (NP-096) the app keeps running «in the background», not «in the tray».
   const tray = system?.tray ?? true;
   // Several actions can run at once; each keeps its own control disabled.
   const [running, setRunning] = useState<ReadonlySet<string>>(new Set());
   const busy = (name: string) => running.has(name);
+  const [open, setOpen] = useState(storedGroups);
+  // A capture problem opens Connections (S3, A and B); folded by hand, it stays folded (C). Opened so,
+  // it is not the person's choice and is not kept for the next visit.
+  const [autoOpened, setAutoOpened] = useState(false);
+  const problem = capture?.state === "lost" || capture?.state === "incompatible" || capture?.state === "failing";
+  useEffect(() => {
+    if (!problem || open.has("connections")) return;
+    setOpen((prev) => new Set(prev).add("connections"));
+    setAutoOpened(true);
+  }, [problem]);
+  const toggle = (id: GroupId) => {
+    const next = new Set(open);
+    if (!next.delete(id)) next.add(id);
+    const auto = autoOpened && id !== "connections";
+    if (id === "connections") setAutoOpened(false);
+    savePreference("settingsGroups", [...next].filter((group) => !(auto && group === "connections")).join(","));
+    setOpen(next);
+  };
 
   useEffect(() => {
     void api.getDataSummary().then(setData).catch(() => {});
@@ -135,7 +167,7 @@ export function SettingsPage({
   useEffect(() => {
     void api.getVersion().then(setVersion).catch(() => {});
     // A phone has no start at sign-in, tray or window of its own to ask about (NP-151).
-    if (inApp && capabilities.autostart) void desktopApi?.getAutostart().then(setAutostart).catch(() => setAutostart(null));
+    if (capabilities.autostart) void desktopApi?.getAutostart().then(setAutostart).catch(() => setAutostart(null));
     if (capabilities.tray) void desktopApi?.getDesktop().then(setSystem).catch(() => {});
   }, []);
 
@@ -163,10 +195,13 @@ export function SettingsPage({
     const at = moment(data.last_copy, i18n.language);
     return at.today ? t("settings.lastCopyToday", at) : t("settings.lastCopyOn", at);
   })();
+  const group = (id: GroupId) => ({ name: id, open: open.has(id), onToggle: () => toggle(id) });
+  const feedsMinutes = settings?.feeds_refresh_minutes ?? 60;
+  const offlineArticles = t("settings.offlineArticles", { count: offline?.count ?? 0 });
 
   return (
-    <div className="flex w-full max-w-[680px] flex-col gap-[22px] pb-8">
-      <Section title={t("settings.general")}>
+    <div className="flex w-full max-w-[680px] flex-col gap-3 pb-8">
+      <Group name="general" title={t("settings.general")}>
         <Row title={t("settings.language")} description={t("settings.languageHint")}>
           <select
             aria-label={t("settings.language")}
@@ -198,11 +233,11 @@ export function SettingsPage({
           />
         </Row>
         {capabilities.autostart && (
-          <Row title={t("settings.autostart")} description={inApp ? t(tray ? "settings.autostartHint" : "settings.autostartHintBackground") : t("settings.desktopOnly")}>
+          <Row title={t("settings.autostart")} description={t(tray ? "settings.autostartHint" : "settings.autostartHintBackground")}>
             <Switch
               label={t("settings.autostart")}
               checked={autostart ?? false}
-              disabled={!inApp || autostart === null || busy("autostart")}
+              disabled={autostart === null || busy("autostart")}
               onChange={(enabled) =>
                 void attempt("autostart", async () => {
                   await desktopOnly().setAutostart(enabled);
@@ -220,7 +255,7 @@ export function SettingsPage({
             <Switch
               label={t(tray ? "settings.tray" : "settings.trayBackground")}
               checked={settings?.close_to_tray ?? true}
-              disabled={!inApp || !settings || busy("tray")}
+              disabled={!settings || busy("tray")}
               onChange={(enabled) =>
                 void attempt("tray", async () => {
                   await desktopOnly().setCloseToTray(enabled);
@@ -230,21 +265,53 @@ export function SettingsPage({
             />
           </Row>
         )}
+        <UpdateRow
+          version={version}
+          update={update}
+          checking={busy("updates")}
+          onCheck={() => void attempt("updates", onCheckUpdates)}
+          onUpdate={onUpdate}
+          onOpen={(url) => void attempt("changelog", () => api.openUrl(url))}
+        />
+        {/* On every system (NP-096): without a tray it is the way out of the app. */}
         {capabilities.quit && (
-          <>
-            {/* On every system (NP-096): without a tray it is the way out of the app. */}
-            <Row title={t("settings.quit")} description={t("settings.quitHint")}>
-              <Kbd>{shortcut("Q")}</Kbd>
-              <Button disabled={!inApp} onClick={() => void attempt("quit", () => desktopOnly().quitApp())}>
-                {t("settings.quitButton")}
-              </Button>
-            </Row>
-          </>
+          <Row title={t("settings.quit")} description={t("settings.quitHint")}>
+            <Kbd>{shortcut("Q")}</Kbd>
+            <Button onClick={() => void attempt("quit", () => desktopOnly().quitApp())}>{t("settings.quitButton")}</Button>
+          </Row>
         )}
-      </Section>
+      </Group>
 
-      {/* Reading (NP-124, frame B10): how links open, «read» at the end, the R key. */}
-      <Section title={t("settings.reading")}>
+      {/* Desktop only (NP-151): a phone has no browser extension or MCP server. */}
+      {(capabilities.browser_capture || capabilities.mcp) && (
+        <Group
+          title={t("settings.connections")}
+          summary={<ConnectionsSummary capture={capabilities.browser_capture ? capture : undefined} mcp={capabilities.mcp ? mcp : undefined} />}
+          {...group("connections")}
+        >
+          {capabilities.browser_capture && (
+            <BrowserRows
+              capture={capture}
+              busy={busy("capture")}
+              onConnect={onConnect}
+              onRepair={() => void attempt("capture", async () => onCapture(await desktopOnly().repairCapture()))}
+              onReport={() => capture && onCopy(captureReport(capture, version))}
+            />
+          )}
+          {capabilities.mcp && <AssistantRows status={mcp.status} onChange={mcp.change} busy={mcp.busy} onConnect={onConnectAssistant} />}
+        </Group>
+      )}
+
+      {/* Reading (NP-124, frame B10): how links open, «read» at the end, offline copies, the R key. */}
+      <Group
+        title={t("settings.reading")}
+        summary={[
+          t(openLinks === "browser" ? "settings.openLinksBrowser" : "settings.openLinksReader"),
+          // Until the settings are read, nothing is said about them rather than a default.
+          ...(settings?.reading_mark_at_end ? [t("settings.summaryMarkRead")] : []),
+        ].join(" · ")}
+        {...group("reading")}
+      >
         <div data-settings-reading="links">
           <Row title={t("settings.openLinks")} description={t("settings.openLinksHint")}>
             <Segmented<OpenLinks>
@@ -271,18 +338,41 @@ export function SettingsPage({
             }
           />
         </Row>
+        <Row title={t("settings.saveOffline")} description={t("settings.saveOfflineHint")}>
+          <Switch
+            label={t("settings.saveOffline")}
+            checked={settings?.reading_save_offline ?? false}
+            disabled={!settings || busy("saveOffline")}
+            onChange={(enabled) =>
+              void attempt("saveOffline", async () => {
+                await api.setReadingSaveOffline(enabled);
+                if (settings) onSettings({ ...settings, reading_save_offline: enabled });
+              })
+            }
+          />
+        </Row>
         <Row title={t("card.toReading")} description={t("settings.sendToReadingHint")}>
           <Kbd>R</Kbd>
         </Row>
-      </Section>
+      </Group>
 
       {/* Feeds (NP-132): how often to check, how long posts stay, OPML and the cache. */}
-      <Section title={t("feeds.title")}>
+      <Group
+        title={t("feeds.title")}
+        summary={
+          !settings
+            ? undefined
+            : feedsMinutes
+              ? t("feeds.settings.summaryEvery", { interval: checkLabel(feedsMinutes, t, i18n.language) })
+              : t("feeds.settings.manually")
+        }
+        {...group("feeds")}
+      >
         <div data-settings-feeds="check">
           <Row title={t("feeds.settings.check")} description={t("feeds.settings.checkHint")}>
             <Segmented
               label={t("feeds.settings.check")}
-              value={String(settings?.feeds_refresh_minutes ?? 60)}
+              value={String(feedsMinutes)}
               options={FEED_CHECKS.map((minutes) => ({ value: String(minutes), label: checkLabel(minutes, t, i18n.language) }))}
               onChange={(value) =>
                 void attempt("feedsCheck", async () => {
@@ -320,41 +410,101 @@ export function SettingsPage({
             {t("feeds.settings.clearButton")}
           </Button>
         </Row>
-      </Section>
+      </Group>
 
-      {/* Offline copies (NP-126, frame O5): only on this computer, free for everyone. */}
-      <Section title={t("settings.offline")}>
-        <div data-settings-offline="stats">
+      <div className="flex flex-col gap-2">
+        <Group
+          title={t("settings.syncAndBackups")}
+          summary={`${lastCopy} · ${t("settings.copies", { count: data?.copies ?? 0 })}`}
+          {...group("backups")}
+        >
+          {syncShown && syncLine && hasPlan && (
+            <div data-sync-settings="supporter">
+              <Row title={t("sync.title")} description={syncLine.description}>
+                <Button onClick={onSync}>{syncLine.button}</Button>
+              </Row>
+            </div>
+          )}
+          {syncShown && !hasPlan && (
+            <div data-sync-settings="free">
+              <Row title={<span className="text-muted">{t("sync.withSupporter")}</span>} description="">
+                <button type="button" onClick={onSupporter} className="px-1 text-sm font-medium text-accent hover:underline">
+                  {t("sync.learnMore")}
+                </button>
+              </Row>
+            </div>
+          )}
           <Row
-            title={t("settings.offlineStats", { articles: t("settings.offlineArticles", { count: offline?.count ?? 0 }), size: size(offline?.bytes ?? 0) })}
-            description={t("settings.offlineHint")}
+            title={t("settings.backups")}
+            description={`${t("settings.copies", { count: data?.copies ?? 0 })} · ${size(data?.bytes ?? 0)} · ${t("settings.keeps")}`}
           >
             {capabilities.file_manager && (
-              <Button disabled={!inApp} onClick={() => void attempt("offlineFolder", () => desktopOnly().revealOfflineFolder())}>
-                {t("settings.showFolder")}
+              <Button onClick={() => void attempt("backups", () => desktopOnly().revealLibraryPlace("backups"))}>
+                {t("settings.openFolder")}
               </Button>
             )}
           </Row>
+          <Row title={lastCopy} description={t("settings.saveHint")}>
+            <Button disabled={busy("save")} onClick={() => void attempt("save", onSaveCopy)}>
+              {busy("save") ? t("settings.savingCopy") : t("settings.saveCopy")}
+            </Button>
+            <Button
+              disabled={busy("copy")}
+              onClick={() =>
+                void attempt("copy", async () => {
+                  setData(await api.backUpNow());
+                  onNotice(t("settings.copyDone"));
+                })
+              }
+            >
+              {busy("copy") ? t("settings.copying") : t("settings.backUpNow")}
+            </Button>
+          </Row>
+          <Row title={t("settings.restoreBackup")} description={t("settings.restoreHint")}>
+            <Button onClick={onRestoreBackup}>{t("settings.restore")}</Button>
+          </Row>
+        </Group>
+        {open.has("backups") && <p className="px-3 text-xs leading-[17px] text-muted">{t("settings.backupNote")}</p>}
+      </div>
+
+      {/* Offline copies (NP-126, frame O5) live here with the library's other files. */}
+      <Group
+        title={t("settings.storage")}
+        summary={t("settings.summaryOffline", { articles: offlineArticles, size: size(offline?.bytes ?? 0) })}
+        {...group("storage")}
+      >
+        <Row title={t("settings.folder")} description={data?.library_folder ?? ""}>
+          {capabilities.file_manager && (
+            <Button onClick={() => void attempt("folder", () => desktopOnly().revealLibraryPlace("data"))}>{t("common.open")}</Button>
+          )}
+        </Row>
+        <div data-settings-offline="stats">
+          <Row title={t("settings.offlineStats", { articles: offlineArticles, size: size(offline?.bytes ?? 0) })} description={`${t("settings.offlineHint")} ${t("settings.removeCopiesHint")}`}>
+            {capabilities.file_manager && (
+              <Button onClick={() => void attempt("offlineFolder", () => desktopOnly().revealOfflineFolder())}>
+                {t("settings.showFolder")}
+              </Button>
+            )}
+            <Button disabled={!offline?.count} onClick={() => setRemovingCopies(true)}>
+              {t("settings.removeCopiesButton")}
+            </Button>
+          </Row>
         </div>
-        <Row title={t("settings.saveOffline")} description={t("settings.saveOfflineHint")}>
-          <Switch
-            label={t("settings.saveOffline")}
-            checked={settings?.reading_save_offline ?? false}
-            disabled={!settings || busy("saveOffline")}
-            onChange={(enabled) =>
-              void attempt("saveOffline", async () => {
-                await api.setReadingSaveOffline(enabled);
-                if (settings) onSettings({ ...settings, reading_save_offline: enabled });
+        <Row title={t("settings.searchIndex")} description={t("settings.searchIndexHint")}>
+          <Button
+            disabled={busy("index")}
+            onClick={() =>
+              void attempt("index", async () => {
+                const count = await api.rebuildSearchIndex();
+                onNotice(t("settings.rebuildDone", { count }));
               })
             }
-          />
-        </Row>
-        <Row title={t("settings.removeCopies")} description={t("settings.removeCopiesHint")}>
-          <Button disabled={!offline?.count} onClick={() => setRemovingCopies(true)}>
-            {t("settings.removeCopiesButton")}
+          >
+            {busy("index") ? t("settings.rebuilding") : t("settings.rebuild")}
           </Button>
         </Row>
-      </Section>
+        <PreviewsRow run={previews} onStart={onRefreshPreviews} onStop={onStopPreviews} />
+      </Group>
       {removingCopies && (
         <ConfirmDialog
           title={t("settings.removeCopiesTitle")}
@@ -370,98 +520,7 @@ export function SettingsPage({
         />
       )}
 
-      <UpdatesSection
-        version={version}
-        update={update}
-        checking={busy("updates")}
-        onCheck={() => void attempt("updates", onCheckUpdates)}
-        onUpdate={onUpdate}
-        onOpen={(url) => void attempt("changelog", () => api.openUrl(url))}
-      />
-
-      {/* Desktop only (NP-151): a phone has no browser extension or MCP server. */}
-      {capabilities.browser_capture && (
-        <BrowserSection
-          capture={capture}
-          busy={busy("capture")}
-          onConnect={onConnect}
-          onRepair={() => void attempt("capture", async () => onCapture(await desktopOnly().repairCapture()))}
-          onReport={() => capture && onCopy(captureReport(capture, version))}
-        />
-      )}
-      {capabilities.mcp && <AssistantsSection onConnect={onConnectAssistant} onNotice={onNotice} />}
-
-      <Section title={t("settings.data")}>
-        {syncShown && syncLine && hasPlan && (
-          <div data-sync-settings="supporter">
-            <Row title={t("sync.title")} description={syncLine.description}>
-              <Button onClick={onSync}>{syncLine.button}</Button>
-            </Row>
-          </div>
-        )}
-        {syncShown && !hasPlan && (
-          <div data-sync-settings="free">
-            <Row title={<span className="text-muted">{t("sync.withSupporter")}</span>} description="">
-              <button type="button" onClick={onSupporter} className="px-1 text-sm font-medium text-accent hover:underline">
-                {t("sync.learnMore")}
-              </button>
-            </Row>
-          </div>
-        )}
-        <Row title={t("settings.folder")} description={data?.library_folder ?? ""}>
-          {capabilities.file_manager && (
-            <Button disabled={!inApp} onClick={() => void attempt("folder", () => desktopOnly().revealLibraryPlace("data"))}>
-              {t("common.open")}
-            </Button>
-          )}
-        </Row>
-        <Row
-          title={t("settings.backups")}
-          description={`${t("settings.copies", { count: data?.copies ?? 0 })} · ${size(data?.bytes ?? 0)} · ${t("settings.keeps")}`}
-        >
-          {capabilities.file_manager && (
-            <Button disabled={!inApp} onClick={() => void attempt("backups", () => desktopOnly().revealLibraryPlace("backups"))}>
-              {t("settings.openFolder")}
-            </Button>
-          )}
-        </Row>
-        <Row title={lastCopy} description={t("settings.saveHint")}>
-          <Button disabled={!inApp || busy("save")} onClick={() => void attempt("save", onSaveCopy)}>
-            {busy("save") ? t("settings.savingCopy") : t("settings.saveCopy")}
-          </Button>
-          <Button
-            disabled={!inApp || busy("copy")}
-            onClick={() =>
-              void attempt("copy", async () => {
-                setData(await api.backUpNow());
-                onNotice(t("settings.copyDone"));
-              })
-            }
-          >
-            {busy("copy") ? t("settings.copying") : t("settings.backUpNow")}
-          </Button>
-        </Row>
-        <Row title={t("settings.restoreBackup")} description={t("settings.restoreHint")}>
-          <Button onClick={onRestoreBackup}>{t("settings.restore")}</Button>
-        </Row>
-        <Row title={t("settings.searchIndex")} description={t("settings.searchIndexHint")}>
-          <Button
-            disabled={busy("index")}
-            onClick={() =>
-              void attempt("index", async () => {
-                const count = await api.rebuildSearchIndex();
-                onNotice(t("settings.rebuildDone", { count }));
-              })
-            }
-          >
-            {busy("index") ? t("settings.rebuilding") : t("settings.rebuild")}
-          </Button>
-        </Row>
-        <PreviewsRow run={previews} onStart={onRefreshPreviews} onStop={onStopPreviews} />
-      </Section>
-      <p className="-mt-2.5 px-3 text-xs leading-[17px] text-muted">{t("settings.backupNote")}</p>
-
-      <Section title={t("settings.support")}>
+      <Group title={t("settings.support")} summary={t("settings.summarySupport")} {...group("support")}>
         <Row title={t("settings.help")} description={t("settings.helpHint")}>
           <Button onClick={() => void attempt("help", () => api.openUrl(helpUrl("home")))}>{t("settings.helpButton")}</Button>
         </Row>
@@ -474,17 +533,17 @@ export function SettingsPage({
         <Row title={t("settings.licenses")} description={t("settings.licensesHint")}>
           <Button onClick={() => void attempt("licenses", () => api.openUrl(licensesUrl(i18n.language)))}>{t("common.open")}</Button>
         </Row>
-      </Section>
+      </Group>
     </div>
   );
 }
 
 /**
- * Settings → Updates (NP-038, sheet 42): the version and the last check. A version on offer gets
+ * General → the version row (NP-038, sheet 42): the version and the last check. A version on offer gets
  * «Update…», the same dialog as the row in the sidebar, with what changed (NP-040); the AUR package says that
  * pacman updates it and has no button.
  */
-function UpdatesSection({
+function UpdateRow({
   version,
   update,
   checking,
@@ -500,7 +559,6 @@ function UpdatesSection({
   onOpen: (url: string) => void;
 }) {
   const { t, i18n } = useTranslation();
-  const inApp = isTauri();
   const upToDate = (iso: string) => {
     const at = moment(iso, i18n.language);
     return at.today ? t("settings.upToDateToday", at) : t("settings.upToDateOn", at);
@@ -542,36 +600,49 @@ function UpdatesSection({
         ? upToDate(update.checked_at)
         : update?.state === "check_failed"
           ? t("settings.checkFailed")
-          : inApp
-            ? t("settings.notChecked")
-            : t("settings.desktopOnly");
+          : t("settings.notChecked");
     controls = (
-      <Button disabled={!inApp} onClick={onCheck}>
+      <Button onClick={onCheck}>
         {update?.state === "check_failed" ? t("common.retry") : t("settings.checkUpdates")}
       </Button>
     );
   }
   // The changelog of the version that runs, on the site (NP-040): left of the button, in every state.
-  const changelog = (
-    <button type="button" onClick={() => onOpen(changelogUrl(version))} className="px-1 text-sm font-medium text-accent hover:underline">
-      {t("settings.changelog")} ↗
-    </button>
-  );
   return (
-    <section className="flex flex-col gap-2" data-update={state}>
-      <h2 className="text-2xs font-semibold text-subtle uppercase">{t("settings.updates")}</h2>
-      <div className="rounded-xl border border-line bg-card">
-        <Row title={`Koona Pin ${version}`} description={description}>
-          {changelog}
-          {controls}
-        </Row>
-      </div>
-    </section>
+    <div data-settings-update={state}>
+      <Row title={`Koona Pin ${version}`} description={description}>
+        <button type="button" onClick={() => onOpen(changelogUrl(version))} className="px-1 text-sm font-medium text-accent hover:underline">
+          {t("settings.changelog")} ↗
+        </button>
+        {controls}
+      </Row>
+    </div>
   );
 }
 
-/** Settings → Browser and its states (frame 14, «Блок «Браузер» — другие состояния»). */
-function BrowserSection({
+/** The folded Connections: the browser's state, with its dot when something is wrong, and the assistants. */
+function ConnectionsSummary({ capture, mcp }: { capture?: CaptureStatus | null; mcp?: { status: McpStatus | null } }) {
+  const { t } = useTranslation();
+  const state = capture?.state;
+  const failing = state === "failing";
+  const warn = state === "lost" || state === "incompatible" || failing;
+  const browser =
+    capture === undefined ? null : state === "connected" ? t("settings.summaryConnected", { browsers: connectedNames(capture) }) : statusLabel(capture, t);
+  const assistants = mcp ? t((mcp.status?.access ?? "off") === "off" ? "settings.summaryAssistantsOff" : "settings.summaryAssistantsOn") : null;
+  // Inline, not flex: the header's summary ends in «…» when it is too long.
+  return (
+    <>
+      {warn && <Dot color={statusColor(capture ?? null)} className="mr-2 align-middle" />}
+      <span className={failing ? "text-danger" : ""}>{[browser, assistants].filter(Boolean).join(" · ")}</span>
+    </>
+  );
+}
+
+/**
+ * Connections → the browser (S3). Connected or not yet: one row. Silent or out of date: a row with the
+ * ochre dot and how to fix it. Failing: the red plaque takes the row's place, with Retry and the report.
+ */
+function BrowserRows({
   capture,
   busy,
   onConnect,
@@ -585,83 +656,73 @@ function BrowserSection({
   onReport: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const title = t("settings.browser");
   const state = capture?.state;
-  if (state === "lost" || state === "incompatible" || state === "failing") {
-    const outdated = incompatible(capture);
-    const text =
-      state === "lost"
-        ? t("browser.lostText", { count: capture?.days_silent ?? 3 })
-        : state === "incompatible"
-          ? t(appIsOlder(capture) ? "browser.updateAppText" : "browser.updateText", {
-              browser: outdated ? browserName[outdated.browser] : "",
-              version: outdated?.extension_version ?? "?",
-            })
-          : problemText(capture, t);
-    const failing = state === "failing";
+  const status = (label: string) => (
+    <span className="flex items-center gap-2.5">
+      <Dot color={statusColor(capture)} />
+      {label}
+    </span>
+  );
+  if (state === "failing") {
     return (
-      <section className="flex flex-col gap-2" data-capture={state}>
-        <h2 className="text-2xs font-semibold text-subtle uppercase">{title}</h2>
-        <div
-          className={`flex flex-col items-start gap-2.5 rounded-xl px-4 py-3.5 ${failing ? "bg-danger-soft text-on-danger-soft" : "border border-line bg-card"}`}
-        >
+      <div data-capture={state} className="px-3 py-3">
+        <div className="flex flex-col items-start gap-2.5 rounded-[10px] bg-danger-soft px-4 py-3.5 text-on-danger-soft">
           <div className="flex items-center gap-2.5 text-sm font-medium">
             <Dot color={statusColor(capture)} />
             {statusLabel(capture, t)}
           </div>
-          <p className={`text-sm leading-[18px] ${failing ? "" : "text-muted"}`}>{text}</p>
+          <p className="text-sm leading-[18px]">{problemText(capture, t)}</p>
           <div className="flex gap-2">
-            {failing ? (
-              <>
-                <Button variant="onDanger" disabled={busy} onClick={onRepair}>
-                  {t("common.retry")}
-                </Button>
-                <Button variant="onDanger" onClick={onReport}>
-                  {t("browser.copyReport")}
-                </Button>
-              </>
-            ) : (
-              <Button onClick={onConnect}>{state === "lost" ? t("browser.howToConnect") : t("browser.howToUpdate")}</Button>
-            )}
+            <Button variant="onDanger" disabled={busy} onClick={onRepair}>
+              {t("common.retry")}
+            </Button>
+            <Button variant="onDanger" onClick={onReport}>
+              {t("browser.copyReport")}
+            </Button>
           </div>
         </div>
-      </section>
+      </div>
+    );
+  }
+  if (state === "lost" || state === "incompatible") {
+    const outdated = incompatible(capture);
+    const text =
+      state === "lost"
+        ? t("browser.lostText", { count: capture?.days_silent ?? 3 })
+        : t(appIsOlder(capture) ? "browser.updateAppText" : "browser.updateText", {
+            browser: outdated ? browserName[outdated.browser] : "",
+            version: outdated?.extension_version ?? "?",
+          });
+    return (
+      <div data-capture={state}>
+        <Row title={status(statusLabel(capture, t))} description={text}>
+          <Button onClick={onConnect}>{state === "lost" ? t("browser.howToConnect") : t("browser.howToUpdate")}</Button>
+        </Row>
+      </div>
     );
   }
   return (
-    <section className="flex flex-col gap-2" data-capture={state ?? "checking"}>
-      <h2 className="text-2xs font-semibold text-subtle uppercase">{title}</h2>
-      <div className="rounded-xl border border-line bg-card">
-        <Row
-          title={
-            <span className="flex items-center gap-2.5">
-              <Dot color={statusColor(capture)} />
-              {state === "connected" ? t("browser.connectedTo", { browsers: connectedNames(capture) }) : statusLabel(capture, t)}
-            </span>
-          }
-          description={state === "connected" ? lastSaved(capture, t, i18n.language) : state === "none" ? t("browser.notConnectedHint") : ""}
-        >
-          <Button onClick={onConnect}>{state === "connected" ? t("settings.connectBrowser") : t("browser.connect")}</Button>
-        </Row>
-      </div>
-    </section>
+    <div data-capture={state ?? "checking"}>
+      <Row
+        title={status(state === "connected" ? t("browser.connectedTo", { browsers: connectedNames(capture) }) : statusLabel(capture, t))}
+        description={state === "connected" ? lastSaved(capture, t, i18n.language) : state === "none" ? t("browser.notConnectedHint") : ""}
+      >
+        <Button onClick={onConnect}>{state === "connected" ? t("settings.connectBrowser") : t("browser.connect")}</Button>
+      </Row>
+    </div>
   );
 }
 
-/**
- * Settings → AI assistants (NP-091, sheet 44): off by default; on, the last request, what assistants
- * may do and «How to connect…».
- */
-function AssistantsSection({ onConnect, onNotice }: { onConnect: () => void; onNotice: (text: string, alert?: boolean) => void }) {
-  const { t, i18n } = useTranslation();
+/** The MCP server's state, read once and followed while Settings are open. */
+function useMcpStatus(onNotice: (text: string, alert?: boolean) => void) {
   const [status, setStatus] = useState<McpStatus | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
+    if (!capabilities.mcp) return;
     const desktop = desktopOnly();
     void desktop.getMcpStatus().then(setStatus).catch(() => {});
     return desktop.onMcpStatus(setStatus);
   }, []);
-  const access = status?.access ?? "off";
   const change = (next: McpAccess) => {
     setBusy(true);
     desktopOnly()
@@ -670,16 +731,36 @@ function AssistantsSection({ onConnect, onNotice }: { onConnect: () => void; onN
       .catch((err) => onNotice(describeError(err), true))
       .finally(() => setBusy(false));
   };
+  return { status, busy, change };
+}
+
+/**
+ * Connections → AI assistants (NP-091, sheet 44): off by default; on, the last request, what assistants
+ * may do and «How to connect…».
+ */
+function AssistantRows({
+  status,
+  busy,
+  onChange,
+  onConnect,
+}: {
+  status: McpStatus | null;
+  busy: boolean;
+  onChange: (next: McpAccess) => void;
+  onConnect: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const access = status?.access ?? "off";
   const on = access !== "off";
   return (
-    <Section title={t("settings.assistants")}>
+    <div data-settings-assistants className="divide-y divide-divider">
       <div data-mcp={access}>
         <Row title={t("assistants.allow")} description={on ? lastRequest(status, t, i18n.language) : t("assistants.offHint")}>
           <Switch
             label={t("assistants.allow")}
             checked={on}
             disabled={!status || busy}
-            onChange={(enabled) => change(enabled ? (status?.mode ?? "read") : "off")}
+            onChange={(enabled) => onChange(enabled ? (status?.mode ?? "read") : "off")}
           />
         </Row>
       </div>
@@ -689,7 +770,7 @@ function AssistantsSection({ onConnect, onNotice }: { onConnect: () => void; onN
             <Segmented<McpAccess>
               label={t("assistants.access")}
               value={access}
-              onChange={(next) => !busy && change(next)}
+              onChange={(next) => !busy && onChange(next)}
               options={[
                 { value: "read", label: t("assistants.read") },
                 { value: "read_and_add", label: t("assistants.readAndAdd") },
@@ -701,7 +782,7 @@ function AssistantsSection({ onConnect, onNotice }: { onConnect: () => void; onN
           </Row>
         </>
       )}
-    </Section>
+    </div>
   );
 }
 
@@ -731,7 +812,7 @@ function checkLabel(minutes: number, t: TFunction, language: string): string {
 }
 
 /**
- * «Refresh previews» (Settings → Data): every page read again for its picture, icon and site
+ * «Refresh previews» (Settings → Storage): every page read again for its picture, icon and site
  * name, as a bookmark's own «Refresh preview» does. «Refresh…» asks which: those without a
  * picture or site name, the default, or all, each with its count. While a run is under way
  * the row says how far it is, with «Stop».
@@ -792,11 +873,66 @@ function PreviewsRow({ run, onStart, onStop }: { run: PreviewRefresh | null; onS
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+/**
+ * A group card (S1): a 52 px header, then rows with dividers. Without `onToggle` it is always open
+ * (General); otherwise the header folds it, and a folded group shows its summary and a chevron.
+ */
+function Group({
+  name,
+  title,
+  summary,
+  open = true,
+  onToggle,
+  children,
+}: {
+  /** The group's id for tests and the stored choice; the title is translated. */
+  name: string;
+  title: string;
+  summary?: ReactNode;
+  open?: boolean;
+  onToggle?: () => void;
+  children: ReactNode;
+}) {
+  const id = useId();
+  const head = (
+    <span id={`${id}-title`} className="text-sm font-semibold">
+      {title}
+    </span>
+  );
   return (
-    <section className="flex flex-col gap-2">
-      <h2 className="text-2xs font-semibold text-subtle uppercase">{title}</h2>
-      <div className="divide-y divide-divider rounded-xl border border-line bg-card">{children}</div>
+    <section className="rounded-xl border border-line bg-card" data-settings-group={name}>
+      <h2>
+        {onToggle ? (
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={id}
+            // The group's name alone; the summary is read as its description.
+            aria-labelledby={`${id}-title`}
+            aria-describedby={!open && summary ? `${id}-summary` : undefined}
+            onClick={onToggle}
+            className="flex h-[52px] w-full items-center gap-4 rounded-xl px-3 text-left"
+          >
+            {head}
+            {/* The summary only while folded; it gives way to the title when the column is narrow. */}
+            <span id={`${id}-summary`} className="ml-auto min-w-0 truncate text-sm text-muted">
+              {!open && summary}
+            </span>
+            {open ? (
+              <ChevronDown aria-hidden className="size-4 shrink-0 text-muted" strokeWidth={1.5} />
+            ) : (
+              <ChevronRight aria-hidden className="size-4 shrink-0 text-muted" strokeWidth={1.5} />
+            )}
+          </button>
+        ) : (
+          <span className="flex h-[52px] items-center px-3">{head}</span>
+        )}
+      </h2>
+      {open && (
+        <div id={id} className="divide-y divide-divider border-t border-divider">
+          {children}
+        </div>
+      )}
     </section>
   );
 }

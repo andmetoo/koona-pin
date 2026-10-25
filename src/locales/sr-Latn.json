@@ -829,7 +829,6 @@
     "help": "Pomoć ↗"
   },
   "settings": {
-    "assistants": "AI asistenti",
     "general": "Opšte",
     "reading": "Čitanje",
     "openLinks": "Otvaranje veza",
@@ -849,7 +848,6 @@
     "themeDark": "Tamna",
     "autostart": "Pokreni sa sistemom",
     "autostartHint": "Pokreće se u oblasti obaveštenja da bi linkovi iz pregledača odmah stizali",
-    "desktopOnly": "Dostupno u desktop aplikaciji",
     "tray": "Zadrži aplikaciju u oblasti obaveštenja kad se prozor zatvori",
     "trayHint": "Potpuno se izlazi iz menija ikone Koona Pin u oblasti obaveštenja",
     "trayBackground": "Nastavi rad u pozadini kad se prozor zatvori",
@@ -858,9 +856,7 @@
     "quit": "Izađi iz programa Koona Pin",
     "quitHint": "Linkovi iz pregledača čekaju u proširenju do sledećeg pokretanja",
     "quitButton": "Izađi",
-    "browser": "Pregledač",
     "connectBrowser": "Poveži još jedan pregledač",
-    "data": "Podaci",
     "folder": "Fascikla biblioteke",
     "backups": "Rezervne kopije",
     "copies_one": "{{count}} kopija",
@@ -899,7 +895,6 @@
     "refreshProgress": "{{done}} od {{total}}",
     "refreshStop": "Zaustavi",
     "checkUpdates": "Proveri ažuriranja",
-    "updates": "Ažuriranja",
     "upToDateToday": "Najnovija verzija · provereno danas u {{time}}",
     "upToDateOn": "Najnovija verzija · provereno {{date}} u {{time}}",
     "checking": "Provera ažuriranja…",
@@ -924,7 +919,6 @@
     "help": "Pomoć",
     "helpHint": "Uputstva i odgovori na česte probleme na koona.app, na engleskom",
     "helpButton": "Otvori pomoć ↗",
-    "offline": "Kopije van mreže",
     "offlineStats": "Sačuvano van mreže — {{articles}} · {{size}}",
     "offlineArticles_one": "{{count}} članak",
     "offlineArticles_few": "{{count}} članka",
@@ -933,8 +927,6 @@
     "showFolder": "Prikaži fasciklu",
     "saveOffline": "Čuvaj članke koje otvorim iz „Za čitanje“",
     "saveOfflineHint": "Svaki članak iz „Za čitanje“ otvoren u režimu čitanja ostavlja ovde kopiju.",
-    "removeCopies": "Ukloni sve kopije",
-    "removeCopiesHint": "Obeleživači ostaju; brišu se samo njihove kopije van mreže.",
     "removeCopiesButton": "Ukloni…",
     "removeCopiesTitle": "Ukloniti sve kopije van mreže?",
     "removeCopiesText_one": "{{count}} sačuvan članak biće obrisan sa ovog računara. Obeleživač ostaje.",
@@ -943,7 +935,17 @@
     "removeCopiesConfirm": "Ukloni kopije",
     "copiesRemoved_one": "Uklonjena {{count}} kopija van mreže",
     "copiesRemoved_few": "Uklonjene {{count}} kopije van mreže",
-    "copiesRemoved_other": "Uklonjeno {{count}} kopija van mreže"
+    "copiesRemoved_other": "Uklonjeno {{count}} kopija van mreže",
+    "connections": "Povezivanja",
+    "syncAndBackups": "Sinhronizacija i kopije",
+    "storage": "Skladište",
+    "summaryConnected": "Povezano: {{browsers}}",
+    "summaryAssistantsOn": "AI asistenti uključeni",
+    "summaryAssistantsOff": "AI asistenti isključeni",
+    "summaryOffline": "Van mreže: {{articles}} · {{size}}",
+    "summarySupport": "Pomoć, komentari, licence",
+    "summaryMarkRead": "označi kao pročitano na kraju",
+    "removeCopiesHint": "Obeleživači ostaju; brišu se samo njihove kopije van mreže."
   },
   "notice": {
     "previewRefreshed": "Pregled je osvežen",
@@ -2054,7 +2056,8 @@
       "import": "Uvezi…",
       "clear": "Obriši keš fidova",
       "clearHint": "Objave se ponovo preuzimaju. Sačuvane ostaju u biblioteci.",
-      "clearButton": "Obriši"
+      "clearButton": "Obriši",
+      "summaryEvery": "Na svakih {{interval}}"
     }
   },
   "bundle": {

@@ -1,5 +1,5 @@
 import { test, expect, Page, Locator } from "@playwright/test";
-import { openApp, opened, stubBrowser } from "../fixtures/app";
+import { openApp, opened, settingsGroup, stubBrowser } from "../fixtures/app";
 
 // NP-124 (Р-69, points 5, 7 and 9, frames B8 and B10): the Aa panel of the reading mode — size,
 // column, theme, font — with Supporter's Paper and Sepia locked on a free plan (both fonts free), and
@@ -158,6 +158,7 @@ test("Settings → Reading: «Open links» changes what the title, double-click 
   };
   const setting = async (label: string) => {
     await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await settingsGroup(page, "reading");
     const links = page.getByRole("radiogroup", { name: "Open links" });
     await links.getByRole("radio", { name: label }).click();
     await expect(links.getByRole("radio", { name: label })).toHaveAttribute("aria-checked", "true");
@@ -184,6 +185,9 @@ test("Settings → Reading: «Open links» changes what the title, double-click 
 
   // Reading is the default (2026-10-16); «In browser»: the gestures open the browser.
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  // Folded, Reading names the choice in its summary.
+  await expect(page.locator('section[data-settings-group="reading"] h2')).toContainText("In reading mode");
+  await settingsGroup(page, "reading");
   const section = page.locator("[data-settings-reading=links]");
   await expect(page.getByRole("radiogroup", { name: "Open links" }).getByRole("radio", { name: "In reading mode" })).toHaveAttribute("aria-checked", "true");
   await expect(section).toContainText("What a click on a title, a double-click and Enter do.");
@@ -227,6 +231,7 @@ test("Settings → Reading: «Open links» changes what the title, double-click 
 test("Settings → Reading: «Mark as read at the end» off keeps an article read to the end unread; the R row (NP-124, B10)", async ({ page }) => {
   await boot(page);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await settingsGroup(page, "reading");
   const mark = page.getByRole("switch", { name: "Mark as read at the end" });
   await expect(mark).toHaveAttribute("aria-checked", "true");
   await expect(page.getByText("Read links move to the bottom of Reading and leave it after a week.")).toBeVisible();

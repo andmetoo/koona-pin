@@ -888,7 +888,6 @@
     "help": "Справка ↗"
   },
   "settings": {
-    "assistants": "ИИ-ассистенты",
     "general": "Общие",
     "reading": "Чтение",
     "openLinks": "Открывать ссылки",
@@ -908,7 +907,6 @@
     "themeDark": "Тёмная",
     "autostart": "Запускать вместе с системой",
     "autostartHint": "Запуск в трее, чтобы ссылки из браузера приходили сразу",
-    "desktopOnly": "Доступно в настольном приложении",
     "tray": "При закрытии окна оставлять приложение в трее",
     "trayHint": "Полный выход — через меню значка Koona Pin в трее",
     "trayBackground": "При закрытии окна продолжать работать в фоне",
@@ -917,9 +915,7 @@
     "quit": "Выйти из Koona Pin",
     "quitHint": "Ссылки из браузера подождут в расширении до следующего запуска",
     "quitButton": "Выйти",
-    "browser": "Браузер",
     "connectBrowser": "Подключить ещё браузер",
-    "data": "Данные",
     "folder": "Папка библиотеки",
     "backups": "Резервные копии",
     "copies_one": "{{count}} копия",
@@ -960,7 +956,6 @@
     "refreshProgress": "{{done}} из {{total}}",
     "refreshStop": "Остановить",
     "checkUpdates": "Проверить обновления",
-    "updates": "Обновления",
     "upToDateToday": "Последняя версия · проверено сегодня в {{time}}",
     "upToDateOn": "Последняя версия · проверено {{date}} в {{time}}",
     "checking": "Проверка обновлений…",
@@ -985,7 +980,6 @@
     "help": "Справка",
     "helpHint": "Как пользоваться Koona Pin и что делать, если что-то не так, — на koona.app, на английском",
     "helpButton": "Открыть справку ↗",
-    "offline": "Офлайн-копии",
     "offlineStats": "Сохранено для офлайна — {{articles}} · {{size}}",
     "offlineArticles_one": "{{count}} статья",
     "offlineArticles_few": "{{count}} статьи",
@@ -995,8 +989,6 @@
     "showFolder": "Показать папку",
     "saveOffline": "Сохранять статьи, открытые из «Почитать»",
     "saveOfflineHint": "Каждая статья из «Почитать», открытая в режиме чтения, остаётся здесь копией.",
-    "removeCopies": "Удалить все копии",
-    "removeCopiesHint": "Закладки останутся, удалятся только их офлайн-копии.",
     "removeCopiesButton": "Удалить…",
     "removeCopiesTitle": "Удалить все офлайн-копии?",
     "removeCopiesText_one": "{{count}} сохранённая статья будет удалена с этого компьютера. Закладка останется.",
@@ -1007,7 +999,17 @@
     "copiesRemoved_one": "Удалена {{count}} офлайн-копия",
     "copiesRemoved_few": "Удалены {{count}} офлайн-копии",
     "copiesRemoved_many": "Удалено {{count}} офлайн-копий",
-    "copiesRemoved_other": "Удалено {{count}} офлайн-копии"
+    "copiesRemoved_other": "Удалено {{count}} офлайн-копии",
+    "connections": "Подключения",
+    "syncAndBackups": "Синхронизация и копии",
+    "storage": "Хранилище",
+    "summaryConnected": "Подключено: {{browsers}}",
+    "summaryAssistantsOn": "ИИ-ассистенты включены",
+    "summaryAssistantsOff": "ИИ-ассистенты выключены",
+    "summaryOffline": "Офлайн: {{articles}} · {{size}}",
+    "summarySupport": "Справка, отзывы, лицензии",
+    "summaryMarkRead": "отмечать прочитанным в конце",
+    "removeCopiesHint": "Закладки останутся, удалятся только их офлайн-копии."
   },
   "notice": {
     "previewRefreshed": "Превью обновлено",
@@ -2150,7 +2152,8 @@
       "import": "Импорт…",
       "clear": "Очистить кэш лент",
       "clearHint": "Посты загрузятся заново. Сохранённые останутся в библиотеке.",
-      "clearButton": "Очистить"
+      "clearButton": "Очистить",
+      "summaryEvery": "Раз в {{interval}}"
     }
   },
   "bundle": {

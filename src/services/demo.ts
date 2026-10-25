@@ -137,6 +137,8 @@ export const DEMO_UPDATE_KEY = "koonapin.demo.update";
 let demoMcp: McpStatus = { access: "off", mode: "read", last_client: null, last_at: null };
 const mcpListeners = new Set<(status: McpStatus) => void>();
 let demoUpdate: UpdateStatus | null = null;
+/** Copies made with «Back up now» in this session (Settings → Sync and backups). */
+const demoBackups: { copies: number; last: string | null } = { copies: 0, last: null };
 const updateListeners = new Set<(status: UpdateStatus) => void>();
 function storedUpdate(): string | null {
   try {
@@ -2218,13 +2220,16 @@ export const demo = {
     return {
       library_folder: "%APPDATA%\\Koona\\Pin",
       backups_folder: "%APPDATA%\\Koona\\Pin\\backups",
-      copies: 0,
-      bytes: 0,
-      last_copy: null,
+      copies: demoBackups.copies,
+      bytes: demoBackups.copies * 1_400_000,
+      last_copy: demoBackups.last,
     };
   },
+  /** The preview is a desktop too (S1): «Back up now» counts a copy for this session. */
   async backUpNow(): Promise<DataSummary> {
-    throw new CommandError("internal", i18n.t("settings.desktopOnly"));
+    demoBackups.copies += 1;
+    demoBackups.last = new Date().toISOString();
+    return this.getDataSummary();
   },
   async getDuplicates(): Promise<DuplicateGroup[]> {
     return groupsOf(bookmarks, dismissed);
@@ -2278,8 +2283,9 @@ export const demo = {
       duplicateListeners.delete(fn);
     };
   },
+  /** «Save a copy…» as if a place was picked: the preview writes nothing. */
   async saveBackupCopy(): Promise<SaveCopyOutcome> {
-    throw new CommandError("internal", i18n.t("settings.desktopOnly"));
+    return { outcome: "saved", file_name: `koonapin-${new Date().toISOString().slice(0, 10)}.db` };
   },
   /** Two made-up copies, so the restore dialog of sheet 33 can be tried in the browser. */
   async listBackups(): Promise<BackupCopy[]> {

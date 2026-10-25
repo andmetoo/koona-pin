@@ -705,7 +705,6 @@
     "help": "帮助 ↗"
   },
   "settings": {
-    "assistants": "AI 助手",
     "general": "常规",
     "reading": "阅读",
     "openLinks": "打开链接",
@@ -725,7 +724,6 @@
     "themeDark": "深色",
     "autostart": "随系统启动",
     "autostartHint": "在系统托盘中启动，让浏览器中的链接立即到达",
-    "desktopOnly": "在桌面应用中可用",
     "tray": "关闭窗口时将应用保留在系统托盘中",
     "trayHint": "通过系统托盘中 Koona Pin 图标的菜单完全退出",
     "trayBackground": "关闭窗口时在后台继续运行",
@@ -734,9 +732,7 @@
     "quit": "退出 Koona Pin",
     "quitHint": "在下次启动前，浏览器中的链接会在扩展中等待",
     "quitButton": "退出",
-    "browser": "浏览器",
     "connectBrowser": "连接其他浏览器",
-    "data": "数据",
     "folder": "资料库文件夹",
     "backups": "备份",
     "copies_other": "{{count}} 份副本",
@@ -771,7 +767,6 @@
     "refreshProgress": "{{done}} / {{total}}",
     "refreshStop": "停止",
     "checkUpdates": "检查更新",
-    "updates": "更新",
     "upToDateToday": "已是最新版本 · 今天 {{time}} 检查",
     "upToDateOn": "已是最新版本 · {{date}} {{time}} 检查",
     "checking": "正在检查更新…",
@@ -796,20 +791,27 @@
     "help": "帮助",
     "helpHint": "koona.app 上的使用指南和常见问题解答（英文）",
     "helpButton": "打开帮助 ↗",
-    "offline": "离线副本",
     "offlineStats": "已离线保存 — {{articles}} · {{size}}",
     "offlineArticles_other": "{{count}} 篇文章",
     "offlineHint": "仅保存在这台电脑上：不同步，也不包含在导出中。",
     "showFolder": "显示文件夹",
     "saveOffline": "保存我从稍后读打开的文章",
     "saveOfflineHint": "在阅读模式中打开的每篇稍后读文章都会在这里保留副本。",
-    "removeCopies": "删除所有副本",
-    "removeCopiesHint": "书签会保留，只删除它们的离线副本。",
     "removeCopiesButton": "删除…",
     "removeCopiesTitle": "删除所有离线副本？",
     "removeCopiesText_other": "将从这台电脑删除 {{count}} 篇已保存的文章。书签会保留。",
     "removeCopiesConfirm": "删除副本",
-    "copiesRemoved_other": "已删除 {{count}} 个离线副本"
+    "copiesRemoved_other": "已删除 {{count}} 个离线副本",
+    "connections": "连接",
+    "syncAndBackups": "同步与备份",
+    "storage": "存储",
+    "summaryConnected": "已连接 {{browsers}}",
+    "summaryAssistantsOn": "AI 助手已开启",
+    "summaryAssistantsOff": "AI 助手已关闭",
+    "summaryOffline": "离线：{{articles}} · {{size}}",
+    "summarySupport": "帮助、反馈、许可证",
+    "summaryMarkRead": "读到末尾时标为已读",
+    "removeCopiesHint": "书签会保留，只删除它们的离线副本。"
   },
   "notice": {
     "previewRefreshed": "预览已刷新",
@@ -1820,7 +1822,8 @@
       "import": "导入…",
       "clear": "清除订阅源缓存",
       "clearHint": "文章将重新获取。已保存的文章仍留在书签库中。",
-      "clearButton": "清除"
+      "clearButton": "清除",
+      "summaryEvery": "每 {{interval}}"
     }
   },
   "bundle": {
