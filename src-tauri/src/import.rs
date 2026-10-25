@@ -282,10 +282,11 @@ struct Collections {
 }
 
 /// Whether `name` is one the import gives `folder` (folded both): its own,
-/// "Docs (Work)", "Docs (Work) 2" or "Docs 2".
+/// "Docs (Work)", "Docs (Work) 2" or "Docs 2". The import numbers in the
+/// few: "Trips 2024" is the person's own.
 fn made_of(name: &str, folder: &str) -> bool {
     let Some(rest) = name.strip_prefix(folder) else { return false };
-    let number = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
+    let number = |s: &str| (1..=3).contains(&s.len()) && s.bytes().all(|b| b.is_ascii_digit());
     let Some(rest) = rest.strip_prefix(' ') else { return rest.is_empty() };
     match rest.strip_prefix('(') {
         None => number(rest),
@@ -319,17 +320,20 @@ impl Collections {
             known.names.insert(id, name);
             known.parents.insert(id, parent);
         }
+        // Each existing link votes for where its folder is now, and for the
+        // folders above it while the collections above still carry their
+        // names: a moved parent is found by its children. The most votes win,
+        // so one link the person filed elsewhere moves no folder.
+        let mut votes: HashMap<Vec<String>, HashMap<i64, usize>> = HashMap::new();
         for (link, sits) in links.iter().zip(sits) {
             let Some((_, Some(mut id))) = *sits else { continue };
             let mut key: Vec<String> = link.path.iter().map(|f| db::fold(f)).collect();
-            // The folder, then the folders above it while the collections above
-            // still carry their names: a moved parent is found by its children.
             while let Some(folder) = key.last() {
                 let name = known.names.get(&id).map(|n| db::fold(n)).unwrap_or_default();
-                if known.moved.contains_key(&key) || !made_of(&name, folder) {
+                if !made_of(&name, folder) {
                     break;
                 }
-                known.moved.insert(key.clone(), id);
+                *votes.entry(key.clone()).or_default().entry(id).or_default() += 1;
                 key.pop();
                 match known.parents.get(&id).copied().flatten() {
                     Some(up) => id = up,
@@ -337,6 +341,10 @@ impl Collections {
                 }
             }
         }
+        known.moved = votes
+            .into_iter()
+            .filter_map(|(key, ids)| ids.into_iter().max_by_key(|&(id, n)| (n, std::cmp::Reverse(id))).map(|(id, _)| (key, id)))
+            .collect();
         Ok(known)
     }
 
@@ -353,58 +361,86 @@ impl Collections {
     }
 
     /// The collection the last folder of `path` stands for, made with the
-    /// ones above it when the library lacks them. A folder the person moved
-    /// is found where it is now, with what is below it, while that still fits.
+    /// ones above it when the library lacks them. Each folder is first the
+    /// collection of its place; one the person moved is found where its
+    /// links are now, with what is below it, while that still fits.
     fn at(&mut self, conn: &Connection, path: &[String], summary: &mut ImportSummary) -> rusqlite::Result<i64> {
         let folded: Vec<String> = path.iter().map(|f| db::fold(f)).collect();
-        let (start, mut parent) = (1..=path.len())
-            .rev()
-            .find_map(|n| {
-                let id = *self.moved.get(&folded[..n])?;
-                (self.depth(id) + path.len() - n <= db::MAX_DEPTH).then_some((n, Some(id)))
-            })
-            .unwrap_or((0, None));
-        for folder in &path[start..] {
-            let key = (parent, db::fold(folder));
-            let id = match self.placed.get(&key) {
-                Some(&id) => id,
-                None => {
-                    let id = self.find_or_make(conn, folder, parent, summary)?;
-                    self.placed.insert(key, id);
-                    id
+        let fits = |this: &Self, id: i64, level: usize| this.depth(id) + path.len() - level - 1 <= db::MAX_DEPTH;
+        let mut parent = None;
+        let mut level = 0;
+        while level < path.len() {
+            let key = (parent, folded[level].clone());
+            if let Some(&id) = self.placed.get(&key) {
+                parent = Some(id);
+                level += 1;
+                continue;
+            }
+            if let Some(id) = self.find(&path[level], parent) {
+                self.placed.insert(key, id);
+                parent = Some(id);
+                level += 1;
+                continue;
+            }
+            // Not in its place: the folder, or the deepest one below it, moved
+            // elsewhere (a child taken out of its parent leaves no trace of
+            // the parent); else it is made.
+            match (level..path.len()).rev().find_map(|at| self.moved.get(&folded[..=at]).copied().filter(|&id| fits(self, id, at)).map(|id| (at, id))) {
+                Some((at, id)) => {
+                    if at == level {
+                        self.placed.insert(key, id);
+                    }
+                    parent = Some(id);
+                    level = at + 1;
                 }
-            };
-            parent = Some(id);
+                None => {
+                    let id = self.make(conn, &path[level], parent, summary)?;
+                    self.placed.insert(key, id);
+                    parent = Some(id);
+                    level += 1;
+                }
+            }
         }
         Ok(parent.expect("a link with a collection has a folder"))
     }
 
     /// The names a folder may have in turn: its own, then after the parent,
-    /// then numbered. The first one a collection of this place has is the
-    /// folder's; the first one nobody has is made.
-    fn find_or_make(&mut self, conn: &Connection, folder: &str, parent: Option<i64>, summary: &mut ImportSummary) -> rusqlite::Result<i64> {
-        let parent_name = parent.and_then(|p| self.names.get(&p)).cloned();
+    /// then numbered.
+    fn name(folder: &str, parent_name: Option<&str>, attempt: usize) -> String {
+        match (attempt, parent_name) {
+            (0, _) => folder.to_owned(),
+            (1, Some(up)) => format!("{folder} ({up})"),
+            (n, Some(up)) => format!("{folder} ({up}) {n}"),
+            (n, None) => format!("{folder} {}", n + 1),
+        }
+    }
+
+    /// The collection of this place a folder already has: the first of its
+    /// names one of the place has, before a name nobody has.
+    fn find(&self, folder: &str, parent: Option<i64>) -> Option<i64> {
+        let parent_name = parent.and_then(|p| self.names.get(&p)).map(String::as_str);
         for attempt in 0.. {
-            let name = match (attempt, &parent_name) {
-                (0, _) => folder.to_owned(),
-                (1, Some(up)) => format!("{folder} ({up})"),
-                (n, Some(up)) => format!("{folder} ({up}) {n}"),
-                (n, None) => format!("{folder} {}", n + 1),
-            };
-            match self.by_name.get(&db::fold(&name)) {
-                Some(&id) if self.parents.get(&id) == Some(&parent) => return Ok(id),
-                Some(_) => continue,
-                None => {
-                    let created = db::create_collection_under(conn, &name, parent, None, None)?;
-                    self.by_name.insert(db::fold(&name), created.id);
-                    self.parents.insert(created.id, parent);
-                    self.names.insert(created.id, created.name);
-                    summary.collections.push(db::collection_path(conn, created.id)?.join("/"));
-                    return Ok(created.id);
-                }
+            let &id = self.by_name.get(&db::fold(&Self::name(folder, parent_name, attempt)))?;
+            if self.parents.get(&id) == Some(&parent) {
+                return Some(id);
             }
         }
         unreachable!("the names run out before the attempts do")
+    }
+
+    /// A new collection for the folder under the first of its names nobody has.
+    fn make(&mut self, conn: &Connection, folder: &str, parent: Option<i64>, summary: &mut ImportSummary) -> rusqlite::Result<i64> {
+        let parent_name = parent.and_then(|p| self.names.get(&p)).cloned();
+        let name = (0..)
+            .map(|attempt| Self::name(folder, parent_name.as_deref(), attempt))
+            .find(|name| !self.by_name.contains_key(&db::fold(name)))
+            .expect("the names run out before the attempts do");
+        let created = db::create_collection_under(conn, &name, parent, None, None)?;
+        self.by_name.insert(db::fold(&name), created.id);
+        self.parents.insert(created.id, parent);
+        self.names.insert(created.id, created.name);
+        summary.collections.push(db::collection_path(conn, created.id)?.join("/"));
+        Ok(created.id)
     }
 }
 
@@ -773,7 +809,7 @@ mod tests {
         for name in ["docs", "docs 2", "docs (work)", "docs (work) 3", "docs (a (b))"] {
             assert!(made_of(name, "docs"), "{name}");
         }
-        for name in ["docs archive", "docsy", "docs ()", "docs (work) x", "docs 2b", "my docs"] {
+        for name in ["docs archive", "docsy", "docs ()", "docs (work) x", "docs 2b", "my docs", "docs 2024", "docs (work) 2024"] {
             assert!(!made_of(name, "docs"), "{name}");
         }
     }
@@ -791,6 +827,21 @@ mod tests {
         run(&[folder_html(&["Docs"], "https://a.example/"), folder_html(&["Docs"], "https://b.example/")].concat());
         let b: String = c.query_row("SELECT c.name FROM bookmarks b JOIN collections c ON c.id = b.collection_id WHERE url = 'https://b.example/'", [], |r| r.get(0)).unwrap();
         assert_eq!(b, "Docs");
+    }
+
+    /// The folder's own collection in its place comes first, and one link
+    /// filed by hand into another of the folder's names outvotes nothing.
+    #[test]
+    fn a_folder_still_in_its_place_keeps_its_links() {
+        let c = database();
+        let run = |html: &str| import(&c, &parse(html, now()), false, |_, _| {}).unwrap();
+        let urls = ["https://a.example/", "https://b.example/", "https://c.example/"];
+        run(&urls.map(|u| folder_html(&["Trips"], u)).concat());
+        let other = db::create_collection(&c, "Trips 2", None, None).unwrap().id;
+        c.execute("UPDATE bookmarks SET collection_id = ?1 WHERE url = 'https://a.example/'", [other]).unwrap();
+        run(&[urls.map(|u| folder_html(&["Trips"], u)).concat(), folder_html(&["Trips"], "https://new.example/")].concat());
+        let new: String = c.query_row("SELECT c.name FROM bookmarks b JOIN collections c ON c.id = b.collection_id WHERE url = 'https://new.example/'", [], |r| r.get(0)).unwrap();
+        assert_eq!(new, "Trips");
     }
 
     /// A moved parent is found by its children's links, also for a new link

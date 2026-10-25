@@ -93,10 +93,12 @@ export function CollectionPicker({ props }: { props: CollectionPickerProps }) {
   const found = matching(collections, query);
   const showSuggested = !!suggested && found.includes(suggested);
   // The suggestion's own row moves up to the suggestion, as before, unless it has children to hold.
-  const rows = pickerRows(collections, { query, folded, chosen: typeof choice === "number" ? choice : null }).filter(
-    (r) => !showSuggested || r.collection !== suggested || r.hasChildren,
-  );
   const roots = useMemo(() => buildTree(collections), [collections]);
+  const chosen = typeof choice === "number" ? choice : null;
+  const rows = useMemo(
+    () => pickerRows(collections, { query, folded, chosen, roots }).filter((r) => !showSuggested || r.collection !== suggested || r.hasChildren),
+    [collections, query, folded, chosen, roots, showSuggested, suggested],
+  );
   const typedName = newName(collections, query);
 
   const done = async () => {

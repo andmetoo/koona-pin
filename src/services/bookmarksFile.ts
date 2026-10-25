@@ -1,4 +1,5 @@
 import type { SkipReason, SkippedLink } from "../types";
+import { MAX_DEPTH } from "./collectionTree";
 
 /**
  * A browser bookmarks file read by the interface: the preview of the import
@@ -7,8 +8,6 @@ import type { SkipReason, SkippedLink } from "../types";
  * same files of Chrome, Edge and Firefox. Folders are nested collections down
  * to `MAX_DEPTH` levels (2.19.0); the names of deeper ones become tags.
  */
-/** As `db::MAX_DEPTH` in the desktop app. */
-const MAX_DEPTH = 3;
 
 export type ParsedLink = {
   url: string;

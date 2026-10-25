@@ -1,4 +1,4 @@
-import { ancestors, buildTree, flatten, MAX_DEPTH, pathPrefix } from "../../../services/collectionTree";
+import { ancestors, buildTree, flatten, MAX_DEPTH, pathPrefix, type TreeNode } from "../../../services/collectionTree";
 import { foldText } from "../../../services/library";
 import type { Collection, Tag } from "../../../types";
 
@@ -49,9 +49,15 @@ export interface PickerRow {
  * left out, or, with a typed query, the flat matches with their paths. Everything starts open
  * (`folded` is what the person closed); the ancestors of `chosen` are always open.
  */
-export function pickerRows(collections: Collection[], { query = "", folded = new Set<number>(), chosen = null }: { query?: string; folded?: ReadonlySet<number>; chosen?: number | null }): PickerRow[] {
-  const roots = buildTree(collections);
-  const total = new Map(flatten(roots).map((n) => [n.item.id, n.total]));
+export function pickerRows(
+  collections: Collection[],
+  {
+    query = "",
+    folded = new Set<number>(),
+    chosen = null,
+    roots = buildTree(collections),
+  }: { query?: string; folded?: ReadonlySet<number>; chosen?: number | null; /** The tree of `collections`, when the caller holds it. */ roots?: TreeNode<Collection>[] },
+): PickerRow[] {
   const cap = MAX_DEPTH - 1;
   if (query.trim()) {
     const hits = new Set(matching(collections, query).map((c) => c.id));
@@ -64,7 +70,7 @@ export function pickerRows(collections: Collection[], { query = "", folded = new
   return flatten(roots, shut).map((n) => ({
     collection: n.item,
     depth: Math.min(n.depth, cap),
-    total: total.get(n.item.id) ?? 0,
+    total: n.total,
     hasChildren: n.children.length > 0,
     open: !shut.has(n.item.id),
     locked: locked.has(n.item.id),
