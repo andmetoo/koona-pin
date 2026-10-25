@@ -264,6 +264,11 @@ struct Stored {
     /// does, so the dialog says so whenever it is opened, whoever saw the payment first.
     #[serde(default)]
     awaiting_sign_in: bool,
+    /// The last purchase seen paid here was the one-time purchase bought again by an account that
+    /// has it, which the server refunds: the dialog says so instead of «thank you», whoever saw the
+    /// payment first. Cleared by the next purchase started here.
+    #[serde(default)]
+    paid_again: bool,
     /// The first builds (0.8.0) kept a single purchase; read once and moved into `checkouts`.
     #[serde(default, skip_serializing)]
     claim: Option<String>,
@@ -353,6 +358,7 @@ impl Stored {
     }
 
     fn add_checkout(&mut self, checkout: Checkout) {
+        self.paid_again = false;
         self.checkouts.push(checkout);
         let extra = self.checkouts.len().saturating_sub(MAX_CHECKOUTS);
         self.checkouts.drain(..extra);
@@ -458,6 +464,10 @@ pub struct SupporterStatus {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub deletion_pending: Option<String>,
+    /// The last payment seen here was the one-time purchase bought again: it is refunded.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub paid_again: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -553,6 +563,7 @@ fn status(stored: &Stored, now: DateTime<Utc>) -> SupporterStatus {
         play: stored.play_progress(),
         delete_at: stored.delete_at.filter(|_| stored.session.is_some()),
         deletion_pending: deletion::pending(stored, now),
+        paid_again: stored.paid_again.then_some(true),
     }
 }
 
@@ -933,9 +944,14 @@ async fn claim(app: &AppHandle) -> Result<CheckoutState, CommandError> {
             let session = session_of(&value["session"]).ok_or_else(|| refused("billing claim", status))?;
             // Signed in either way; a plan the reply does not give is not known yet, not «none».
             let answer = Answer::of(&value);
+            // The one-time purchase bought again (koona-services `boughtAgain`): refunded by the server.
+            let again = value["again"] == true;
             let mut signed_in = false;
             billing.update(app, |s| {
                 signed_in = s.signed_in_by(&checkout.secret, session, answer, &plan_key(), Utc::now());
+                if signed_in {
+                    s.paid_again = again;
+                }
                 s.checkouts.retain(|c| !finished.contains(&c.secret));
             })?;
             if signed_in {
@@ -1002,6 +1018,9 @@ pub async fn start_checkout(app: AppHandle, interval: PlanInterval) -> Result<St
         PlanInterval::Lifetime => "lifetime",
     };
     let (status, value) = call(&app, json!({ "action": "checkout", "interval": name, "claim": secret }), token.as_deref()).await?;
+    if status.as_u16() == 409 && value["error"] == "already_supporter" {
+        return Err(CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::AlreadySupporter, "The account already has the one-time purchase"));
+    }
     let url = value["url"].as_str().filter(|_| status.is_success()).ok_or_else(|| refused("billing checkout", status))?.to_string();
     let checkout = Checkout { secret, started: Utc::now(), interval: Some(interval), url: Some(url.clone()) };
     billing.update(&app, |s| s.add_checkout(checkout))?;
@@ -1554,6 +1573,18 @@ mod tests {
 
     fn checkout(secret: &str, started: &str, interval: PlanInterval) -> Checkout {
         Checkout { secret: secret.into(), started: at(started), interval: Some(interval), url: Some(format!("https://koona.app/pin/checkout/?_ptxn={secret}")) }
+    }
+
+    #[test]
+    fn a_one_time_purchase_bought_again_is_said_until_the_next_purchase() {
+        let now = at("2026-10-12T12:00:00Z");
+        let mut stored = Stored { paid_again: true, ..supporter("2027-10-12T12:00:00Z") };
+        assert_eq!(status(&stored, now).paid_again, Some(true));
+        // Kept in account.json: the dialog says so whoever saw the payment first.
+        let kept: Stored = serde_json::from_value(serde_json::to_value(&stored).unwrap()).unwrap();
+        assert!(kept.paid_again);
+        stored.add_checkout(checkout("year1", "2026-10-12T11:00:00Z", PlanInterval::Year));
+        assert_eq!(status(&stored, now).paid_again, None);
     }
 
     #[test]

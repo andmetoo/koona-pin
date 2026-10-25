@@ -1348,7 +1348,8 @@
       "no_paid_time": "non resta tempo pagato",
       "payments_not_stopped": "non è stato possibile fermare i pagamenti",
       "payment_pending": "un pagamento è ancora in elaborazione",
-      "deletion_unknown": "la risposta non è arrivata"
+      "deletion_unknown": "la risposta non è arrivata",
+      "already_supporter": "questo account ha già l’acquisto singolo"
     },
     "code": {
       "not_found": "Non esiste più: forse è stato eliminato nel frattempo.",
@@ -1387,7 +1388,8 @@
       "no_paid_time": "Non resta tempo pagato, quindi l’account può essere eliminato solo ora.",
       "payments_not_stopped": "Non è stato possibile fermare i pagamenti, quindi non è stato eliminato nulla. Riprova.",
       "payment_pending": "Un pagamento è ancora in elaborazione. Riprova più tardi.",
-      "deletion_unknown": "Non sappiamo ancora se il tuo account è stato eliminato. Controlla di nuovo."
+      "deletion_unknown": "Non sappiamo ancora se il tuo account è stato eliminato. Controlla di nuovo.",
+      "already_supporter": "Questo account ha già l’acquisto singolo, quindi non c’è nulla da pagare."
     }
   },
   "tray": {
@@ -1534,6 +1536,8 @@
     "waiting": "In attesa del pagamento…",
     "openAgain": "Riapri la pagina",
     "thanksTitle": "Grazie per sostenere Koona Pin",
+    "againTitle": "Hai già l’acquisto singolo",
+    "againText": "{{email}} lo aveva già, quindi questo pagamento viene rimborsato per intero al metodo con cui hai pagato, di solito entro pochi giorni. Supporter resta com’è.",
     "thanksText": "Supporter è attivo per {{email}}, l’email del pagamento. Su un altro computer apri «Sostieni» e scegli «Sono già Supporter».",
     "paidTitle": "Pagamento ricevuto",
     "paidSignInText": "L’email del pagamento ha già un account Koona Pin. Accedi con il codice che ti invieremo e Koona Pin mostrerà il tuo piano qui.",

@@ -92,6 +92,8 @@ pub enum ErrorDetail {
     PaymentPending,
     /// The deletion's answer did not come: whether the account was deleted is not known yet.
     DeletionUnknown,
+    /// Supporter's one-time purchase, bought again by an account that has it: nothing to pay for.
+    AlreadySupporter,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]

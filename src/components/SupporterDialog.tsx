@@ -66,7 +66,7 @@ export function SupporterDialog({
   onSignIn: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const { step, interval, setPlan, shown, plans, pay, openAgain, busy, error, checkout, paidEmail } = useSupporterPurchase({
+  const { step, interval, setPlan, shown, plans, pay, openAgain, busy, error, checkout, paidEmail, again } = useSupporterPurchase({
     email,
     awaitingSignIn,
     paid,
@@ -228,12 +228,13 @@ export function SupporterDialog({
     </div>
   );
 
-  const thanksPanel = (who: string | null) => (
+  // `bought`: the one-time purchase bought again, refunded; the sizing copy has that longer text.
+  const thanksPanel = (who: string | null, bought: boolean) => (
     <div className="flex flex-1 flex-col items-center text-center">
       <span className="mt-2 flex size-14 items-center justify-center rounded-full bg-season-soft text-season">
         <Heart size={24} fill="currentColor" aria-hidden />
       </span>
-      <p className="mt-4 max-w-[400px] text-sm text-muted">{t("supporter.thanksText", { email: who ?? "" })}</p>
+      <p className="mt-4 max-w-[400px] text-sm text-muted">{t(bought ? "supporter.againText" : "supporter.thanksText", { email: who ?? "" })}</p>
       <footer className="mt-auto flex w-full justify-end gap-2 pt-5">
         <Button variant="primary" size="lg" autoFocus onClick={onClose}>
           {t("supporter.done")}
@@ -264,7 +265,7 @@ export function SupporterDialog({
   const title = {
     plans: upgrade ? t("supporter.upgradeTitle") : t("supporter.title"),
     waiting: t("supporter.waitingTitle"),
-    thanks: t("supporter.thanksTitle"),
+    thanks: t(again ? "supporter.againTitle" : "supporter.thanksTitle"),
     signIn: t("supporter.paidTitle"),
   }[step];
   return (
@@ -284,7 +285,7 @@ export function SupporterDialog({
           if (state === "plans") return plansPanel(sizing ? t("supporter.unreachable") : error, sizing);
           if (state === "waiting") return waitingPanel();
           if (state === "signIn") return signInPanel();
-          return thanksPanel(sizing ? "someone.with.a.long.address@example.com" : paidEmail);
+          return sizing ? thanksPanel("someone.with.a.long.address@example.com", true) : thanksPanel(paidEmail, again);
         }}
       </StatePanels>
     </Dialog>

@@ -1348,7 +1348,8 @@
       "no_paid_time": "no queda tiempo pagado",
       "payments_not_stopped": "no se pudieron detener los pagos",
       "payment_pending": "un pago aún se está procesando",
-      "deletion_unknown": "la respuesta no llegó"
+      "deletion_unknown": "la respuesta no llegó",
+      "already_supporter": "esta cuenta ya tiene el pago único"
     },
     "code": {
       "not_found": "Ya no existe; puede que se haya eliminado mientras tanto.",
@@ -1387,7 +1388,8 @@
       "no_paid_time": "No queda tiempo pagado, así que la cuenta solo puede eliminarse ahora.",
       "payments_not_stopped": "No se pudieron detener los pagos, así que no se eliminó nada. Inténtalo de nuevo.",
       "payment_pending": "Un pago aún se está procesando. Inténtalo más tarde.",
-      "deletion_unknown": "Aún no sabemos si tu cuenta se eliminó. Vuelve a comprobarlo."
+      "deletion_unknown": "Aún no sabemos si tu cuenta se eliminó. Vuelve a comprobarlo.",
+      "already_supporter": "Esta cuenta ya tiene el pago único, así que no hay nada que pagar."
     }
   },
   "tray": {
@@ -1534,6 +1536,8 @@
     "waiting": "Esperando el pago…",
     "openAgain": "Abrir la página otra vez",
     "thanksTitle": "Gracias por apoyar Koona Pin",
+    "againTitle": "Ya tienes el pago único",
+    "againText": "{{email}} ya lo tenía, así que este pago se reembolsa por completo al medio con el que pagaste, normalmente en unos días. Supporter sigue como estaba.",
     "thanksText": "Supporter está activo para {{email}}, el correo de tu pago. En otro ordenador, abre «Apoyar» y elige «Ya soy Supporter».",
     "paidTitle": "Pago recibido",
     "paidSignInText": "El correo de tu pago ya tiene una cuenta de Koona Pin. Inicia sesión con el código que te enviaremos y Koona Pin mostrará tu plan aquí.",

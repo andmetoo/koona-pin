@@ -1270,7 +1270,8 @@
       "no_paid_time": "ödenmiş süre kalmadı",
       "payments_not_stopped": "ödemeler durdurulamadı",
       "payment_pending": "bir ödeme hâlâ işleniyor",
-      "deletion_unknown": "yanıt gelmedi"
+      "deletion_unknown": "yanıt gelmedi",
+      "already_supporter": "bu hesapta tek seferlik satın alma zaten var"
     },
     "code": {
       "not_found": "Artık yok — bu arada silinmiş olabilir.",
@@ -1309,7 +1310,8 @@
       "no_paid_time": "Ödenmiş süre kalmadı, bu yüzden hesap yalnızca şimdi silinebilir.",
       "payments_not_stopped": "Ödemeler durdurulamadı, bu yüzden hiçbir şey silinmedi. Yeniden deneyin.",
       "payment_pending": "Bir ödeme hâlâ işleniyor. Daha sonra yeniden deneyin.",
-      "deletion_unknown": "Hesabınızın silinip silinmediğini henüz bilmiyoruz. Yeniden kontrol edin."
+      "deletion_unknown": "Hesabınızın silinip silinmediğini henüz bilmiyoruz. Yeniden kontrol edin.",
+      "already_supporter": "Bu hesapta tek seferlik satın alma zaten var, bu yüzden ödenecek bir şey yok."
     }
   },
   "tray": {
@@ -1431,6 +1433,8 @@
     "waiting": "Ödeme bekleniyor…",
     "openAgain": "Sayfayı yeniden aç",
     "thanksTitle": "Koona Pin'i desteklediğiniz için teşekkürler",
+    "againTitle": "Tek seferlik satın almaya zaten sahipsiniz",
+    "againText": "{{email}} adresinde zaten vardı, bu yüzden bu ödeme ödeme yaptığınız yönteme tamamen iade edilir, genellikle birkaç gün içinde. Supporter olduğu gibi kalır.",
     "thanksText": "Supporter, ödemedeki e-posta olan {{email}} için etkin. Başka bir bilgisayarda \"Destekleyin\"i açıp \"Zaten Supporter'ım\"ı seçin.",
     "paidTitle": "Ödeme alındı",
     "paidSignInText": "Ödemedeki e-postanın zaten bir Koona Pin hesabı var. Bu adrese göndereceğimiz kodla giriş yapın; Koona Pin planınızı burada da gösterir.",

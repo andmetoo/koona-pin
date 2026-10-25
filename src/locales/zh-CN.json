@@ -1192,7 +1192,8 @@
       "no_paid_time": "没有剩余的已付时间",
       "payments_not_stopped": "无法停止付款",
       "payment_pending": "有一笔付款仍在处理中",
-      "deletion_unknown": "没有收到回复"
+      "deletion_unknown": "没有收到回复",
+      "already_supporter": "此账户已有一次性购买"
     },
     "code": {
       "not_found": "它已不存在 — 可能在此期间被删除了。",
@@ -1231,7 +1232,8 @@
       "no_paid_time": "没有剩余的已付时间，因此只能立即删除账户。",
       "payments_not_stopped": "无法停止付款，因此没有删除任何内容。请重试。",
       "payment_pending": "有一笔付款仍在处理中。请稍后重试。",
-      "deletion_unknown": "我们还不知道你的账户是否已删除。请再次检查。"
+      "deletion_unknown": "我们还不知道你的账户是否已删除。请再次检查。",
+      "already_supporter": "此账户已有一次性购买，无需再付款。"
     }
   },
   "tray": {
@@ -1328,6 +1330,8 @@
     "waiting": "正在等待付款…",
     "openAgain": "重新打开页面",
     "thanksTitle": "感谢你支持 Koona Pin",
+    "againTitle": "你已经拥有一次性购买",
+    "againText": "{{email}} 已经拥有，因此这笔付款会按原支付方式全额退还，通常在几天内到账。Supporter 保持不变。",
     "thanksText": "Supporter 已为付款邮箱 {{email}} 开通。在其他电脑上，请打开“支持”并选择“我已是 Supporter”。",
     "paidTitle": "付款成功",
     "paidSignInText": "付款邮箱已有 Koona Pin 账户。用我们发送到该邮箱的验证码登录后，这里也会显示你的方案。",

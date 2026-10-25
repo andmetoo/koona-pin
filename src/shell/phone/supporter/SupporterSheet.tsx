@@ -110,7 +110,7 @@ function PurchaseSheet() {
     planUnknown: !!supporter?.plan_unknown,
     onClose: close,
   });
-  const { step, interval, setPlan, shown, plans, pay, openAgain, busy, error, checkout, paidEmail } = purchase;
+  const { step, interval, setPlan, shown, plans, pay, openAgain, busy, error, checkout, paidEmail, again } = purchase;
   const signIn = () => setSurface("signIn");
 
   if (step === "waiting")
@@ -143,7 +143,7 @@ function PurchaseSheet() {
     const thanks = step === "thanks";
     return (
       <Sheet
-        label={t(thanks ? "supporter.thanksTitle" : "supporter.paidTitle")}
+        label={t(thanks ? (again ? "supporter.againTitle" : "supporter.thanksTitle") : "supporter.paidTitle")}
         className="sp-sheet"
         footer={
           thanks ? (
@@ -164,8 +164,12 @@ function PurchaseSheet() {
       >
         <div className="sp-done" data-supporter-step={step}>
           <SeasonHeart size={64} />
-          <h2 className="ph-title2">{t(thanks ? "supporter.thanksTitle" : "supporter.paidTitle")}</h2>
-          <p className="sp-text">{thanks ? t("phone.supporter.thanksText", { email: paidEmail ?? "" }) : t("supporter.paidSignInText")}</p>
+          <h2 className="ph-title2">{t(thanks ? (again ? "supporter.againTitle" : "supporter.thanksTitle") : "supporter.paidTitle")}</h2>
+          <p className="sp-text">
+            {thanks
+              ? t(again ? "supporter.againText" : "phone.supporter.thanksText", { email: paidEmail ?? "" })
+              : t("supporter.paidSignInText")}
+          </p>
         </div>
       </Sheet>
     );

@@ -1426,7 +1426,8 @@
       "no_paid_time": "nie został opłacony czas",
       "payments_not_stopped": "nie udało się zatrzymać płatności",
       "payment_pending": "płatność jest jeszcze przetwarzana",
-      "deletion_unknown": "odpowiedź nie dotarła"
+      "deletion_unknown": "odpowiedź nie dotarła",
+      "already_supporter": "to konto ma już jednorazowy zakup"
     },
     "code": {
       "not_found": "To już nie istnieje — mogło zostać usunięte w międzyczasie.",
@@ -1465,7 +1466,8 @@
       "no_paid_time": "Nie został opłacony czas, więc konto można usunąć tylko teraz.",
       "payments_not_stopped": "Nie udało się zatrzymać płatności, więc nic nie zostało usunięte. Spróbuj ponownie.",
       "payment_pending": "Płatność jest jeszcze przetwarzana. Spróbuj później.",
-      "deletion_unknown": "Jeszcze nie wiemy, czy konto zostało usunięte. Sprawdź ponownie."
+      "deletion_unknown": "Jeszcze nie wiemy, czy konto zostało usunięte. Sprawdź ponownie.",
+      "already_supporter": "To konto ma już jednorazowy zakup, więc nie ma za co płacić."
     }
   },
   "tray": {
@@ -1637,6 +1639,8 @@
     "waiting": "Czekamy na płatność…",
     "openAgain": "Otwórz stronę ponownie",
     "thanksTitle": "Dziękujemy za wsparcie Koona Pin",
+    "againTitle": "Masz już jednorazowy zakup",
+    "againText": "{{email}} już go miało, więc ta płatność jest zwracana w całości na sposób, którym zapłacono, zwykle w ciągu kilku dni. Supporter zostaje bez zmian.",
     "thanksText": "Supporter jest aktywny dla {{email}}, adresu z płatności. Na innym komputerze otwórz „Wesprzyj” i wybierz „Już jestem Supporterem”.",
     "paidTitle": "Płatność przyjęta",
     "paidSignInText": "Adres z płatności ma już konto Koona Pin. Zaloguj się kodem, który na niego wyślemy — wtedy Koona Pin pokaże tu twój plan.",

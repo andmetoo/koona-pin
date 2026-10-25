@@ -139,6 +139,20 @@ export function useSupporterPurchase({
     if (unknownAtOpen.current) void api.refreshSupporter(true).catch(() => {});
   }, []);
   const [paidEmail, setPaidEmail] = useState(email);
+  // The one-time purchase bought again, which the server refunds (billing.rs `paid_again`): the
+  // last step says so instead of «thank you», however it was reached.
+  const [again, setAgain] = useState(false);
+  useEffect(() => {
+    if (step !== "thanks") return;
+    let alive = true;
+    void api
+      .getSupporterStatus()
+      .then((status) => alive && setAgain(!!status.paid_again))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [step]);
   useEffect(() => {
     if (!paid || paidAtOpen.current) return;
     if (unknownAtOpen.current && stepNow.current === "plans") {
@@ -217,7 +231,7 @@ export function useSupporterPurchase({
     if (!lifetimeSold && !upgrade) setPlan((chosen) => (chosen === "lifetime" ? "year" : chosen));
   }, [lifetimeSold, upgrade]);
 
-  return { step, setStep, interval, setPlan, shown, plans, pay, openAgain, busy, error, checkout, paidEmail };
+  return { step, setStep, interval, setPlan, shown, plans, pay, openAgain, busy, error, checkout, paidEmail, again };
 }
 
 /** «Send again in 0:59»: a new code is offered a minute after the last one. */

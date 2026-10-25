@@ -1362,7 +1362,8 @@
       "no_paid_time": "nije ostalo plaćenog vremena",
       "payments_not_stopped": "plaćanja nije bilo moguće zaustaviti",
       "payment_pending": "plaćanje se još obrađuje",
-      "deletion_unknown": "odgovor nije stigao"
+      "deletion_unknown": "odgovor nije stigao",
+      "already_supporter": "ovaj nalog već ima jednokratnu kupovinu"
     },
     "code": {
       "not_found": "Više ne postoji — možda je u međuvremenu obrisano.",
@@ -1401,7 +1402,8 @@
       "no_paid_time": "Nije ostalo plaćenog vremena, pa nalog može da se obriše samo sada.",
       "payments_not_stopped": "Plaćanja nije bilo moguće zaustaviti, pa ništa nije obrisano. Pokušajte ponovo.",
       "payment_pending": "Plaćanje se još obrađuje. Pokušajte kasnije.",
-      "deletion_unknown": "Još ne znamo da li je nalog obrisan. Proverite ponovo."
+      "deletion_unknown": "Još ne znamo da li je nalog obrisan. Proverite ponovo.",
+      "already_supporter": "Ovaj nalog već ima jednokratnu kupovinu, pa nema šta da se plati."
     }
   },
   "tray": {
@@ -1548,6 +1550,8 @@
     "waiting": "Čekamo plaćanje…",
     "openAgain": "Ponovo otvori stranicu",
     "thanksTitle": "Hvala što podržavate Koona Pin",
+    "againTitle": "Već imate jednokratnu kupovinu",
+    "againText": "Za {{email}} ona već postoji, zato se ova uplata u celosti vraća načinom na koji ste platili, obično u roku od nekoliko dana. Supporter ostaje kakav jeste.",
     "thanksText": "Supporter je aktivan za {{email}}, adresu iz plaćanja. Na drugom računaru otvorite „Podrži“ i izaberite „Već sam Supporter“.",
     "paidTitle": "Plaćanje je primljeno",
     "paidSignInText": "Adresa iz plaćanja već ima Koona Pin nalog. Prijavite se kodom koji ćemo poslati na nju i Koona Pin će ovde pokazati vaš plan.",
