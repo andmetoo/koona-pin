@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Plus, Rss } from "lucide-react";
+import { CheckCheck, Plus, Rss } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Bookmark, Feed, FeedItem } from "../../types";
 import { api } from "../../services/api";
@@ -9,6 +9,7 @@ import { keyIs } from "../../services/keys";
 import { markFeedRead, refreshFeeds, saveFeedItem, setFeedItemsRead } from "../../services/feeds";
 import { headerLine, healthLine, listTitle } from "../../services/feedsView";
 import { ReaderLook } from "../../services/readerLook";
+import { preference, savePreference } from "../../services/preferences";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
 import { relativeTime } from "../../services/relativeTime";
@@ -42,6 +43,8 @@ const newestOf = (feeds: Feed[], feedUid: string | null) =>
   feeds
     .filter((f) => feedUid === null || f.uid === feedUid)
     .reduce<string | null>((max, f) => (f.newest_at && (max === null || f.newest_at > max) ? f.newest_at : max), null);
+
+export type FeedShow = "unread" | "all";
 
 export function FeedsPage({
   feeds,
@@ -82,7 +85,10 @@ export function FeedsPage({
   const { t, i18n } = useTranslation();
   const [searching, setSearching] = useState(false);
   const [search, setSearch] = useState("");
-  const { items, loaded, hasMore, loadMore } = useFeedItems(feedUid, searching ? search : "", feeds);
+  // Unread or All posts (2.17.0), kept like the library's view.
+  const [show, setShow] = useState<FeedShow>(() => preference("feeds.show", ["unread", "all"], "all"));
+  useEffect(() => savePreference("feeds.show", show), [show]);
+  const { items, loaded, hasMore, loadMore } = useFeedItems(feedUid, searching ? search : "", feeds, show === "unread", itemId);
   const list = useRef<FeedListHandle>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const sheetEl = useRef<HTMLElement>(null);
@@ -282,6 +288,7 @@ export function FeedsPage({
   const offline = (shownFeed ? [shownFeed] : feeds).some((f) => f.health.state === "offline");
   const status = headerLine(feeds, feedUid, { t, language: i18n.language, refreshing, ago: (iso) => relativeTime(iso, i18n.language) });
   const title = listTitle(feeds, feedUid, t);
+  const unread = feeds.reduce((sum, f) => (feedUid === null || f.uid === feedUid ? sum + f.unread : sum), 0);
   const empty =
     feeds.length === 0 ? (
       <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
@@ -293,6 +300,16 @@ export function FeedsPage({
         <Button variant="primary" onClick={onNewLink} className="mt-1">
           <Icon icon={Plus} size={14} />
           {t("sidebar.newLink")}
+        </Button>
+      </div>
+    ) : show === "unread" && !(searching && search.trim()) ? (
+      <div data-feed-all-read className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+        <span className="flex size-12 items-center justify-center rounded-full bg-secondary text-icon">
+          <Icon icon={CheckCheck} size={20} />
+        </span>
+        <h2 className="text-xl font-semibold">{t("feeds.notice.allRead")}</h2>
+        <Button onClick={() => setShow("all")} className="mt-1">
+          {t("feeds.showAll")}
         </Button>
       </div>
     ) : (
@@ -362,6 +379,9 @@ export function FeedsPage({
             if (!on) setSearch("");
           }}
           onSearch={setSearch}
+          show={show}
+          onShow={setShow}
+          onMarkAll={unread > 0 ? markAll : undefined}
           listRef={list}
           empty={empty}
           narrow={narrow}
@@ -393,6 +413,7 @@ export function FeedsPage({
             bookmark={bookmark}
             next={next}
             onPrevious={index > 0 ? () => move(-1) : undefined}
+            hasNext={index >= 0 && index < items.length - 1}
             scrollerRef={scroller}
             sheetRef={sheetEl}
             className="relative z-10"
