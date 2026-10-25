@@ -1435,6 +1435,7 @@
     "thanksTitle": "Danke, dass Sie Koona Pin unterstützen",
     "againTitle": "Sie haben den Einmalkauf bereits",
     "againText": "Das Konto {{email}} hat ihn schon, deshalb wird diese Zahlung vollständig auf dem Weg erstattet, auf dem Sie bezahlt haben, meist innerhalb weniger Tage. Supporter bleibt, wie es ist.",
+    "againSignInText": "Die E-Mail dieser Zahlung gehört zu einem Konto, das den Einmalkauf schon hat, deshalb wird die Zahlung vollständig auf dem Weg erstattet, auf dem Sie bezahlt haben, meist innerhalb weniger Tage. Melden Sie sich mit dem Code an, den wir an diese E-Mail schicken — dann zeigt Koona Pin Ihren Tarif auch hier.",
     "thanksText": "Supporter ist für {{email}} aktiv, die E-Mail Ihrer Zahlung. Öffnen Sie auf einem anderen Computer „Unterstützen“ und wählen Sie „Ich bin schon Supporter“.",
     "paidTitle": "Zahlung eingegangen",
     "paidSignInText": "Die E-Mail Ihrer Zahlung hat schon ein Konto bei Koona Pin. Melden Sie sich mit dem Code an, den wir dorthin schicken — dann zeigt Koona Pin Ihren Tarif auch hier.",

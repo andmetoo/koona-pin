@@ -106,6 +106,7 @@ function PurchaseSheet() {
   const purchase = useSupporterPurchase({
     email: supporter?.email ?? null,
     awaitingSignIn: !!supporter?.awaiting_sign_in,
+    paidAgain: !!supporter?.paid_again,
     paid: !!supporter?.plan,
     planUnknown: !!supporter?.plan_unknown,
     onClose: close,
@@ -143,7 +144,7 @@ function PurchaseSheet() {
     const thanks = step === "thanks";
     return (
       <Sheet
-        label={t(thanks ? (again ? "supporter.againTitle" : "supporter.thanksTitle") : "supporter.paidTitle")}
+        label={t(again ? "supporter.againTitle" : thanks ? "supporter.thanksTitle" : "supporter.paidTitle")}
         className="sp-sheet"
         footer={
           thanks ? (
@@ -164,11 +165,11 @@ function PurchaseSheet() {
       >
         <div className="sp-done" data-supporter-step={step}>
           <SeasonHeart size={64} />
-          <h2 className="ph-title2">{t(thanks ? (again ? "supporter.againTitle" : "supporter.thanksTitle") : "supporter.paidTitle")}</h2>
+          <h2 className="ph-title2">{t(again ? "supporter.againTitle" : thanks ? "supporter.thanksTitle" : "supporter.paidTitle")}</h2>
           <p className="sp-text">
             {thanks
               ? t(again ? "supporter.againText" : "phone.supporter.thanksText", { email: paidEmail ?? "" })
-              : t("supporter.paidSignInText")}
+              : t(again ? "supporter.againSignInText" : "supporter.paidSignInText")}
           </p>
         </div>
       </Sheet>

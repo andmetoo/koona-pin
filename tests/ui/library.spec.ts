@@ -2700,6 +2700,34 @@ test("Supporter: a payment with the email of an existing account signs in only w
   await expect(row).toHaveAttribute("data-plan-row", "supporter");
 });
 
+test("Supporter: a one-time purchase bought again says the payment is refunded, never thanks, signed in or by code", async ({ page }) => {
+  const row = page.locator("[data-plan-row]");
+  for (const [kind, title, text] of [
+    ["free", "You already have the one-time purchase", "The account anna@example.com already has it, so this payment is refunded"],
+    ["existing", "You already have the one-time purchase", "The email of this payment is an account that already has it, so the payment is refunded"],
+  ] as const) {
+    await page.evaluate((k) => {
+      localStorage.setItem("koonapin.demo.supporter", k);
+      localStorage.setItem("koonapin.demo.paidAgain", "on");
+    }, kind);
+    await page.reload();
+    await row.click();
+    const plans = page.getByRole("dialog", { name: "Support Koona Pin" });
+    await expect(plans).toContainText("$29.99 once");
+    const height = Math.round((await plans.boundingBox())!.height);
+    await plans.getByRole("radio", { name: /One-time/ }).click();
+    await plans.getByRole("button", { name: "Continue" }).click();
+    const done = page.getByRole("dialog", { name: title });
+    await expect(done).toContainText(text, { timeout: 15_000 });
+    // Never the thanks or «Payment received» first, and the longer text never makes the dialog
+    // grow (a long title sits 2 px lower than the plans' short one, as the thanks always did).
+    await expect(page.getByRole("dialog", { name: "Thank you for supporting Koona Pin" })).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: "Payment received" })).toHaveCount(0);
+    expect(Math.round((await done.boundingBox())!.height), kind).toBeLessThanOrEqual(height);
+    await page.keyboard.press("Escape");
+  }
+});
+
 test("Supporter: a payment the app saw first in the background still ends in thanks; what it finds by itself moves an open dialog on (NP-066)", async ({ page }) => {
   for (const [kind, title, click] of [
     ["background", "Thank you for supporting Koona Pin", true],

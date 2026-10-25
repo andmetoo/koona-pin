@@ -962,6 +962,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
           sandbox={!!supporter?.sandbox}
           email={supporter?.email ?? null}
           awaitingSignIn={!!supporter?.awaiting_sign_in}
+          paidAgain={!!supporter?.paid_again}
           paid={!!supporter?.plan}
           planUnknown={!!supporter?.plan_unknown}
           onClose={() => setSurface(null)}

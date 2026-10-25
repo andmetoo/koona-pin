@@ -39,6 +39,7 @@ export function SupporterDialog({
   sandbox,
   email,
   awaitingSignIn = false,
+  paidAgain = false,
   paid = false,
   planUnknown = false,
   upgrade,
@@ -57,6 +58,8 @@ export function SupporterDialog({
   email: string | null;
   /** A payment here went through for an existing account: open on «Payment received». */
   awaitingSignIn?: boolean;
+  /** That payment, or the one seen, was the one-time purchase bought again: it is refunded. */
+  paidAgain?: boolean;
   /** Signed in, and the plan could not be checked yet (`plan_unknown`): the plans warn first. */
   planUnknown?: boolean;
   /** This computer has the plan: when it arrives while the dialog is open, the dialog thanks. */
@@ -69,6 +72,7 @@ export function SupporterDialog({
   const { step, interval, setPlan, shown, plans, pay, openAgain, busy, error, checkout, paidEmail, again } = useSupporterPurchase({
     email,
     awaitingSignIn,
+    paidAgain,
     paid,
     planUnknown,
     upgrade,
@@ -245,12 +249,13 @@ export function SupporterDialog({
 
   // Paid with the email of an account that existed before: the purchase never signs it in by
   // itself, the code from that email does (koona-services, billing_fill_claim).
-  const signInPanel = () => (
+  // `bought`: the one-time purchase bought again, refunded; the sizing copy has that longer text.
+  const signInPanel = (bought: boolean) => (
     <div className="flex flex-1 flex-col items-center text-center">
       <span className="mt-2 flex size-14 items-center justify-center rounded-full bg-season-soft text-season">
         <Heart size={24} fill="currentColor" aria-hidden />
       </span>
-      <p className="mt-4 max-w-[400px] text-sm text-muted">{t("supporter.paidSignInText")}</p>
+      <p className="mt-4 max-w-[400px] text-sm text-muted">{t(bought ? "supporter.againSignInText" : "supporter.paidSignInText")}</p>
       <footer className="mt-auto flex w-full justify-end gap-2 pt-5">
         <Button variant="outline" size="lg" onClick={onClose}>
           {t("supporter.notNow")}
@@ -266,7 +271,7 @@ export function SupporterDialog({
     plans: upgrade ? t("supporter.upgradeTitle") : t("supporter.title"),
     waiting: t("supporter.waitingTitle"),
     thanks: t(again ? "supporter.againTitle" : "supporter.thanksTitle"),
-    signIn: t("supporter.paidTitle"),
+    signIn: t(again ? "supporter.againTitle" : "supporter.paidTitle"),
   }[step];
   return (
     <Dialog
@@ -284,7 +289,7 @@ export function SupporterDialog({
           if (state === "plans" && upgrade) return upgradePanel(upgrade, sizing ? t("supporter.unreachable") : error, sizing);
           if (state === "plans") return plansPanel(sizing ? t("supporter.unreachable") : error, sizing);
           if (state === "waiting") return waitingPanel();
-          if (state === "signIn") return signInPanel();
+          if (state === "signIn") return signInPanel(sizing || again);
           return sizing ? thanksPanel("someone.with.a.long.address@example.com", true) : thanksPanel(paidEmail, again);
         }}
       </StatePanels>

@@ -1641,6 +1641,7 @@
     "thanksTitle": "Dziękujemy za wsparcie Koona Pin",
     "againTitle": "Masz już jednorazowy zakup",
     "againText": "Konto {{email}} już go ma, więc ta płatność jest zwracana w całości na sposób, którym zapłacono, zwykle w ciągu kilku dni. Supporter zostaje bez zmian.",
+    "againSignInText": "Adres z tej płatności to konto, które ma już jednorazowy zakup, więc płatność jest zwracana w całości na sposób, którym zapłacono, zwykle w ciągu kilku dni. Zaloguj się kodem, który wyślemy na ten adres — wtedy Koona Pin pokaże tu twój plan.",
     "thanksText": "Supporter jest aktywny dla {{email}}, adresu z płatności. Na innym komputerze otwórz „Wesprzyj” i wybierz „Już jestem Supporterem”.",
     "paidTitle": "Płatność przyjęta",
     "paidSignInText": "Adres z płatności ma już konto Koona Pin. Zaloguj się kodem, który na niego wyślemy — wtedy Koona Pin pokaże tu twój plan.",

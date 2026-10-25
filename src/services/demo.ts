@@ -2561,12 +2561,15 @@ export const demo = {
   async openCheckout(_url: string) {},
   async pollCheckout(): Promise<CheckoutState> {
     if (++demoPolls < 3) return "waiting";
+    // `koonapin.demo.paidAgain` = `on`: the payment was the one-time purchase bought again, which
+    // the server refunds (billing.rs paid_again).
+    const again = demoSwitch("koonapin.demo.paidAgain") === "on" ? { paid_again: true } : {};
     if (storedSupporter() === "existing") {
       // Kept until the code signs in, as billing.rs keeps awaiting_sign_in.
-      setDemoSupporter({ ...currentDemoSupporter(), awaiting_sign_in: true });
+      setDemoSupporter({ ...currentDemoSupporter(), awaiting_sign_in: true, ...again });
       return "sign_in";
     }
-    setDemoSupporter({ ...currentDemoSupporter(), email: "anna@example.com", plan: demoPlan(demoBought === "lifetime" ? "lifetime" : "supporter"), check_failed: false });
+    setDemoSupporter({ ...currentDemoSupporter(), email: "anna@example.com", plan: demoPlan(demoBought === "lifetime" ? "lifetime" : "supporter"), check_failed: false, ...again });
     // The app's own background check saw the payment first: the purchase is gone, the plan is here.
     if (storedSupporter() === "background") return "none";
     return "paid";

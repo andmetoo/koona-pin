@@ -1435,6 +1435,7 @@
     "thanksTitle": "Koona Pin'i desteklediğiniz için teşekkürler",
     "againTitle": "Tek seferlik satın almaya zaten sahipsiniz",
     "againText": "{{email}} hesabında zaten var, bu yüzden bu ödeme ödeme yaptığınız yönteme tamamen iade edilir, genellikle birkaç gün içinde. Supporter olduğu gibi kalır.",
+    "againSignInText": "Bu ödemenin e-postası tek seferlik satın almaya zaten sahip bir hesaptır, bu yüzden ödeme ödeme yaptığınız yönteme tamamen iade edilir, genellikle birkaç gün içinde. Bu adrese göndereceğimiz kodla giriş yapın; Koona Pin planınızı burada da gösterir.",
     "thanksText": "Supporter, ödemedeki e-posta olan {{email}} için etkin. Başka bir bilgisayarda \"Destekleyin\"i açıp \"Zaten Supporter'ım\"ı seçin.",
     "paidTitle": "Ödeme alındı",
     "paidSignInText": "Ödemedeki e-postanın zaten bir Koona Pin hesabı var. Bu adrese göndereceğimiz kodla giriş yapın; Koona Pin planınızı burada da gösterir.",

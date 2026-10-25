@@ -386,8 +386,11 @@ impl Stored {
         if !self.same_account(&session.email) {
             self.delete_at = None;
         }
-        // A repeat purchase said for another sign-in is not this one's; a claim sets it again after.
-        self.paid_again = false;
+        // A repeat purchase said for another sign-in is not this one's (a claim sets it again after);
+        // the sign-in by code that a paid purchase waits for is the payment's own and keeps it.
+        if !self.awaiting_sign_in {
+            self.paid_again = false;
+        }
         self.session = Some(session);
         let kept = self.lease.take();
         self.keep_lease(kept, key);
@@ -400,10 +403,12 @@ impl Stored {
 
     /// Paid with the email of an account that existed before: done here, sign in by code. Only
     /// while the purchase is still here, as `signed_in_by`.
-    fn paid_for_existing_account(&mut self, secret: &str) {
+    /// `again`: the one-time purchase bought again (the usual way a repeat is paid), refunded.
+    fn paid_for_existing_account(&mut self, secret: &str, again: bool) {
         if self.checkouts.iter().any(|c| c.secret == secret) {
             self.checkouts.retain(|c| c.secret != secret);
             self.awaiting_sign_in = true;
+            self.paid_again = again;
         }
     }
 
@@ -926,7 +931,7 @@ async fn claim(app: &AppHandle) -> Result<CheckoutState, CommandError> {
     // Every answer is applied under the lock and only to a purchase still here: Sign out, or the
     // dialog and the background asking at once, never let a late answer undo what came after.
     let mut finished: Vec<String> = Vec::new();
-    let mut for_existing: Vec<String> = Vec::new();
+    let mut for_existing: Vec<(String, bool)> = Vec::new();
     let mut answered = false;
     let mut failure = None;
     for checkout in &checkouts {
@@ -941,7 +946,7 @@ async fn claim(app: &AppHandle) -> Result<CheckoutState, CommandError> {
         if status.as_u16() == 404 || value["status"] == "taken" {
             finished.push(checkout.secret.clone());
         } else if value["status"] == "sign_in" {
-            for_existing.push(checkout.secret.clone());
+            for_existing.push((checkout.secret.clone(), value["again"] == true));
         } else if value["status"] == "paid" {
             let session = session_of(&value["session"]).ok_or_else(|| refused("billing claim", status))?;
             // Signed in either way; a plan the reply does not give is not known yet, not «none».
@@ -963,8 +968,8 @@ async fn claim(app: &AppHandle) -> Result<CheckoutState, CommandError> {
     }
     if !finished.is_empty() || !for_existing.is_empty() {
         billing.update(app, |s| {
-            for secret in &for_existing {
-                s.paid_for_existing_account(secret);
+            for (secret, again) in &for_existing {
+                s.paid_for_existing_account(secret, *again);
             }
             s.checkouts.retain(|c| !finished.contains(&c.secret));
         })?;
@@ -1599,6 +1604,26 @@ mod tests {
     }
 
     #[test]
+    fn a_repeat_paid_with_an_existing_accounts_email_is_kept_through_its_code_sign_in() {
+        let now = at("2026-10-12T12:00:00Z");
+        let mut stored = Stored::default();
+        stored.add_checkout(checkout("once1", "2026-10-12T11:00:00Z", PlanInterval::Lifetime));
+        stored.paid_for_existing_account("once1", true);
+        assert_eq!((stored.settled(), status(&stored, now).paid_again), (CheckoutState::SignIn, Some(true)));
+        // The code signs the payment's account in: the last step still says the payment comes back.
+        stored.sign_in(Session { access_token: "a".into(), refresh_token: "r".into(), expires_at: 0, email: "anna@example.com".into() }, &[]);
+        assert!(stored.paid_again && !stored.awaiting_sign_in);
+        // A later sign-in, nothing awaited: it is not that one's.
+        stored.sign_in(Session { access_token: "b".into(), refresh_token: "r2".into(), expires_at: 0, email: "ben@example.com".into() }, &[]);
+        assert!(!stored.paid_again);
+        // Not a repeat: nothing said.
+        let mut plain = Stored::default();
+        plain.add_checkout(checkout("year1", "2026-10-12T11:00:00Z", PlanInterval::Year));
+        plain.paid_for_existing_account("year1", false);
+        assert_eq!(status(&plain, now).paid_again, None);
+    }
+
+    #[test]
     fn a_new_purchase_keeps_the_ones_still_waiting() {
         let now = at("2026-10-12T12:00:00Z");
         let mut stored = Stored::default();
@@ -1641,7 +1666,7 @@ mod tests {
     fn a_payment_for_an_existing_account_waits_for_the_code_whoever_saw_it() {
         let mut stored = Stored::default();
         stored.add_checkout(checkout("year1", "2026-10-12T11:00:00Z", PlanInterval::Year));
-        stored.paid_for_existing_account("year1");
+        stored.paid_for_existing_account("year1", false);
         assert!(stored.checkouts.is_empty());
         // The background saw it: the dialog's next ask, and a dialog opened later, still say so.
         assert_eq!(stored.settled(), CheckoutState::SignIn);
@@ -1649,7 +1674,7 @@ mod tests {
         assert!(status(&stored, at("2026-10-12T11:10:00Z")).awaiting_sign_in);
         // A late answer for a purchase gone after Sign out sets nothing.
         let mut signed_out = Stored::default();
-        signed_out.paid_for_existing_account("year1");
+        signed_out.paid_for_existing_account("year1", false);
         assert_eq!(signed_out.settled(), CheckoutState::None);
         // Signed in by the code: done.
         stored.session = supporter("2027-10-12T11:00:00Z").session;

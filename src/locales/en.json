@@ -1435,6 +1435,7 @@
     "thanksTitle": "Thank you for supporting Koona Pin",
     "againTitle": "You already have the one-time purchase",
     "againText": "The account {{email}} already has it, so this payment is refunded in full to how you paid, usually within a few days. Supporter stays as it is.",
+    "againSignInText": "The email of this payment is an account that already has it, so the payment is refunded in full to how you paid, usually within a few days. Sign in with the code we send to that email to see your plan here.",
     "thanksText": "Supporter is active for {{email}}, the email from your payment. On another computer, open Support and choose «I'm already a Supporter».",
     "paidTitle": "Payment received",
     "paidSignInText": "The email from your payment already has a Koona Pin account. Sign in with the code we send to it, and Koona Pin will show your plan here.",

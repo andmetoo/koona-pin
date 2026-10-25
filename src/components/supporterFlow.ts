@@ -110,6 +110,7 @@ const unanswered = (s: PurchaseStep) => s === "plans" || s === "waiting";
 export function useSupporterPurchase({
   email,
   awaitingSignIn = false,
+  paidAgain = false,
   paid = false,
   planUnknown = false,
   upgrade,
@@ -117,6 +118,8 @@ export function useSupporterPurchase({
 }: {
   email: string | null;
   awaitingSignIn?: boolean;
+  /** The payment seen here was the one-time purchase bought again (`paid_again`), refunded. */
+  paidAgain?: boolean;
   paid?: boolean;
   planUnknown?: boolean;
   upgrade?: Plan;
@@ -124,11 +127,17 @@ export function useSupporterPurchase({
 }) {
   const { t } = useTranslation();
   const [step, setStep] = useState<PurchaseStep>(awaitingSignIn ? "signIn" : "plans");
+  // The one-time purchase bought again, which the server refunds (billing.rs `paid_again`): the
+  // last steps say so instead of «thank you» or «sign in to see your plan». Known before a step
+  // shows, so its title never changes under the person's eyes.
+  const [again, setAgain] = useState(paidAgain);
   // The app follows a purchase by itself (billing.rs, start) and may see it before this dialog
   // asks: what it found moves the open dialog on, from the plans or the waiting step.
   useEffect(() => {
-    if (awaitingSignIn) setStep((s) => (unanswered(s) ? "signIn" : s));
-  }, [awaitingSignIn]);
+    if (!awaitingSignIn) return;
+    setAgain(paidAgain);
+    setStep((s) => (unanswered(s) ? "signIn" : s));
+  }, [awaitingSignIn, paidAgain]);
   const paidAtOpen = useRef(paid);
   // Opened while the plan is not known yet: ask now. The notice goes when the answer comes, and a
   // plan found this way closes the dialog — there was no purchase here to thank for.
@@ -139,10 +148,6 @@ export function useSupporterPurchase({
     if (unknownAtOpen.current) void api.refreshSupporter(true).catch(() => {});
   }, []);
   const [paidEmail, setPaidEmail] = useState(email);
-  // The one-time purchase bought again, which the server refunds (billing.rs `paid_again`): the
-  // last step says so instead of «thank you». Known before the step shows, so its title never
-  // changes under the person's eyes.
-  const [again, setAgain] = useState(false);
   const thank = (status: SupporterStatus | null) => {
     setAgain(!!status?.paid_again);
     setStep((s) => (unanswered(s) || s === "signIn" ? "thanks" : s));
@@ -187,6 +192,9 @@ export function useSupporterPurchase({
             setAgain(!!status.paid_again);
             setStep("thanks");
           } else if (state === "sign_in") {
+            const status = await api.getSupporterStatus().catch(() => null);
+            if (!alive) return;
+            setAgain(!!status?.paid_again);
             setStep("signIn");
           } else if (state === "none") {
             // The app follows the payment by itself too (billing.rs): when it was first to see it

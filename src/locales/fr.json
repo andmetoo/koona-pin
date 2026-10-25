@@ -1538,6 +1538,7 @@
     "thanksTitle": "Merci de soutenir Koona Pin",
     "againTitle": "Vous avez déjà l’achat unique",
     "againText": "Le compte {{email}} l’a déjà, ce paiement est donc remboursé en totalité sur votre moyen de paiement, en général sous quelques jours. Supporter reste tel quel.",
+    "againSignInText": "L’adresse de ce paiement correspond à un compte qui a déjà l’achat unique, ce paiement est donc remboursé en totalité sur votre moyen de paiement, en général sous quelques jours. Connectez-vous avec le code que nous enverrons à cette adresse, et Koona Pin affichera votre formule ici.",
     "thanksText": "Supporter est actif pour {{email}}, l’adresse de votre paiement. Sur un autre ordinateur, ouvrez « Soutenir » et choisissez « Je suis déjà Supporter ».",
     "paidTitle": "Paiement reçu",
     "paidSignInText": "L’adresse de votre paiement a déjà un compte Koona Pin. Connectez-vous avec le code que nous y enverrons, et Koona Pin affichera votre formule ici.",
