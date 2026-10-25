@@ -251,7 +251,7 @@ mod tests {
             }]
         );
         let product: Product = serde_json::from_value(json!({
-            "product": "supporter_lifetime", "basePlan": null, "price": "€29.99",
+            "product": "supporter_5_years", "basePlan": null, "price": "€29.99",
             "currency": "EUR", "micros": 29_990_000i64, "period": null
         }))
         .unwrap();
