@@ -28,7 +28,7 @@ use tauri_plugin_opener::OpenerExt;
 use ts_rs::TS;
 
 pub const EVENT: &str = "supporter-status";
-const FILE: &str = "account.json";
+pub(crate) const FILE: &str = "account.json";
 
 /// The Supabase project of accounts and the environment of Paddle, from `.env` (build.rs).
 const URL: Option<&str> = option_env!("KOONAPIN_ACCOUNT_URL");
@@ -609,8 +609,9 @@ pub struct Billing {
 
 impl Billing {
     fn load(path: PathBuf) -> Self {
-        let mut stored: Stored = std::fs::read_to_string(&path)
+        let mut stored: Stored = crate::secrets::read(&path)
             .ok()
+            .flatten()
             .and_then(|text| serde_json::from_str(&text).ok())
             .unwrap_or_default();
         stored.migrate();
@@ -661,14 +662,10 @@ impl Billing {
     }
 
     fn write(&self, stored: &Stored) -> Result<(), CommandError> {
-        if let Some(folder) = self.path.parent() {
-            std::fs::create_dir_all(folder).map_err(CommandError::internal)?;
-        }
         let text = serde_json::to_string_pretty(stored).map_err(CommandError::internal)?;
-        // Through a temporary file: a crash mid-write never leaves half an account.
-        let temporary = self.path.with_extension("json.tmp");
-        std::fs::write(&temporary, text).map_err(CommandError::internal)?;
-        std::fs::rename(&temporary, &self.path).map_err(CommandError::internal)
+        // Through the secrets' store (NP-153): a file renamed into place on a computer, so a crash
+        // mid-write never leaves half an account; the Keychain on an iPhone.
+        crate::secrets::write(&self.path, &text).map_err(CommandError::internal)
     }
 }
 

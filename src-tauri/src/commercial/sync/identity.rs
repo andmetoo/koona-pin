@@ -9,8 +9,8 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use ring::signature::Ed25519KeyPair;
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::io::{self, Write};
+use crate::secrets;
+use std::io;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
@@ -55,9 +55,9 @@ impl Identity {
     }
 
     fn read(path: &Path) -> Result<Option<Identity>, ()> {
-        let text = match fs::read_to_string(path) {
-            Ok(text) => text,
-            Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
+        let text = match secrets::read(path) {
+            Ok(Some(text)) => text,
+            Ok(None) => return Ok(None),
             Err(_) => return Err(()),
         };
         let stored: Stored = serde_json::from_str(&text).map_err(|_| ())?;
@@ -76,7 +76,7 @@ impl Identity {
             Ok(Some(identity)) => return Ok(identity),
             Ok(None) => {}
             Err(()) => {
-                let _ = fs::rename(path, damaged_path(path));
+                let _ = secrets::set_aside(path, &damaged_path(path));
             }
         }
         let identity = Identity::new("");
@@ -86,33 +86,9 @@ impl Identity {
 
     /// Through a temporary file, readable by this user only: the key signs for the account.
     pub fn save(&self, path: &Path) -> io::Result<()> {
-        if let Some(folder) = path.parent() {
-            fs::create_dir_all(folder)?;
-        }
         let stored = Stored { v: 1, device: self.device, key: STANDARD.encode(&self.pkcs8), name: self.name.clone() };
-        write_private(path, &serde_json::to_string_pretty(&stored).map_err(io::Error::other)?)
+        secrets::write(path, &serde_json::to_string_pretty(&stored).map_err(io::Error::other)?)
     }
-}
-
-/// `text` in `path` through a temporary file, readable by this user only.
-fn write_private(path: &Path, text: &str) -> io::Result<()> {
-    if let Some(folder) = path.parent() {
-        fs::create_dir_all(folder)?;
-    }
-    let temporary = path.with_extension("json.tmp");
-    let _ = fs::remove_file(&temporary);
-    let mut options = fs::OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
-    }
-    let mut file = options.open(&temporary)?;
-    file.write_all(text.as_bytes())?;
-    file.sync_all()?;
-    drop(file);
-    fs::rename(&temporary, path)
 }
 
 /// The library key of the account and its epoch, in `sync-key.json` beside `sync-device.json`
@@ -145,10 +121,9 @@ pub struct LoadedKey {
 /// A file that can't be opened at all is an error, tried again later.
 pub fn load_key(path: &Path, account: &str) -> io::Result<LoadedKey> {
     let found = |key| Ok(LoadedKey { key, set_aside: false });
-    let text = match fs::read_to_string(path) {
-        Ok(text) => text,
-        Err(e) if e.kind() == io::ErrorKind::NotFound => return found(None),
-        Err(e) => return Err(e),
+    let text = match secrets::read(path)? {
+        Some(text) => text,
+        None => return found(None),
     };
     let parsed = serde_json::from_str::<StoredKey>(&text).ok().and_then(|stored| {
         let key: koona_sync::crypto::LibraryKey = STANDARD.decode(&stored.key).ok()?.try_into().ok()?;
@@ -167,7 +142,7 @@ pub fn load_key(path: &Path, account: &str) -> io::Result<LoadedKey> {
         }
         None => {
             eprintln!("Sync's library key file doesn't read; it is set aside and the key asked for again");
-            let _ = fs::rename(path, damaged_path(path));
+            let _ = secrets::set_aside(path, &damaged_path(path));
             Ok(LoadedKey { key: None, set_aside: true })
         }
     }
@@ -179,12 +154,9 @@ pub fn save_key(path: &Path, account: &str, key: Option<&(u32, koona_sync::crypt
     match key {
         Some((epoch, key)) => {
             let stored = StoredKey { v: 1, account: Some(account.to_string()), epoch: *epoch, key: STANDARD.encode(key) };
-            write_private(path, &serde_json::to_string_pretty(&stored).map_err(io::Error::other)?)
+            secrets::write(path, &serde_json::to_string_pretty(&stored).map_err(io::Error::other)?)
         }
-        None => match fs::remove_file(path) {
-            Err(e) if e.kind() != io::ErrorKind::NotFound => Err(e),
-            _ => Ok(()),
-        },
+        None => secrets::delete(path),
     }
 }
 
@@ -236,6 +208,7 @@ fn system_host_name() -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     fn folder(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("koonapin-sync-identity-{name}-{}", Uuid::new_v4().simple()));
