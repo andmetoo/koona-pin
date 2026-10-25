@@ -378,11 +378,11 @@ async fn verify<A: Account>(account: &A, secret: &str) -> Result<Option<PlayStat
     let (status, value) = account.ask(body, bearer).await?;
     // An adopted purchase whose claim the server refuses was adopted first elsewhere (another
     // iPhone on the same Apple Account): not invalid, it belongs to the account it was bound to.
-    // Done here as «owned»: the sheet shows it only when it follows this purchase (or none), and
-    // Restore then asks whether the account signed in is its owner.
+    // Done here, quietly: found in the background it is no step of the sheet's; «Restore» then
+    // says whether the account signed in owns it.
     if checkout.original.is_some() && status == reqwest::StatusCode::FORBIDDEN && value["error"] == "claim" {
-        account.update(|s| s.finish_appstore(secret, PlayState::Owned))?;
-        return Ok(Some(PlayState::Owned));
+        account.update(|s| s.appstore.retain(|c| c.secret != secret))?;
+        return Ok(None);
     }
     let verdict = verdict(status, &value)?;
     let mut state = None;
@@ -550,7 +550,11 @@ async fn purchase<A: Account, S: Store>(account: &A, store: &S, interval: PlanIn
                 }
             })?;
             if let Some(earlier) = found.last() {
-                return kept_after_payment(account, earlier, verify(account, earlier).await);
+                match verify(account, earlier).await {
+                    // Adopted first on another iPhone: whose it is, as for one bought elsewhere.
+                    Ok(None) => {}
+                    asked => return kept_after_payment(account, earlier, asked),
+                }
             }
             Ok(owned_here(account).await?)
         }
@@ -675,8 +679,7 @@ async fn restore<A: Account, S: Store>(account: &A, store: &S) -> Result<PlaySta
             return Ok(progress.state);
         }
     }
-    // «Owned» elsewhere is settled below, by whether the account signed in owns it.
-    if let Some(progress) = stored.appstore_outcome.as_ref().map(|(_, state)| *state).filter(|state| *state != PlayState::Owned) {
+    if let Some(progress) = stored.appstore_outcome.as_ref().map(|(_, state)| *state) {
         return Ok(progress);
     }
     if ours.is_empty() {
@@ -1334,6 +1337,17 @@ mod tests {
         run(resume(&busy, &busy, None, false)).unwrap();
         assert_eq!(busy.billing.get().appstore_progress().map(|p| p.state), Some(PlayState::Email));
         assert_eq!(busy.plan_checks.load(std::sync::atomic::Ordering::SeqCst), 0, "no plan check for it");
+        // Found right after a start, with nothing followed: the sheet opens on its plans, not on it.
+        let fresh = Fake::new(|_, _| Ok((403, json!({ "error": "claim" }))));
+        fresh.lists(vec![], vec![transaction("9802", LIFETIME_PRODUCT, None)]);
+        run(resume(&fresh, &fresh, None, false)).unwrap();
+        assert!(fresh.billing.get().appstore.is_empty());
+        assert_eq!(fresh.billing.get().appstore_progress(), None);
+        // «Buy» on it: StoreKit answers with the purchase owned already; it belongs to another account.
+        let buying = Fake::new(|_, _| Ok((403, json!({ "error": "claim" }))));
+        buying.set(|s| s.appstore.push(AppStoreCheckout { original: Some("9803".into()), transaction: Some("9803".into()), jws: Some("jws-9803".into()), ..checkout("s9", "2026-10-25T10:00:00Z") }));
+        buying.buys(|_, _| Ok(native::Bought { outcome: native::Outcome::Purchased, transaction: Some(transaction("9803", LIFETIME_PRODUCT, None)) }));
+        assert_eq!(run(purchase(&buying, &buying, PlanInterval::Lifetime)).ok(), Some(PlayState::Owned));
     }
 
     #[test]
