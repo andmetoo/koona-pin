@@ -19,7 +19,7 @@ export type PhoneReaderLook = {
 export function phoneReaderLook(look: ReaderLook, choice: ReaderChoice): PhoneReaderLook {
   const size = look.size + 1;
   const style: Record<string, string> = {
-    "--rd-font": look.fontStack,
+    ...(look.fontStack && { "--rd-font": look.fontStack }),
     "--rd-size": `${size}px`,
     "--rd-line": `${Math.round((size * 30) / 19)}px`,
   };

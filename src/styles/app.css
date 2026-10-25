@@ -1099,13 +1099,36 @@
    Everything inside the body is in em of the chosen size, so headings, gaps and code grow with
    the text; Literata's optical sizes draw the title and the body each at its own size. */
 @layer components {
+  /* The serif, once: on the root for the queue's titles (`read-serif`), in the interface's
+     language, and again on the article, in the article's own `lang`. Chinese, Japanese and
+     Korean name their own serif after Literata, as --np-font does for the sans (NP-090);
+     the others leave it to `serif`, which the engine picks by the language. The Serif of
+     the Aa panel sets no --reader-font, so this choice is not made once on the mode's root. */
+  :root,
   .reader-article {
-    --reader-serif: "Literata Variable", Literata, Georgia, "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "Yu Mincho", "Hiragino Mincho ProN", "Times New Roman", serif;
+    --reader-serif: "Literata Variable", Literata, Georgia, "Times New Roman", serif;
+  }
+  :root:lang(zh),
+  .reader-article:lang(zh) {
+    --reader-serif: "Literata Variable", Literata, Georgia, "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", SimSun, serif;
+  }
+  :root:is(:lang(zh-Hant), :lang(zh-TW), :lang(zh-HK)),
+  .reader-article:is(:lang(zh-Hant), :lang(zh-TW), :lang(zh-HK)) {
+    --reader-serif: "Literata Variable", Literata, Georgia, "Noto Serif CJK TC", "Source Han Serif TC", "Songti TC", PMingLiU, serif;
+  }
+  :root:lang(ja),
+  .reader-article:lang(ja) {
+    --reader-serif: "Literata Variable", Literata, Georgia, "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif CJK JP", "Source Han Serif JP", serif;
+  }
+  :root:lang(ko),
+  .reader-article:lang(ko) {
+    --reader-serif: "Literata Variable", Literata, Georgia, "Noto Serif CJK KR", "Source Han Serif K", AppleMyungjo, Batang, serif;
+  }
+  .reader-article {
     color: var(--np-sheet-ink);
     overflow-wrap: break-word;
     font-optical-sizing: auto;
     font-kerning: normal;
-    text-rendering: optimizeLegibility;
   }
   .reader-meta {
     font-size: 13px;
@@ -1137,9 +1160,17 @@
     font-size: var(--reader-size, 18px);
     line-height: var(--reader-line, 30px);
     font-variant-ligatures: common-ligatures;
+  }
+  /* Hyphens only by the article's own language: without one, `lang` would come from the
+     interface and break English by Russian rules. Never inside an address shown as a link. */
+  .reader-article[lang] .reader-body {
     hyphens: auto;
     -webkit-hyphens: auto;
     hyphenate-limit-chars: 7 3 3;
+  }
+  .reader-body a {
+    hyphens: manual;
+    -webkit-hyphens: manual;
   }
   .reader-body > :first-child {
     margin-top: 0;
@@ -1217,22 +1248,7 @@
     max-width: 100%;
     height: auto;
     margin: 0 auto;
-    border-radius: 8px;
-  }
-  .reader-body > img,
-  .reader-body > p > img:only-child {
-    margin-block: 1.6em;
-  }
-  /* A badge, an icon, a formula (watchPictures): in the line, at its own size. */
-  .reader-body img[data-inline] {
-    display: inline;
-    vertical-align: middle;
-    margin: 0;
-    border-radius: 0;
-  }
-  /* A picture that failed, and the figure it was alone in. */
-  .reader-body [hidden] {
-    display: none;
+    border-radius: 10px;
   }
   .reader-body figcaption {
     margin-top: 10px;
@@ -1241,6 +1257,11 @@
     line-height: 1.45;
     color: var(--np-meta);
     hyphens: manual;
+  }
+  /* A picture on its own, outside a figure, keeps the figure's room above and below. */
+  .reader-body > img,
+  .reader-body > p > img:only-child {
+    margin-block: 1.6em;
   }
   .reader-body blockquote {
     border-left: 2px solid color-mix(in srgb, var(--np-sheet-ink) 22%, transparent);
@@ -1321,7 +1342,6 @@
     --np-hover: var(--np-read-track);
     --np-secondary: var(--np-read-well);
     --np-focus: var(--np-read-ink);
-    --reader-serif: "Literata Variable", Literata, Georgia, "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "Yu Mincho", "Hiragino Mincho ProN", "Times New Roman", serif;
   }
   /* The column of the mode: the Aa panel's width (560, 640, 760); the sheet keeps its 600. */
   .reading-mode {

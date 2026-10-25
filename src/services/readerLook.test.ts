@@ -67,7 +67,7 @@ describe("resolution of the look", () => {
     const paid = resolveReaderLook(paper, { appDark: true, unlocked: true });
     expect(paid.theme).toBe("paper");
     expect(paid.palette.read).toBe("#f4eee2");
-    expect(resolveReaderLook(choice(), { appDark: false, unlocked: false }).fontStack).toMatch(/^"Literata Variable"/);
+    expect(resolveReaderLook(choice(), { appDark: false, unlocked: false }).fontStack).toBeNull();
   });
   test("size, line and column", () => {
     const look = resolveReaderLook(choice({ size: 24, column: "wide" }), { appDark: false, unlocked: false });

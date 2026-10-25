@@ -155,13 +155,13 @@
 }
 .phone .rd-screen .reader-dek {
   margin: 0 0 20px;
-  font-family: var(--rd-font, var(--ph-reading-font));
+  font-family: var(--rd-font, var(--reader-serif));
   font-size: 17px;
   line-height: 26px;
   color: var(--ph-body);
 }
 .phone .rd-screen .reader-body {
-  font-family: var(--rd-font, var(--ph-reading-font));
+  font-family: var(--rd-font, var(--reader-serif));
   font-size: var(--rd-size, 19px);
   line-height: var(--rd-line, 30px);
   color: var(--ph-body);

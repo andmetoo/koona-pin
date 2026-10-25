@@ -87,10 +87,14 @@ export const FREE_PALETTES: Record<FreeTheme, ReaderPalette> = {
   },
 };
 
-/** The faces of the fonts; Literata and Inter ship with the app (OFL). */
-const FONT_STACKS: Record<ReaderFont, string> = {
-  serif: '"Literata Variable", Literata, Georgia, "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "Yu Mincho", "Hiragino Mincho ProN", "Times New Roman", serif',
-  sans: 'var(--np-font)',
+/**
+ * The faces of the fonts; Literata and Inter ship with the app (OFL). Serif is none: the
+ * article takes --reader-serif (app.css) by its own language, which a stack set on the
+ * mode's root could not.
+ */
+const FONT_STACKS: Record<ReaderFont, string | null> = {
+  serif: null,
+  sans: "var(--np-font)",
 };
 
 /** What a Supporter build adds: the palettes of its themes by id. */
@@ -167,7 +171,8 @@ export interface ReaderLook {
   theme: ReaderTheme;
   palette: ReaderPalette;
   font: ReaderFont;
-  fontStack: string;
+  /** What --reader-font is set to; none for Serif, the article's own --reader-serif. */
+  fontStack: string | null;
   size: number;
   /** Line height of the body: B3's 30 on 18, the same rhythm at other sizes. */
   lineHeight: number;
@@ -213,7 +218,7 @@ export function readerStyle(look: ReaderLook): CSSProperties {
     "--np-sheet": p.read,
     "--np-sheet-ink": p.ink,
     "--np-sheet-line": p.border,
-    "--reader-font": look.fontStack,
+    ...(look.fontStack && { "--reader-font": look.fontStack }),
     "--reader-size": `${look.size}px`,
     "--reader-line": `${look.lineHeight}px`,
     "--reader-width": `${look.width}px`,
