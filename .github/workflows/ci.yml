@@ -186,8 +186,8 @@ jobs:
             -o "$RUNNER_TEMP/KoonaPinThumbnail" src-tauri/macos/thumbnail/ThumbnailProvider.swift
 
   # The phone builds (NP-151): that main still builds for Android and the iOS Simulator, debug, one
-  # architecture each. Nothing is signed for a store or run; the checks on emulators and phones are made by
-  # hand (docs/testing.md). The site's debug APK is kept for testers, not for users (see its step).
+  # architecture each. Nothing is signed for a store, run or uploaded; the checks on emulators and phones
+  # are made by hand (docs/testing.md).
   android:
     name: Android / build
     needs: changes
@@ -251,16 +251,6 @@ jobs:
       # The site's APK carries no Google Play Billing (NP-154): no BILLING permission, no billing classes.
       - name: No Play Billing in the site's APK
         run: bun scripts/check-apk-billing.mjs src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk absent
-      # The site's APK as checked, before the Google Play build overwrites it: for testers, from the run's
-      # page. Not for users: a debug build, signed with the runner's own debug key, so the next run's APK
-      # installs only over nothing (uninstall first, the library goes with it). Users get a signed APK.
-      - uses: actions/upload-artifact@v7
-        with:
-          name: koona-pin-android-debug
-          path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
-          if-no-files-found: error
-          retention-days: 14
-          compression-level: 0
       # The Google Play build (feature store-play): its Rust (cfg(play)) and the koona-play plugin's
       # Kotlin compile, the plugin's unit tests pass, and its APK carries Play Billing. Built over the
       # same project: only the main crate and the plugin's module are new, and the interface is the one
