@@ -7,6 +7,8 @@ import { SupporterDialog } from "../../components/SupporterDialog";
 import { capabilities } from "../../platform/capabilities";
 import { api } from "../../services/api";
 import { bundle } from "../../services/bundle";
+import { findNode } from "../../services/collectionTree";
+import { childrenMoveUp } from "../../services/collections";
 import { openRequests } from "../../services/openRequests";
 import { usePhone } from "./PhoneContext";
 import { useSupporterSheets } from "./supporter/useSupporterSheets";
@@ -27,6 +29,7 @@ export function PhoneDialogs() {
   const { app, stack } = usePhone();
   const {
     t,
+    i18n,
     surface,
     setSurface,
     droppedFile,
@@ -55,8 +58,15 @@ export function PhoneDialogs() {
     purging,
     setPurging,
     feedMenu,
+    collectionTree,
   } = app;
   useSupporterSheets();
+  // A parent's children move up a level with everything inside them (2.19.0): the dialog says so, as the desktop's.
+  const deleteCollectionText = (collection: { id: number; name: string }) => {
+    const text = t("confirm.deleteCollectionText", { name: collection.name });
+    const more = childrenMoveUp(t, i18n.language, (findNode(collectionTree, collection.id)?.children ?? []).map((n) => n.item.name));
+    return more ? `${text} ${more}` : text;
+  };
   const openSettings = () => {
     setSurface(null);
     stack.push({ name: "settings" });
@@ -181,7 +191,7 @@ export function PhoneDialogs() {
       {deletingCollection && (
         <ConfirmDialog
           title={t("confirm.deleteCollection")}
-          text={t("confirm.deleteCollectionText", { name: deletingCollection.name })}
+          text={deleteCollectionText(deletingCollection)}
           confirm={t("confirm.delete")}
           onClose={() => setDeletingCollection(null)}
           onConfirm={async () => {

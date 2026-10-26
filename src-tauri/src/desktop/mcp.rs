@@ -360,7 +360,7 @@ impl Call<'_> {
         let mut collections: Vec<Value> = all
             .iter()
             .take(MAX_NAMES)
-            .map(|c| json!({ "id": c.id, "name": clip(&c.name, NAME), "bookmarks": c.count.unwrap_or(0) }))
+            .map(|c| json!({ "id": c.id, "name": clip(&c.name, NAME), "parent_id": c.parent_id, "bookmarks": c.count.unwrap_or(0) }))
             .collect();
         let fit = fitting(&collections);
         let truncated = fit < all.len();

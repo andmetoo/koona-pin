@@ -57,6 +57,7 @@ const row: Bookmark = {
 const filters: FilterState = {
   search: "words",
   collectionId: null,
+  onlyCollection: false,
   tag: null,
   domain: null,
   onlyFavorites: false,

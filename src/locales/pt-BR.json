@@ -1,5 +1,7 @@
 {
-  "language": { "name": "Português (Brasil)" },
+  "language": {
+    "name": "Português (Brasil)"
+  },
   "common": {
     "ctrl": "Ctrl",
     "shift": "Shift",
@@ -10,7 +12,8 @@
     "open": "Abrir",
     "retry": "Tentar de novo",
     "ok": "Entendi",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "done": "Concluir"
   },
   "window": {
     "demo": "Demo no navegador",
@@ -26,7 +29,6 @@
     "collections": "Coleções",
     "newCollection": "Nova coleção",
     "noCollections": "Ainda não há coleções",
-    "deleteCollection": "Excluir a coleção {{name}}",
     "tags": "Tags",
     "moreTags_one": "+ {{count}} a mais",
     "moreTags_many": "+ {{count}} a mais",
@@ -38,7 +40,38 @@
     "tagsDrop": "Tags — solte sobre uma tag para adicioná-la",
     "dropNewCollection": "Nova coleção com a seleção",
     "moveCollection": "Mover",
-    "collectionMoved": "{{name}}: posição {{position}} de {{count}}"
+    "movedInto": "{{name}} movida para {{parent}}, posição {{position}} de {{count}}",
+    "movedTop": "{{name}} movida para o nível principal, posição {{position}} de {{count}}",
+    "collectionMenu": "{{name}}: mais",
+    "rename": "Renomear",
+    "renameField": "Novo nome de {{name}}",
+    "style": "Ícone e cor…",
+    "newInside": "Nova coleção dentro",
+    "moveTo": "Mover para",
+    "topLevel": "Nível principal",
+    "moveKeys": "Alt ← → ↑ ↓ movem na barra lateral",
+    "tooDeep": "As coleções vão no máximo até três níveis",
+    "deleteMenu": "Excluir…",
+    "dropInto": "Para dentro de {{name}}",
+    "dropIntoAfter": "Para dentro de {{name}}, depois de {{after}}",
+    "dropIntoFirst": "Para dentro de {{name}}, no início",
+    "dropTopAfter": "Nível principal, depois de {{after}}",
+    "dropTopFirst": "Nível principal, no início"
+  },
+  "collectionStyle": {
+    "label": "Ícone e cor de {{name}}",
+    "title": "Ícone e cor",
+    "colour": "Cor",
+    "icon": "Ícone",
+    "emoji": "Ou digite um emoji",
+    "dot": "Usar um ponto",
+    "colours": {
+      "terracotta": "Terracota",
+      "green": "Verde",
+      "ochre": "Ocre",
+      "blue": "Azul",
+      "lilac": "Lilás"
+    }
   },
   "drag": {
     "more_one": "e mais {{count}} marcador",
@@ -174,6 +207,7 @@
     "isFavorite": "Nos favoritos",
     "moveTo": "Mover para uma coleção",
     "noCollection": "Sem coleção",
+    "findCollection": "Buscar uma coleção",
     "addTag": "Adicionar tag…",
     "refresh": "Atualizar prévia",
     "delete": "Mover para a lixeira",
@@ -314,7 +348,7 @@
     "library": "Biblioteca",
     "inbox": "Caixa de entrada",
     "destinationHint": "Biblioteca: organizados na hora. Caixa de entrada: esperam ser organizados, depois dos links salvos pelo navegador.",
-    "rule": "Pastas de primeiro nível viram coleções, e pastas internas viram tags. Barra de favoritos, Outros favoritos e Celular não são pastas próprias: seus links ficam sem coleção.",
+    "rule": "As pastas viram coleções, até três níveis; pastas mais fundas viram tags. Barra de favoritos, Outros favoritos e Celular não são pastas próprias: seus links ficam sem coleção.",
     "cancel": "Cancelar",
     "run": "Importar",
     "running": "Importando…",
@@ -537,6 +571,8 @@
       "collection_missing_name": "a coleção {{index}} não tem nome",
       "collection_repeated_name": "a coleção {{index}} repete um nome ({{detail}})",
       "collection_bad_date": "a coleção {{index}} tem uma data ilegível ({{detail}})",
+      "collection_unknown_parent": "a coleção {{index}} está em uma coleção que a cópia não tem",
+      "collection_loop": "a coleção {{index}} está dentro de si mesma",
       "tag_missing_name": "a tag {{index}} não tem nome",
       "tag_repeated_name": "a tag {{index}} repete um nome ({{detail}})",
       "tag_bad_date": "a tag {{index}} tem uma data ilegível ({{detail}})"
@@ -546,11 +582,14 @@
     "title": "Nova coleção",
     "name": "Nome",
     "placeholder": "Por exemplo, o próximo projeto",
-    "create": "Criar coleção"
+    "create": "Criar coleção",
+    "titleInside": "Nova coleção em {{name}}"
   },
   "confirm": {
     "deleteCollection": "Excluir a coleção?",
     "deleteCollectionText": "Os marcadores de “{{name}}” ficam na biblioteca sem coleção.",
+    "deleteCollectionChild": "{{name}} sobe um nível, com tudo o que há nela.",
+    "deleteCollectionChildren": "{{names}} sobem um nível, com tudo o que há dentro.",
     "delete": "Excluir",
     "emptyTrash": "Esvaziar a lixeira?",
     "emptyTrashText_one": "{{count}} marcador será excluído permanentemente. Isso não pode ser desfeito, e ele não volta com Restaurar.",
@@ -1152,11 +1191,23 @@
     "size": "Tamanho do texto",
     "sizeValue": "{{size}} px",
     "column": "Coluna",
-    "columns": { "narrow": "Estreita", "medium": "Média", "wide": "Larga" },
+    "columns": {
+      "narrow": "Estreita",
+      "medium": "Média",
+      "wide": "Larga"
+    },
     "theme": "Tema",
-    "themes": { "white": "Branco", "dark": "Escuro", "paper": "Papel", "sepia": "Sépia" },
+    "themes": {
+      "white": "Branco",
+      "dark": "Escuro",
+      "paper": "Papel",
+      "sepia": "Sépia"
+    },
     "font": "Fonte",
-    "fonts": { "serif": "Serifa", "sans": "Sans" },
+    "fonts": {
+      "serif": "Serifa",
+      "sans": "Sans"
+    },
     "supporterHint": "Papel e Sépia —",
     "supporterLink": "Supporter",
     "locked": "{{name}}, com Supporter"
@@ -1204,7 +1255,9 @@
     "damagedLatest": "A biblioteca está danificada, então as alterações não são salvas e os links do navegador esperam na extensão. Restaure a última cópia boa — {{when}}.",
     "restore": "Restaurar…",
     "openBackups": "Abrir a pasta de backups",
-    "movedAside": "A biblioteca de uma versão de teste anterior não combina com o novo esquema. Ela foi guardada como {{path}} e uma nova biblioteca foi criada."
+    "movedAside": "A biblioteca de uma versão de teste anterior não combina com o novo esquema. Ela foi guardada como {{path}} e uma nova biblioteca foi criada.",
+    "onlyCollection": "Só esta coleção",
+    "insideCollection": "Dentro de {{name}}"
   },
   "groups": {
     "today": "Hoje",
@@ -1333,6 +1386,9 @@
       "internal": "algo deu errado ({{message}})",
       "empty_tag": "a tag está vazia",
       "empty_collection_name": "o nome está vazio",
+      "collection_name_taken": "outra coleção tem este nome",
+      "collection_too_deep": "as coleções vão no máximo até três níveis",
+      "collection_inside_itself": "uma coleção não pode ficar dentro de si mesma",
       "empty_title": "o título está vazio",
       "bookmark_gone": "o marcador não existe mais",
       "not_in_trash": "o marcador não está na lixeira",
@@ -1373,6 +1429,9 @@
       "server_missing": "Falta uma parte do Koona Pin (koonapin-mcp). Reinstale o Koona Pin.",
       "empty_tag": "Digite uma tag.",
       "empty_collection_name": "Digite um nome para a coleção.",
+      "collection_name_taken": "Outra coleção já tem este nome.",
+      "collection_too_deep": "As coleções vão no máximo até três níveis.",
+      "collection_inside_itself": "Uma coleção não pode ficar dentro de si mesma nem de uma coleção que ela contém.",
       "empty_title": "O título não pode ficar vazio.",
       "bookmark_gone": "Este marcador não existe mais.",
       "not_in_trash": "Este marcador não está na lixeira.",
@@ -1414,10 +1473,6 @@
     "design": "Design e UI",
     "reading": "Artigos / Para ler",
     "links": {
-      "koona": {
-        "title": "Apps da Koona",
-        "description": "Outros apps da Koona."
-      },
       "start": {
         "title": "Comece aqui: como o Koona Pin funciona",
         "description": "Salve, organize e encontre links em poucos minutos."
@@ -1427,9 +1482,6 @@
       },
       "bun": {
         "description": "Um runtime e conjunto de ferramentas JavaScript rápido."
-      },
-      "lunacy": {
-        "description": "Um app de design gratuito com gráficos incluídos."
       }
     }
   },
@@ -2163,6 +2215,8 @@
       "grid": "Grade",
       "filters": "Filtros",
       "all": "Todos",
+      "allIn": "Tudo em {{name}}",
+      "inside": "Dentro de {{name}}",
       "favorite": "Favoritos",
       "newLinks_one": "{{count, number}} link novo",
       "newLinks_many": "{{count, number}} de links novos",
@@ -2353,6 +2407,7 @@
       "suggested": "Sugerida",
       "suggestedWhy": "{{count, number}} de {{filed, number}} links deste site",
       "all": "Todas as coleções",
+      "fold": "Dentro de {{name}}",
       "nothing": "Nenhuma coleção com esse nome",
       "new": "Nova coleção",
       "newNamed": "Nova coleção “{{name}}”"

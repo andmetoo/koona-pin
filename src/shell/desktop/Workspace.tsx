@@ -1,4 +1,4 @@
-import { ReactNode, useSyncExternalStore } from "react";
+import { ReactNode, useState, useSyncExternalStore } from "react";
 import { ArrowDownToLine, BookOpen, ChevronDown, ChevronRight, CircleArrowDown, Heart, Link, Plus, Search, Trash2, X } from "lucide-react";
 import type { AppState } from "../../app/appState";
 import { inboxLine } from "../../app/notifications";
@@ -26,6 +26,10 @@ import { BookmarkEditor } from "../../components/library/BookmarkEditor";
 import { BookmarkList } from "../../components/library/BookmarkList";
 import { Preview } from "../../components/library/Bookmarks";
 import { CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "../../components/library/Dialogs";
+import { CollectionHeader } from "../../components/library/CollectionHeader";
+import { findNode } from "../../services/collectionTree";
+import { childrenMoveUp } from "../../services/collections";
+import type { Collection } from "../../types";
 import { DragStack } from "../../components/library/DragStack";
 import { DuplicatesPage } from "../../components/library/DuplicatesPage";
 import { LinkCheckPage } from "../../components/library/LinkCheckPage";
@@ -194,6 +198,10 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
   } = app;
   /** The bundle's size (share-bundle.md): «Share as list…» shows it; the window renders again only when it changes. */
   const bundleCount = useSyncExternalStore(bundle.subscribe, () => itemCount(bundle.get()));
+  /** «New collection inside» (2.19.0): the parent the name dialog makes it in. */
+  const [newInside, setNewInside] = useState<Collection | null>(null);
+  const { collectionTree } = app;
+  const collectionNode = filters.collectionId === null ? undefined : findNode(collectionTree, filters.collectionId);
   const editor = editing && (
     <BookmarkEditor
       key={editing.id}
@@ -431,6 +439,9 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     />
   );
   const padding = narrow ? "px-6" : "px-8";
+  /** The second paragraph of «Delete collection?» when it has children (2.19.0, frame N6): they move up. */
+  const deleteChildren = (c: Collection) =>
+    childrenMoveUp(t, i18n.language, (findNode(collectionTree, c.id)?.children ?? []).map((n) => n.item.name));
   return (
     <div className="flex h-full bg-bg text-ink">
       {/* Under the reading mode the library waits as it was (scroll, selection) and takes no focus;
@@ -467,10 +478,20 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
         linksOpen={page === "links"}
         onLinks={openLinks}
         onConnect={() => setSurface("connect")}
-        onNewCollection={() => setSurface("collection")}
+        onNewCollection={() => {
+          setNewInside(null);
+          setSurface("collection");
+        }}
         onNewLink={() => setSurface("add")}
         onDeleteCollection={setDeletingCollection}
-        onReorderCollections={(ids) => void library.reorderCollections(ids).catch((err) => say(describeError(err), true))}
+        onMoveCollection={library.moveCollection}
+        onRenameCollection={library.renameCollection}
+        onStyleCollection={library.styleCollection}
+        onNewCollectionInside={(parent) => {
+          setNewInside(parent);
+          setSurface("collection");
+        }}
+        onCollectionFailed={(err) => say(describeError(err), true)}
         naming={
           naming !== null && selecting
             ? {
@@ -640,6 +661,14 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
                     onShareList={openBundle}
                     bundleCount={bundleCount}
                   />
+                  {collectionNode && collectionNode.children.length > 0 && (
+                    <CollectionHeader
+                      node={collectionNode}
+                      only={filters.onlyCollection}
+                      onOnly={(onlyCollection) => changeFilters({ onlyCollection })}
+                      onOpen={(id) => navigate({ collectionId: id })}
+                    />
+                  )}
                   {damaged && (
                     <Banner
                       action={
@@ -938,9 +967,10 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
       )}
       {surface === "collection" && (
         <CollectionDialog
+          title={newInside ? t("collection.titleInside", { name: newInside.name }) : undefined}
           onClose={() => setSurface(null)}
           onCreate={async (name) => {
-            await api.createCollection(name);
+            await api.createCollection(name, newInside?.id ?? null);
             await library.refreshCatalog();
             setSurface(null);
           }}
@@ -1034,6 +1064,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
         <ConfirmDialog
           title={t("confirm.deleteCollection")}
           text={t("confirm.deleteCollectionText", { name: deletingCollection.name })}
+          more={deleteChildren(deletingCollection)}
           confirm={t("confirm.delete")}
           onClose={() => setDeletingCollection(null)}
           onConfirm={async () => {

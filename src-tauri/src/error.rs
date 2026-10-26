@@ -42,6 +42,12 @@ pub enum ErrorCode {
 pub enum ErrorDetail {
     EmptyTag,
     EmptyCollectionName,
+    /// Another collection has the name, in any case (2.19.0).
+    CollectionNameTaken,
+    /// Collections nest at most three levels deep (2.19.0).
+    CollectionTooDeep,
+    /// A collection cannot go inside itself or one of its own (2.19.0).
+    CollectionInsideItself,
     EmptyTitle,
     BookmarkGone,
     NotInTrash,

@@ -1,6 +1,6 @@
 //! Koona Pin Commercial License (LICENSE-COMMERCIAL.md, see NOTICE.md in `commercial`).
 //!
-//! Libraries for the tests: schema 9 as the app makes it, schemas 10, 11, 13 and 14 on top, the app's SQL
+//! Libraries for the tests: schema 9 as the app makes it, schemas 10, 11, 13, 14 and 15 on top, the app's SQL
 //! functions stubbed, and the writes the app makes (`db.rs`) as plain SQL, so the triggers see
 //! what they see in the app.
 
@@ -19,6 +19,8 @@ pub const APP_SCHEMA_11: &str = include_str!("../schema11.sql");
 pub const APP_SCHEMA_13: &str = include_str!("../schema13.sql");
 /// The app's table of schema 14, before the engine's `SCHEMA_14`.
 pub const APP_SCHEMA_14: &str = include_str!("../schema14.sql");
+/// The app's column of schema 15, before the engine's `SCHEMA_15`.
+pub const APP_SCHEMA_15: &str = include_str!("../schema15.sql");
 
 /// The app's hook of schema 14 (`migrations::sync_feeds`): the tombstones take kind `feed`.
 fn widen_tombstones(conn: &Connection) {
@@ -92,6 +94,8 @@ pub fn library_at(path: Option<&std::path::Path>, replica: Uuid) -> Connection {
     conn.execute_batch(APP_SCHEMA_14).unwrap();
     widen_tombstones(&conn);
     conn.execute_batch(koona_sync::SCHEMA_14).unwrap();
+    conn.execute_batch(APP_SCHEMA_15).unwrap();
+    conn.execute_batch(koona_sync::SCHEMA_15).unwrap();
     koona_sync::attach(&conn, replica).unwrap();
     conn
 }
@@ -176,10 +180,20 @@ pub fn purge(conn: &Connection, id: i64) {
     tx.commit().unwrap();
 }
 
-/// `db::delete_collection`.
+/// `db::move_collection` without the checks: into `parent`, none for the top level.
+pub fn set_parent(conn: &Connection, id: i64, parent: Option<i64>) {
+    conn.execute("UPDATE collections SET parent_id = ?1 WHERE id = ?2", params![parent, id]).unwrap();
+}
+
+/// `db::delete_collection`: its children move up to its parent first (schema 15).
 pub fn delete_collection(conn: &Connection, id: i64) {
     let tx = conn.unchecked_transaction().unwrap();
     let now = now(&tx);
+    tx.execute(
+        "UPDATE collections SET parent_id = (SELECT parent_id FROM collections WHERE id = ?1) WHERE parent_id = ?1",
+        [id],
+    )
+    .unwrap();
     tx.execute(
         "UPDATE bookmarks SET collection_id=NULL,revision=revision+1,updated_at=?1 WHERE collection_id=?2",
         params![now, id],
@@ -318,9 +332,10 @@ pub fn dump(conn: &Connection) -> Vec<String> {
             .collect();
         out.extend(lines);
     };
-    let collection_fields = ["name", "color", "icon", "position_key"];
+    let collection_fields =
+        ["x.name", "x.color", "x.icon", "x.position_key", "(SELECT uid FROM collections WHERE id = x.parent_id)"];
     let cols: Vec<String> =
-        collection_fields.iter().enumerate().map(|(i, c)| format!("x.{c}, {}", clock(0, &i.to_string()))).collect();
+        collection_fields.iter().enumerate().map(|(i, c)| format!("{c}, {}", clock(0, &i.to_string()))).collect();
     rows(format!("SELECT 'collection', x.uid, {} FROM collections x ORDER BY x.uid", cols.join(", ")));
     rows(format!("SELECT 'tag', x.uid, x.name, {} FROM tags x ORDER BY x.uid", clock(1, "0")));
     let bookmark_fields = [
@@ -374,6 +389,16 @@ pub fn check_invariants(conn: &Connection) {
             OR NOT EXISTS (SELECT 1 FROM tags WHERE id = bt.tag_id)",
     );
     assert_eq!(links, 0, "dangling bookmark_tags");
+    // Schema 15: every collection reaches the top level; a loop is undone after each batch.
+    let looped: i64 = one(
+        conn,
+        "WITH RECURSIVE up(start, at, steps) AS (
+            SELECT id, parent_id, 1 FROM collections
+            UNION ALL SELECT up.start, c.parent_id, up.steps + 1 FROM up JOIN collections c ON c.id = up.at
+            WHERE up.steps <= (SELECT count(*) FROM collections))
+         SELECT count(*) FROM up WHERE at IS NOT NULL AND steps > (SELECT count(*) FROM collections)",
+    );
+    assert_eq!(looped, 0, "collections in a loop");
     let stale: i64 = one(
         conn,
         "SELECT count(*) FROM sync_clock c WHERE

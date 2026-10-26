@@ -8,23 +8,23 @@ const now = new Date(Date.UTC(2026, 9, 4, 12));
 const placed = (name: string) => {
   const parsed = parseBookmarksFile(file(name), now);
   return {
-    links: parsed.links.map((l) => [l.url, l.collection, l.tags]),
+    links: parsed.links.map((l) => [l.url, l.path, l.tags]),
     skipped: parsed.skipped.map((s) => [s.address, s.reason]),
     folders: parsed.folders,
   };
 };
 
 describe("browser bookmarks file", () => {
-  it("Chrome: roots are not folders, top-level ones are collections, nested ones tags", () => {
+  it("Chrome: roots are not folders, the user's folders are nested collections", () => {
     expect(placed("chrome")).toEqual({
       links: [
-        ["https://news.ycombinator.com/", null, []],
-        ["https://github.com/", "Работа", []],
-        ["https://doc.rust-lang.org/book/", "Работа", ["rust"]],
-        ["https://tokio.rs/", "Работа", ["rust", "async"]],
-        ["https://habr.com/ru/articles/", null, []],
-        ["https://example.com/long-read", "Чтение", []],
-        ["https://m.example.com/", null, []],
+        ["https://news.ycombinator.com/", [], []],
+        ["https://github.com/", ["Работа"], []],
+        ["https://doc.rust-lang.org/book/", ["Работа", "Rust"], []],
+        ["https://tokio.rs/", ["Работа", "Rust", "Async"], []],
+        ["https://habr.com/ru/articles/", [], []],
+        ["https://example.com/long-read", ["Чтение"], []],
+        ["https://m.example.com/", [], []],
       ],
       skipped: [
         ["javascript:void(document.title)", "not_web"],
@@ -40,10 +40,10 @@ describe("browser bookmarks file", () => {
   it("Edge: roots and addresses that are not saved", () => {
     expect(placed("edge")).toMatchObject({
       links: [
-        ["https://learn.microsoft.com/", null, []],
-        ["https://www.figma.com/", "Design", []],
-        ["https://rsms.me/inter/", "Design", ["fonts"]],
-        ["https://linear.app/", "работа", []],
+        ["https://learn.microsoft.com/", [], []],
+        ["https://www.figma.com/", ["Design"], []],
+        ["https://rsms.me/inter/", ["Design", "Fonts"], []],
+        ["https://linear.app/", ["работа"], []],
       ],
       skipped: [
         ["file:///C:/Users/me/notes.html", "not_web"],
@@ -55,17 +55,38 @@ describe("browser bookmarks file", () => {
   it("Firefox: menu folders are collections, marked roots are not, its tags come along", () => {
     expect(placed("firefox")).toMatchObject({
       links: [
-        ["https://www.mozilla.org/en-US/firefox/central/", null, []],
-        ["https://support.mozilla.org/en-US/products/firefox", "Mozilla Firefox", []],
-        ["https://cooking.example/borscht", "Recipes", ["soup", "beets"]],
-        ["https://cooking.example/syrniki", "Recipes", ["desserts", "breakfast"]],
-        ["https://developer.mozilla.org/", null, []],
-        ["https://example.org/essay", "Reading", []],
-        ["https://example.net/unfiled", null, ["later"]],
+        ["https://www.mozilla.org/en-US/firefox/central/", [], []],
+        ["https://support.mozilla.org/en-US/products/firefox", ["Mozilla Firefox"], []],
+        ["https://cooking.example/borscht", ["Recipes"], ["soup", "beets"]],
+        ["https://cooking.example/syrniki", ["Recipes", "Desserts"], ["breakfast"]],
+        ["https://developer.mozilla.org/", [], []],
+        ["https://example.org/essay", ["Reading"], []],
+        ["https://example.net/unfiled", [], ["later"]],
       ],
       skipped: [["place:sort=8&maxResults=10", "not_web"]],
     });
     expect(parseBookmarksFile(file("firefox"), now).links[2].title).toBe("Borscht");
+  });
+
+  it("a file without browser roots keeps its top-level folders", () => {
+    const parsed = parseBookmarksFile(
+      '<DL><DT><H3>Shelf</H3><DL><DT><A HREF="https://a.example/">A</A><DT><H3>Deep</H3><DL><DT><A HREF="https://b.example/">B</A></DL></DL><DT><A HREF="https://c.example/">C</A></DL>',
+      now,
+    );
+    expect(parsed.links.map((l) => [l.url, l.path, l.tags])).toEqual([
+      ["https://a.example/", ["Shelf"], []],
+      ["https://b.example/", ["Shelf", "Deep"], []],
+      ["https://c.example/", [], []],
+    ]);
+  });
+
+  it("folders deeper than three levels become tags, lower case, ahead of the link's own", () => {
+    const parsed = parseBookmarksFile(
+      '<DL><DT><H3>One</H3><DL><DT><H3>Two</H3><DL><DT><H3>Three</H3><DL><DT><H3>Four</H3><DL><DT><H3>Five</H3><DL><DT><A HREF="https://deep.example/" TAGS="Own">Deep</A></DL></DL></DL></DL></DL></DL>',
+      now,
+    );
+    expect(parsed.links.map((l) => [l.url, l.path, l.tags])).toEqual([["https://deep.example/", ["One", "Two", "Three"], ["four", "five", "own"]]]);
+    expect(parsed.folders).toBe(5);
   });
 
   it("save dates in seconds, milliseconds, microseconds or ISO; nonsense is ignored", () => {

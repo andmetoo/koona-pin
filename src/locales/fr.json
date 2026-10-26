@@ -1,5 +1,7 @@
 {
-  "language": { "name": "Français" },
+  "language": {
+    "name": "Français"
+  },
   "common": {
     "ctrl": "Ctrl",
     "shift": "Maj",
@@ -10,7 +12,8 @@
     "open": "Ouvrir",
     "retry": "Réessayer",
     "ok": "Compris",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "done": "Terminé"
   },
   "window": {
     "demo": "Démo dans le navigateur",
@@ -26,7 +29,6 @@
     "collections": "Collections",
     "newCollection": "Nouvelle collection",
     "noCollections": "Pas encore de collection",
-    "deleteCollection": "Supprimer la collection {{name}}",
     "tags": "Étiquettes",
     "moreTags_one": "+ {{count}} autre",
     "moreTags_many": "+ {{count}} autres",
@@ -38,7 +40,38 @@
     "tagsDrop": "Étiquettes — déposez sur une étiquette pour l’ajouter",
     "dropNewCollection": "Nouvelle collection depuis la sélection",
     "moveCollection": "Déplacer",
-    "collectionMoved": "{{name}} : position {{position}} sur {{count}}"
+    "movedInto": "{{name}} déplacée dans {{parent}}, position {{position}} sur {{count}}",
+    "movedTop": "{{name}} déplacée au premier niveau, position {{position}} sur {{count}}",
+    "collectionMenu": "{{name}} : plus",
+    "rename": "Renommer",
+    "renameField": "Nouveau nom de {{name}}",
+    "style": "Icône et couleur…",
+    "newInside": "Nouvelle collection à l’intérieur",
+    "moveTo": "Déplacer vers",
+    "topLevel": "Premier niveau",
+    "moveKeys": "Alt ← → ↑ ↓ la déplacent dans la barre latérale",
+    "tooDeep": "Les collections vont au plus sur trois niveaux",
+    "deleteMenu": "Supprimer…",
+    "dropInto": "Dans {{name}}",
+    "dropIntoAfter": "Dans {{name}}, après {{after}}",
+    "dropIntoFirst": "Dans {{name}}, en premier",
+    "dropTopAfter": "Premier niveau, après {{after}}",
+    "dropTopFirst": "Premier niveau, en premier"
+  },
+  "collectionStyle": {
+    "label": "Icône et couleur de {{name}}",
+    "title": "Icône et couleur",
+    "colour": "Couleur",
+    "icon": "Icône",
+    "emoji": "Ou saisissez un emoji",
+    "dot": "Utiliser un point",
+    "colours": {
+      "terracotta": "Terre cuite",
+      "green": "Vert",
+      "ochre": "Ocre",
+      "blue": "Bleu",
+      "lilac": "Lilas"
+    }
   },
   "drag": {
     "more_one": "et {{count}} autre signet",
@@ -174,6 +207,7 @@
     "isFavorite": "Dans les favoris",
     "moveTo": "Déplacer vers une collection",
     "noCollection": "Aucune collection",
+    "findCollection": "Chercher une collection",
     "addTag": "Ajouter une étiquette…",
     "refresh": "Actualiser l’aperçu",
     "delete": "Mettre à la corbeille",
@@ -314,7 +348,7 @@
     "library": "Bibliothèque",
     "inbox": "Boîte de réception",
     "destinationHint": "Bibliothèque : rangés tout de suite. Boîte de réception : ils attendent d’être triés, après les liens enregistrés depuis le navigateur.",
-    "rule": "Les dossiers de premier niveau deviennent des collections, les sous-dossiers des étiquettes. La barre de favoris, Autres favoris et Mobile ne sont pas des dossiers à part : leurs liens n’ont pas de collection.",
+    "rule": "Les dossiers deviennent des collections, sur trois niveaux au plus ; les dossiers plus profonds deviennent des étiquettes. La barre de favoris, Autres favoris et Mobile ne sont pas des dossiers à part : leurs liens n’ont pas de collection.",
     "cancel": "Annuler",
     "run": "Importer",
     "running": "Importation…",
@@ -537,6 +571,8 @@
       "collection_missing_name": "la collection {{index}} n’a pas de nom",
       "collection_repeated_name": "la collection {{index}} répète un nom ({{detail}})",
       "collection_bad_date": "la collection {{index}} a une date illisible ({{detail}})",
+      "collection_unknown_parent": "la collection {{index}} se trouve dans une collection que la copie n’a pas",
+      "collection_loop": "la collection {{index}} est à l’intérieur d’elle-même",
       "tag_missing_name": "l’étiquette {{index}} n’a pas de nom",
       "tag_repeated_name": "l’étiquette {{index}} répète un nom ({{detail}})",
       "tag_bad_date": "l’étiquette {{index}} a une date illisible ({{detail}})"
@@ -546,11 +582,14 @@
     "title": "Nouvelle collection",
     "name": "Nom",
     "placeholder": "Par exemple, le prochain projet",
-    "create": "Créer la collection"
+    "create": "Créer la collection",
+    "titleInside": "Nouvelle collection dans {{name}}"
   },
   "confirm": {
     "deleteCollection": "Supprimer la collection ?",
     "deleteCollectionText": "Les signets de « {{name}} » restent dans la bibliothèque sans collection.",
+    "deleteCollectionChild": "{{name}} remonte d’un niveau, avec tout son contenu.",
+    "deleteCollectionChildren": "{{names}} remontent d’un niveau, avec tout leur contenu.",
     "delete": "Supprimer",
     "emptyTrash": "Vider la corbeille ?",
     "emptyTrashText_one": "{{count}} signet sera supprimé définitivement. C’est irréversible, et Restaurer ne le ramènera pas.",
@@ -1152,11 +1191,23 @@
     "size": "Taille du texte",
     "sizeValue": "{{size}} px",
     "column": "Colonne",
-    "columns": { "narrow": "Étroite", "medium": "Moyenne", "wide": "Large" },
+    "columns": {
+      "narrow": "Étroite",
+      "medium": "Moyenne",
+      "wide": "Large"
+    },
     "theme": "Thème",
-    "themes": { "white": "Blanc", "dark": "Sombre", "paper": "Papier", "sepia": "Sépia" },
+    "themes": {
+      "white": "Blanc",
+      "dark": "Sombre",
+      "paper": "Papier",
+      "sepia": "Sépia"
+    },
     "font": "Police",
-    "fonts": { "serif": "Serif", "sans": "Sans" },
+    "fonts": {
+      "serif": "Serif",
+      "sans": "Sans"
+    },
     "supporterHint": "Papier et Sépia —",
     "supporterLink": "Supporter",
     "locked": "{{name}}, avec Supporter"
@@ -1204,7 +1255,9 @@
     "damagedLatest": "La bibliothèque est endommagée : les modifications ne sont pas enregistrées et les liens du navigateur attendent dans l’extension. Restaurez la dernière bonne copie — {{when}}.",
     "restore": "Restaurer…",
     "openBackups": "Ouvrir le dossier des sauvegardes",
-    "movedAside": "La bibliothèque d’une ancienne version de test ne correspond pas au nouveau schéma. Elle a été conservée sous {{path}} et une nouvelle bibliothèque a été créée."
+    "movedAside": "La bibliothèque d’une ancienne version de test ne correspond pas au nouveau schéma. Elle a été conservée sous {{path}} et une nouvelle bibliothèque a été créée.",
+    "onlyCollection": "Seulement cette collection",
+    "insideCollection": "Dans {{name}}"
   },
   "groups": {
     "today": "Aujourd’hui",
@@ -1333,6 +1386,9 @@
       "internal": "un problème est survenu ({{message}})",
       "empty_tag": "l’étiquette est vide",
       "empty_collection_name": "le nom est vide",
+      "collection_name_taken": "une autre collection porte ce nom",
+      "collection_too_deep": "les collections vont au plus sur trois niveaux",
+      "collection_inside_itself": "une collection ne peut pas se trouver dans elle-même",
       "empty_title": "le titre est vide",
       "bookmark_gone": "le signet n’existe plus",
       "not_in_trash": "le signet n’est pas dans la corbeille",
@@ -1373,6 +1429,9 @@
       "server_missing": "Une partie de Koona Pin (koonapin-mcp) est manquante. Réinstallez Koona Pin.",
       "empty_tag": "Saisissez une étiquette.",
       "empty_collection_name": "Saisissez un nom de collection.",
+      "collection_name_taken": "Une autre collection porte déjà ce nom.",
+      "collection_too_deep": "Les collections vont au plus sur trois niveaux.",
+      "collection_inside_itself": "Une collection ne peut pas se trouver dans elle-même ni dans l’une de ses collections.",
       "empty_title": "Le titre ne peut pas être vide.",
       "bookmark_gone": "Ce signet n’existe plus.",
       "not_in_trash": "Ce signet n’est pas dans la corbeille.",
@@ -1414,10 +1473,6 @@
     "design": "Design et UI",
     "reading": "Articles / À lire",
     "links": {
-      "koona": {
-        "title": "Apps Koona",
-        "description": "Les autres apps de Koona."
-      },
       "start": {
         "title": "Commencer ici : comment marche Koona Pin",
         "description": "Enregistrez, triez et retrouvez vos liens en quelques minutes."
@@ -1427,9 +1482,6 @@
       },
       "bun": {
         "description": "Un environnement d’exécution et une boîte à outils JavaScript rapides."
-      },
-      "lunacy": {
-        "description": "Une application de design gratuite avec des visuels intégrés."
       }
     }
   },
@@ -2163,6 +2215,8 @@
       "grid": "Grille",
       "filters": "Filtres",
       "all": "Tous",
+      "allIn": "Tout dans {{name}}",
+      "inside": "Dans {{name}}",
       "favorite": "Favori",
       "newLinks_one": "{{count, number}} nouveau lien",
       "newLinks_many": "{{count, number}} de nouveaux liens",
@@ -2353,6 +2407,7 @@
       "suggested": "Suggérée",
       "suggestedWhy": "{{count, number}} sur {{filed, number}} liens de ce site",
       "all": "Toutes les collections",
+      "fold": "Dans {{name}}",
       "nothing": "Aucune collection de ce nom",
       "new": "Nouvelle collection",
       "newNamed": "Nouvelle collection « {{name}} »"

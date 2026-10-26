@@ -129,10 +129,11 @@ pub fn fresh_at(path: &Path, schema: i64) -> Connection {
         .unwrap();
     // A new library names its first collections when the interface opens it (NP-085).
     let names = ["Development", "Design & UI", "Articles / To read"].map(String::from);
-    if schema >= 10 {
+    if schema >= 15 {
         crate::db::create_starter_collections(&conn, &names).unwrap();
     } else {
-        // As the builds of that schema made them: no place in the sidebar.
+        // As the builds of that schema made them: no place in the sidebar,
+        // hex colours before the palette (schema 15).
         for (name, (color, icon)) in names.iter().zip([("#6366f1", "code"), ("#ec4899", "palette"), ("#10b981", "book-open")]) {
             conn.execute(
                 "INSERT INTO collections (uid, name, color, icon, created_at) VALUES (?1, ?2, ?3, ?4, '')",

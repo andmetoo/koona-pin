@@ -1,5 +1,7 @@
 {
-  "language": { "name": "English" },
+  "language": {
+    "name": "English"
+  },
   "common": {
     "ctrl": "Ctrl",
     "shift": "Shift",
@@ -10,7 +12,8 @@
     "open": "Open",
     "retry": "Try again",
     "ok": "Got it",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "done": "Done"
   },
   "window": {
     "demo": "Demo in the browser",
@@ -26,7 +29,6 @@
     "collections": "Collections",
     "newCollection": "New collection",
     "noCollections": "No collections yet",
-    "deleteCollection": "Delete collection {{name}}",
     "tags": "Tags",
     "moreTags_one": "+ {{count}} more",
     "moreTags_other": "+ {{count}} more",
@@ -37,7 +39,38 @@
     "tagsDrop": "Tags — drop on a tag to add it",
     "dropNewCollection": "New collection from selection",
     "moveCollection": "Move",
-    "collectionMoved": "{{name}}: place {{position}} of {{count}}"
+    "movedInto": "{{name}} moved into {{parent}}, {{position}} of {{count}}",
+    "movedTop": "{{name}} moved to the top level, {{position}} of {{count}}",
+    "collectionMenu": "{{name}}: more",
+    "rename": "Rename",
+    "renameField": "New name for {{name}}",
+    "style": "Icon and colour…",
+    "newInside": "New collection inside",
+    "moveTo": "Move to",
+    "topLevel": "Top level",
+    "moveKeys": "Alt ← → ↑ ↓ move it in the sidebar",
+    "tooDeep": "Collections go at most three levels deep",
+    "deleteMenu": "Delete…",
+    "dropInto": "Into {{name}}",
+    "dropIntoAfter": "Into {{name}}, after {{after}}",
+    "dropIntoFirst": "Into {{name}}, first",
+    "dropTopAfter": "Top level, after {{after}}",
+    "dropTopFirst": "Top level, first"
+  },
+  "collectionStyle": {
+    "label": "Icon and colour of {{name}}",
+    "title": "Icon and colour",
+    "colour": "Colour",
+    "icon": "Icon",
+    "emoji": "Or type an emoji",
+    "dot": "Use a dot",
+    "colours": {
+      "terracotta": "Terracotta",
+      "green": "Green",
+      "ochre": "Ochre",
+      "blue": "Blue",
+      "lilac": "Lilac"
+    }
   },
   "drag": {
     "more_one": "and {{count}} more bookmark",
@@ -164,6 +197,7 @@
     "isFavorite": "In favorites",
     "moveTo": "Move to collection",
     "noCollection": "No collection",
+    "findCollection": "Find a collection",
     "addTag": "Add tag…",
     "refresh": "Refresh preview",
     "delete": "Move to trash",
@@ -297,7 +331,7 @@
     "library": "Library",
     "inbox": "Inbox",
     "destinationHint": "Library: sorted right away. Inbox: they wait to be sorted, behind the links saved from the browser.",
-    "rule": "Top-level folders become collections, nested folders become tags. Bookmarks bar, Other bookmarks and Mobile are not folders of their own: their links get no collection.",
+    "rule": "Folders become collections, up to three levels deep; deeper folders become tags. Bookmarks bar, Other bookmarks and Mobile are not folders of their own: their links get no collection.",
     "cancel": "Cancel",
     "run": "Import",
     "running": "Importing…",
@@ -496,6 +530,8 @@
       "collection_missing_name": "collection {{index}} has no name",
       "collection_repeated_name": "collection {{index}} repeats a name ({{detail}})",
       "collection_bad_date": "collection {{index}} has a date that can't be read ({{detail}})",
+      "collection_unknown_parent": "collection {{index}} sits in a collection the copy doesn't have",
+      "collection_loop": "collection {{index}} is inside itself",
       "tag_missing_name": "tag {{index}} has no name",
       "tag_repeated_name": "tag {{index}} repeats a name ({{detail}})",
       "tag_bad_date": "tag {{index}} has a date that can't be read ({{detail}})"
@@ -505,11 +541,14 @@
     "title": "New collection",
     "name": "Name",
     "placeholder": "For example, the next project",
-    "create": "Create collection"
+    "create": "Create collection",
+    "titleInside": "New collection in {{name}}"
   },
   "confirm": {
     "deleteCollection": "Delete collection?",
     "deleteCollectionText": "Bookmarks of «{{name}}» stay in the library without a collection.",
+    "deleteCollectionChild": "{{name}} moves up a level, with everything inside it.",
+    "deleteCollectionChildren": "{{names}} move up a level, with everything inside them.",
     "delete": "Delete",
     "emptyTrash": "Empty trash?",
     "emptyTrashText_one": "{{count}} bookmark will be deleted for good. This can't be undone, and it won't come back with Restore.",
@@ -1075,11 +1114,23 @@
     "size": "Text size",
     "sizeValue": "{{size}} px",
     "column": "Column",
-    "columns": { "narrow": "Narrow", "medium": "Medium", "wide": "Wide" },
+    "columns": {
+      "narrow": "Narrow",
+      "medium": "Medium",
+      "wide": "Wide"
+    },
     "theme": "Theme",
-    "themes": { "white": "White", "dark": "Dark", "paper": "Paper", "sepia": "Sepia" },
+    "themes": {
+      "white": "White",
+      "dark": "Dark",
+      "paper": "Paper",
+      "sepia": "Sepia"
+    },
     "font": "Font",
-    "fonts": { "serif": "Serif", "sans": "Sans" },
+    "fonts": {
+      "serif": "Serif",
+      "sans": "Sans"
+    },
     "supporterHint": "Paper and Sepia —",
     "supporterLink": "Supporter",
     "locked": "{{name}}, with Supporter"
@@ -1126,7 +1177,9 @@
     "damagedLatest": "The library is damaged, so changes aren't saved and links from the browser wait in the extension. Restore the latest good copy — {{when}}.",
     "restore": "Restore…",
     "openBackups": "Open backups folder",
-    "movedAside": "The library of an earlier test build does not fit the new schema. It was kept as {{path}} and a new library was created."
+    "movedAside": "The library of an earlier test build does not fit the new schema. It was kept as {{path}} and a new library was created.",
+    "onlyCollection": "Only this collection",
+    "insideCollection": "Inside {{name}}"
   },
   "groups": {
     "today": "Today",
@@ -1255,6 +1308,9 @@
       "internal": "something went wrong ({{message}})",
       "empty_tag": "the tag is empty",
       "empty_collection_name": "the name is empty",
+      "collection_name_taken": "another collection has this name",
+      "collection_too_deep": "collections go at most three levels deep",
+      "collection_inside_itself": "a collection can't go inside itself",
       "empty_title": "the title is empty",
       "bookmark_gone": "the bookmark no longer exists",
       "not_in_trash": "the bookmark is not in the trash",
@@ -1295,6 +1351,9 @@
       "server_missing": "Part of Koona Pin (koonapin-mcp) is missing. Reinstall Koona Pin.",
       "empty_tag": "Enter a tag.",
       "empty_collection_name": "Enter a collection name.",
+      "collection_name_taken": "Another collection already has this name.",
+      "collection_too_deep": "Collections go at most three levels deep.",
+      "collection_inside_itself": "A collection can't go inside itself or a collection inside it.",
       "empty_title": "The title can't be empty.",
       "bookmark_gone": "This bookmark no longer exists.",
       "not_in_trash": "This bookmark is not in the trash.",
@@ -1336,10 +1395,6 @@
     "design": "Design & UI",
     "reading": "Articles / To read",
     "links": {
-      "koona": {
-        "title": "Koona apps",
-        "description": "Other apps by Koona."
-      },
       "start": {
         "title": "Start here: how Koona Pin works",
         "description": "Save, sort and find links in a few minutes."
@@ -1349,9 +1404,6 @@
       },
       "bun": {
         "description": "A fast JavaScript runtime and toolkit."
-      },
-      "lunacy": {
-        "description": "A free design app with built-in graphics."
       }
     }
   },
@@ -2043,6 +2095,8 @@
       "grid": "Grid",
       "filters": "Filters",
       "all": "All",
+      "allIn": "All in {{name}}",
+      "inside": "Inside {{name}}",
       "favorite": "Favorite",
       "newLinks_one": "{{count, number}} new link",
       "newLinks_other": "{{count, number}} new links",
@@ -2223,6 +2277,7 @@
       "suggested": "Suggested",
       "suggestedWhy": "{{count, number}} of {{filed, number}} links from this site",
       "all": "All collections",
+      "fold": "Inside {{name}}",
       "nothing": "No collection by that name",
       "new": "New collection",
       "newNamed": "New collection “{{name}}”"

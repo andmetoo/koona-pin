@@ -86,7 +86,9 @@ pub const BOOKMARK_FIELDS: [&str; 17] = [
     "site_name",
 ];
 /// `position` is a fractional order key (a string), so moving one collection writes only its own.
-pub const COLLECTION_FIELDS: [&str; 4] = ["name", "color", "icon", "position"];
+/// `parent` (schema 15) is the uid of the collection it sits in, or null for the top level;
+/// `position` orders it among its siblings.
+pub const COLLECTION_FIELDS: [&str; 5] = ["name", "color", "icon", "position", "parent"];
 pub const TAG_FIELDS: [&str; 1] = ["name"];
 /// `url` is the unique field, so two devices that follow the same address merge into one feed
 /// (NP-130). `destination` is text the receiver keeps as it came, also a place it does not know.

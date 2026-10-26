@@ -31,11 +31,14 @@ export const readingPlace = (b: Pick<Bookmark, "reading_at" | "read_at">) =>
 /**
  * The exact filters: trash, inbox, favorites, collection, domain, tag. Whether search words
  * match is decided by the database (`get_bookmarks` with `id`), so the
- * interface keeps no second copy of the search rules.
+ * interface keeps no second copy of the search rules. `scope` is every
+ * collection the collection filter shows (2.19.0: its descendants too, see
+ * `collectionTree.scopeIds`); without it, the collection alone.
  */
 export function matchesFilters(
   b: Bookmark,
   filters: Partial<FilterState>,
+  scope?: ReadonlySet<number>,
 ): boolean {
   return !(
     !!filters.onlyTrash !== (b.deleted_at !== null) ||
@@ -45,7 +48,7 @@ export function matchesFilters(
     (filters.read != null && (b.read_at !== null) !== filters.read) ||
     (filters.onlyOffline && !b.offline_at) ||
     (filters.collectionId != null &&
-      b.collection_id !== filters.collectionId) ||
+      !(scope ?? new Set([filters.collectionId])).has(b.collection_id ?? -1)) ||
     (filters.domain && b.domain !== filters.domain) ||
     (filters.tag && !b.tags?.includes(filters.tag))
   );
@@ -55,8 +58,9 @@ export function matchesFilters(
 export function matchesBookmark(
   b: Bookmark,
   filters: Partial<FilterState>,
+  scope?: ReadonlySet<number>,
 ): boolean {
-  if (!matchesFilters(b, filters)) return false;
+  if (!matchesFilters(b, filters, scope)) return false;
   const words = foldText(filters.search ?? "").split(/\s+/).filter(Boolean);
   if (words.length === 0) return true;
   const text = foldText(
@@ -189,14 +193,6 @@ export function sortCollections<T extends Pick<Collection, "name" | "position">>
     language,
   );
   return [...placed, ...rest];
-}
-
-/** The ids of `collections` with the one at `from` put at `to` (both in the sidebar's order). */
-export function moveCollection(collections: Pick<Collection, "id">[], from: number, to: number): number[] {
-  const ids = collections.map((c) => c.id);
-  const [moved] = ids.splice(from, 1);
-  ids.splice(Math.max(0, Math.min(to, ids.length)), 0, moved);
-  return ids;
 }
 
 export function sortBookmarks(bookmarks: Bookmark[], order: ListOrder = NEWEST): Bookmark[] {

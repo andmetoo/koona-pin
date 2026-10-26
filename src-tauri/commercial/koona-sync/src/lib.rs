@@ -44,6 +44,9 @@ pub const SCHEMA_13: &str = include_str!("schema13.sql");
 /// table (NP-130).
 pub const SCHEMA_14: &str = include_str!("schema14.sql");
 
+/// Schema 15 (2.19.0): the capture of a collection's parent, run after the app adds its column.
+pub const SCHEMA_15: &str = include_str!("schema15.sql");
+
 /// [`SCHEMA_10`] in two parts: the tables and columns, then the triggers that record changes. A
 /// migration that fills the new columns does it between the two, so the filling records nothing
 /// and needs none of the engine's functions.

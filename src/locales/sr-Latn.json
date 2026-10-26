@@ -12,7 +12,8 @@
     "open": "Otvori",
     "retry": "Pokušaj ponovo",
     "ok": "Razumem",
-    "cancel": "Otkaži"
+    "cancel": "Otkaži",
+    "done": "Gotovo"
   },
   "window": {
     "demo": "Demo u pregledaču",
@@ -28,7 +29,6 @@
     "collections": "Kolekcije",
     "newCollection": "Nova kolekcija",
     "noCollections": "Još nema kolekcija",
-    "deleteCollection": "Obriši kolekciju {{name}}",
     "tags": "Oznake",
     "moreTags_one": "+ još {{count}}",
     "moreTags_few": "+ još {{count}}",
@@ -40,7 +40,38 @@
     "tagsDrop": "Oznake — spustite na oznaku da je dodate",
     "dropNewCollection": "Nova kolekcija od izabranog",
     "moveCollection": "Premesti",
-    "collectionMoved": "{{name}}: mesto {{position}} od {{count}}"
+    "movedInto": "{{name}} je premeštena u „{{parent}}“, mesto {{position}} od {{count}}",
+    "movedTop": "{{name}} je premeštena na najviši nivo, mesto {{position}} od {{count}}",
+    "collectionMenu": "{{name}}: još",
+    "rename": "Preimenuj",
+    "renameField": "Novo ime za {{name}}",
+    "style": "Ikonica i boja…",
+    "newInside": "Nova kolekcija unutra",
+    "moveTo": "Premesti u",
+    "topLevel": "Najviši nivo",
+    "moveKeys": "Alt ← → ↑ ↓ je premeštaju u bočnoj traci",
+    "tooDeep": "Kolekcije se ugnežđuju najviše tri nivoa duboko",
+    "deleteMenu": "Obriši…",
+    "dropInto": "U „{{name}}“",
+    "dropIntoAfter": "U „{{name}}“, posle „{{after}}“",
+    "dropIntoFirst": "U „{{name}}“, prva",
+    "dropTopAfter": "Najviši nivo, posle „{{after}}“",
+    "dropTopFirst": "Najviši nivo, prva"
+  },
+  "collectionStyle": {
+    "label": "Ikonica i boja kolekcije {{name}}",
+    "title": "Ikonica i boja",
+    "colour": "Boja",
+    "icon": "Ikonica",
+    "emoji": "Ili unesi emodži",
+    "dot": "Koristi tačku",
+    "colours": {
+      "terracotta": "Terakota",
+      "green": "Zelena",
+      "ochre": "Oker",
+      "blue": "Plava",
+      "lilac": "Jorgovan"
+    }
   },
   "drag": {
     "more_one": "i još {{count}} obeleživač",
@@ -176,6 +207,7 @@
     "isFavorite": "U omiljenom",
     "moveTo": "Premesti u kolekciju",
     "noCollection": "Bez kolekcije",
+    "findCollection": "Nađi kolekciju",
     "addTag": "Dodaj oznaku…",
     "refresh": "Osveži pregled",
     "delete": "Premesti u otpad",
@@ -316,7 +348,7 @@
     "library": "Biblioteka",
     "inbox": "Prijemno sanduče",
     "destinationHint": "Biblioteka: odmah razvrstani. Prijemno sanduče: čekaju na razvrstavanje, iza linkova sačuvanih iz pregledača.",
-    "rule": "Fascikle prvog nivoa postaju kolekcije, ugnežđene fascikle postaju oznake. Traka obeleživača, Ostali obeleživači i Mobilni nisu zasebne fascikle: njihovi linkovi ostaju bez kolekcije.",
+    "rule": "Fascikle postaju kolekcije, do tri nivoa dubine; dublje fascikle postaju oznake. Traka obeleživača, Ostali obeleživači i Mobilni nisu zasebne fascikle: njihovi linkovi ostaju bez kolekcije.",
     "cancel": "Otkaži",
     "run": "Uvezi",
     "running": "Uvozi se…",
@@ -539,6 +571,8 @@
       "collection_missing_name": "kolekcija {{index}} nema naziv",
       "collection_repeated_name": "kolekcija {{index}} ponavlja naziv ({{detail}})",
       "collection_bad_date": "kolekcija {{index}} ima datum koji ne može da se pročita ({{detail}})",
+      "collection_unknown_parent": "kolekcija {{index}} nalazi se u kolekciji koju kopija nema",
+      "collection_loop": "kolekcija {{index}} je sama u sebi",
       "tag_missing_name": "oznaka {{index}} nema naziv",
       "tag_repeated_name": "oznaka {{index}} ponavlja naziv ({{detail}})",
       "tag_bad_date": "oznaka {{index}} ima datum koji ne može da se pročita ({{detail}})"
@@ -548,11 +582,14 @@
     "title": "Nova kolekcija",
     "name": "Naziv",
     "placeholder": "Na primer, sledeći projekat",
-    "create": "Napravi kolekciju"
+    "create": "Napravi kolekciju",
+    "titleInside": "Nova kolekcija u „{{name}}“"
   },
   "confirm": {
     "deleteCollection": "Obrisati kolekciju?",
     "deleteCollectionText": "Obeleživači iz „{{name}}“ ostaju u biblioteci bez kolekcije.",
+    "deleteCollectionChild": "{{name}} se podiže za jedan nivo, sa svim što je u njoj.",
+    "deleteCollectionChildren": "{{names}} se podižu za jedan nivo, sa svim što je u njima.",
     "delete": "Obriši",
     "emptyTrash": "Isprazniti otpad?",
     "emptyTrashText_one": "{{count}} obeleživač biće trajno obrisan. Ovo ne može da se opozove, a neće se vratiti ni vraćanjem.",
@@ -1218,7 +1255,9 @@
     "damagedLatest": "Biblioteka je oštećena, pa se izmene ne čuvaju, a linkovi iz pregledača čekaju u proširenju. Vratite poslednju ispravnu kopiju — {{when}}.",
     "restore": "Vrati…",
     "openBackups": "Otvori fasciklu rezervnih kopija",
-    "movedAside": "Biblioteka ranije probne verzije ne odgovara novoj šemi. Sačuvana je kao {{path}}, a napravljena je nova biblioteka."
+    "movedAside": "Biblioteka ranije probne verzije ne odgovara novoj šemi. Sačuvana je kao {{path}}, a napravljena je nova biblioteka.",
+    "onlyCollection": "Samo ova kolekcija",
+    "insideCollection": "Unutar „{{name}}“"
   },
   "groups": {
     "today": "Danas",
@@ -1347,6 +1386,9 @@
       "internal": "nešto nije u redu ({{message}})",
       "empty_tag": "oznaka je prazna",
       "empty_collection_name": "naziv je prazan",
+      "collection_name_taken": "druga kolekcija ima ovo ime",
+      "collection_too_deep": "kolekcije se ugnežđuju najviše tri nivoa duboko",
+      "collection_inside_itself": "kolekcija ne može biti sama u sebi",
       "empty_title": "naslov je prazan",
       "bookmark_gone": "obeleživač više ne postoji",
       "not_in_trash": "obeleživač nije u otpadu",
@@ -1387,6 +1429,9 @@
       "server_missing": "Nedostaje deo programa Koona Pin (koonapin-mcp). Ponovo instalirajte Koona Pin.",
       "empty_tag": "Unesite oznaku.",
       "empty_collection_name": "Unesite naziv kolekcije.",
+      "collection_name_taken": "Druga kolekcija već ima ovo ime.",
+      "collection_too_deep": "Kolekcije se ugnežđuju najviše tri nivoa duboko.",
+      "collection_inside_itself": "Kolekcija ne može biti sama u sebi ni u kolekciji koja se nalazi u njoj.",
       "empty_title": "Naslov ne može biti prazan.",
       "bookmark_gone": "Ovaj obeleživač više ne postoji.",
       "not_in_trash": "Ovaj obeleživač nije u otpadu.",
@@ -1428,10 +1473,6 @@
     "design": "Dizajn i UI",
     "reading": "Članci / Za čitanje",
     "links": {
-      "koona": {
-        "title": "Aplikacije Koona",
-        "description": "Druge aplikacije Koona."
-      },
       "start": {
         "title": "Počnite ovde: kako radi Koona Pin",
         "description": "Čuvajte, razvrstavajte i pronalazite veze za par minuta."
@@ -1441,9 +1482,6 @@
       },
       "bun": {
         "description": "Brzo okruženje za izvršavanje i skup alata za JavaScript."
-      },
-      "lunacy": {
-        "description": "Besplatan program za dizajn sa ugrađenom grafikom."
       }
     }
   },
@@ -2177,6 +2215,8 @@
       "grid": "Mreža",
       "filters": "Filteri",
       "all": "Sve",
+      "allIn": "Sve u „{{name}}“",
+      "inside": "Unutar „{{name}}“",
       "favorite": "Omiljeno",
       "newLinks_one": "{{count, number}} novi link",
       "newLinks_few": "{{count, number}} nova linka",
@@ -2367,6 +2407,7 @@
       "suggested": "Predlog",
       "suggestedWhy": "Linkovi sa ovog sajta: {{count, number}} od {{filed, number}}",
       "all": "Sve kolekcije",
+      "fold": "Unutar „{{name}}“",
       "nothing": "Nema kolekcije sa tim nazivom",
       "new": "Nova kolekcija",
       "newNamed": "Nova kolekcija „{{name}}“"

@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { CheckedLink, Collection, LinkCheckProgress, LinkCheckReport } from "../../types";
 import { api } from "../../services/api";
 import { bulkFailure, bulkNotice } from "../../services/bulk";
-import { collectionColor } from "../../services/collections";
+import { collectionTint } from "../../services/collections";
 import { shortcut } from "../../services/keys";
 import { describeError } from "../../services/errors";
 import { checkedWhen, etaText, finishedLine, FIRST_ROWS, replacedNotice, resultLabel } from "../../services/linkcheck";
@@ -119,7 +119,8 @@ export function LinkCheckPage({
     }
   };
 
-  const collectionName = (id: number | null) => collections.find((c) => c.id === id)?.name ?? null;
+  /** A row draws the collection's own colour (2.19.0). */
+  const collectionOf = (id: number | null) => collections.find((c) => c.id === id) ?? null;
   const running = report?.state === "running";
   const count = report ? report.gone.length + report.moved.length : 0;
   const results = report ? GROUPS.some((g) => report[g].length > 0) : false;
@@ -250,7 +251,7 @@ export function LinkCheckPage({
                           group={g}
                           busy={busy}
                           label={resultLabel(t, link, g)}
-                          collection={collectionName(link.bookmark.collection_id)}
+                          collection={collectionOf(link.bookmark.collection_id)}
                           checked={checkedWhen(t, link.checked_at, i18n.language)}
                           onOpen={() => onOpen(link.bookmark.url)}
                           onTrash={() => void trash([link.bookmark.id])}
@@ -322,7 +323,7 @@ function Row({
   group: Group;
   busy: boolean;
   label: string;
-  collection: string | null;
+  collection: Collection | null;
   checked: string;
   onOpen: () => void;
   onTrash: () => void;
@@ -364,8 +365,8 @@ function Row({
       <span className={`flex w-[130px] shrink-0 items-center gap-2 text-xs max-[1099px]:hidden ${hover ? "group-focus-within/row:invisible group-hover/row:invisible" : ""}`}>
         {collection ? (
           <>
-            <Dot color={collectionColor(b.collection_id!)} />
-            <span className="truncate text-icon">{collection}</span>
+            <Dot color={collectionTint(collection)} />
+            <span className="truncate text-icon">{collection.name}</span>
           </>
         ) : (
           <span className="text-subtle">{t("duplicates.noCollection")}</span>

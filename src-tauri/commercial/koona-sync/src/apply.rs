@@ -12,13 +12,14 @@
 use crate::capture::{self, Applying};
 use crate::model::{Clock, Entity, FieldChange, Gone, Group};
 use crate::store::{
-    self, Origins, Stored, Table, BOOKMARKS, COLLECTION, COLLECTIONS, FAVORITE, FEEDS, LINK, PROGRESS, TAGS, UNIQUE,
+    self, Origins, Stored, Table, BOOKMARKS, COLLECTION, COLLECTIONS, FAVORITE, FEEDS, LINK, PARENT, PROGRESS, TAGS,
+    UNIQUE,
 };
 use crate::Result;
 use rusqlite::types::Value;
 use rusqlite::{params, Connection};
 use serde_json::Value as Json;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use uuid::Uuid;
 
 /// What a batch changed, for the interface.
@@ -94,6 +95,9 @@ pub(crate) enum Incoming {
     Redirected(Value),
     /// Refers to a record not here yet.
     Defer,
+    /// A collection's parent not here yet, while the batch's collections are still being
+    /// written: it may come later in the batch, so it is tried again after them (schema 15).
+    Later,
     /// Not a value this field takes; ignored.
     Invalid,
 }
@@ -107,11 +111,16 @@ pub(crate) struct Ctx<'c> {
     pub deferred: usize,
     pub feeds: bool,
     pub feeds_gone: Vec<Uuid>,
+    /// This replica in `sync_origins`.
+    pub own: i64,
+    /// Every collection of the batch is written: a parent still unknown waits for a later
+    /// delivery ([`Incoming::Defer`]) instead of [`Incoming::Later`].
+    pub parents_final: bool,
 }
 
 impl<'c> Ctx<'c> {
     fn new(conn: &'c Connection) -> Result<Ctx<'c>> {
-        capture::origin_of_self(conn)?;
+        let own = capture::origin_of_self(conn)?;
         let now: String = conn.query_row("SELECT strftime('%Y-%m-%dT%H:%M:%fZ', 'now')", [], |r| r.get(0))?;
         Ok(Ctx {
             conn,
@@ -122,6 +131,8 @@ impl<'c> Ctx<'c> {
             deferred: 0,
             feeds: false,
             feeds_gone: Vec::new(),
+            own,
+            parents_final: true,
         })
     }
 
@@ -148,8 +159,16 @@ impl<'c> Ctx<'c> {
     /// The records of one entity in a batch, then its tombstones.
     fn records(&mut self, groups: &[Group], entity: Entity) -> Result<()> {
         let t = Table::of(entity).expect("a record entity");
+        let nested = t.code == COLLECTIONS.code;
+        // A parent may come after its child in a batch (schema 15): the parents are resolved
+        // once every collection of the batch is here.
+        self.parents_final = !nested;
         for g in groups.iter().filter(|g| g.entity == entity && !g.fields.is_empty()) {
             self.record(t, g.uid, &g.fields)?;
+        }
+        self.parents_final = true;
+        if nested {
+            self.parents(groups)?;
         }
         let gone: Vec<&Group> = groups.iter().filter(|g| g.entity == entity && g.gone.is_some()).collect();
         for g in &gone {
@@ -159,7 +178,81 @@ impl<'c> Ctx<'c> {
         for g in &gone {
             self.settle(t, g.uid)?;
         }
+        if nested && groups.iter().any(|g| g.entity == entity) {
+            self.untangle()?;
+        }
         Ok(())
+    }
+
+    /// The parents of the batch's collections, now that each of them is here: a parent still
+    /// unknown leaves its collection where it is (a new one at the top level) and comes again.
+    fn parents(&mut self, groups: &[Group]) -> Result<()> {
+        let name = COLLECTIONS.fields[PARENT];
+        for g in groups.iter().filter(|g| g.entity == Entity::Collection) {
+            let changes: Vec<FieldChange> = g.fields.iter().filter(|f| f.field == name).cloned().collect();
+            if changes.is_empty() {
+                continue;
+            }
+            if let Found::Live(id, here) = self.resolve(&COLLECTIONS, g.uid)? {
+                self.update(&COLLECTIONS, id, here == g.uid, &changes)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Two devices that each moved a collection into the other make a loop (schema 15). The
+    /// collection in it whose parent was set the longest ago goes to the top level, as a change
+    /// of this replica, so the repair spreads; every replica that meets the same loop picks the
+    /// same one.
+    fn untangle(&mut self) -> Result<()> {
+        let parents: BTreeMap<i64, Option<i64>> = self
+            .conn
+            .prepare_cached("SELECT id, parent_id FROM collections")?
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut done = BTreeSet::new();
+        for &start in parents.keys() {
+            let mut path: Vec<i64> = Vec::new();
+            let mut at = Some(start);
+            let mut ring = None;
+            while let Some(id) = at {
+                if done.contains(&id) {
+                    break;
+                }
+                if let Some(i) = path.iter().position(|&p| p == id) {
+                    ring = Some(path[i..].to_vec());
+                    break;
+                }
+                path.push(id);
+                at = parents.get(&id).copied().flatten();
+            }
+            done.extend(path);
+            let Some(ring) = ring else { continue };
+            // By clock as the later one wins, then by uid: local ids differ between replicas.
+            let mut oldest = None;
+            for id in ring {
+                let clock = match store::effective(self.conn, COLLECTIONS.code, id, PARENT as i64)? {
+                    Some(stored) => self.clock(&stored)?,
+                    None => Clock { hlc: crate::model::Hlc(0), replica: Uuid::nil(), counter: 0 },
+                };
+                let uid = store::uid_of(self.conn, &COLLECTIONS, id)?;
+                let key = (clock.hlc, clock.replica, clock.counter, uid, id);
+                if oldest.as_ref().is_none_or(|o| key < *o) {
+                    oldest = Some(key);
+                }
+            }
+            let (.., id) = oldest.expect("a loop has a collection");
+            self.write(&COLLECTIONS, id, PARENT, &Value::Null)?;
+            let clock = self.stamp()?;
+            store::set_clock(self.conn, COLLECTIONS.code, id, PARENT as i64, clock)?;
+        }
+        Ok(())
+    }
+
+    /// The clock of a field this replica holds no value for yet: every real change beats it,
+    /// and with counter 0 no delta ever sends it.
+    pub fn placeholder(&self) -> Result<Clock> {
+        self.clock(&Stored { hlc: 0, origin: self.own, counter: 0 })
     }
 
     /// A clock from the wire, stored with the replica's number.
@@ -262,6 +355,20 @@ impl<'c> Ctx<'c> {
                 Found::Unknown(_) => Incoming::Defer,
             });
         }
+        if t.code == COLLECTIONS.code && field == PARENT {
+            let Ok(uid) = Uuid::parse_str(text) else {
+                return Ok(Incoming::Invalid);
+            };
+            return Ok(match self.resolve(&COLLECTIONS, uid)? {
+                Found::Live(id, here) if here == uid => Incoming::Value(Value::Integer(id)),
+                // Merged here into another: the collection goes into that one, as a change of ours.
+                Found::Live(id, _) => Incoming::Redirected(Value::Integer(id)),
+                // A purged parent: the top level, as on the replica that purged it.
+                Found::Gone => Incoming::Value(Value::Null),
+                Found::Unknown(_) if self.parents_final => Incoming::Defer,
+                Found::Unknown(_) => Incoming::Later,
+            });
+        }
         Ok(Incoming::Value(Value::Text(text.to_string())))
     }
 
@@ -301,7 +408,7 @@ impl<'c> Ctx<'c> {
                     self.deferred += 1;
                     continue;
                 }
-                Incoming::Invalid => continue,
+                Incoming::Later | Incoming::Invalid => continue,
             };
             if field == UNIQUE {
                 unique = Some((value, change.clock));
@@ -314,7 +421,7 @@ impl<'c> Ctx<'c> {
                 }
                 let clock = self.stored(&change.clock)?;
                 store::set_clock(self.conn, t.code, id, field as i64, clock)?;
-            } else if !same || field == COLLECTION {
+            } else if !same || field == COLLECTION || (t.code == COLLECTIONS.code && field == PARENT) {
                 if !same {
                     self.write(t, id, field, &value)?;
                 }
@@ -346,6 +453,8 @@ impl<'c> Ctx<'c> {
                     let stamp = self.stamp()?;
                     values[field] = Some((v, self.clock(&stamp)?));
                 }
+                // At the top level until the parent is resolved after the batch's collections.
+                Incoming::Later => values[field] = Some((Value::Null, self.placeholder()?)),
                 Incoming::Defer | Incoming::Invalid => {}
             }
         }
@@ -436,6 +545,13 @@ impl<'c> Ctx<'c> {
             if let Some(uid) = store::uid_of(self.conn, t, id)? {
                 self.feeds_gone.push(uid);
             }
+        }
+        if t.code == COLLECTIONS.code {
+            // Its children go to the top level, as on the replica that purged it; said here,
+            // not left to the foreign key, so a library without one stays whole (schema 15).
+            self.conn
+                .prepare_cached("UPDATE collections SET parent_id = NULL WHERE parent_id = ?1")?
+                .execute([id])?;
         }
         let sql = format!("DELETE FROM {} WHERE id = ?1", t.name);
         self.conn.prepare_cached(&sql)?.execute([id])?;

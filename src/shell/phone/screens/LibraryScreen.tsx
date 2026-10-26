@@ -1,11 +1,13 @@
 import { type CSSProperties, type MutableRefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { BookCheck, BookOpen, Heart, LayoutGrid, List, Plus, RefreshCw, Search, TriangleAlert } from "lucide-react";
+import { BookCheck, BookOpen, CornerDownRight, Heart, LayoutGrid, List, Plus, RefreshCw, Search, TriangleAlert } from "lucide-react";
 import { selection } from "../../../platform/haptics";
-import { collectionColor } from "../../../services/collections";
+import { buildTree } from "../../../services/collectionTree";
+import { collectionTint } from "../../../services/collections";
 import { groupOf } from "../../../services/dateGroups";
 import { byTime, listTime } from "../../../services/library";
 import type { Bookmark, Collection } from "../../../types";
 import { BookmarkCard, BookmarkRow } from "../library/BookmarkTiles";
+import { chipRows } from "../library/chipRows";
 import { Empty } from "../library/Empty";
 import { ShelfList } from "../library/ShelfList";
 import { scaledSizes, shelfEntries } from "../library/shelfEntries";
@@ -15,6 +17,7 @@ import "../library/library.css";
 import { usePhone } from "../PhoneContext";
 import { Button } from "../ui/buttons";
 import { Chip, Segmented } from "../ui/controls";
+import { CollectionGlyph } from "../ui/CollectionGlyph";
 import { PhIcon } from "../ui/icons";
 import { Screen, Header } from "../ui/Screen";
 import { useChipInView, useFilterSwipe } from "../ui/useFilterSwipe";
@@ -44,7 +47,8 @@ type Page = "unread" | "read";
  * with the count and the account cluster; the search field, which opens Search; the list/grid
  * switch (the desktop's view preference: its compact grid shows as the list here); filter chips —
  * All, Favorites, the collections — narrowing the tab's section; the bookmarks on shelves by day
- * (the desktop's date groups). Reading has no chips: its two pages, To read and Read, on a switch.
+ * (the desktop's date groups). A collection with children opens a second row of chips under the
+ * first (N8): "All" of it and its children, a level at a time. Reading has no chips: its two pages, To read and Read, on a switch.
  * A swipe on the list moves to the neighbouring chip or page (SW1, SW3–SW4). Virtualized and paged
  * as on the desktop; pull to refresh at the top.
  */
@@ -77,7 +81,10 @@ export function LibraryScreen({ section, hidden }: { section: "all" | "reading";
     void selection();
     navigate({ onlyFavorites: value === "favorites", collectionId: typeof value === "number" ? value : null });
   };
-  const chipValues = useMemo<ChipValue[]>(() => ["all", "favorites", ...library.collections.map((c) => c.id)], [library.collections]);
+  // The tree of collections; row 1 holds the top level, row 2 the level under the chosen one (2.19.0).
+  const tree = useMemo(() => buildTree(library.collections), [library.collections]);
+  const { branch, parent: sub } = chipRows(tree, typeof chip === "number" ? chip : null);
+  const chipValues = useMemo<ChipValue[]>(() => ["all", "favorites", ...tree.map((n) => n.item.id)], [tree]);
   const page: Page = filters.read ? "read" : "unread";
   const unread = counts.reading_unread;
   const done = Math.max(0, counts.reading - unread);
@@ -86,7 +93,8 @@ export function LibraryScreen({ section, hidden }: { section: "all" | "reading";
     void selection();
     navigate({ onlyReading: true, read: value === "read" });
   };
-  const chipIndex = chipValues.indexOf(chip);
+  // A swipe moves along row 1: from a collection deeper down, from its top-level branch.
+  const chipIndex = chipValues.indexOf(branch ?? chip);
   // The list once loaded: a new one lets the swiped-to filter in; a failed load leaves the old one.
   const content = library.loading ? null : library.bookmarks;
   const failed = !!library.error;
@@ -96,7 +104,9 @@ export function LibraryScreen({ section, hidden }: { section: "all" | "reading";
       : { index: chipIndex, count: chipValues.length, onChange: (i) => choose(chipValues[i]), content, failed, enabled: !hidden && chipIndex >= 0 },
   );
   const chipRow = useRef<HTMLDivElement>(null);
-  useChipInView(chipRow, chip);
+  const subRow = useRef<HTMLDivElement>(null);
+  useChipInView(chipRow, branch ?? chip);
+  useChipInView(subRow, chip);
 
   const grid = view === "grid";
   const columns = Math.max(2, Math.floor((width - 32 + CARD_GAP) / (CARD_MIN + CARD_GAP)));
@@ -122,7 +132,10 @@ export function LibraryScreen({ section, hidden }: { section: "all" | "reading";
   stackRef.current = stack;
   const onOpen = useCallback((b: Bookmark) => stackRef.current.openBookmark(b.id), []);
   const onMenu = useCallback((b: Bookmark) => sheets.open({ kind: "bookmarkMenu", props: { bookmarkId: b.id, bookmark: b } }), [sheets]);
-  const dotOf = (b: Bookmark) => (b.collection_id !== null && collections.has(b.collection_id) ? collectionColor(b.collection_id) : null);
+  const dotOf = (b: Bookmark) => {
+    const c = b.collection_id === null ? undefined : collections.get(b.collection_id);
+    return c ? collectionTint(c) : null;
+  };
   const favorite = t("phone.library.favorite");
 
   // Pull to refresh: the list and the counts read again, as when the app comes back to the screen,
@@ -189,9 +202,22 @@ export function LibraryScreen({ section, hidden }: { section: "all" | "reading";
           <Chip active={chip === "favorites"} icon={Heart} onClick={() => choose("favorites")}>
             {t("nav.favorites")}
           </Chip>
-          {library.collections.map((c) => (
-            <Chip key={c.id} active={chip === c.id} dot={collectionColor(c.id)} onClick={() => choose(c.id)}>
+          {tree.map(({ item: c }) => (
+            <Chip key={c.id} active={branch === c.id} glyph={<CollectionGlyph collection={c} />} onClick={() => choose(c.id)}>
               {c.name}
+            </Chip>
+          ))}
+        </div>
+      )}
+      {!reading && sub && (
+        <div ref={subRow} className="ph-chips lib-chips lib-chips-sub" role="group" aria-label={t("phone.library.inside", { name: sub.item.name })}>
+          <PhIcon icon={CornerDownRight} at="chip" className="lib-chips-arrow" />
+          <Chip data-all active={chip === sub.item.id} aria-label={t("phone.library.allIn", { name: sub.item.name })} onClick={() => choose(sub.item.id)}>
+            {t("phone.library.all")} <span className="lib-chip-count">{sub.total}</span>
+          </Chip>
+          {sub.children.map((n) => (
+            <Chip key={n.item.id} active={chip === n.item.id} glyph={<CollectionGlyph collection={n.item} />} onClick={() => choose(n.item.id)}>
+              {n.item.name} <span className="lib-chip-count">{n.total}</span>
             </Chip>
           ))}
         </div>

@@ -2,12 +2,13 @@ import { ChangeEvent, CompositionEvent, FormEvent, KeyboardEvent, useId, useRef,
 import { ChevronDown, Tag as TagIcon, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Collection, Tag } from "../../types";
-import { collectionColor } from "../../services/collections";
+import { collectionTint } from "../../services/collections";
+import { depths, optionIndent } from "../../services/collectionTree";
 import { foldText } from "../../services/library";
 import { composing } from "../../services/ime";
 import { Icon } from "../icons";
 
-/** Collection picker of frame 16: the collection's dot before its name. */
+/** Collection picker of frame 16: the collection's dot before its name; one inside another indented (2.19.0). */
 export function CollectionSelect({
   id,
   value,
@@ -20,24 +21,27 @@ export function CollectionSelect({
   onChange: (value: number | null) => void;
 }) {
   const { t } = useTranslation();
+  const levels = depths(collections);
+  const chosen = collections.find((c) => c.id === value);
   return (
     <div className="relative">
-      {value !== null && (
+      {chosen && (
         <span
           aria-hidden
           className="pointer-events-none absolute top-1/2 left-3 size-[7px] -translate-y-1/2 rounded-full"
-          style={{ background: collectionColor(value) }}
+          style={{ background: collectionTint(chosen) }}
         />
       )}
       <select
         id={id}
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-        className={`field appearance-none pr-8 ${value !== null ? "pl-[26px]" : ""}`}
+        className={`field appearance-none pr-8 ${chosen ? "pl-[26px]" : ""}`}
       >
         <option value="">{t("card.noCollection")}</option>
         {collections.map((c) => (
           <option key={c.id} value={c.id}>
+            {optionIndent(levels.get(c.id) ?? 0)}
             {c.name}
           </option>
         ))}

@@ -12,6 +12,7 @@ const filters = (extra: Partial<FilterState> = {}): FilterState => ({
   tag: null,
   domain: null,
   collectionId: null,
+  onlyCollection: false,
   onlyFavorites: false,
   onlyInbox: false,
   onlyTrash: false,
@@ -197,6 +198,10 @@ describe("«Add {view}» (N6)", () => {
   it("makes a section of a collection or a tag", () => {
     expect(view({ collectionId: 4 })).toEqual({ kind: "collection", collection: collections[0] });
     expect(view({ tag: "crypto" })).toEqual({ kind: "tag", name: "crypto" });
+  });
+
+  it("marks a collection with «Only this collection» ticked (2.19.0)", () => {
+    expect(view({ collectionId: 4, onlyCollection: true })).toEqual({ kind: "collection", collection: collections[0], only: true });
   });
 
   it("puts everything else into Links", () => {

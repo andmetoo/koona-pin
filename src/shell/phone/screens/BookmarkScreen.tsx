@@ -8,11 +8,11 @@ import { ColumnActions } from "../ui/ColumnActions";
 import { savedLine } from "../fold/savedLine";
 import { CircleButton } from "../ui/buttons";
 import { Chip } from "../ui/controls";
+import { CollectionGlyph } from "../ui/CollectionGlyph";
 import { PhIcon } from "../ui/icons";
 import { Screen } from "../ui/Screen";
 import { Hero, useRouteBookmark } from "./ReaderScreen";
 import { SiteMark } from "../../../components/library/Bookmarks";
-import { collectionColor } from "../../../services/collections";
 import { knownMinutes } from "../../../services/reader";
 import type { Bookmark } from "../../../types";
 
@@ -77,7 +77,7 @@ function Detail({ b, shown }: { b: Bookmark; shown: boolean }) {
         {(collection || (b.tags?.length ?? 0) > 0) && (
           <div className="fl-detail-chips">
             {collection && (
-              <Chip dot={collectionColor(collection.id)} onClick={() => sheets.open({ kind: "collectionPicker", props: { bookmarkIds: [b.id] } })}>
+              <Chip glyph={<CollectionGlyph collection={collection} />} onClick={() => sheets.open({ kind: "collectionPicker", props: { bookmarkIds: [b.id] } })}>
                 {collection.name}
               </Chip>
             )}

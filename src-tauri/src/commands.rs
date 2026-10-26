@@ -38,6 +38,23 @@ pub(crate) fn text(e: rusqlite::Error) -> CommandError {
     e.into()
 }
 
+/// A refused change of the collections (2.19.0), in the interface's words
+/// where people can meet it.
+fn refused(e: db::CollectionError) -> CommandError {
+    use db::CollectionError as E;
+    let message = e.to_string();
+    let detailed = |code, detail| CommandError::detailed(code, detail, message.clone());
+    match e {
+        E::Sql(e) => e.into(),
+        E::EmptyName => detailed(ErrorCode::InvalidRequest, ErrorDetail::EmptyCollectionName),
+        E::NameTaken => detailed(ErrorCode::Conflict, ErrorDetail::CollectionNameTaken),
+        E::TooDeep => detailed(ErrorCode::InvalidRequest, ErrorDetail::CollectionTooDeep),
+        E::Cycle => detailed(ErrorCode::InvalidRequest, ErrorDetail::CollectionInsideItself),
+        E::NotFound => CommandError::new(ErrorCode::NotFound, message),
+        E::NotASibling | E::InvalidStyle => CommandError::invalid(message),
+    }
+}
+
 /// A changed bookmark and its place in the journal (NP-024).
 #[derive(Serialize, TS)]
 #[ts(export)]
@@ -419,18 +436,52 @@ pub async fn get_collections(
 ) -> Result<Vec<Collection>, CommandError> {
     blocking(&state, |conn| db::get_collections(conn).map_err(text)).await
 }
+/// «New collection», at the top level or inside `parent` (2.19.0): the
+/// name not empty and not taken in any case, at most three levels deep.
 #[tauri::command]
 pub async fn create_collection(
     state: State<'_, Arc<DbState>>,
     name: String,
+    parent: Option<i64>,
     color: Option<String>,
     icon: Option<String>,
 ) -> Result<Collection, CommandError> {
-    if name.trim().is_empty() {
-        return Err(CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::EmptyCollectionName, "Enter a collection name"));
-    }
     blocking(&state, move |conn| {
-        db::create_collection(conn, name.trim(), color.as_deref(), icon.as_deref()).map_err(text)
+        db::create_collection_in(conn, &name, parent, color.as_deref(), icon.as_deref()).map_err(refused)
+    })
+    .await
+}
+/// A drag in the sidebar, `Alt ← → ↑ ↓` or «Move to» (2.19.0): into
+/// `parent` (none: the top level), before its child `before` (none: last).
+#[tauri::command]
+pub async fn move_collection(
+    state: State<'_, Arc<DbState>>,
+    id: i64,
+    parent: Option<i64>,
+    before: Option<i64>,
+) -> Result<(), CommandError> {
+    blocking(&state, move |conn| db::move_collection(conn, id, parent, before).map_err(refused)).await
+}
+/// «Rename» in the collection's menu or `F2` (2.19.0).
+#[tauri::command]
+pub async fn rename_collection(
+    state: State<'_, Arc<DbState>>,
+    id: i64,
+    name: String,
+) -> Result<(), CommandError> {
+    blocking(&state, move |conn| db::rename_collection(conn, id, &name).map_err(refused)).await
+}
+/// «Icon and colour» (2.19.0): a palette name and a Lucide name or an
+/// emoji; none for either: coloured by id, a dot.
+#[tauri::command]
+pub async fn set_collection_style(
+    state: State<'_, Arc<DbState>>,
+    id: i64,
+    color: Option<String>,
+    icon: Option<String>,
+) -> Result<(), CommandError> {
+    blocking(&state, move |conn| {
+        db::set_collection_style(conn, id, color.as_deref(), icon.as_deref()).map_err(refused)
     })
     .await
 }
@@ -449,15 +500,6 @@ pub async fn refresh_preview(
     capture::emit(&app, ChangeKind::Updated, &bookmark);
     crate::thumbs::warm(&app, &bookmark);
     Ok(bookmark)
-}
-/// The sidebar's order after a drag or `Alt ↑` / `Alt ↓` (NP-114): every
-/// collection's id from first to last.
-#[tauri::command]
-pub async fn reorder_collections(
-    state: State<'_, Arc<DbState>>,
-    ids: Vec<i64>,
-) -> Result<(), CommandError> {
-    blocking(&state, move |conn| db::reorder_collections(conn, &ids).map_err(text)).await
 }
 /// The interface's language (NP-114): «Title A–Z» and «Site A–Z» compare as
 /// it does. On start and on every change of language; the first call after

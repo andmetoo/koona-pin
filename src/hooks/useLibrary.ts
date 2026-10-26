@@ -12,11 +12,11 @@ import {
   mergeBookmark,
   orderOf,
   sortByName,
-  sortCollections,
 } from "../services/library";
 import { dayStarts, groupSizes, untilMidnight } from "../services/dateGroups";
 import { savePreference } from "../services/preferences";
 import { starterLinks } from "../services/starter";
+import { applyMove, CollectionMove, inTreeOrder, scopeIds } from "../services/collectionTree";
 import {
   Bookmark,
   BookmarkChange,
@@ -33,6 +33,8 @@ import {
 const CATALOG_MS = 150;
 /** Typing in search reads the list once it pauses this long; anything else reads at once. */
 const SEARCH_MS = 150;
+/** Up to this many changed bookmarks in collections not known yet are asked about one by one (2.19.0). */
+const DOUBTFUL_ONE_BY_ONE = 8;
 
 /**
  * «Title A–Z» and «Site A–Z» compare in the interface's language (NP-114):
@@ -60,6 +62,16 @@ export function useLibrary(
   /** A next page failed: no more automatic attempts until a refresh. */
   const [moreFailed, setMoreFailed] = useState(false);
   const [collections, setCollections] = useState<Collection[]>([]);
+  const collectionsRef = useRef(collections);
+  collectionsRef.current = collections;
+  /** A changed bookmark belongs to a collection's list when it is anywhere inside it (2.19.0). */
+  const scopeOf = (f: FilterState) => (f.collectionId === null ? undefined : scopeIds(collectionsRef.current, f.collectionId, f.onlyCollection));
+  /**
+   * A bookmark in a collection the catalog does not know yet (synced in a moment ago) may sit
+   * inside the one shown: the database decides, as it does for search words.
+   */
+  const unsure = (b: Bookmark, f: FilterState) =>
+    f.collectionId !== null && !f.onlyCollection && b.collection_id !== null && !collectionsRef.current.some((c) => c.id === b.collection_id);
   const [tags, setTags] = useState<Tag[]>([]);
   const [domains, setDomains] = useState<DomainCount[]>([]);
   const [counts, setCounts] = useState<LibraryCounts>({
@@ -135,7 +147,7 @@ export function useLibrary(
         api.getCounts(),
       ]);
       if (alive.current && id === catalogSeq.current) {
-        setCollections(sortCollections(c, i18n.language));
+        setCollections(inTreeOrder(c));
         setTags(sortByName(t, i18n.language, true));
         setDomains(d);
         setCounts(n);
@@ -282,15 +294,17 @@ export function useLibrary(
   // too: the database writes its keys anew, then the list is read again (NP-114).
   useEffect(() => {
     const resort = () => {
-      setCollections((c) => sortCollections(c, i18n.language));
       setTags((t) => sortByName(t, i18n.language, true));
       void tellSortLanguage().then(() => {
-        if (alive.current && !byTime(order().sort)) void refresh();
+        if (!alive.current) return;
+        // Collections come in the tree's order with siblings by the new keys (2.19.0).
+        void refreshCatalog();
+        if (!byTime(order().sort)) void refresh();
       });
     };
     i18n.on("languageChanged", resort);
     return () => i18n.off("languageChanged", resort);
-  }, [refresh]);
+  }, [refresh, refreshCatalog]);
   useEffect(() => {
     setPending({});
     pendingRef.current = {};
@@ -303,6 +317,7 @@ export function useLibrary(
     const { search } = filters;
     const others = JSON.stringify([
       filters.collectionId,
+      filters.onlyCollection,
       filters.tag,
       filters.domain,
       filters.onlyFavorites,
@@ -327,6 +342,7 @@ export function useLibrary(
   }, [
     filters.search,
     filters.collectionId,
+    filters.onlyCollection,
     filters.tag,
     filters.domain,
     filters.onlyFavorites,
@@ -407,8 +423,9 @@ export function useLibrary(
       eventVersion.current++;
       const b = change.bookmark;
       const filters = filtersRef.current;
-      if (!b || !matchesFilters(b, filters)) return apply(change, false);
-      if (!filters.search.trim()) return apply(change, true);
+      const matches = !!b && matchesFilters(b, filters, scopeOf(filters));
+      if (!b || (!matches && !unsure(b, filters))) return apply(change, false);
+      if (matches && !filters.search.trim()) return apply(change, true);
       // Search words are matched by the database, the only copy of the rules.
       const list = seq.current;
       api.getBookmarks(filters, { id: b.id, limit: 1 }).then(
@@ -436,6 +453,22 @@ export function useLibrary(
       const filters = filtersRef.current;
       const list = seq.current;
       let found: Set<number> | null = null;
+      // Under a search the database answers for the whole list; otherwise only for those in a
+      // collection the catalog does not know yet: a few one by one, as a single change asks, many
+      // in one answer for the list.
+      const doubtful = filters.search.trim() ? [] : fresh.flatMap((c) => (c.bookmark && unsure(c.bookmark, filters) ? [c.bookmark.id] : []));
+      if (doubtful.length) {
+        try {
+          found =
+            doubtful.length > DOUBTFUL_ONE_BY_ONE
+              ? new Set(await api.getBookmarkIds(filters))
+              : new Set((await Promise.all(doubtful.map((id) => api.getBookmarks(filters, { id, limit: 1 })))).flatMap((page) => page.items.map((b) => b.id)));
+        } catch {
+          if (alive.current && list === seq.current) void refresh();
+          return;
+        }
+        if (!alive.current || list !== seq.current) return;
+      }
       if (filters.search.trim()) {
         try {
           found = new Set(await api.getBookmarkIds(filters));
@@ -450,7 +483,12 @@ export function useLibrary(
       const latest = fresh.filter((c) => revisions.current.get(c.id) === c.revision);
       for (const c of latest) {
         const b = c.bookmark;
-        apply(c, !!b && matchesFilters(b, filters) && (!found || found.has(b.id)), false);
+        const shown = !b
+          ? false
+          : unsure(b, filters)
+            ? !!found?.has(b.id)
+            : matchesFilters(b, filters, scopeOf(filters)) && (!filters.search.trim() || !!found?.has(b.id));
+        apply(c, shown, false);
       }
       catalogSoon();
     });
@@ -488,23 +526,39 @@ export function useLibrary(
     const timer = window.setTimeout(() => void refresh(), untilMidnight() + 1000);
     return () => window.clearTimeout(timer);
   }, [starts, refresh]);
-  const collectionsRef = useRef(collections);
-  collectionsRef.current = collections;
   /**
-   * The sidebar's order after a move (NP-114): shown at once and written
-   * behind; a failure puts the old order back and is thrown to the caller.
+   * A change to the collections (2.19.0: a move, a new name, an icon), shown
+   * at once and written behind; then the catalog is read again for the
+   * places the database gave. A failure puts the old list back and is thrown
+   * to the caller.
    */
-  const reorderCollections = useCallback(async (ids: number[]) => {
+  const changeCollections = useCallback(async (shown: (list: Collection[]) => Collection[], write: () => Promise<unknown>) => {
     const before = collectionsRef.current;
-    const place = (c: Collection) => (ids.includes(c.id) ? ids.indexOf(c.id) : c.position);
-    setCollections(sortCollections(before.map((c) => ({ ...c, position: place(c) })), i18n.language));
+    setCollections(inTreeOrder(shown(before)));
     try {
-      await api.reorderCollections(ids);
+      await write();
     } catch (err) {
       if (alive.current) setCollections(before);
       throw err;
     }
-  }, []);
+    await refreshCatalog();
+  }, [refreshCatalog]);
+  /** A drag, `Alt` + arrows or «Move to» in the sidebar (NP-114, 2.19.0). */
+  const moveCollection = useCallback(
+    (move: CollectionMove) => changeCollections((list) => applyMove(list, move), () => api.moveCollection(move.id, move.parent, move.before)),
+    [changeCollections],
+  );
+  const renameCollection = useCallback(
+    (id: number, name: string) =>
+      changeCollections((list) => list.map((c) => (c.id === id ? { ...c, name: name.trim() } : c)), () => api.renameCollection(id, name)),
+    [changeCollections],
+  );
+  /** «Icon and colour» (2.19.0): each pick is written as it is made. */
+  const styleCollection = useCallback(
+    (id: number, color: string | null, icon: string | null) =>
+      changeCollections((list) => list.map((c) => (c.id === id ? { ...c, color, icon } : c)), () => api.setCollectionStyle(id, color, icon)),
+    [changeCollections],
+  );
   /** The library was replaced by a copy: new bookmarks held back belong to the old one. */
   const replaced = () => {
     pendingRef.current = {};
@@ -528,7 +582,9 @@ export function useLibrary(
     loadingMore,
     loadMore,
     collections,
-    reorderCollections,
+    moveCollection,
+    renameCollection,
+    styleCollection,
     tags,
     domains,
     counts,

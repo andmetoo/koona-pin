@@ -19,6 +19,7 @@ import { notificationsOf } from "./notifications";
 import { type NoticeTiming, useNotices, useUndo } from "./notices";
 import { useReading } from "./reading";
 import { isNarrowed, sectionCount, sectionName } from "./sections";
+import { findNode, treeOf } from "../services/collectionTree";
 import { useAppSettings, useLibraryHealth, useSupporter } from "./status";
 import { useSurfaces } from "./surfaces";
 
@@ -84,6 +85,8 @@ export function useAppState(desktop: DesktopStatus | null, { noticeTiming }: { n
   const { filters } = nav;
   const { counts } = library;
   const collection = library.collections.find((c) => c.id === filters.collectionId);
+  // One tree per change of the collections, shared with the menus (2.19.0).
+  const collectionTree = treeOf(library.collections);
   const section = sectionName(filters, collection, t);
   const notifications = notificationsOf(
     {
@@ -150,8 +153,10 @@ export function useAppState(desktop: DesktopStatus | null, { noticeTiming }: { n
     ...inbox,
     counts,
     collection,
+    collectionTree,
     section,
-    sectionCount: sectionCount(filters, counts, collection),
+    // A collection counts what is inside it too, unless «Only this collection» (2.19.0).
+    sectionCount: sectionCount(filters, counts, collection && { count: filters.onlyCollection ? collection.count : (findNode(collectionTree, collection.id)?.total ?? collection.count) }),
     narrowed: isNarrowed(filters),
     notifications,
     clearNotifications,

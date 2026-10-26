@@ -1,5 +1,7 @@
 {
-  "language": { "name": "日本語" },
+  "language": {
+    "name": "日本語"
+  },
   "common": {
     "ctrl": "Ctrl",
     "shift": "Shift",
@@ -10,7 +12,8 @@
     "open": "開く",
     "retry": "再試行",
     "ok": "OK",
-    "cancel": "キャンセル"
+    "cancel": "キャンセル",
+    "done": "完了"
   },
   "window": {
     "demo": "ブラウザーでのデモ",
@@ -26,7 +29,6 @@
     "collections": "コレクション",
     "newCollection": "新しいコレクション",
     "noCollections": "コレクションはまだありません",
-    "deleteCollection": "コレクション {{name}} を削除",
     "tags": "タグ",
     "moreTags_other": "ほか {{count}} 件",
     "fewerTags": "表示を減らす",
@@ -36,7 +38,38 @@
     "tagsDrop": "タグ — タグの上にドロップして追加",
     "dropNewCollection": "選択項目から新しいコレクション",
     "moveCollection": "移動",
-    "collectionMoved": "{{name}}：{{count}} 件中 {{position}} 番目"
+    "movedInto": "{{name}} を {{parent}} に移動しました（{{count}} 件中 {{position}} 番目）",
+    "movedTop": "{{name}} を最上位に移動しました（{{count}} 件中 {{position}} 番目）",
+    "collectionMenu": "{{name}}：その他",
+    "rename": "名前を変更",
+    "renameField": "{{name}} の新しい名前",
+    "style": "アイコンと色…",
+    "newInside": "中に新しいコレクション",
+    "moveTo": "移動先",
+    "topLevel": "最上位",
+    "moveKeys": "Alt ← → ↑ ↓ でサイドバー内を移動します",
+    "tooDeep": "コレクションは最大 3 階層までです",
+    "deleteMenu": "削除…",
+    "dropInto": "{{name}} の中へ",
+    "dropIntoAfter": "{{name}} の中の {{after}} の後ろへ",
+    "dropIntoFirst": "{{name}} の中の先頭へ",
+    "dropTopAfter": "最上位の {{after}} の後ろへ",
+    "dropTopFirst": "最上位の先頭へ"
+  },
+  "collectionStyle": {
+    "label": "{{name}} のアイコンと色",
+    "title": "アイコンと色",
+    "colour": "色",
+    "icon": "アイコン",
+    "emoji": "または絵文字を入力",
+    "dot": "ドットを使う",
+    "colours": {
+      "terracotta": "テラコッタ",
+      "green": "グリーン",
+      "ochre": "オーカー",
+      "blue": "ブルー",
+      "lilac": "ライラック"
+    }
   },
   "drag": {
     "more_other": "ほか {{count}} 件のブックマーク",
@@ -154,6 +187,7 @@
     "isFavorite": "お気に入り",
     "moveTo": "コレクションに移動",
     "noCollection": "コレクションなし",
+    "findCollection": "コレクションを探す",
     "addTag": "タグを追加…",
     "refresh": "プレビューを更新",
     "delete": "ゴミ箱に移動",
@@ -280,7 +314,7 @@
     "library": "ライブラリ",
     "inbox": "インボックス",
     "destinationHint": "ライブラリ：すぐに整理済みになります。インボックス：ブラウザーから保存したリンクの後ろで整理を待ちます。",
-    "rule": "最上位のフォルダーはコレクションに、その中のフォルダーはタグになります。ブックマーク バー、その他のブックマーク、モバイルのブックマークは独立したフォルダーとして扱わず、そこのリンクはコレクションなしになります。",
+    "rule": "フォルダーは最大 3 階層までコレクションになり、それより深いフォルダーはタグになります。ブックマーク バー、その他のブックマーク、モバイルのブックマークは独立したフォルダーとして扱わず、そこのリンクはコレクションなしになります。",
     "cancel": "キャンセル",
     "run": "インポート",
     "running": "インポート中…",
@@ -455,6 +489,8 @@
       "collection_missing_name": "{{index}} 番目のコレクションに名前がありません",
       "collection_repeated_name": "{{index}} 番目のコレクションの名前が重複しています（{{detail}}）",
       "collection_bad_date": "{{index}} 番目のコレクションの日付を読み取れません（{{detail}}）",
+      "collection_unknown_parent": "{{index}} 番目のコレクションの親コレクションがコピーにありません",
+      "collection_loop": "{{index}} 番目のコレクションが自分自身の中にあります",
       "tag_missing_name": "{{index}} 番目のタグに名前がありません",
       "tag_repeated_name": "{{index}} 番目のタグの名前が重複しています（{{detail}}）",
       "tag_bad_date": "{{index}} 番目のタグの日付を読み取れません（{{detail}}）"
@@ -464,11 +500,14 @@
     "title": "新しいコレクション",
     "name": "名前",
     "placeholder": "例：次のプロジェクト",
-    "create": "コレクションを作成"
+    "create": "コレクションを作成",
+    "titleInside": "{{name}} に新しいコレクション"
   },
   "confirm": {
     "deleteCollection": "コレクションを削除しますか？",
     "deleteCollectionText": "「{{name}}」のブックマークは、コレクションなしでライブラリに残ります。",
+    "deleteCollectionChild": "{{name}} は中身ごと 1 階層上に移ります。",
+    "deleteCollectionChildren": "{{names}} は中身ごと 1 階層上に移ります。",
     "delete": "削除",
     "emptyTrash": "ゴミ箱を空にしますか？",
     "emptyTrashText_other": "{{count}} 件のブックマークが完全に削除されます。この操作は元に戻せず、「復元」でも戻りません。",
@@ -998,11 +1037,23 @@
     "size": "文字サイズ",
     "sizeValue": "{{size}} px",
     "column": "列幅",
-    "columns": { "narrow": "狭い", "medium": "標準", "wide": "広い" },
+    "columns": {
+      "narrow": "狭い",
+      "medium": "標準",
+      "wide": "広い"
+    },
     "theme": "テーマ",
-    "themes": { "white": "ホワイト", "dark": "ダーク", "paper": "ペーパー", "sepia": "セピア" },
+    "themes": {
+      "white": "ホワイト",
+      "dark": "ダーク",
+      "paper": "ペーパー",
+      "sepia": "セピア"
+    },
     "font": "フォント",
-    "fonts": { "serif": "セリフ", "sans": "サンセリフ" },
+    "fonts": {
+      "serif": "セリフ",
+      "sans": "サンセリフ"
+    },
     "supporterHint": "ペーパーとセピア —",
     "supporterLink": "Supporter",
     "locked": "{{name}}（Supporter）"
@@ -1048,7 +1099,9 @@
     "damagedLatest": "ライブラリが破損しているため、変更は保存されず、ブラウザーからのリンクは拡張機能内で待機します。最新の正常なコピーを復元してください — {{when}}。",
     "restore": "復元…",
     "openBackups": "バックアップ フォルダーを開く",
-    "movedAside": "以前のテスト版のライブラリは新しいスキーマに合いません。{{path}} として保管し、新しいライブラリを作成しました。"
+    "movedAside": "以前のテスト版のライブラリは新しいスキーマに合いません。{{path}} として保管し、新しいライブラリを作成しました。",
+    "onlyCollection": "このコレクションのみ",
+    "insideCollection": "{{name}} の中"
   },
   "groups": {
     "today": "今日",
@@ -1177,6 +1230,9 @@
       "internal": "問題が発生しました（{{message}}）",
       "empty_tag": "タグが空です",
       "empty_collection_name": "名前が空です",
+      "collection_name_taken": "同じ名前の別のコレクションがあります",
+      "collection_too_deep": "コレクションは最大 3 階層までです",
+      "collection_inside_itself": "コレクションを自分自身の中には入れられません",
       "empty_title": "タイトルが空です",
       "bookmark_gone": "ブックマークがもうありません",
       "not_in_trash": "ブックマークはゴミ箱にありません",
@@ -1217,6 +1273,9 @@
       "server_missing": "Koona Pin の一部（koonapin-mcp）が見つかりません。Koona Pin を再インストールしてください。",
       "empty_tag": "タグを入力してください。",
       "empty_collection_name": "コレクションの名前を入力してください。",
+      "collection_name_taken": "同じ名前の別のコレクションがすでにあります。",
+      "collection_too_deep": "コレクションは最大 3 階層までです。",
+      "collection_inside_itself": "コレクションを自分自身やその中のコレクションの中には入れられません。",
       "empty_title": "タイトルは空にできません。",
       "bookmark_gone": "このブックマークはもうありません。",
       "not_in_trash": "このブックマークはゴミ箱にありません。",
@@ -1258,10 +1317,6 @@
     "design": "デザインと UI",
     "reading": "記事 / あとで読む",
     "links": {
-      "koona": {
-        "title": "Koona のアプリ",
-        "description": "Koona のほかのアプリ。"
-      },
       "start": {
         "title": "はじめに：Koona Pin の使い方",
         "description": "数分でリンクの保存・整理・検索を覚えられます。"
@@ -1271,9 +1326,6 @@
       },
       "bun": {
         "description": "高速な JavaScript ランタイム兼ツールキット。"
-      },
-      "lunacy": {
-        "description": "グラフィック素材を内蔵した無料のデザインアプリ。"
       }
     }
   },
@@ -1923,6 +1975,8 @@
       "grid": "グリッド",
       "filters": "絞り込み",
       "all": "すべて",
+      "allIn": "{{name}} のすべて",
+      "inside": "{{name}} の中",
       "favorite": "お気に入り",
       "newLinks_other": "新しいリンク {{count, number}} 件",
       "refreshing": "更新中",
@@ -2093,6 +2147,7 @@
       "suggested": "おすすめ",
       "suggestedWhy": "このサイトのリンク {{filed, number}} 件中 {{count, number}} 件",
       "all": "すべてのコレクション",
+      "fold": "{{name}} の中",
       "nothing": "その名前のコレクションはありません",
       "new": "新しいコレクション",
       "newNamed": "新しいコレクション「{{name}}」"

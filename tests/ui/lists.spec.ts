@@ -87,7 +87,7 @@ test("a list: the preview (K10), Accept, the report, then «Show collection»", 
   await d.getByRole("button", { name: "Show collection" }).click();
   await expect(d).toHaveCount(0);
   // The new collection is the section shown, with the list's links, tagged by their sections.
-  await expect(page.getByRole("complementary").getByRole("button", { name: "Rust blogs worth following 3", exact: true })).toBeVisible();
+  await expect(page.getByRole("complementary").getByRole("treeitem", { name: "Rust blogs worth following 3", exact: true })).toBeVisible();
   await expect(page.locator("[data-bookmark-id]", { hasText: "The Rustonomicon" })).toBeVisible();
   const imported = await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");

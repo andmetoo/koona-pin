@@ -1,7 +1,9 @@
 //! Restore from a JSON copy (NP-033, frame 30, Р-31). The whole file is
 //! checked before anything changes; merging keeps every bookmark already in
 //! the library, replacing first writes a copy of the current library. Either
-//! is one transaction.
+//! is one transaction. Collections nest (2.19.0): a copy names each one's
+//! parent; an unknown parent or a loop is damage, a tree deeper than the
+//! limit is kept, a copy without parents is a flat library.
 
 use crate::capture::validate_url;
 use crate::db;
@@ -50,6 +52,10 @@ pub enum Damage {
     BadSource,
     MissingName,
     RepeatedName,
+    /// A collection sits in one the copy doesn't have (2.19.0).
+    UnknownParent,
+    /// A collection is inside itself, directly or through others (2.19.0).
+    Loop,
 }
 
 /// Why a copy cannot be restored (frame 30); nothing was changed.
@@ -142,6 +148,27 @@ pub fn check(text: &str) -> Result<JsonLibrary, RestoreProblem> {
         c.created_at = time(&c.created_at).ok_or_else(|| damaged(CopyItem::Collection, at, Damage::BadDate, &c.created_at))?;
     }
     let collections: HashSet<String> = library.collections.iter().map(|c| c.uid.clone()).collect();
+    // The tree (2.19.0): every parent is in the copy and nothing is inside
+    // itself. A copy from before nesting has no parents. How deep it goes is
+    // not checked: sync can make a tree deeper than the limit too.
+    for (i, c) in library.collections.iter().enumerate() {
+        if let Some(parent) = &c.parent {
+            if !collections.contains(parent) {
+                return Err(damaged(CopyItem::Collection, i + 1, Damage::UnknownParent, parent));
+            }
+        }
+    }
+    let parents: HashMap<&str, &str> = library.collections.iter().filter_map(|c| c.parent.as_deref().map(|p| (c.uid.as_str(), p))).collect();
+    for (i, c) in library.collections.iter().enumerate() {
+        let mut at = parents.get(c.uid.as_str());
+        for _ in 0..library.collections.len() {
+            match at {
+                Some(&up) if up == c.uid => return Err(damaged(CopyItem::Collection, i + 1, Damage::Loop, &c.uid)),
+                Some(&up) => at = parents.get(up),
+                None => break,
+            }
+        }
+    }
 
     let mut tag_names = HashSet::new();
     for (i, t) in library.tags.iter_mut().enumerate() {
@@ -274,31 +301,47 @@ pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, back
         tx.execute_batch("DELETE FROM bookmark_tags; DELETE FROM bookmarks; DELETE FROM tags; DELETE FROM collections;")?;
     }
     // A replace brings the copy's sidebar order back (NP-114): its places
-    // become keys in the same order (schema 10). A merge adds the new
-    // collections after the library's own, by name.
-    let mut placed: Vec<(i64, usize)> = library
-        .collections
-        .iter()
-        .enumerate()
-        .filter_map(|(i, c)| c.position.filter(|_| mode == RestoreMode::Replace).map(|p| (p, i)))
-        .collect();
-    placed.sort();
-    let mut position_keys: HashMap<usize, String> = placed
-        .iter()
-        .map(|(_, i)| *i)
-        .zip(crate::position_keys::spread(None, None, placed.len()))
-        .collect();
+    // become keys in the same order (schema 10), among the siblings of each
+    // parent since schema 15. A merge adds the new collections after the
+    // library's own, by name.
+    let mut placed: HashMap<Option<&str>, Vec<(i64, usize)>> = HashMap::new();
+    for (i, c) in library.collections.iter().enumerate() {
+        if let Some(p) = c.position.filter(|_| mode == RestoreMode::Replace) {
+            placed.entry(c.parent.as_deref()).or_default().push((p, i));
+        }
+    }
+    let mut position_keys: HashMap<usize, String> = HashMap::new();
+    for siblings in placed.values_mut() {
+        siblings.sort();
+        position_keys.extend(siblings.iter().map(|(_, i)| *i).zip(crate::position_keys::spread(None, None, siblings.len())));
+    }
 
     // Collections. A merge: the same uid, else the same name (case aside),
     // else a new one with the copy's uid. A replace starts from none and
     // makes each of the copy's, «Work» and «work» each its own. A uid
-    // deleted for good here gets a new one (`fresh_uid`).
+    // deleted for good here gets a new one (`fresh_uid`). A new collection
+    // sits in the one its parent became, found or new (2.19.0); an existing
+    // one stays where the library has it. Parents are written first.
     let mut by_name: HashMap<String, i64> = tx
         .prepare("SELECT id, name FROM collections")?
         .query_map([], |r| Ok((db::fold(&r.get::<_, String>(1)?), r.get(0)?)))?
         .collect::<rusqlite::Result<_>>()?;
     let mut collection_ids = HashMap::new();
-    for (index, c) in library.collections.iter().enumerate() {
+    let index_of: HashMap<&str, usize> = library.collections.iter().enumerate().map(|(i, c)| (c.uid.as_str(), i)).collect();
+    let mut queued = vec![false; library.collections.len()];
+    let mut order = Vec::with_capacity(queued.len());
+    for start in 0..queued.len() {
+        let mut chain = Vec::new();
+        let mut at = Some(start);
+        while let Some(i) = at.filter(|&i| !queued[i]) {
+            queued[i] = true;
+            chain.push(i);
+            at = library.collections[i].parent.as_deref().and_then(|p| index_of.get(p).copied());
+        }
+        order.extend(chain.into_iter().rev());
+    }
+    for index in order {
+        let c = &library.collections[index];
         let found = match mode {
             RestoreMode::Merge => tx
                 .query_row("SELECT id FROM collections WHERE uid = ?1", [&c.uid], |r| r.get::<_, i64>(0))
@@ -309,9 +352,10 @@ pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, back
         let id = match found {
             Some(id) => id,
             None => {
+                let parent = c.parent.as_ref().and_then(|uid| collection_ids.get(uid)).copied();
                 tx.execute(
-                    "INSERT INTO collections (uid, name, color, icon, created_at, position_key) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                    params![fresh_uid(&tx, &c.uid)?, c.name, c.color, c.icon, c.created_at, position_keys.remove(&index)],
+                    "INSERT INTO collections (uid, name, color, icon, created_at, position_key, parent_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                    params![fresh_uid(&tx, &c.uid)?, c.name, c.color, c.icon, c.created_at, position_keys.remove(&index), parent],
                 )?;
                 summary.collections.push(c.name.clone());
                 let id = tx.last_insert_rowid();
@@ -409,6 +453,8 @@ mod tests {
         crate::import::import(&c, &crate::import::parse(include_str!("../../tests/fixtures/bookmarks/chrome.html"), now), false, |_, _| {}).unwrap();
         let id = |url: &str| c.query_row("SELECT id FROM bookmarks WHERE url = ?1", [url], |r| r.get::<_, i64>(0)).unwrap();
         db::update_bookmark(&c, id("https://github.com/"), None, Some("заметка".into()), Some(true), None, None).unwrap();
+        // The file's folders are collections, not tags: Tokio gets its tags by hand.
+        db::update_bookmark(&c, id("https://tokio.rs/"), None, None, None, None, Some(vec!["rust".into(), "async".into()])).unwrap();
         db::trash_bookmark(&c, id("https://habr.com/ru/articles/")).unwrap();
         c.execute("UPDATE bookmarks SET triaged_at = NULL WHERE url = 'https://m.example.com/'", []).unwrap();
         c
@@ -510,14 +556,17 @@ mod tests {
         crate::import::import(&target, &crate::import::parse(r#"<DL><DT><H3>работа</H3><DL><DT><A HREF="https://github.com/">Мой GitHub</A></DL></DL>"#, Utc::now()), false, |_, _| {}).unwrap();
         let summary = restore(&target, &check(&text).unwrap(), RestoreMode::Merge, &folder()).unwrap();
         assert_eq!((summary.added, summary.existing, summary.in_inbox, summary.in_trash), (6, 1, 1, 1));
-        assert_eq!(summary.collections, ["Чтение"], "«работа» is the copy's «Работа», case aside");
+        assert_eq!(summary.collections, ["Rust", "Async", "Чтение"], "«работа» is the copy's «Работа», case aside; its children come in under it");
         assert_eq!(summary.backup, None);
         let github = db::get_bookmarks(&target, &db::BookmarkQuery { search: Some("github".into()), ..Default::default() }).unwrap();
         assert_eq!((github.items[0].title.as_str(), github.items[0].is_favorite), ("Мой GitHub", false), "left as it was");
         let tokio: (String, String) = target
             .query_row("SELECT c.name, b.created_at FROM bookmarks b JOIN collections c ON c.id = b.collection_id WHERE url = 'https://tokio.rs/'", [], |r| Ok((r.get(0)?, r.get(1)?)))
             .unwrap();
-        assert_eq!(tokio, ("работа".to_string(), "2023-07-22T04:31:40.000Z".to_string()));
+        assert_eq!(tokio, ("Async".to_string(), "2023-07-22T04:31:40.000Z".to_string()));
+        // The parents go through the same mapping: the library's «работа» is the one «Rust» sits in.
+        let async_id: i64 = target.query_row("SELECT id FROM collections WHERE name = 'Async'", [], |r| r.get(0)).unwrap();
+        assert_eq!(db::collection_path(&target, async_id).unwrap(), ["работа", "Rust", "Async"]);
         let counts = db::get_counts(&target).unwrap();
         assert_eq!((counts.total, counts.inbox, counts.trash), (6, 1, 1));
         // Again: nothing more.
@@ -531,11 +580,11 @@ mod tests {
     fn the_sidebar_order_comes_back_with_a_replace_and_follows_in_a_merge() {
         let names = |c: &Connection| db::get_collections(c).unwrap().into_iter().map(|c| c.name).collect::<Vec<_>>();
         let source = library();
-        let mut ids: Vec<i64> = db::get_collections(&source).unwrap().iter().map(|c| c.id).collect();
-        ids.reverse();
-        db::reorder_collections(&source, &ids).unwrap();
+        let id = |name: &str| source.query_row("SELECT id FROM collections WHERE name = ?1", [name], |r| r.get::<_, i64>(0)).unwrap();
+        db::move_collection(&source, id("Чтение"), None, Some(id("Работа"))).unwrap();
         let moved = names(&source);
-        assert_ne!(moved, { let mut by_name = moved.clone(); by_name.sort(); by_name }, "the test needs an order that is not by name");
+        let at = |name: &str| moved.iter().position(|n| n == name).unwrap();
+        assert!(at("Чтение") < at("Работа"), "the move took: {moved:?}");
         let text = copy_of(&source);
 
         let replaced = database();
@@ -544,11 +593,56 @@ mod tests {
 
         let merged = database();
         let own = db::create_collection(&merged, "Ящик", None, None).unwrap();
-        db::reorder_collections(&merged, &[own.id]).unwrap();
+        merged.execute("UPDATE collections SET position_key = ?1 WHERE id = ?2", params![crate::position_keys::between(None, None), own.id]).unwrap();
         restore(&merged, &check(&text).unwrap(), RestoreMode::Merge, &folder()).unwrap();
-        let mut after = moved.clone();
-        after.sort();
-        assert_eq!(names(&merged), [vec!["Ящик".to_string()], after].concat());
+        // Its own first; the copy's top-level ones after it by name, each followed by what is inside it.
+        assert_eq!(names(&merged), ["Ящик", "Работа", "Rust", "Async", "Чтение"]);
+    }
+
+    /// The tree comes back with a replace: parents and the order among the
+    /// siblings of each; one deeper than the limit (sync can make it) stays.
+    #[test]
+    fn the_tree_comes_back_with_a_replace_and_is_kept_deeper_than_the_limit() {
+        let source = database();
+        let make = |name: &str, parent: Option<i64>| db::create_collection_under(&source, name, parent, None, None).unwrap().id;
+        let top = make("Top", None);
+        let (b, a) = (make("B", Some(top)), make("A", Some(top)));
+        make("C", Some(a));
+        let mid = make("Mid", Some(b));
+        make("D", Some(mid));
+        make("E", None);
+        db::move_collection(&source, a, Some(top), Some(b)).unwrap();
+        let text = copy_of(&source);
+        let target = database();
+        restore(&target, &check(&text).unwrap(), RestoreMode::Replace, &folder()).unwrap();
+        let tree = |conn: &Connection| {
+            db::get_collections(conn)
+                .unwrap()
+                .into_iter()
+                .map(|col| db::collection_path(conn, col.id).unwrap().join("/"))
+                .collect::<Vec<_>>()
+        };
+        // A before B though «B» comes first by name; D is four levels down and stays.
+        assert_eq!(tree(&source), ["E", "Top", "Top/A", "Top/A/C", "Top/B", "Top/B/Mid", "Top/B/Mid/D"]);
+        assert_eq!(tree(&target), tree(&source));
+        assert_eq!(copy_of(&target), text, "the same copy again, parents and places included");
+    }
+
+    /// Copies made before collections nested have no `parent`: they restore
+    /// as the flat library they were.
+    #[test]
+    fn a_copy_without_parents_restores_flat() {
+        let mut copy: serde_json::Value = serde_json::from_str(&copy_of(&library())).unwrap();
+        for collection in copy["collections"].as_array_mut().unwrap() {
+            collection.as_object_mut().unwrap().remove("parent");
+        }
+        let target = database();
+        let checked = check(&copy.to_string()).unwrap();
+        assert!(checked.collections.iter().all(|c| c.parent.is_none()));
+        restore(&target, &checked, RestoreMode::Replace, &folder()).unwrap();
+        let nested: i64 = target.query_row("SELECT count(*) FROM collections WHERE parent_id IS NOT NULL", [], |r| r.get(0)).unwrap();
+        let all: i64 = target.query_row("SELECT count(*) FROM collections", [], |r| r.get(0)).unwrap();
+        assert_eq!((nested, all), (0, 4));
     }
 
     /// A purge is final for its uid: a record the copy brings back whose uid
@@ -585,7 +679,10 @@ mod tests {
             }
             let back = db::get_bookmarks(&c, &db::BookmarkQuery { search: Some("tokio.rs".into()), ..Default::default() }).unwrap().items.remove(0);
             let collection: String = c.query_row("SELECT name FROM collections WHERE id = ?1", [back.collection_id.unwrap()], |r| r.get(0)).unwrap();
-            assert_eq!(collection, "Работа", "{mode:?}");
+            // Tokio sits in «Async», below the deleted «Работа»: that one comes back too, under a new uid.
+            assert_eq!(collection, "Async", "{mode:?}");
+            let work_back: i64 = c.query_row("SELECT count(*) FROM collections WHERE name = 'Работа'", [], |r| r.get(0)).unwrap();
+            assert_eq!(work_back, 1, "{mode:?}");
             assert!(back.tags.unwrap().contains(&"async".to_string()), "{mode:?}");
         }
     }
@@ -597,10 +694,12 @@ mod tests {
         let source = database();
         let upper = db::create_collection(&source, "Work", Some("#ff0000"), Some("briefcase")).unwrap();
         let lower = db::create_collection(&source, "work", Some("#00ff00"), Some("star")).unwrap();
-        let ids: Vec<i64> = db::get_collections(&source).unwrap().iter().map(|c| c.id).collect();
-        let mut order: Vec<i64> = ids.iter().copied().filter(|id| ![upper.id, lower.id].contains(id)).collect();
-        order.splice(0..0, [lower.id, upper.id]);
-        db::reorder_collections(&source, &order).unwrap();
+        // «work» first, «Work» second, the rest after them.
+        let first = db::get_collections(&source).unwrap()[0].id;
+        if first != upper.id {
+            db::move_collection(&source, upper.id, None, Some(first)).unwrap();
+        }
+        db::move_collection(&source, lower.id, None, Some(upper.id)).unwrap();
         crate::import::import(&source, &crate::import::parse(r#"<a href="https://a.example/">A</a><a href="https://b.example/">B</a>"#, Utc::now()), false, |_, _| {}).unwrap();
         let id = |url: &str| source.query_row("SELECT id FROM bookmarks WHERE url = ?1", [url], |r| r.get::<_, i64>(0)).unwrap();
         db::update_bookmark(&source, id("https://a.example/"), None, None, None, Some(Some(upper.id)), None).unwrap();
@@ -682,6 +781,16 @@ mod tests {
         for (text, expected) in cases {
             assert_eq!(check(&text).unwrap_err(), expected, "{text:.80}");
         }
+        // The tree (2.19.0): a parent the copy doesn't have, a collection inside itself, a ring through others.
+        let at = |name: &str| good["collections"].as_array().unwrap().iter().position(|c| c["name"] == name).unwrap();
+        let uid = |name: &str| good["collections"][at(name)]["uid"].as_str().unwrap().to_owned();
+        let unknown = with(&|v| v["collections"][at("Async")]["parent"] = "nowhere".into());
+        assert_eq!(check(&unknown).unwrap_err(), damaged(CopyItem::Collection, at("Async") + 1, Damage::UnknownParent, "nowhere"));
+        let itself = with(&|v| v["collections"][at("Чтение")]["parent"] = uid("Чтение").into());
+        assert_eq!(check(&itself).unwrap_err(), damaged(CopyItem::Collection, at("Чтение") + 1, Damage::Loop, uid("Чтение")));
+        // Async is in Rust, in Работа: Работа in Async closes the ring, reported at its first member in the file.
+        let ring = with(&|v| v["collections"][at("Работа")]["parent"] = uid("Async").into());
+        assert_eq!(check(&ring).unwrap_err(), damaged(CopyItem::Collection, at("Async") + 1, Damage::Loop, uid("Async")));
         // A source this version doesn't know, from a newer app or another device, is kept.
         let phone = check(&with(&|v| v["bookmarks"][0]["source"] = "phone".into())).unwrap();
         assert_eq!(phone.bookmarks[0].source.as_deref(), Some("phone"));

@@ -2,7 +2,7 @@ import "./InboxScreen.css";
 import { type CSSProperties, useEffect, useLayoutEffect, useRef } from "react";
 import { BookOpen, Check, CircleAlert, Ellipsis, Trash2 } from "lucide-react";
 import { success } from "../../../platform/haptics";
-import { collectionColor } from "../../../services/collections";
+import { collectionTint } from "../../../services/collections";
 import { collectionKeys } from "../../../services/triage";
 import { DecisionPill } from "../inbox/DecisionPill";
 import { InboxEmpty, InboxSorted } from "../inbox/InboxStates";
@@ -15,6 +15,7 @@ import { type Toward, useSwipe } from "../inbox/useSwipe";
 import { useBottomLift, usePhone } from "../PhoneContext";
 import { Button } from "../ui/buttons";
 import { Chip } from "../ui/controls";
+import { CollectionGlyph } from "../ui/CollectionGlyph";
 import { PhIcon } from "../ui/icons";
 import { Progress } from "../ui/Progress";
 import { Header, Screen } from "../ui/Screen";
@@ -97,7 +98,7 @@ export function InboxScreen({ hidden }: { hidden: boolean }) {
         ) : !state ? null : empty ? (
           <InboxEmpty shareIntake={shareIntake} onLibrary={toLibrary} onNew={() => sheets.open({ kind: "newLink", props: {} })} />
         ) : done ? (
-          <InboxSorted sum={summary(state.steps)} minutes={minutesSpent(state)} onLibrary={toLibrary} onUndo={triage.undo} />
+          <InboxSorted sum={summary(state.steps)} collections={app.library.collections} minutes={minutesSpent(state)} onLibrary={toLibrary} onUndo={triage.undo} />
         ) : (
           card && (
             <>
@@ -129,7 +130,8 @@ export function InboxScreen({ hidden }: { hidden: boolean }) {
                     <Chip
                       key={c.id}
                       large
-                      dot={collectionColor(c.id)}
+                      dot={collectionTint(c)}
+                      glyph={<CollectionGlyph collection={c} />}
                       suggested={triage.suggested?.collection_id === c.id}
                       onClick={() => triage.decide("move", { collection: c })}
                     >

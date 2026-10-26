@@ -33,7 +33,7 @@ export async function bookmarksByIds(ids: Iterable<number>, loaded: Bookmark[]):
 /** «Add {view}» (N6): the view's items at this moment, into its section. */
 export async function addView(view: BundleView): Promise<Added> {
   if (view.kind === "feeds") return bundle.addFeeds(view.feeds);
-  if (view.kind === "collection") return bundle.addCollection(view.collection, await viewBookmarks({ collectionId: view.collection.id }));
+  if (view.kind === "collection") return bundle.addCollection(view.collection, await viewBookmarks({ collectionId: view.collection.id, onlyCollection: !!view.only }));
   if (view.kind === "tag") return bundle.addTag(view.name, await viewBookmarks({ tag: view.name }));
   return bundle.addBookmarks(await viewBookmarks(view.filters));
 }

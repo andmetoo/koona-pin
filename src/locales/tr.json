@@ -1,5 +1,7 @@
 {
-  "language": { "name": "Türkçe" },
+  "language": {
+    "name": "Türkçe"
+  },
   "common": {
     "ctrl": "Ctrl",
     "shift": "Shift",
@@ -10,7 +12,8 @@
     "open": "Aç",
     "retry": "Yeniden dene",
     "ok": "Anladım",
-    "cancel": "İptal"
+    "cancel": "İptal",
+    "done": "Bitti"
   },
   "window": {
     "demo": "Tarayıcıda demo",
@@ -26,7 +29,6 @@
     "collections": "Koleksiyonlar",
     "newCollection": "Yeni koleksiyon",
     "noCollections": "Henüz koleksiyon yok",
-    "deleteCollection": "{{name}} koleksiyonunu sil",
     "tags": "Etiketler",
     "moreTags_one": "+ {{count}} tane daha",
     "moreTags_other": "+ {{count}} tane daha",
@@ -37,7 +39,38 @@
     "tagsDrop": "Etiketler — eklemek için bir etiketin üzerine bırakın",
     "dropNewCollection": "Seçimden yeni koleksiyon",
     "moveCollection": "Taşı",
-    "collectionMoved": "{{name}}: {{count}} içinde {{position}}. sıra"
+    "movedInto": "{{name}}, {{parent}} içine taşındı, {{count}} içinde {{position}}. sıra",
+    "movedTop": "{{name}} en üst düzeye taşındı, {{count}} içinde {{position}}. sıra",
+    "collectionMenu": "{{name}}: daha fazla",
+    "rename": "Yeniden adlandır",
+    "renameField": "{{name}} için yeni ad",
+    "style": "Simge ve renk…",
+    "newInside": "İçine yeni koleksiyon",
+    "moveTo": "Şuraya taşı",
+    "topLevel": "En üst düzey",
+    "moveKeys": "Alt ← → ↑ ↓ kenar çubuğunda taşır",
+    "tooDeep": "Koleksiyonlar en fazla üç düzey derine iner",
+    "deleteMenu": "Sil…",
+    "dropInto": "{{name}} içine",
+    "dropIntoAfter": "{{name}} içine, {{after}} sonrasına",
+    "dropIntoFirst": "{{name}} içine, en başa",
+    "dropTopAfter": "En üst düzey, {{after}} sonrasına",
+    "dropTopFirst": "En üst düzey, en başa"
+  },
+  "collectionStyle": {
+    "label": "{{name}} simgesi ve rengi",
+    "title": "Simge ve renk",
+    "colour": "Renk",
+    "icon": "Simge",
+    "emoji": "Ya da bir emoji yazın",
+    "dot": "Nokta kullan",
+    "colours": {
+      "terracotta": "Kiremit",
+      "green": "Yeşil",
+      "ochre": "Toprak sarısı",
+      "blue": "Mavi",
+      "lilac": "Leylak"
+    }
   },
   "drag": {
     "more_one": "ve {{count}} yer işareti daha",
@@ -164,6 +197,7 @@
     "isFavorite": "Favorilerde",
     "moveTo": "Koleksiyona taşı",
     "noCollection": "Koleksiyon yok",
+    "findCollection": "Koleksiyon bul",
     "addTag": "Etiket ekle…",
     "refresh": "Önizlemeyi yenile",
     "delete": "Çöp kutusuna taşı",
@@ -297,7 +331,7 @@
     "library": "Kitaplık",
     "inbox": "Gelen kutusu",
     "destinationHint": "Kitaplık: hemen yerleştirilir. Gelen kutusu: tarayıcıdan kaydedilen bağlantıların ardında düzenlenmeyi bekler.",
-    "rule": "Üst düzey klasörler koleksiyon, iç içe klasörler etiket olur. Yer işareti çubuğu, Diğer yer işaretleri ve Mobil ayrı klasör sayılmaz: bunlardaki bağlantılar koleksiyonsuz kalır.",
+    "rule": "Klasörler en fazla üç düzeye kadar koleksiyon olur; daha derindekiler etiket olur. Yer işareti çubuğu, Diğer yer işaretleri ve Mobil ayrı klasör sayılmaz: bunlardaki bağlantılar koleksiyonsuz kalır.",
     "cancel": "İptal",
     "run": "İçe aktar",
     "running": "İçe aktarılıyor…",
@@ -496,6 +530,8 @@
       "collection_missing_name": "{{index}}. koleksiyonun adı yok",
       "collection_repeated_name": "{{index}}. koleksiyon bir adı tekrarlıyor ({{detail}})",
       "collection_bad_date": "{{index}}. koleksiyonun tarihi okunamıyor ({{detail}})",
+      "collection_unknown_parent": "{{index}}. koleksiyon, kopyada olmayan bir koleksiyonun içinde",
+      "collection_loop": "{{index}}. koleksiyon kendi içinde",
       "tag_missing_name": "{{index}}. etiketin adı yok",
       "tag_repeated_name": "{{index}}. etiket bir adı tekrarlıyor ({{detail}})",
       "tag_bad_date": "{{index}}. etiketin tarihi okunamıyor ({{detail}})"
@@ -505,11 +541,14 @@
     "title": "Yeni koleksiyon",
     "name": "Ad",
     "placeholder": "Örneğin, sıradaki proje",
-    "create": "Koleksiyon oluştur"
+    "create": "Koleksiyon oluştur",
+    "titleInside": "{{name}} içinde yeni koleksiyon"
   },
   "confirm": {
     "deleteCollection": "Koleksiyon silinsin mi?",
     "deleteCollectionText": "“{{name}}” içindeki yer işaretleri kitaplıkta koleksiyonsuz kalır.",
+    "deleteCollectionChild": "{{name}} içindekilerle birlikte bir üst düzeye çıkar.",
+    "deleteCollectionChildren": "{{names}} içindekilerle birlikte bir üst düzeye çıkar.",
     "delete": "Sil",
     "emptyTrash": "Çöp kutusu boşaltılsın mı?",
     "emptyTrashText_one": "{{count}} yer işareti kalıcı olarak silinecek. Bu geri alınamaz ve geri yükleme ile de dönmez.",
@@ -1075,11 +1114,23 @@
     "size": "Metin boyutu",
     "sizeValue": "{{size}} px",
     "column": "Sütun",
-    "columns": { "narrow": "Dar", "medium": "Orta", "wide": "Geniş" },
+    "columns": {
+      "narrow": "Dar",
+      "medium": "Orta",
+      "wide": "Geniş"
+    },
     "theme": "Tema",
-    "themes": { "white": "Beyaz", "dark": "Koyu", "paper": "Kâğıt", "sepia": "Sepya" },
+    "themes": {
+      "white": "Beyaz",
+      "dark": "Koyu",
+      "paper": "Kâğıt",
+      "sepia": "Sepya"
+    },
     "font": "Yazı tipi",
-    "fonts": { "serif": "Serif", "sans": "Sans" },
+    "fonts": {
+      "serif": "Serif",
+      "sans": "Sans"
+    },
     "supporterHint": "Kâğıt ve Sepya —",
     "supporterLink": "Supporter",
     "locked": "{{name}}, Supporter ile"
@@ -1126,7 +1177,9 @@
     "damagedLatest": "Kitaplık bozuk, bu yüzden değişiklikler kaydedilmiyor ve tarayıcıdan gelen bağlantılar uzantıda bekliyor. En son sağlam kopyayı geri yükleyin — {{when}}.",
     "restore": "Geri yükle…",
     "openBackups": "Yedekler klasörünü aç",
-    "movedAside": "Önceki bir deneme sürümünün kitaplığı yeni şemaya uymuyor. {{path}} olarak saklandı ve yeni bir kitaplık oluşturuldu."
+    "movedAside": "Önceki bir deneme sürümünün kitaplığı yeni şemaya uymuyor. {{path}} olarak saklandı ve yeni bir kitaplık oluşturuldu.",
+    "onlyCollection": "Yalnızca bu koleksiyon",
+    "insideCollection": "{{name}} içinde"
   },
   "groups": {
     "today": "Bugün",
@@ -1255,6 +1308,9 @@
       "internal": "bir şeyler ters gitti ({{message}})",
       "empty_tag": "etiket boş",
       "empty_collection_name": "ad boş",
+      "collection_name_taken": "başka bir koleksiyonun adı aynı",
+      "collection_too_deep": "koleksiyonlar en fazla üç düzey derine iner",
+      "collection_inside_itself": "bir koleksiyon kendi içine girmez",
       "empty_title": "başlık boş",
       "bookmark_gone": "yer işareti artık yok",
       "not_in_trash": "yer işareti çöp kutusunda değil",
@@ -1295,6 +1351,9 @@
       "server_missing": "Koona Pin'in bir parçası (koonapin-mcp) eksik. Koona Pin'i yeniden yükleyin.",
       "empty_tag": "Bir etiket girin.",
       "empty_collection_name": "Bir koleksiyon adı girin.",
+      "collection_name_taken": "Başka bir koleksiyonun adı zaten aynı.",
+      "collection_too_deep": "Koleksiyonlar en fazla üç düzey derine iner.",
+      "collection_inside_itself": "Bir koleksiyon kendi içine ya da kendi içindeki bir koleksiyonun içine girmez.",
       "empty_title": "Başlık boş olamaz.",
       "bookmark_gone": "Bu yer işareti artık yok.",
       "not_in_trash": "Bu yer işareti çöp kutusunda değil.",
@@ -1336,10 +1395,6 @@
     "design": "Tasarım ve UI",
     "reading": "Makaleler / Okunacaklar",
     "links": {
-      "koona": {
-        "title": "Koona uygulamaları",
-        "description": "Koona'nın diğer uygulamaları."
-      },
       "start": {
         "title": "Buradan başlayın: Koona Pin nasıl çalışır",
         "description": "Bağlantıları birkaç dakikada kaydedin, düzenleyin ve bulun."
@@ -1349,9 +1404,6 @@
       },
       "bun": {
         "description": "Hızlı bir JavaScript çalışma ortamı ve araç takımı."
-      },
-      "lunacy": {
-        "description": "Yerleşik grafikleriyle ücretsiz bir tasarım uygulaması."
       }
     }
   },
@@ -2043,6 +2095,8 @@
       "grid": "Izgara",
       "filters": "Filtreler",
       "all": "Tümü",
+      "allIn": "{{name}} içindekilerin tümü",
+      "inside": "{{name}} içinde",
       "favorite": "Favori",
       "newLinks_one": "{{count, number}} yeni bağlantı",
       "newLinks_other": "{{count, number}} yeni bağlantı",
@@ -2223,6 +2277,7 @@
       "suggested": "Önerilen",
       "suggestedWhy": "Bu siteden {{filed, number}} bağlantının {{count, number}} tanesi",
       "all": "Tüm koleksiyonlar",
+      "fold": "{{name}} içinde",
       "nothing": "Bu adda koleksiyon yok",
       "new": "Yeni koleksiyon",
       "newNamed": "Yeni koleksiyon “{{name}}”"

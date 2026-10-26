@@ -1,13 +1,16 @@
-import { KeyboardEvent, PointerEvent, ReactNode, TransitionEvent, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { BookOpen, ChevronDown, CircleArrowDown, CircleArrowUp, Copy, Heart, Link, MoreHorizontal, Plus, Rss, Settings, Trash2, TriangleAlert, Unlink, X } from "lucide-react";
+import { KeyboardEvent, PointerEvent, ReactNode, TransitionEvent, useEffect, useId, useMemo, useRef, useState } from "react";
+import { BookOpen, ChevronDown, CircleArrowDown, CircleArrowUp, Copy, Heart, Link, MoreHorizontal, Plus, Rss, Settings, Trash2, TriangleAlert, Unlink } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { CaptureStatus, Collection, Feed, FilterState, LibraryCounts, Tag, UpdateStatus } from "../../types";
 import { Offer, offer, percent } from "../../services/update";
-import { collectionColor } from "../../services/collections";
 import { DropTarget, dropAttribute, RowDragItem, sameDrop } from "../../services/drag";
-import { moveCollection } from "../../services/library";
-import { useCollectionReorder } from "../../hooks/useCollectionReorder";
+import { buildTree, CollectionMove, flatten, TreeDrop, treeDrop } from "../../services/collectionTree";
+import { rowAt, useCollectionReorder } from "../../hooks/useCollectionReorder";
+import { CollectionIcon } from "../ui/CollectionIcon";
+import { CollectionTree } from "./CollectionTree";
+import { CollectionStyle } from "./CollectionStyle";
+import { Drop, dropLook, FadeLabel, hotOutline, LandingLine } from "./sidebarParts";
 import { useRowDrag } from "../../hooks/useRowDrag";
 import { RowStack } from "../library/DragStack";
 import { statusColor, statusLabel } from "../../services/capture";
@@ -67,8 +70,16 @@ export interface SidebarProps {
   /** «New link» (2026-10-16): the ink button under the logo, a round «+» in the strip; `⌘N` too. */
   onNewLink: () => void;
   onDeleteCollection: (collection: Collection) => void;
-  /** Every collection's id in the new order, after a drag or `Alt ↑` / `Alt ↓` (NP-114, sheet 41). */
-  onReorderCollections: (ids: number[]) => void;
+  /** A collection moved by a drag, `Alt` + arrows or «Move to» (NP-114, 2.19.0); shown at once. */
+  onMoveCollection: (move: CollectionMove) => Promise<void>;
+  /** «Rename» or `F2` in the row (2.19.0). */
+  onRenameCollection: (id: number, name: string) => Promise<void>;
+  /** A pick in «Icon and colour» (2.19.0), written at once. */
+  onStyleCollection: (id: number, color: string | null, icon: string | null) => Promise<void>;
+  /** «New collection inside» of a row's menu (2.19.0). */
+  onNewCollectionInside: (parent: Collection) => void;
+  /** A change to a collection was refused: say why. */
+  onCollectionFailed: (err: unknown) => void;
   /** «Новая коллекция из выбранного» (Р-27): the name field at the end of the collections. */
   naming?: NewCollectionField | null;
   /**
@@ -219,25 +230,6 @@ export function Sidebar(props: SidebarProps) {
   /** A feed's row menu, from its «…» only: the sidebar has no right-click menus (share-bundle.md, M6). */
   const [feedMenuAt, setFeedMenuAt] = useState<{ feed: Feed; anchor: DOMRect; trigger: Element } | null>(null);
 
-  // The collections' order (NP-114, sheet 41): a drag of a row or of a dot,
-  // or `Alt ↑` / `Alt ↓` on the focused one. A screen reader hears the place.
-  const list = useRef<HTMLDivElement>(null);
-  const [moved, setMoved] = useState("");
-  const moveTo = (from: number, to: number) => {
-    const collection = collections[from];
-    props.onReorderCollections(moveCollection(collections, from, to));
-    setMoved(t("sidebar.collectionMoved", { name: collection.name, position: to + 1, count: collections.length }));
-  };
-  // Out of the sidebar a moved collection goes to the bundle (share-bundle.md, piece C).
-  const reorder = useCollectionReorder(moveTo, {
-    item: (from) => ({ kind: "collection", collection: collections[from] }),
-    onDrop: (from, at) => props.onAddToBundle({ kind: "collection", collection: collections[from] }, at),
-  });
-  const moving = reorder.move;
-  const press = (index: number) => (e: PointerEvent) => {
-    if (e.button !== 0 || dropping || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-    reorder.start(e, index, list.current);
-  };
   // Tag chips, feed rows and All feeds: dragged, they go to the bundle only.
   const rowDrag = useRowDrag(props.onAddToBundle);
   const pressRow = (item: () => RowDragItem) => (e: PointerEvent) => {
@@ -245,32 +237,52 @@ export function Sidebar(props: SidebarProps) {
     rowDrag.start(e, item());
   };
   const rowStack = rowDrag.drag && <RowStack item={rowDrag.drag.item} over={rowDrag.drag.over} stack={rowDrag.stack} place={rowDrag.place} />;
-  const keys = (index: number, id: number) => (e: KeyboardEvent) => {
+  /** «Icon and colour» of a row (2.19.0): the collection is read live, so each pick shows. */
+  const [styling, setStyling] = useState<{ id: number; anchor: DOMRect } | null>(null);
+  const styled = styling && collections.find((c) => c.id === styling.id);
+  const current = library ? filters.collectionId : null;
+
+  // The strip shows the top level only (2.19.0): a dot moves among those, before or after another.
+  const list = useRef<HTMLDivElement>(null);
+  const roots = useMemo(() => buildTree(collections), [collections]);
+  const tops = useMemo(() => flatten(roots, new Set(collections.map((c) => c.id))), [roots, collections]);
+  const [moved, setMoved] = useState("");
+  const moveTop = (change: CollectionMove) => {
+    const name = collections.find((c) => c.id === change.id)?.name ?? "";
+    const order = tops.map((n) => n.item.id).filter((id) => id !== change.id);
+    const position = change.before === null ? order.length + 1 : order.indexOf(change.before) + 1;
+    setMoved(t("sidebar.movedTop", { name, position, count: tops.length }));
+    props.onMoveCollection(change).catch(props.onCollectionFailed);
+  };
+  // Out of the sidebar a moved collection goes to the bundle (share-bundle.md, piece C).
+  const reorder = useCollectionReorder<TreeDrop>(
+    (box, from, x, y) => {
+      const hit = rowAt(box, x, y);
+      return hit && treeDrop(roots, tops, from, hit.index, hit.at < 0.5 ? "top" : "bottom");
+    },
+    (from, to) => moveTop({ id: from, parent: null, before: to.before }),
+    {
+      item: (from) => ({ kind: "collection", collection: collections.find((c) => c.id === from)! }),
+      onDrop: (from, at) => props.onAddToBundle({ kind: "collection", collection: collections.find((c) => c.id === from)! }, at),
+    },
+  );
+  const moving = reorder.move;
+  const press = (id: number) => (e: PointerEvent) => {
+    if (e.button !== 0 || dropping || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+    reorder.start(e, id, list.current);
+  };
+  const keys = (id: number) => (e: KeyboardEvent) => {
     if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
     e.preventDefault();
-    const to = index + (e.key === "ArrowUp" ? -1 : 1);
-    if (to < 0 || to >= collections.length) return;
-    moveTo(index, to);
-    // The row keeps the focus at its new place.
+    const at = tops.findIndex((n) => n.item.id === id);
+    if (at < 0 || (e.key === "ArrowUp" && at === 0) || (e.key === "ArrowDown" && at === tops.length - 1)) return;
+    moveTop({ id, parent: null, before: tops[at + (e.key === "ArrowUp" ? -1 : 2)]?.item.id ?? null });
+    // The dot keeps the focus at its new place.
     requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-collection-row="${id}"] [data-collection]`)?.focus());
   };
-  /** The line where the moved collection would land: above the row, or below the last one. */
-  const landing = (index: number) =>
-    moving && moving.over !== null && moving.over !== moving.from && moving.over !== moving.from + 1
-      ? moving.over === index
-        ? "top"
-        : moving.over === collections.length && index === collections.length - 1
-          ? "bottom"
-          : null
-      : null;
-  const movedCollection = moving && collections[moving.from];
+  const movedCollection = moving && collections.find((c) => c.id === moving.from);
   const ghost = movedCollection && (moving.outside ? (
-    <RowStack
-      item={{ kind: "collection", collection: movedCollection }}
-      over={moving.bundle}
-      stack={reorder.ghost}
-      place={reorder.place}
-    />
+    <RowStack item={{ kind: "collection", collection: movedCollection }} over={moving.bundle} stack={reorder.ghost} place={reorder.place} />
   ) : (
     <div
       ref={(element) => {
@@ -280,14 +292,17 @@ export function Sidebar(props: SidebarProps) {
       aria-hidden
       className="pointer-events-none fixed top-0 left-0 z-50 flex max-w-[200px] items-center gap-2 rounded-md bg-card px-2.5 py-1.5 text-sm text-ink shadow-menu"
     >
-      <Dot color={collectionColor(movedCollection.id)} />
+      <CollectionIcon collection={movedCollection} size={14} />
       <span className="truncate">{movedCollection.name}</span>
     </div>
   ));
-  const announcement = (
-    <span aria-live="polite" className="sr-only">
-      {moved}
-    </span>
+  const styleDialog = styled && styling && (
+    <CollectionStyle
+      collection={styled}
+      anchor={styling.anchor}
+      onStyle={(color, icon) => void props.onStyleCollection(styled.id, color, icon).catch(props.onCollectionFailed)}
+      onClose={() => setStyling(null)}
+    />
   );
 
   if (narrow)
@@ -368,25 +383,28 @@ export function Sidebar(props: SidebarProps) {
         </StripButton>
         <div className="my-2.5 h-px w-6 bg-line" />
         <div ref={list} className="flex flex-col items-center gap-0.5">
-          {collections.map((c, i) => (
-            <div key={c.id} data-collection-row={c.id} className={`relative ${moving?.from === i ? "opacity-45" : ""}`}>
-              {landing(i) && <LandingLine at={landing(i)!} />}
+          {tops.map(({ item: c }) => (
+            <div key={c.id} data-collection-row={c.id} className={`relative ${moving?.from === c.id ? "opacity-45" : ""}`}>
+              {moving?.over?.row === c.id && <LandingLine at={moving.over.edge === "before" ? "top" : "bottom"} />}
               <StripButton
                 label={c.name}
-                active={library && filters.collectionId === c.id}
+                active={current === c.id}
                 onClick={() => props.onCollection(c.id)}
                 drop={drop({ kind: "collection", id: c.id })}
-                onPointerDown={press(i)}
-                onKeyDown={keys(i, c.id)}
+                onPointerDown={press(c.id)}
+                onKeyDown={keys(c.id)}
                 collection
               >
-                <Dot color={collectionColor(c.id)} />
+                <CollectionIcon collection={c} />
               </StripButton>
             </div>
           ))}
         </div>
         {ghost}
-        {announcement}
+        <span aria-live="polite" className="sr-only">
+          {moved}
+        </span>
+        {styleDialog}
         <div className="flex-1" />
         {update && (
           <StripButton label={updateLabel(t, update)} onClick={props.onUpdate}>
@@ -611,58 +629,22 @@ export function Sidebar(props: SidebarProps) {
       <Folding id={collectionsId} folded={collectionsFolded}>
       <nav aria-label={t("sidebar.collections")} className="flex flex-col gap-0.5">
         {collections.length === 0 && !props.naming && <p className="px-2.5 py-1 text-xs text-subtle">{t("sidebar.noCollections")}</p>}
-        <div ref={list} className="flex flex-col gap-0.5">
-        {collections.map((c, i) => (
-          <div
-            key={c.id}
-            data-collection-row={c.id}
-            className={`group relative ${moving?.from === i ? "opacity-45" : ""}`}
-          >
-            {landing(i) && <LandingLine at={landing(i)!} />}
-            <NavRow
-              icon={
-                <span className="flex size-4 items-center justify-center">
-                  <Dot color={collectionColor(c.id)} />
-                </span>
-              }
-              label={c.name}
-              count={c.count ?? 0}
-              active={library && filters.collectionId === c.id}
-              onClick={() => props.onCollection(c.id)}
-              plain
-              drop={drop({ kind: "collection", id: c.id })}
-              onPointerDown={press(i)}
-              onKeyDown={keys(i, c.id)}
-              collection
-            />
-            {/* `Alt ↑` / `Alt ↓` on keyboard focus only: with the mouse the rows are dragged (sheet 41). */}
-            {!dropping && !moving && collections.length > 1 && (
-              <span
-                role="tooltip"
-                className="pointer-events-none absolute top-full left-1/2 z-50 mt-1.5 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-md bg-toast px-2 py-1 text-xs text-white opacity-0 transition-opacity duration-150 group-has-[[data-collection]:focus-visible]:opacity-100"
-              >
-                {t("sidebar.moveCollection")}
-                <kbd className="rounded-xs bg-white/15 px-1.5 font-sans text-2xs">Alt ↑</kbd>
-                <kbd className="rounded-xs bg-white/15 px-1.5 font-sans text-2xs">Alt ↓</kbd>
-              </span>
-            )}
-            {!dropping && !moving && (
-              <button
-                type="button"
-                aria-label={t("sidebar.deleteCollection", { name: c.name })}
-                title={t("sidebar.deleteCollection", { name: c.name })}
-                onClick={() => props.onDeleteCollection(c)}
-                className="absolute top-2 right-8 flex size-4 items-center justify-center rounded-xs text-faint opacity-0 group-hover:opacity-100 hover:text-ink focus-visible:opacity-100"
-              >
-                <Icon icon={X} size={12} />
-              </button>
-            )}
-          </div>
-        ))}
-        </div>
-        {ghost}
+        <CollectionTree
+          collections={collections}
+          current={current}
+          onCollection={props.onCollection}
+          onMove={props.onMoveCollection}
+          onRename={props.onRenameCollection}
+          onStyle={(c, anchor) => setStyling({ id: c.id, anchor })}
+          onNewInside={props.onNewCollectionInside}
+          onDelete={props.onDeleteCollection}
+          drop={dropping ? drop : undefined}
+          dropping={!!dropping}
+          onAddToBundle={props.onAddToBundle}
+          onFailed={props.onCollectionFailed}
+        />
         {rowStack}
-        {announcement}
+        {styleDialog}
         {dropping && <NewCollectionTarget hot={sameDrop(dropping.target, { kind: "new" })} />}
         {props.naming && <NameField key={props.naming.suggested} {...props.naming} />}
       </nav>
@@ -895,35 +877,6 @@ function PlanRow({ plan, badge, onClick }: { plan: "free" | "supporter"; badge: 
     </button>
   );
 }
-/** A drop target and whether the pointer is over it; «Корзина» is lit in the danger tint (sheet 32). */
-type Drop = { attr: string; hot: boolean; danger?: boolean };
-
-/**
- * The ring of a target under the pointer: 1.5 px inside, so nothing around it
- * moves. A shadow, not an outline: Chromium rounds an outline to whole pixels.
- */
-const hotOutline = "shadow-[inset_0_0_0_1.5px_var(--np-accent)]";
-const dropLook = (drop: Drop) =>
-  drop.danger
-    ? "bg-danger-soft text-on-danger-soft shadow-[inset_0_0_0_1.5px_var(--np-danger)]"
-    : `bg-accent-soft text-on-accent-soft ${hotOutline}`;
-
-/**
- * Where a moved collection would land (sheet 41): a 2 px accent line in the
- * gap above a row, or below the last one, with a ring at its start.
- */
-function LandingLine({ at }: { at: "top" | "bottom" }) {
-  return (
-    <span
-      aria-hidden
-      data-landing
-      className={`pointer-events-none absolute right-1 left-1.5 z-10 h-0.5 rounded-full bg-accent ${at === "top" ? "-top-[2px]" : "-bottom-[2px]"}`}
-    >
-      <span className="absolute -top-[3px] -left-1.5 size-2 rounded-full border-2 border-accent bg-panel" />
-    </span>
-  );
-}
-
 /** «Новая коллекция из выбранного» as a target (frame 05): a dashed row under the collections. */
 function NewCollectionTarget({ hot }: { hot: boolean }) {
   const { t } = useTranslation();
@@ -988,27 +941,6 @@ function NameField({ suggested, count, color, onCreate, onCancel }: NewCollectio
   );
 }
 
-/** A row's name: one longer than the row fades out at its end (2.1.2); one that fits is left whole. */
-function FadeLabel({ text }: { text: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const [clipped, setClipped] = useState(false);
-  useLayoutEffect(() => {
-    const el = ref.current!;
-    const measure = () => setClipped(el.scrollWidth > el.clientWidth);
-    measure();
-    // Inter arrives after the first paint, and a folded section opens to its width later.
-    const watch = new ResizeObserver(measure);
-    watch.observe(el);
-    document.fonts.ready.then(measure);
-    return () => watch.disconnect();
-  }, [text]);
-  return (
-    <span ref={ref} className="fade-end min-w-0 flex-1" data-clipped={clipped || undefined}>
-      {text}
-    </span>
-  );
-}
-
 function NavRow({
   icon,
   label,
@@ -1022,8 +954,6 @@ function NavRow({
   danger = false,
   drop,
   onPointerDown,
-  onKeyDown,
-  collection = false,
 }: {
   icon: ReactNode;
   label: string;
@@ -1040,9 +970,6 @@ function NavRow({
   /** A drop target while the selection is dragged (NP-030). */
   drop?: Drop;
   onPointerDown?: (e: PointerEvent) => void;
-  onKeyDown?: (e: KeyboardEvent) => void;
-  /** A collection, moved by a drag and `Alt ↑` / `Alt ↓` (NP-114). */
-  collection?: boolean;
 }) {
   const hot = drop?.hot;
   const look = hot
@@ -1053,10 +980,7 @@ function NavRow({
       type="button"
       onClick={onClick}
       onPointerDown={onPointerDown}
-      onKeyDown={onKeyDown}
       aria-current={active ? "page" : undefined}
-      aria-keyshortcuts={collection ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
-      data-collection={collection || undefined}
       title={title}
       data-drop={drop?.attr}
       className={`flex h-8 w-full shrink-0 items-center gap-2.5 rounded-[9px] px-2.5 text-left text-sm transition-[background-color,color,box-shadow] duration-150 ${look}`}

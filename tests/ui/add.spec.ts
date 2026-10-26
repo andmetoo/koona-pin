@@ -16,7 +16,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 const sidebar = (page: Page) => page.getByRole("complementary");
-const nav = (page: Page, name: string) => sidebar(page).getByRole("button", { name, exact: true });
+// Sections are buttons, collections the rows of a tree (2.19.0).
+const nav = (page: Page, name: string) => sidebar(page).getByRole("button", { name, exact: true }).or(sidebar(page).getByRole("treeitem", { name, exact: true }));
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Add link" });
 const toast = (page: Page) => page.locator("[data-glass-toast]");
 const card = (page: Page, text: string) => page.locator("[data-bookmark-id]", { hasText: text });

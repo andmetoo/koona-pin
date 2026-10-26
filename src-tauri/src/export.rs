@@ -1,12 +1,14 @@
 //! Export of the library (NP-032, frame 29, Р-30): HTML for browsers, JSON —
 //! the full versioned copy, CSV for spreadsheets. The file is written next
-//! to the target and renamed over it only when complete.
+//! to the target and renamed over it only when complete. Collections nest
+//! (2.19.0): JSON gives each its parent, HTML nests the folders, CSV writes
+//! the path.
 
 use crate::db;
 use chrono::{DateTime, Local, Utc};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::path::Path;
 use ts_rs::TS;
@@ -46,6 +48,12 @@ pub struct JsonCollection {
     /// copies made before it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub position: Option<i64>,
+    /// The `uid` of the collection it sits in (2.19.0); absent at the top
+    /// level and in copies made before collections nested. Its `position` is
+    /// the rank among the siblings of that parent. Not a new version: an old
+    /// copy reads as a flat library.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -184,12 +192,14 @@ fn bookmarks(conn: &Connection, scope: Scope, with_trash: bool) -> rusqlite::Res
 }
 
 fn collections(conn: &Connection) -> rusqlite::Result<Vec<JsonCollection>> {
-    // The place is the rank among the collections ordered by hand: the key
+    // The place is the rank among the siblings ordered by hand: the key
     // itself (schema 10) means nothing outside the library.
     conn.prepare(
-        "SELECT uid, name, color, icon, created_at,
-             CASE WHEN position_key IS NOT NULL THEN rank() OVER (PARTITION BY position_key IS NULL ORDER BY position_key, id) - 1 END
-         FROM collections ORDER BY name COLLATE NOCASE, id",
+        "SELECT c.uid, c.name, c.color, c.icon, c.created_at,
+             CASE WHEN c.position_key IS NOT NULL THEN rank() OVER (PARTITION BY c.parent_id, c.position_key IS NULL ORDER BY c.position_key, c.id) - 1 END,
+             p.uid
+         FROM collections c LEFT JOIN collections p ON p.id = c.parent_id
+         ORDER BY c.name COLLATE NOCASE, c.id",
     )?
         .query_map([], |r| {
             Ok(JsonCollection {
@@ -199,13 +209,49 @@ fn collections(conn: &Connection) -> rusqlite::Result<Vec<JsonCollection>> {
                 icon: r.get(3)?,
                 created_at: r.get(4)?,
                 position: r.get(5)?,
+                parent: r.get(6)?,
             })
         })?
         .collect()
 }
 
+/// The names from the top level down to each collection, joined with " › "
+/// ("Work › Docs") as the sidebar's search shows them: a name may hold "/"
+/// itself ("UI/UX"). By uid (2.19.0); a loop ends the walk where it closes.
+fn paths(folders: &[JsonCollection]) -> HashMap<&str, String> {
+    let by_uid: HashMap<&str, &JsonCollection> = folders.iter().map(|c| (c.uid.as_str(), c)).collect();
+    folders
+        .iter()
+        .map(|c| {
+            let mut names = vec![c.name.as_str()];
+            let mut at = c.parent.as_deref().and_then(|p| by_uid.get(p));
+            while let Some(up) = at.filter(|up| names.len() <= folders.len() && up.uid != c.uid) {
+                names.push(up.name.as_str());
+                at = up.parent.as_deref().and_then(|p| by_uid.get(p));
+            }
+            names.reverse();
+            (c.uid.as_str(), names.join(" › "))
+        })
+        .collect()
+}
+
+/// The collections a selection's bookmarks sit in, with the ones above them
+/// so the tree stays whole (2.19.0).
+fn with_ancestors(folders: &mut Vec<JsonCollection>, marks: &[JsonBookmark]) {
+    let parents: HashMap<String, Option<String>> = folders.iter().map(|c| (c.uid.clone(), c.parent.clone())).collect();
+    let mut keep: HashSet<String> = HashSet::new();
+    for uid in marks.iter().filter_map(|b| b.collection.as_ref()) {
+        let mut at = Some(uid);
+        while let Some(uid) = at.filter(|uid| keep.insert((*uid).clone())) {
+            at = parents.get(uid).and_then(|p| p.as_ref());
+        }
+    }
+    folders.retain(|c| keep.contains(&c.uid));
+}
+
 /// The full copy: inbox and trash included, every field the user can set.
-/// A selection carries only the collections and tags its bookmarks use.
+/// A selection carries only the collections and tags its bookmarks use, and
+/// the collections above those.
 pub fn json(conn: &Connection, scope: Scope, now: DateTime<Utc>) -> rusqlite::Result<(String, usize)> {
     let mut tags = conn
         .prepare("SELECT uid, name, created_at FROM tags ORDER BY name")?
@@ -214,7 +260,7 @@ pub fn json(conn: &Connection, scope: Scope, now: DateTime<Utc>) -> rusqlite::Re
     let marks = bookmarks(conn, scope, true)?;
     let mut folders = collections(conn)?;
     if let Scope::Selected(_) = scope {
-        folders.retain(|c| marks.iter().any(|b| b.collection.as_deref() == Some(c.uid.as_str())));
+        with_ancestors(&mut folders, &marks);
         tags.retain(|t| marks.iter().any(|b| b.tags.contains(&t.name)));
     }
     let library = JsonLibrary {
@@ -240,12 +286,50 @@ fn unix(stamp: &str) -> i64 {
     DateTime::parse_from_rfc3339(stamp).map(|t| t.timestamp()).unwrap_or(0)
 }
 
+/// Where each collection is in the sidebar, by uid: parents before their
+/// children, siblings in their order (2.19.0).
+fn tree_order(conn: &Connection) -> rusqlite::Result<HashMap<String, usize>> {
+    let uids: HashMap<i64, String> = conn
+        .prepare("SELECT id, uid FROM collections")?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<rusqlite::Result<_>>()?;
+    Ok(db::get_collections(conn)?.iter().enumerate().filter_map(|(at, c)| uids.get(&c.id).map(|uid| (uid.clone(), at))).collect())
+}
+
+/// A folder with what is inside it, or nothing when no bookmark is in it or
+/// below it. `seen` keeps a loop from being written twice (2.19.0).
+fn folder_html<'a>(
+    folder: &'a JsonCollection,
+    children: &HashMap<Option<&'a str>, Vec<&'a JsonCollection>>,
+    inside: &HashMap<&str, Vec<&JsonBookmark>>,
+    link: &dyn Fn(&JsonBookmark, &str) -> String,
+    seen: &mut HashSet<&'a str>,
+    depth: usize,
+) -> String {
+    if !seen.insert(folder.uid.as_str()) {
+        return String::new();
+    }
+    let indent = "    ".repeat(depth);
+    let mut body = String::new();
+    for b in inside.get(folder.uid.as_str()).into_iter().flatten() {
+        body.push_str(&link(b, &format!("{indent}    ")));
+    }
+    for child in children.get(&Some(folder.uid.as_str())).into_iter().flatten() {
+        body.push_str(&folder_html(child, children, inside, link, seen, depth + 1));
+    }
+    if body.is_empty() {
+        return body;
+    }
+    format!("{indent}<DT><H3 ADD_DATE=\"{}\">{}</H3>\n{indent}<DL><p>\n{body}{indent}</DL><p>\n", unix(&folder.created_at), escape(&folder.name))
+}
+
 /// The Netscape bookmarks file Chrome, Edge and Firefox import: collections
-/// become folders, a bookmark without one sits at the top, tags go in
-/// `TAGS` (Firefox reads them), notes in `DD`. The trash stays out.
+/// become folders, nested as in the sidebar (2.19.0), a bookmark without one
+/// sits at the top, tags go in `TAGS` (Firefox reads them), notes in `DD`.
+/// The trash stays out.
 pub fn html(conn: &Connection, scope: Scope) -> rusqlite::Result<(String, usize)> {
     let marks = bookmarks(conn, scope, false)?;
-    let folders = collections(conn)?;
+    let mut folders = collections(conn)?;
     let link = |b: &JsonBookmark, indent: &str| {
         let mut line = format!(
             "{indent}<DT><A HREF=\"{}\" ADD_DATE=\"{}\" LAST_MODIFIED=\"{}\"",
@@ -265,16 +349,25 @@ pub fn html(conn: &Connection, scope: Scope) -> rusqlite::Result<(String, usize)
     let mut out = String::from(
         "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks</H1>\n<DL><p>\n",
     );
+    // The sidebar's order, parents before their children (2.19.0); a parent
+    // that is not there, or a loop, leaves the collection at the top.
+    let order = tree_order(conn)?;
+    folders.sort_by_key(|c| order.get(&c.uid).copied().unwrap_or(usize::MAX));
+    let known: HashSet<&str> = folders.iter().map(|c| c.uid.as_str()).collect();
+    let mut children: HashMap<Option<&str>, Vec<&JsonCollection>> = HashMap::new();
     for folder in &folders {
-        let inside: Vec<&JsonBookmark> = marks.iter().filter(|b| b.collection.as_deref() == Some(folder.uid.as_str())).collect();
-        if inside.is_empty() {
-            continue;
+        let up = folder.parent.as_deref().filter(|p| known.contains(p) && *p != folder.uid);
+        children.entry(up).or_default().push(folder);
+    }
+    let mut inside: HashMap<&str, Vec<&JsonBookmark>> = HashMap::new();
+    for b in &marks {
+        if let Some(uid) = b.collection.as_deref() {
+            inside.entry(uid).or_default().push(b);
         }
-        out.push_str(&format!("    <DT><H3 ADD_DATE=\"{}\">{}</H3>\n    <DL><p>\n", unix(&folder.created_at), escape(&folder.name)));
-        for b in inside {
-            out.push_str(&link(b, "        "));
-        }
-        out.push_str("    </DL><p>\n");
+    }
+    let mut seen = HashSet::new();
+    for folder in children.get(&None).into_iter().flatten().copied().chain(folders.iter()) {
+        out.push_str(&folder_html(folder, &children, &inside, &link, &mut seen, 1));
     }
     for b in marks.iter().filter(|b| b.collection.is_none()) {
         out.push_str(&link(b, "    "));
@@ -315,7 +408,9 @@ fn field(value: &str, separator: char) -> String {
 /// The trash stays out; times are local.
 pub fn csv(conn: &Connection, scope: Scope, columns: &CsvColumns, separator: char) -> rusqlite::Result<(String, usize)> {
     let marks = bookmarks(conn, scope, false)?;
-    let names: HashMap<String, String> = collections(conn)?.into_iter().map(|c| (c.uid, c.name)).collect();
+    // A nested collection is its path: «Work/Docs» (2.19.0).
+    let folders = collections(conn)?;
+    let names = paths(&folders);
     let join = |fields: Vec<String>| fields.join(&separator.to_string()) + "\r\n";
     let mut out = String::from("\u{feff}");
     out.push_str(&join(
@@ -329,7 +424,7 @@ pub fn csv(conn: &Connection, scope: Scope, columns: &CsvColumns, separator: cha
         let saved = DateTime::parse_from_rfc3339(&b.created_at)
             .map(|t| t.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string())
             .unwrap_or_default();
-        let collection = b.collection.as_ref().and_then(|uid| names.get(uid)).cloned().unwrap_or_default();
+        let collection = b.collection.as_deref().and_then(|uid| names.get(uid)).cloned().unwrap_or_default();
         out.push_str(&join(vec![
             field(&b.title, separator),
             field(&b.url, separator),
@@ -476,6 +571,8 @@ mod tests {
         crate::import::import(&c, &crate::import::parse(include_str!("../../tests/fixtures/bookmarks/chrome.html"), now), false, |_, _| {}).unwrap();
         let id = |url: &str| c.query_row("SELECT id FROM bookmarks WHERE url = ?1", [url], |r| r.get::<_, i64>(0)).unwrap();
         db::update_bookmark(&c, id("https://github.com/"), Some("GitHub \"code\" & <more>".into()), Some("заметка;\nвторая строка".into()), Some(true), None, None).unwrap();
+        // The file has no tags of its own: its folders are collections.
+        db::update_bookmark(&c, id("https://tokio.rs/"), None, None, None, None, Some(vec!["rust".into(), "async".into()])).unwrap();
         db::trash_bookmark(&c, id("https://habr.com/ru/articles/")).unwrap();
         c.execute("UPDATE bookmarks SET triaged_at = NULL, title = '=HYPERLINK(1)' WHERE url = 'https://m.example.com/'", []).unwrap();
         c
@@ -488,9 +585,13 @@ mod tests {
         let parsed: JsonLibrary = serde_json::from_str(&text).unwrap();
         assert_eq!((parsed.format.as_str(), parsed.version, count, parsed.bookmarks.len()), ("koona-pin", 1, 7, 7));
         assert_eq!(parsed.exported_at, "2026-10-04T12:00:00.000Z");
-        let work = parsed.collections.iter().find(|c| c.name == "Работа").unwrap();
+        let named = |name: &str| parsed.collections.iter().find(|c| c.name == name).unwrap();
+        let (work, rust, asynchronous) = (named("Работа"), named("Rust"), named("Async"));
         let tokio = parsed.bookmarks.iter().find(|b| b.url == "https://tokio.rs/").unwrap();
-        assert_eq!(tokio.collection.as_deref(), Some(work.uid.as_str()));
+        assert_eq!(tokio.collection.as_deref(), Some(asynchronous.uid.as_str()));
+        // The tree: the parent's uid, none at the top; the field is left out there.
+        assert_eq!((asynchronous.parent.as_deref(), rust.parent.as_deref(), work.parent.as_deref()), (Some(rust.uid.as_str()), Some(work.uid.as_str()), None));
+        assert_eq!(text.matches("\"parent\"").count(), 2);
         assert_eq!(tokio.tags, ["async", "rust"]);
         assert_eq!(tokio.created_at, "2023-07-22T04:31:40.000Z");
         let github = parsed.bookmarks.iter().find(|b| b.url == "https://github.com/").unwrap();
@@ -511,14 +612,48 @@ mod tests {
         let back = crate::import::parse(&text, Utc::now());
         assert!(back.skipped.is_empty());
         let tokio = back.links.iter().find(|l| l.url == "https://tokio.rs/").unwrap();
-        assert_eq!((tokio.collection.as_deref(), tokio.tags.as_slice(), tokio.added_at.as_deref()), (Some("Работа"), &["async".to_string(), "rust".to_string()][..], Some("2023-07-22T04:31:40.000Z")));
+        assert_eq!((tokio.path.as_slice(), tokio.tags.as_slice(), tokio.added_at.as_deref()), (&["Работа".to_string(), "Rust".to_string(), "Async".to_string()][..], &["async".to_string(), "rust".to_string()][..], Some("2023-07-22T04:31:40.000Z")));
         let github = back.links.iter().find(|l| l.url == "https://github.com/").unwrap();
         assert_eq!(github.title, "GitHub \"code\" & <more>");
-        assert_eq!(back.links.iter().find(|l| l.url == "https://news.ycombinator.com/").unwrap().collection, None);
-        // Into an empty library: the same collections, nothing skipped.
+        assert!(back.links.iter().find(|l| l.url == "https://news.ycombinator.com/").unwrap().path.is_empty());
+        // Into an empty library: the same tree, nothing skipped.
         let fresh = database();
         let summary = crate::import::import(&fresh, &back, false, |_, _| {}).unwrap();
-        assert_eq!((summary.added, summary.collections.len()), (6, 2));
+        assert_eq!((summary.added, summary.collections.clone()), (6, ["Работа", "Работа/Rust", "Работа/Rust/Async", "Чтение"].map(String::from).to_vec()));
+        let shape = |c: &Connection| db::get_collections(c).unwrap().into_iter().map(|c| (c.name, c.parent_id.is_some(), c.count)).collect::<Vec<_>>();
+        let source_shape: Vec<_> = shape(&c).into_iter().filter(|(name, _, _)| ["Работа", "Rust", "Async", "Чтение"].contains(&name.as_str())).collect();
+        assert_eq!(shape(&fresh).into_iter().filter(|(name, _, _)| ["Работа", "Rust", "Async", "Чтение"].contains(&name.as_str())).collect::<Vec<_>>(), source_shape);
+    }
+
+    /// Folders are nested in the sidebar's order, a parent without links of
+    /// its own is there for its children's, and an empty branch is left out.
+    #[test]
+    fn html_nests_folders_in_tree_order_and_leaves_empty_branches_out() {
+        let c = database();
+        let make = |name: &str, parent: Option<i64>| db::create_collection_under(&c, name, parent, None, None).unwrap().id;
+        let (zeta, alpha) = (make("Zeta", None), make("Alpha", None));
+        let (deep, _empty) = (make("Deep", Some(zeta)), make("Empty", Some(zeta)));
+        let leaf = make("Leaf", Some(deep));
+        db::move_collection(&c, zeta, None, Some(alpha)).unwrap();
+        let add = |url: &str, collection: i64| {
+            crate::import::import(&c, &crate::import::parse(&format!("<DL><DT><A HREF=\"{url}\">T</A></DL>"), Utc::now()), false, |_, _| {}).unwrap();
+            let id: i64 = c.query_row("SELECT id FROM bookmarks WHERE url = ?1", [url], |r| r.get(0)).unwrap();
+            db::update_bookmark(&c, id, None, None, None, Some(Some(collection)), None).unwrap();
+        };
+        add("https://leaf.example/", leaf);
+        add("https://alpha.example/", alpha);
+        let (text, count) = html(&c, Scope::Library).unwrap();
+        assert_eq!(count, 2);
+        let folders: Vec<&str> = text.lines().filter(|l| l.contains("<H3")).collect();
+        assert_eq!(folders.len(), 4, "Empty has no link in it: {text}");
+        let at = |name: &str| text.find(&format!(">{name}</H3>")).unwrap_or_else(|| panic!("{name}: {text}"));
+        assert!(at("Zeta") < at("Deep") && at("Deep") < at("Leaf") && at("Leaf") < at("Alpha"), "by the sidebar's order, not by name: {text}");
+        assert!(!text.contains(">Empty</H3>"));
+        assert!(text.contains("    <DT><H3 ADD_DATE=\"") && text.contains("\n        <DT><H3 ADD_DATE=") && text.contains("\n            <DT><H3 ADD_DATE="), "one more level of indent each");
+        // And back: the paths are the collections.
+        let back = crate::import::parse(&text, Utc::now());
+        let leaf_link = back.links.iter().find(|l| l.url == "https://leaf.example/").unwrap();
+        assert_eq!(leaf_link.path, ["Zeta", "Deep", "Leaf"]);
     }
 
     #[test]
@@ -539,13 +674,13 @@ mod tests {
         assert_eq!(count, 6);
         assert!(text.starts_with("\u{feff}Название;Адрес;Сайт;Коллекция;Теги;Заметка;Избранное;Во входящих;Сохранено\r\n"));
         let tokio = text.lines().find(|l| l.contains("tokio.rs")).unwrap();
-        assert!(tokio.starts_with("Tokio;https://tokio.rs/;tokio.rs;Работа;async, rust;;0;0;2023-07-22 "), "{tokio}");
+        assert!(tokio.starts_with("Tokio;https://tokio.rs/;tokio.rs;Работа › Rust › Async;async, rust;;0;0;2023-07-22 "), "{tokio}");
         assert!(text.contains("GitHub \"\"code\"\" & <more>") && text.contains("\"заметка;\nвторая строка\";1;0;"));
         assert!(text.contains("'=HYPERLINK(1);https://m.example.com/;m.example.com;;;;0;1;"));
         assert!(!text.contains("habr.com"));
         // With a comma separator the tags are joined by «; » and quoted only when needed.
         let (comma, _) = csv(&c, Scope::Library, &columns, ',').unwrap();
-        assert!(comma.contains("Tokio,https://tokio.rs/,tokio.rs,Работа,async; rust,,0,0,"));
+        assert!(comma.contains("Tokio,https://tokio.rs/,tokio.rs,Работа › Rust › Async,async; rust,,0,0,"));
     }
 
     #[test]
@@ -567,8 +702,12 @@ mod tests {
         let mut tags: Vec<&str> = parsed.tags.iter().map(|t| t.name.as_str()).collect();
         tags.sort();
         assert_eq!(tags, used, "only the tags the selection uses");
-        assert!(parsed.collections.iter().all(|f| parsed.bookmarks.iter().any(|b| b.collection.as_deref() == Some(f.uid.as_str()))));
-        assert!(parsed.collections.iter().any(|f| f.name == "Работа"));
+        // The collection the selection uses and the ones above it, so the tree stays whole; not «Чтение».
+        let mut folders: Vec<&str> = parsed.collections.iter().map(|f| f.name.as_str()).collect();
+        folders.sort();
+        assert_eq!(folders, ["Async", "Rust", "Работа"]);
+        let uids: Vec<&str> = parsed.collections.iter().map(|f| f.uid.as_str()).collect();
+        assert!(parsed.collections.iter().all(|f| f.parent.as_deref().is_none_or(|p| uids.contains(&p))));
         let (text, count) = html(&c, selected).unwrap();
         assert_eq!(count, 2);
         assert!(text.contains("tokio.rs") && text.contains("habr.com") && !text.contains("github.com"));

@@ -383,3 +383,135 @@ fn feeds_come_last_and_wait_for_every_field() {
     assert_eq!(one::<i64>(&b, "SELECT count(*) FROM feeds"), 0);
     check_invariants(&b);
 }
+
+fn parent_of(conn: &rusqlite::Connection, name: &str) -> Option<String> {
+    maybe::<Option<String>>(
+        conn,
+        &format!("SELECT p.name FROM collections c LEFT JOIN collections p ON p.id = c.parent_id WHERE c.name = '{name}'"),
+    )
+    .flatten()
+}
+
+fn collection_id(conn: &rusqlite::Connection, name: &str) -> i64 {
+    one(conn, &format!("SELECT id FROM collections WHERE name = '{name}'"))
+}
+
+/// Nested collections (schema 15): a move travels as the field `parent`, the parent's uid.
+#[test]
+fn a_collection_moved_into_another_moves_on_the_other_device() {
+    let a = library(replica_id(1));
+    let b = library(replica_id(2));
+    let work = add_collection(&a, uid(5), "Work").unwrap();
+    let docs = add_collection(&a, uid(6), "Docs").unwrap();
+    set_parent(&a, docs, Some(work));
+    assert_eq!(one::<i64>(&a, &format!("SELECT count(*) FROM sync_clock WHERE entity = 0 AND row = {docs} AND field = 4")), 1);
+    let parents: Vec<serde_json::Value> = koona_sync::delta_all(&a, &Vector::default(), 1 << 20)
+        .unwrap()
+        .iter()
+        .flat_map(|c| &c.groups)
+        .flat_map(|g| g.fields.iter().filter(|f| f.field == "parent").map(|f| f.value.clone()))
+        .collect();
+    assert_eq!(parents, [serde_json::Value::Null, serde_json::json!(uid(5).to_string())]);
+    assert!(sync(&a, &b, 1 << 20));
+    assert_eq!(parent_of(&b, "Docs").as_deref(), Some("Work"));
+    // And back to the top level.
+    set_parent(&b, collection_id(&b, "Docs"), None);
+    assert!(sync(&b, &a, 1 << 20));
+    assert_eq!(parent_of(&a, "Docs"), None);
+    assert_eq!(dump(&a), dump(&b));
+    check_invariants(&a);
+}
+
+/// A child sent before its parent: in one batch the parent is resolved after every collection of
+/// the batch; in chunks of one record each the child waits at the top level, the session does
+/// not merge `covers`, and the next one nests it.
+#[test]
+fn a_parent_that_arrives_after_its_child_still_takes_it_in() {
+    let a = library(replica_id(1));
+    let child = add_collection(&a, uid(7), "Child").unwrap();
+    let parent = add_collection(&a, uid(50), "Parent").unwrap();
+    set_parent(&a, child, Some(parent));
+
+    let whole = library(replica_id(2));
+    assert!(sync(&a, &whole, 1 << 20), "one batch: nothing deferred");
+    assert_eq!(parent_of(&whole, "Child").as_deref(), Some("Parent"));
+    assert_eq!(dump(&a), dump(&whole));
+
+    let chunked = library(replica_id(3));
+    assert!(!sync(&a, &chunked, 1), "the child's parent waits");
+    assert_eq!(parent_of(&chunked, "Child"), None);
+    check_invariants(&chunked);
+    assert!(sync(&a, &chunked, 1));
+    assert_eq!(parent_of(&chunked, "Child").as_deref(), Some("Parent"));
+    assert_eq!(dump(&a), dump(&chunked));
+}
+
+/// Two devices that move A into B and B into A: the collection whose move is older (A's) goes
+/// to the top level, as a change of the device that met the loop, and both end the same.
+#[test]
+fn two_devices_moving_collections_into_each_other_end_without_a_loop() {
+    let a = library(replica_id(1));
+    let b = library(replica_id(2));
+    koona_sync::set_wall_clock(&a, Some(1_000)).unwrap();
+    koona_sync::set_wall_clock(&b, Some(1_000)).unwrap();
+    add_collection(&a, uid(5), "A").unwrap();
+    add_collection(&a, uid(6), "B").unwrap();
+    sync(&a, &b, 1 << 20);
+    set_parent(&a, collection_id(&a, "A"), Some(collection_id(&a, "B")));
+    koona_sync::set_wall_clock(&b, Some(2_000)).unwrap();
+    set_parent(&b, collection_id(&b, "B"), Some(collection_id(&b, "A")));
+    assert!(sync(&a, &b, 1 << 20));
+    // `b` met the loop and undid the older move.
+    assert_eq!((parent_of(&b, "A"), parent_of(&b, "B").as_deref()), (None, Some("A")));
+    let repair: i64 = one(&b, &format!("SELECT o.origin = '{}' FROM sync_clock c JOIN sync_origins o ON o.id = c.origin WHERE c.entity = 0 AND c.field = 4 AND c.row = {}", replica_id(2), collection_id(&b, "A")));
+    assert_eq!(repair, 1, "a change of b's own");
+    assert!(sync(&b, &a, 1 << 20));
+    assert!(sync(&a, &b, 1 << 20));
+    assert_eq!((parent_of(&a, "A"), parent_of(&a, "B").as_deref()), (None, Some("A")));
+    assert_eq!(dump(&a), dump(&b));
+
+    // The same moves met the other way round: `a` gets b's first and ends the same.
+    let c = library(replica_id(3));
+    let d = library(replica_id(4));
+    koona_sync::set_wall_clock(&c, Some(1_000)).unwrap();
+    koona_sync::set_wall_clock(&d, Some(1_000)).unwrap();
+    add_collection(&c, uid(5), "A").unwrap();
+    add_collection(&c, uid(6), "B").unwrap();
+    sync(&c, &d, 1 << 20);
+    set_parent(&c, collection_id(&c, "A"), Some(collection_id(&c, "B")));
+    koona_sync::set_wall_clock(&d, Some(2_000)).unwrap();
+    set_parent(&d, collection_id(&d, "B"), Some(collection_id(&d, "A")));
+    assert!(sync(&d, &c, 1 << 20));
+    assert!(sync(&c, &d, 1 << 20));
+    assert!(sync(&d, &c, 1 << 20));
+    assert_eq!((parent_of(&c, "A"), parent_of(&c, "B").as_deref()), (None, Some("A")));
+    assert_eq!(dump(&c), dump(&d));
+    check_invariants(&c);
+}
+
+/// A purged parent: the app moves its children up before it goes; a child another device moved
+/// into it meanwhile lands at the top level there and here.
+#[test]
+fn a_purged_parent_leaves_its_children_at_the_top_level() {
+    let a = library(replica_id(1));
+    let b = library(replica_id(2));
+    let top = add_collection(&a, uid(4), "Top").unwrap();
+    let parent = add_collection(&a, uid(5), "Parent").unwrap();
+    let child = add_collection(&a, uid(6), "Child").unwrap();
+    set_parent(&a, parent, Some(top));
+    set_parent(&a, child, Some(parent));
+    sync(&a, &b, 1 << 20);
+    let late = add_collection(&b, uid(7), "Late").unwrap();
+    set_parent(&b, late, Some(collection_id(&b, "Parent")));
+    delete_collection(&a, parent);
+    assert_eq!(parent_of(&a, "Child").as_deref(), Some("Top"));
+    assert!(sync(&a, &b, 1 << 20));
+    assert_eq!(one::<i64>(&b, "SELECT count(*) FROM collections WHERE name = 'Parent'"), 0);
+    assert_eq!(parent_of(&b, "Child").as_deref(), Some("Top"));
+    assert_eq!(parent_of(&b, "Late"), None);
+    assert!(sync(&b, &a, 1 << 20));
+    assert_eq!(parent_of(&a, "Late"), None, "a purged parent puts it at the top level");
+    assert_eq!(dump(&a), dump(&b));
+    check_invariants(&a);
+    check_invariants(&b);
+}

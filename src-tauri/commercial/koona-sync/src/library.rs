@@ -27,7 +27,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// The schema version a library of this engine has; `hello.schema`.
-pub const SCHEMA: u32 = 14;
+pub const SCHEMA: u32 = 15;
 
 /// The keys of the active devices as the hub vouched for them (`PROTOCOL.md` 4.4).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

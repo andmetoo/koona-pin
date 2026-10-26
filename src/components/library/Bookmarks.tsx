@@ -3,7 +3,9 @@ import { ArrowUpRight, BookCheck, BookOpen, Check, CircleArrowDown, Copy, Extern
 import { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Bookmark, Collection } from "../../types";
-import { collectionColor } from "../../services/collections";
+import { collectionTint } from "../../services/collections";
+import { flatten, MAX_DEPTH, pathPrefix, searchTree, TreeNode, treeOf } from "../../services/collectionTree";
+import { CollectionIcon } from "../ui/CollectionIcon";
 import { coverOf, monogram, pendingFor, siteName, VIEW } from "../../services/cover";
 import { shortcut } from "../../services/keys";
 import { daysLeft } from "../../services/library";
@@ -11,7 +13,7 @@ import { pictureSrc } from "../../services/pictures";
 import { usePicture } from "../../hooks/usePicture";
 import { Icon, OfflineIcon } from "../icons";
 import { Hint } from "../ui/Hint";
-import { Menu, MenuEntry } from "../ui/Menu";
+import { Menu, MenuEntry, MenuItem } from "../ui/Menu";
 
 export interface BookmarkActions {
   open: (url: string) => void;
@@ -69,15 +71,23 @@ export function collectionEntries(
   t: TFunction,
   current?: number | null,
 ): MenuEntry[] {
+  // The tree, indented (2.19.0, frame N7); past eight a field finds one by name, its path before it.
+  const roots = treeOf(collections);
+  const entry = (node: TreeNode<Collection>, index: number, found = false): MenuItem => ({
+    id: `c${node.item.id}`,
+    label: node.item.name,
+    leading: <CollectionIcon collection={node.item} />,
+    indent: found ? 0 : Math.min(node.depth, MAX_DEPTH - 1),
+    prefix: found ? pathPrefix(roots, node.item.id) : undefined,
+    keys: !found && index < 9 ? String(index + 1) : undefined,
+    checked: current === node.item.id,
+    onSelect: () => onMove(node.item.id),
+  });
   return [
-    ...collections.map((c, index) => ({
-      id: `c${c.id}`,
-      label: c.name,
-      dot: collectionColor(c.id),
-      keys: index < 9 ? String(index + 1) : undefined,
-      checked: current === c.id,
-      onSelect: () => onMove(c.id),
-    })),
+    ...(collections.length > 8
+      ? [{ search: { label: t("card.findCollection"), results: (query: string) => searchTree(roots, query).map((n, i) => entry(n, i, true)) } }]
+      : []),
+    ...flatten(roots).map((n, i) => entry(n, i)),
     ...(collections.length ? ["separator" as const] : []),
     {
       id: "none",
@@ -134,7 +144,7 @@ export function menuEntries(b: Bookmark, collections: Collection[], actions: Boo
       keys: "O",
       onSelect: () => actions.offline(b),
     },
-    { id: "move", icon: Folder, label: t("card.moveTo"), submenu: moveEntries(b, collections, actions, t) },
+    { id: "move", icon: Folder, label: t("card.moveTo"), submenu: moveEntries(b, collections, actions, t), submenuWidth: 264 },
     { id: "tag", icon: TagIcon, label: t("card.addTag"), keys: "T", disabled: true, disabledHint: soon },
     "separator",
     { id: "refresh", icon: RefreshCw, label: t("card.refresh"), onSelect: () => actions.refresh(b) },
@@ -735,7 +745,7 @@ export const BookmarkRow = memo(function BookmarkRow({
         </div>
       )}
       <span data-collection className={`flex min-w-0 items-center gap-[7px] text-xs ${collection ? "text-icon" : "text-faint"}`}>
-        {collection && <span className="size-[7px] shrink-0 rounded-full" style={{ background: collectionColor(collection.id) }} />}
+        {collection && <span className="size-[7px] shrink-0 rounded-full" style={{ background: collectionTint(collection) }} />}
         <span className="truncate">{collection?.name ?? t("card.noCollection")}</span>
       </span>
       {/* Its own column, so the hearts stand in a line as in the grid (NP-086, variant A); none in the trash.
