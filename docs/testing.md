@@ -103,7 +103,7 @@ Each builds the extension, loads the unpacked build into a fresh profile and tal
 | `images` | — | Finds the CI images below in GHCR, or builds and pushes the missing ones. |
 | `build` | `void` | The release build (`build-linux-packages.mjs --stage compile`): stripped binaries, Tauri's raw `.deb` and the AppImage. `scripts/linux/check-glibc.sh` fails it if a binary needs a glibc newer than 2.41, the oldest of the matrix (Debian 13). |
 | `test` | `void` | The main tests: Rust tests, bindings unchanged, TypeScript and Vite build, Vitest, extension lint; then a development build for `deb`. |
-| `ui` | `ui` | Playwright UI without `@visual`, in Chromium. |
+| `ui` | `ui` | Playwright UI without `@visual`, in Chromium, in three shards (`--shard=N/3`; `fullyParallel` splits them by test). |
 | `deb-package` | `debian` | Packs the `.deb` (`--stage deb`) from the release build and uploads `linux-deb`. Does not wait for the development build or distribution tests. |
 | `deb` | `debian` | Checks `linux-deb` with `lintian`, `desktop-file-validate`, `appstreamcli validate`; the AppImage, the installed package, the native WebKitGTK tests, host registration with Debian's Chromium and Firefox ESR, Chrome and Edge, the extension smoke test, reinstall and removal. Needs the development build from `test`; skipped in releases. |
 | `rpm` | `fedora` | Packs the `.rpm` (`--stage rpm`, from Tauri's raw `.deb`, beside `deb-package`), `rpmlint`; the AppImage, the package with `dnf`, the native WebKitGTK tests, Fedora's Firefox and Chromium, reinstall and removal. |
