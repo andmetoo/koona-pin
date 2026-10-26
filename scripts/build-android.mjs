@@ -6,6 +6,9 @@
 //   bun scripts/build-android.mjs --check <apk>   only the 16 KB checks below, of an APK built already (CI)
 //   bun run build:android -- --play         with Supporter through Play Billing (feature store-play): its files
 //                                           are named koona-pin-<version>-play-<n>.* beside the others
+//   bun run build:android -- --site         the site's APK only, signed with the site's own key (ANDROID_SITE_*,
+//                                           required): koonapin-<version>-android-arm64.apk in site/ of the
+//                                           version's folder, for the GitHub Release (release.yml)
 // Needs the Android SDK with platform 37 and an NDK of r28 or newer (16 KB pages by default):
 // ANDROID_HOME and NDK_HOME, as ~/.zshrc sets them on the build Mac (doc: docs/building.md), JDK 17 or
 // newer (JAVA_HOME, else java and keytool on the PATH) and the Rust target aarch64-linux-android.
@@ -21,6 +24,9 @@
 // try the signing path and copies nothing, so no AAB of the upload key waits outside release/publish.
 // For a build with the upload key Gradle runs without its configuration cache and without a daemon, so
 // the password is neither stored in src-tauri/gen/android/.gradle nor kept in a process that outlives it.
+// The site's APK (--site) is signed with a key of its own, never Google's (ANDROID_SITE_KEYSTORE,
+// _PASSWORD, ANDROID_SITE_KEY_ALIAS; release.yml decodes it from the environment «release»): without it
+// --site fails rather than sign with the debug key. Gradle gets one of the two keys, never both.
 // A build for Play does not overwrite one of the same number: what was uploaded stays as it was.
 //
 // Build numbers as for iOS (build-ios.mjs): versionName is the app's version, versionCode the number of
@@ -134,17 +140,28 @@ if (checkOnly) {
   process.exit(0);
 }
 
-// The upload key: all three settings or none. The password reaches keytool and Gradle through the
-// environment only, never on a command line.
-const hasKey = Boolean(env.ANDROID_UPLOAD_KEYSTORE);
+// The Play build sells through Play Billing (NP-154); without --play the APK has no billing library and
+// no BILLING permission, which is checked. The site's APK (--site) is such a build, with its own key.
+const play = process.argv.includes("--play");
+const site = args.includes("--site");
 const signTest = args.includes("--sign-test");
+if (site && (play || signTest)) throw new Error("--site goes without --play and --sign-test");
+// The upload key (or the site's with --site): all three settings or none. The password reaches keytool
+// and Gradle through the environment only, never on a command line.
+const keyEnv = site ? "ANDROID_SITE_" : "ANDROID_UPLOAD_";
+const keyName = site ? "the site's key" : "the upload key";
+const keystore = `${keyEnv}KEYSTORE`;
+const keyPassword = `${keyEnv}KEYSTORE_PASSWORD`;
+const keyAlias = `${keyEnv}KEY_ALIAS`;
+const hasKey = Boolean(env[keystore]);
 if (signTest && !hasKey) throw new Error("--sign-test needs the upload key in .env (docs/building.md)");
+if (site && !hasKey) throw new Error("--site needs the site's key: ANDROID_SITE_KEYSTORE (docs/building.md)");
 if (hasKey) {
-  for (const name of ["ANDROID_UPLOAD_KEYSTORE_PASSWORD", "ANDROID_UPLOAD_KEY_ALIAS"]) {
-    if (!env[name]) throw new Error(`ANDROID_UPLOAD_KEYSTORE is set but ${name} is not (docs/building.md)`);
+  for (const name of [keyPassword, keyAlias]) {
+    if (!env[name]) throw new Error(`${keystore} is set but ${name} is not (docs/building.md)`);
   }
-  env.ANDROID_UPLOAD_KEYSTORE = path.resolve(root, env.ANDROID_UPLOAD_KEYSTORE);
-  if (!existsSync(env.ANDROID_UPLOAD_KEYSTORE)) throw new Error("ANDROID_UPLOAD_KEYSTORE names no file");
+  env[keystore] = path.resolve(root, env[keystore]);
+  if (!existsSync(env[keystore])) throw new Error(`${keystore} names no file`);
 }
 
 // The versionCode and whether this commit may reach Play: scripts/lib/store-build.mjs. Without the upload
@@ -152,20 +169,19 @@ if (hasKey) {
 const build = buildNumber(option("--build"));
 const { dirty, clean } = hasKey ? cleanMain() : { dirty: false, clean: false };
 const publishable = hasKey && clean;
-const upload = publishable || signTest;
-// The Play build sells through Play Billing (NP-154); without --play the APK has no billing library and
-// no BILLING permission, which is checked. Its files carry -play, so the one uploaded is never the other.
-const play = process.argv.includes("--play");
+// The site's APK is signed with its key whatever the commit: only where it goes depends on it.
+const upload = publishable || signTest || site;
+// The Play build's files carry -play, so the one uploaded is never the other.
 const suffix = play ? "-play" : "";
 const published = path.join(publish.android(version), `koona-pin-${version}${suffix}-${build}.aab`);
-if (publishable && existsSync(published)) {
+if (publishable && !site && existsSync(published)) {
   throw new Error(`${path.relative(root, published)} exists: Play has seen or may have seen that number. Pass --build with a higher one, `
     + "or delete the file if it was never uploaded");
 }
 if (!publishable) {
   const why = !hasKey ? "no upload key in .env" : dirty ? "the worktree has changes or new files" : "HEAD is not on origin/main";
-  console.warn(`Not for Play (${why}): a test build in ${path.relative(root, test.android(version))}, `
-    + `signed with the ${upload ? "upload key (--sign-test)" : "debug key"}.`);
+  console.warn(`Not for ${site ? "the release" : "Play"} (${why}): a test build in ${path.relative(root, test.android(version))}, `
+    + `signed with ${site ? "the site's key" : upload ? "the upload key (--sign-test)" : "the debug key"}.`);
 }
 
 rmSync(apk, { force: true });
@@ -176,16 +192,22 @@ process.on("exit", () => rmSync(work, { recursive: true, force: true }));
 // The versionCode through a config file: JSON on the command line loses its quotes on Windows.
 const config = path.join(work, "tauri.version.json");
 writeFileSync(config, JSON.stringify({ bundle: { android: { versionCode: Number(build) } } }));
-// Gradle signs with the upload key when the environment has it (gen/android/app/build.gradle.kts). Its
-// configuration cache would store the password and a daemon would keep it for hours, so neither then.
+// Gradle signs with the key the environment has (gen/android/app/build.gradle.kts): this build's key,
+// never the other one. Its configuration cache would store the password and a daemon would keep it for
+// hours, so neither then.
+const otherKey = site ? "ANDROID_UPLOAD_" : "ANDROID_SITE_";
+const keyless = Object.fromEntries(Object.entries(env)
+  .filter(([name]) => !name.startsWith(otherKey) && (upload || !name.startsWith(keyEnv))));
 const gradleEnv = upload
-  ? { ...env, GRADLE_OPTS: `${env.GRADLE_OPTS ?? ""} -Dorg.gradle.configuration-cache=false -Dorg.gradle.daemon=false`.trim() }
-  : Object.fromEntries(Object.entries(env).filter(([name]) => !name.startsWith("ANDROID_UPLOAD_")));
-const result = spawnSync("bun", ["run", "tauri", "android", "build", "--target", "aarch64", "--apk", "--aab", "--config", config, ...(play ? ["--features", "store-play"] : [])], {
+  ? { ...keyless, GRADLE_OPTS: `${env.GRADLE_OPTS ?? ""} -Dorg.gradle.configuration-cache=false -Dorg.gradle.daemon=false`.trim() }
+  : keyless;
+// The site's APK only: an AAB is for Play.
+const outputsWanted = site ? ["--apk"] : ["--apk", "--aab"];
+const result = spawnSync("bun", ["run", "tauri", "android", "build", "--target", "aarch64", ...outputsWanted, "--config", config, ...(play ? ["--features", "store-play"] : [])], {
   cwd: root, stdio: "inherit", env: gradleEnv,
 });
 if (result.status !== 0) throw new Error(`tauri android build failed with status ${result.status}`);
-for (const file of [apk, aab]) if (!existsSync(file)) throw new Error(`The build left no ${path.relative(root, file)}`);
+for (const file of site ? [apk] : [apk, aab]) if (!existsSync(file)) throw new Error(`The build left no ${path.relative(root, file)}`);
 
 // The checks. Certificates are compared by their SHA-256 and never printed: the repository is public.
 const failures = [];
@@ -206,31 +228,43 @@ const pemCertificates = (text) => [...text.matchAll(/-----BEGIN CERTIFICATE-----
   .map((m) => m[1].replace(/\s+/g, ""));
 // keytool in English whatever the system's language, so its errors read the same everywhere.
 const keytool = (...parts) => execFileSync(jdk("keytool"), ["-J-Duser.language=en", ...parts], { encoding: "utf8", env });
-const aabCertificates = pemCertificates(keytool("-printcert", "-rfc", "-jarfile", aab));
 // apksigner names the APK's signer by the SHA-256 of its certificate.
-const aabSigners = aabCertificates.map((base64) => createHash("sha256").update(Buffer.from(base64, "base64")).digest("hex"));
-if (spawnSync(jdk("jarsigner"), ["-verify", aab], { stdio: "ignore" }).status !== 0) failures.push("the AAB's signature does not verify");
+const sha256 = (base64) => createHash("sha256").update(Buffer.from(base64, "base64")).digest("hex");
 const apksigner = spawnSync(jdk("java"), ["-jar", path.join(buildTools(), "lib", "apksigner.jar"), "verify", "--print-certs", apk], { encoding: "utf8" });
 if (apksigner.status !== 0) failures.push("the APK's signature does not verify");
 const apkSigners = [...apksigner.stdout.matchAll(/certificate SHA-256 digest: ([0-9a-f]{64})/g)].map((m) => m[1]);
-if (aabSigners.length !== 1 || apkSigners.length !== 1) failures.push("the AAB and the APK must have one signer each");
-else if (aabSigners[0] !== apkSigners[0]) failures.push("the AAB and the APK are signed with different keys");
-if (upload) {
-  // The upload key's certificate as it is, compared with the AAB's.
-  const [key] = pemCertificates(keytool("-exportcert", "-rfc", "-keystore", env.ANDROID_UPLOAD_KEYSTORE, "-storetype", "pkcs12",
-    "-storepass:env", "ANDROID_UPLOAD_KEYSTORE_PASSWORD", "-alias", env.ANDROID_UPLOAD_KEY_ALIAS));
-  if (!key || aabCertificates[0] !== key) failures.push("the AAB is not signed with the upload key of ANDROID_UPLOAD_KEYSTORE");
+// This build's key's certificate as it is, compared with the AAB's (Play) or the APK's (the site).
+const keyCertificate = () => pemCertificates(keytool("-exportcert", "-rfc", "-keystore", env[keystore], "-storetype", "pkcs12",
+  "-storepass:env", keyPassword, "-alias", env[keyAlias]))[0];
+if (site) {
+  if (apkSigners.length !== 1) failures.push("the APK must have one signer");
+  else {
+    const key = keyCertificate();
+    if (!key || sha256(key) !== apkSigners[0]) failures.push(`the APK is not signed with the site's key of ${keystore}`);
+  }
+} else {
+  const aabCertificates = pemCertificates(keytool("-printcert", "-rfc", "-jarfile", aab));
+  const aabSigners = aabCertificates.map(sha256);
+  if (spawnSync(jdk("jarsigner"), ["-verify", aab], { stdio: "ignore" }).status !== 0) failures.push("the AAB's signature does not verify");
+  if (aabSigners.length !== 1 || apkSigners.length !== 1) failures.push("the AAB and the APK must have one signer each");
+  else if (aabSigners[0] !== apkSigners[0]) failures.push("the AAB and the APK are signed with different keys");
+  if (upload) {
+    const key = keyCertificate();
+    if (!key || aabCertificates[0] !== key) failures.push(`the AAB is not signed with the upload key of ${keystore}`);
+  }
 }
 // bundletool's validation of the AAB, which Play Console runs on upload. BUNDLETOOL names its
 // bundletool-all-<version>.jar (github.com/google/bundletool/releases); a build for Play needs it.
-if (env.BUNDLETOOL) {
+if (site) {
+  // No AAB.
+} else if (env.BUNDLETOOL) {
   const validated = spawnSync(jdk("java"), ["-jar", path.resolve(env.BUNDLETOOL), "validate", "--bundle", aab], { encoding: "utf8" });
   if (validated.status !== 0) failures.push(`bundletool validate fails: ${validated.stderr.trim().split("\n")[0]}`);
 } else if (publishable) failures.push("BUNDLETOOL is not set: a build for Play is validated with bundletool");
 else console.warn("BUNDLETOOL is not set: the AAB is not validated with bundletool");
 if (failures.length > 0) throw new Error(`The build fails its checks:\n- ${failures.join("\n- ")}`);
 console.log(`Checked: ${packageName} ${version} (${build}), SDK ${minSdk}–${targetSdk}, not debuggable, `
-  + `${upload ? "signed with the upload key" : "signed with the debug key"}${env.BUNDLETOOL ? ", bundletool validate passes" : ""}`);
+  + `signed with ${upload ? keyName : "the debug key"}${env.BUNDLETOOL && !site ? ", bundletool validate passes" : ""}`);
 check16k();
 checkBilling(apk, play ? "present" : "absent");
 if (signTest && !publishable) {
@@ -239,12 +273,18 @@ if (signTest && !publishable) {
 }
 
 // The files, and the checksums of the folder. Every build number of the version side by side, as for iOS.
-const target = publishable ? publish.android(version) : test.android(version);
+// The site's APK in a folder of its own, named as the release's other files and without a build number:
+// one per version, as the GitHub Release has it.
+const folder = publishable ? publish.android(version) : test.android(version);
+const target = site ? path.join(folder, "site") : folder;
 mkdirSync(target, { recursive: true });
 // An APK of the upload key is never copied: a phone with it refuses Play's updates.
-const names = publishable
-  ? { [aab]: `koona-pin-${version}${suffix}-${build}.aab` }
-  : { [aab]: `koona-pin-${version}${suffix}-${build}.aab`, [apk]: `koona-pin-${version}${suffix}-${build}-arm64.apk` };
+const names = site
+  ? { [apk]: `koonapin-${version}-android-arm64.apk` }
+  : publishable
+    ? { [aab]: `koona-pin-${version}${suffix}-${build}.aab` }
+    : { [aab]: `koona-pin-${version}${suffix}-${build}.aab`, [apk]: `koona-pin-${version}${suffix}-${build}-arm64.apk` };
 for (const [file, name] of Object.entries(names)) copyFileSync(file, path.join(target, name));
 writeChecksums(target);
-console.log(`Android ${version}${play ? " with Play Billing" : ""} (${build}), ${publishable ? "for Play" : "test"}: ${path.relative(root, target)}`);
+console.log(`Android ${version}${play ? " with Play Billing" : ""} (${build}), ${site ? "the site's APK" : publishable ? "for Play" : "test"}`
+  + `${site && !publishable ? " (test)" : ""}: ${path.relative(root, target)}`);

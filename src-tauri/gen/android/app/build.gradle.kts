@@ -15,8 +15,12 @@ val tauriProperties = Properties().apply {
 }
 
 // Google Play's upload key (NP-074a), passed in by scripts/build-android.mjs from .env: the keystore's path
-// and its password, the key's alias. Without it the release build is signed with the debug key, for testing.
+// and its password, the key's alias. The site's own key the same way (ANDROID_SITE_*, build:android
+// --site, release.yml): its APK is not Play's, so a phone moves between the two by reinstalling. The script
+// passes one of the two, never both. Without either the release build is signed with the debug key, for
+// testing.
 val uploadKeystore = System.getenv("ANDROID_UPLOAD_KEYSTORE")?.takeIf { it.isNotEmpty() }
+val siteKeystore = System.getenv("ANDROID_SITE_KEYSTORE")?.takeIf { it.isNotEmpty() }
 
 android {
     compileSdk = 37
@@ -29,6 +33,15 @@ android {
                 storePassword = System.getenv("ANDROID_UPLOAD_KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("ANDROID_UPLOAD_KEY_ALIAS")
                 keyPassword = System.getenv("ANDROID_UPLOAD_KEYSTORE_PASSWORD")
+            }
+        }
+        if (siteKeystore != null) {
+            create("site") {
+                storeFile = file(siteKeystore)
+                storeType = "pkcs12"
+                storePassword = System.getenv("ANDROID_SITE_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_SITE_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_SITE_KEYSTORE_PASSWORD")
             }
         }
     }
@@ -55,7 +68,8 @@ android {
             }
         }
         getByName("release") {
-            signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.findByName("site")
+                ?: signingConfigs.getByName("debug")
             optimization {
                enable = true
             }

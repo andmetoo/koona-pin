@@ -7,6 +7,7 @@ name: Release
 #     linux    linux.yml with release: true — compile and pack only; the tests ran in that CI
 #     macos    bun run build:macos: the .app in a ZIP and a .dmg, and with a Developer ID the .app.tar.gz of the
 #              updater (Apple signing only with its secrets)
+#     android  bun run build:android -- --site: the site's APK, signed with the site's own key (no key, no APK)
 #     draft    the Linux packages signed for the updater, a draft GitHub Release with the changelog's notes
 #              and these files
 #   workflow_dispatch from the tag, --ref v<version> (bun run release:windows starts it after uploading the
@@ -189,9 +190,110 @@ jobs:
           path: release/publish/macos/${{ steps.version.outputs.value }}/arm64/
           if-no-files-found: error
 
+  # The site's APK for phones without Google Play (bun run build:android -- --site): a release build for
+  # arm64, signed with the site's own key, not Google's. The key is a secret of the environment «release»
+  # (bun run ci:secrets ANDROID_SITE_); without it the release goes without an APK, with a warning, and is
+  # never signed with the debug key. Into the GitHub Release only: koona.app does not offer it yet.
+  android:
+    name: Android / arm64
+    needs: verify
+    environment: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      built: ${{ steps.key.outputs.key }}
+    env:
+      # As ci.yml: the NDK the Mac builds with, the SDK platform of compileSdk.
+      NDK_VERSION: 30.0.16248370
+    steps:
+      # Whether there is a key, without the key itself in the job's environment.
+      - name: The site's key configured?
+        id: key
+        env:
+          ANDROID_SITE_KEYSTORE_BASE64: ${{ secrets.ANDROID_SITE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$ANDROID_SITE_KEYSTORE_BASE64" ]; then
+            echo "key=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::ANDROID_SITE_KEYSTORE_BASE64 is not in the environment «release»: this release has no Android APK (bun run ci:secrets ANDROID_SITE_)"
+            echo "key=false" >> "$GITHUB_OUTPUT"
+          fi
+      # Full history: the versionCode is the commit count, and build-android.mjs checks the tag is on main.
+      - uses: actions/checkout@v7
+        if: steps.key.outputs.key == 'true'
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        if: steps.key.outputs.key == 'true'
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/cache@v6
+        if: steps.key.outputs.key == 'true'
+        with:
+          path: ~/.bun/install/cache
+          key: bun-android-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-android-
+      - name: Rust from rust-toolchain.toml, with the Android target
+        if: steps.key.outputs.key == 'true'
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup target add aarch64-linux-android
+      # No Rust cache: main has no release build for Android, and a tag's cache serves that tag only.
+      - uses: actions/setup-java@v5
+        if: steps.key.outputs.key == 'true'
+        with:
+          distribution: temurin
+          java-version: '21'
+      # The open «basic» provider, read only here (it saves from main).
+      - uses: gradle/actions/setup-gradle@v6
+        if: steps.key.outputs.key == 'true'
+        with:
+          cache-provider: basic
+      - name: NDK and SDK platform from the SDK manager
+        if: steps.key.outputs.key == 'true'
+        run: |
+          (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" "platforms;android-37.0"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+      - if: steps.key.outputs.key == 'true'
+        run: bun install --frozen-lockfile
+      # The keystore as a file of this run, outside the repository (build-android.mjs requires a clean
+      # worktree for a release); its path only goes to the environment.
+      - name: The site's key into a file
+        if: steps.key.outputs.key == 'true'
+        env:
+          ANDROID_SITE_KEYSTORE_BASE64: ${{ secrets.ANDROID_SITE_KEYSTORE_BASE64 }}
+        run: |
+          printf '%s' "$ANDROID_SITE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/site.p12"
+          echo "ANDROID_SITE_KEYSTORE=$RUNNER_TEMP/site.p12" >> "$GITHUB_ENV"
+      - name: Release build of the site's APK
+        if: steps.key.outputs.key == 'true'
+        env:
+          ANDROID_SITE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_SITE_KEYSTORE_PASSWORD }}
+          ANDROID_SITE_KEY_ALIAS: ${{ secrets.ANDROID_SITE_KEY_ALIAS }}
+          KOONAPIN_FEEDBACK_URL: ${{ secrets.KOONAPIN_FEEDBACK_URL }}
+          KOONAPIN_SYNC_URL: ${{ secrets.KOONAPIN_SYNC_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          PADDLE_ENVIRONMENT: ${{ secrets.PADDLE_ENVIRONMENT }}
+        run: bun run build:android -- --site
+      - name: Remove the key's file
+        if: always() && steps.key.outputs.key == 'true'
+        run: rm -f "$RUNNER_TEMP/site.p12"
+      - id: version
+        if: steps.key.outputs.key == 'true'
+        run: echo "value=${TAG#v}" >> "$GITHUB_OUTPUT"
+      # Only a build of the tag on main lands in release/publish: anything else fails here.
+      - uses: actions/upload-artifact@v7
+        if: steps.key.outputs.key == 'true'
+        with:
+          name: koonapin-android-arm64
+          path: release/publish/android/${{ steps.version.outputs.value }}/site/
+          if-no-files-found: error
+
   draft:
     name: Draft release
-    needs: [verify, linux, macos]
+    needs: [verify, linux, macos, android]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # The update key lives here only: the environment «release» opens to tags v* (Settings → Environments),
@@ -214,6 +316,11 @@ jobs:
         with:
           name: koonapin-macos-arm64
           path: dist/macos
+      - uses: actions/download-artifact@v7
+        if: needs.android.outputs.built == 'true'
+        with:
+          name: koonapin-android-arm64
+          path: dist/android
       # The Tauri CLI signs (tauri signer sign), bound to the version (requireSignedVersion).
       - run: bun install --frozen-lockfile
       - name: Sign the Linux packages and the Mac's for the updater
@@ -257,6 +364,13 @@ jobs:
             if [ -f "$g" ]; then cp "$g" upload/; fi
           done
           cp dist/macos/SHA256SUMS.txt upload/SHA256SUMS-macos.txt
+          # The site's APK, when the environment has its key (the android job).
+          if [ -d dist/android ]; then
+            apk="koonapin-${version}-android-arm64.apk"
+            test -f "dist/android/$apk" || { echo "::error::$apk is not in the Android artifact"; exit 1; }
+            cp "dist/android/$apk" upload/
+            cp dist/android/SHA256SUMS.txt upload/SHA256SUMS-android.txt
+          fi
           ls -l upload
           bun scripts/lib/release-notes.mjs "$version" > notes.md
       # A draft may be there already: release:windows creates it when it comes first, and a rerun finds
