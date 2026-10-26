@@ -8,7 +8,7 @@ The App Bundle is `release/publish/android/<version>/koona-pin-<version>-<build>
 
 | Field | Value |
 | --- | --- |
-| App name (30) | `Koona Pin: Bookmark Library` |
+| App name (30) | `Koona Pin: Save & Read Later` |
 | Category | Productivity |
 | Tags | Bookmarks, Productivity, News reader (pick from Play's list) |
 | Website | https://koona.app/pin/ |
