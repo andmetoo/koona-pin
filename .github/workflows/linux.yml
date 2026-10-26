@@ -198,13 +198,20 @@ jobs:
           if-no-files-found: error
 
   # Playwright UI without Rust. Screenshot baselines (@visual) depend on font rendering and are checked on
-  # local runs only (docs/testing.md).
+  # local runs only (docs/testing.md). Three shards of both projects (fullyParallel splits them by test): one
+  # job took 16 minutes. The image brings the packages and Chromium, so a shard starts in seconds.
   ui:
+    # A plain name: GitHub adds the matrix in brackets, «Playwright UI (1)».
     name: Playwright UI
     needs: images
     if: ${{ !inputs.release }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      # Every shard reports its own failures.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     container:
       image: ${{ needs.images.outputs.ui }}
       credentials:
@@ -216,11 +223,11 @@ jobs:
       - name: bun install
         run: su dev -s /bin/bash -c "bun install --frozen-lockfile"
       - name: Playwright UI, functional, as «dev»
-        run: su dev -s /bin/bash -c 'bun run test:ui -- --grep-invert "@visual"'
+        run: su dev -s /bin/bash -c 'bun run test:ui -- --grep-invert "@visual" --shard=${{ matrix.shard }}/3'
       - uses: actions/upload-artifact@v7
         if: ${{ failure() }}
         with:
-          name: ui-test-results
+          name: ui-test-results-${{ matrix.shard }}
           path: |
             test-results/
             playwright-report/
