@@ -2745,12 +2745,13 @@ test("Supporter: a payment with the email of an existing account signs in only w
   await expect(row).toHaveAttribute("data-plan-row", "supporter");
 });
 
-test("Supporter: a one-time purchase bought again says the payment is refunded, never thanks, signed in or by code", async ({ page }) => {
-  const row = page.locator("[data-plan-row]");
-  for (const [kind, title, text] of [
-    ["free", "You already have the one-time purchase", "The account anna@example.com already has it, so this payment is refunded"],
-    ["existing", "You already have the one-time purchase", "The email of this payment is an account that already has it, so the payment is refunded"],
-  ] as const) {
+// One test per case: both in one test, each waiting for the demo's payment, came near the 30-second limit on CI.
+for (const [kind, title, text] of [
+  ["free", "You already have the one-time purchase", "The account anna@example.com already has it, so this payment is refunded"],
+  ["existing", "You already have the one-time purchase", "The email of this payment is an account that already has it, so the payment is refunded"],
+] as const) {
+  test(`Supporter: a one-time purchase bought again (${kind}) says the payment is refunded, never thanks, signed in or by code`, async ({ page }) => {
+    const row = page.locator("[data-plan-row]");
     await page.evaluate((k) => {
       localStorage.setItem("koonapin.demo.supporter", k);
       localStorage.setItem("koonapin.demo.paidAgain", "on");
@@ -2769,9 +2770,8 @@ test("Supporter: a one-time purchase bought again says the payment is refunded, 
     await expect(page.getByRole("dialog", { name: "Thank you for supporting Koona Pin" })).toHaveCount(0);
     await expect(page.getByRole("dialog", { name: "Payment received" })).toHaveCount(0);
     expect(Math.round((await done.boundingBox())!.height), kind).toBeLessThanOrEqual(height);
-    await page.keyboard.press("Escape");
-  }
-});
+  });
+}
 
 test("Supporter: a repeat said for an earlier payment never labels a new one", async ({ page }) => {
   const row = page.locator("[data-plan-row]");

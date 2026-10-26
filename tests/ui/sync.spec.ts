@@ -206,44 +206,53 @@ test("Sync: the main computer allows or denies handing over (frame 12)", async (
 });
 
 // The words of each banner are checked in src/components/commercial/syncText.test.ts.
-test("Sync: every state has its banner and the action it offers (frame 11)", async ({ page }) => {
-  for (const [state, id, action] of [
-    ["offline", "paused:offline", null],
-    ["others_offline", "online:others_offline", null],
-    ["added", "notice:device_added", "Review"],
-    ["skew", "paused:clock_skew", "Try again"],
-    ["update", "paused:update_needed", "Update"],
-    ["started_over", "notice:started_over", "Join…"],
-    ["revoked", "paused:revoked", "Add again"],
-    ["signed_out", "paused:signed_out", "Sign in…"],
-    ["syncing", "syncing", null],
-  ] as const) {
+// One test per state: eleven app loads in one test came within seconds of its 30-second limit on CI.
+for (const [state, id, action] of [
+  ["offline", "paused:offline", null],
+  ["others_offline", "online:others_offline", null],
+  ["added", "notice:device_added", "Review"],
+  ["skew", "paused:clock_skew", "Try again"],
+  ["update", "paused:update_needed", "Update"],
+  ["started_over", "notice:started_over", "Join…"],
+  ["revoked", "paused:revoked", "Add again"],
+  ["signed_out", "paused:signed_out", "Sign in…"],
+  ["syncing", "syncing", null],
+] as const) {
+  test(`Sync: the state «${state}» has its banner and the action it offers (frame 11)`, async ({ page }) => {
     await start(page, state);
     const dialog = await openSync(page);
     const banner = dialog.locator(`[data-sync-banner="${id}"]`);
-    await expect(banner, state).toBeVisible();
-    if (action) await expect(banner.getByRole("button", { name: action }), state).toBeVisible();
-    else await expect(banner.getByRole("button"), state).toHaveCount(0);
-  }
-  // The newer version is named by the computer that has it.
+    await expect(banner).toBeVisible();
+    if (action) await expect(banner.getByRole("button", { name: action })).toBeVisible();
+    else await expect(banner.getByRole("button")).toHaveCount(0);
+  });
+}
+
+test("Sync: the newer version is named by the computer that has it (frame 11)", async ({ page }) => {
   await start(page, "update");
-  let dialog = await openSync(page);
+  const dialog = await openSync(page);
   await expect(dialog.locator('[data-sync-banner="paused:update_needed"]')).toContainText("Home iMac has a newer version.");
   await expect(dialog.locator('[data-sync-device="Office laptop"]')).toContainText("Windows · Koona Pin 0.12.0");
-  // «Review» marks the computer added and the notice goes.
+});
+
+test("Sync: «Review» marks the computer added and the notice goes (frame 11)", async ({ page }) => {
   await start(page, "added");
-  dialog = await openSync(page);
+  const dialog = await openSync(page);
   await dialog.locator('[data-sync-banner="notice:device_added"]').getByRole("button", { name: "Review" }).click();
   await expect(dialog.locator('[data-sync-banner="notice:device_added"]')).toHaveCount(0);
   await expect(dialog.locator('[data-sync-device="Studio PC"]')).toHaveAttribute("data-highlight", "true");
-  // «Join…» pairs this computer with the new main one.
+});
+
+test("Sync: «Join…» pairs this computer with the new main one (frame 11)", async ({ page }) => {
   await start(page, "started_over");
-  dialog = await openSync(page);
+  const dialog = await openSync(page);
   await dialog.getByRole("button", { name: "Join…" }).click();
   await expect(page.getByRole("dialog", { name: "Waiting for Studio PC" }).locator("[data-sync-code]")).toHaveText("305 118");
-  // A plan that ends within a month: «Sync stops on…».
+});
+
+test("Sync: a plan that ends within a month says «Sync stops on…» (frame 11)", async ({ page }) => {
   await start(page, "on", "canceling");
-  dialog = await openSync(page);
+  const dialog = await openSync(page);
   await expect(dialog.locator('[data-sync-banner="plan_ends"]')).toContainText("Sync stops on");
 });
 
