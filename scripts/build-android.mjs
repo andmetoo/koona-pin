@@ -48,7 +48,7 @@ import path from "node:path";
 import { checkBilling } from "./check-apk-billing.mjs";
 import { args, buildNumber, cleanMain, option, unzip, writeChecksums } from "./lib/store-build.mjs";
 import { loadEnv } from "./lib/env.mjs";
-import { publish, root, test } from "./lib/paths.mjs";
+import { publish, root, shown, test } from "./lib/paths.mjs";
 
 const env = loadEnv();
 const sdk = env.ANDROID_HOME;
@@ -175,7 +175,7 @@ const upload = publishable || signTest || site;
 const suffix = play ? "-play" : "";
 const published = path.join(publish.android(version), `koona-pin-${version}${suffix}-${build}.aab`);
 if (publishable && !site && existsSync(published)) {
-  throw new Error(`${path.relative(root, published)} exists: Play has seen or may have seen that number. Pass --build with a higher one, `
+  throw new Error(`${shown(published)} exists: Play has seen or may have seen that number. Pass --build with a higher one, `
     + "or delete the file if it was never uploaded");
 }
 if (!publishable) {
@@ -287,4 +287,4 @@ const names = site
 for (const [file, name] of Object.entries(names)) copyFileSync(file, path.join(target, name));
 writeChecksums(target);
 console.log(`Android ${version}${play ? " with Play Billing" : ""} (${build}), ${site ? "the site's APK" : publishable ? "for Play" : "test"}`
-  + `${site && !publishable ? " (test)" : ""}: ${path.relative(root, target)}`);
+  + `${site && !publishable ? " (test)" : ""}: ${shown(target)}`);

@@ -7,7 +7,7 @@
 // main's: once squash-merged, main counts one more, and the stores refuse its next builds as not higher
 // than the branch's upload. So only a clean commit of origin/main goes to a store; anything else is a
 // test build (release/test/).
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -60,20 +60,5 @@ export function buildNumber(given) {
   return build;
 }
 
-/**
- * Whether HEAD is a clean commit of origin/main as it is now: origin/main is fetched first (else a
- * commit of main reads as a branch's), and a new file that Git does not ignore is a change too: the build
- * has it, the commit does not.
- */
-export function cleanMain() {
-  const fetched = spawnSync("git", ["fetch", "--quiet", "origin", "main"], {
-    cwd: root, stdio: ["ignore", "ignore", "pipe"], encoding: "utf8", timeout: 60_000, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
-  });
-  if (fetched.status !== 0) {
-    console.warn(`Could not fetch origin/main (${fetched.error?.message ?? fetched.stderr.trim().split("\n")[0]}): `
-      + "the check below uses the local origin/main, which may be out of date.");
-  }
-  const onMain = spawnSync("git", ["merge-base", "--is-ancestor", "HEAD", "origin/main"], { cwd: root }).status === 0;
-  const dirty = Boolean(git("status", "--porcelain", "--untracked-files=normal"));
-  return { onMain, dirty, clean: onMain && !dirty };
-}
+/** Whether HEAD is a clean commit of origin/main (fetched first): kept with the paths that depend on it. */
+export { cleanMain } from "./paths.mjs";

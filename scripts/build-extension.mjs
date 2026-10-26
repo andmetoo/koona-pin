@@ -25,7 +25,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { dev, publish, root, test } from "./lib/paths.mjs";
+import { dev, publish, root, shown, test } from "./lib/paths.mjs";
 
 const source = path.join(root, "extension", "src");
 const { VERSION } = await import(pathToFileURL(path.join(source, "version.js")).href);
@@ -221,7 +221,6 @@ export async function buildExtension({ log = console.log } = {}) {
     await write(archive, zip([...files, { name: "manifest.json", data: json(manifest(browser)) }]));
     result.packages[browser] = archive;
   }
-  const shown = (file) => path.relative(root, file);
   log(`Koona Pin extension ${VERSION}, development id ${result.devId}`);
   for (const browser of [...browsers, ...localBrowsers]) log(`  ${browser}, unpacked: ${shown(result.unpacked[browser])}`);
   for (const browser of ["chrome", "edge"]) log(`  ${browser}, for the store: ${shown(result.packages[browser])}`);

@@ -64,7 +64,8 @@ export function servePreviews(host = "127.0.0.1") {
   });
 }
 
-export const escapeHtml = (text) => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+/** Text for an element's content (not an attribute): as site-screenshots-macos.mjs always escaped it. */
+export const escapeHtml = (text) => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
 /** Paragraphs as HTML; one that starts with «## » is a heading. */
 export const html = (paragraphs) =>

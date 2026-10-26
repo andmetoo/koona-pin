@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { publish, root } from "./lib/paths.mjs";
+import { publish, root, shown } from "./lib/paths.mjs";
 
 /** Who answers for the package on the AUR, as in the .deb and .rpm (Р-54). */
 const MAINTAINER = "Koona <support@koona.app>";
@@ -54,4 +54,4 @@ const srcinfo = [
 await mkdir(out, { recursive: true });
 await writeFile(path.join(out, "PKGBUILD"), pkgbuild);
 await writeFile(path.join(out, ".SRCINFO"), srcinfo);
-console.log(`${path.relative(root, out) || out}: PKGBUILD and .SRCINFO of koonapin-bin ${version}-1\n${path.basename(deb)} sha256 ${sha256}`);
+console.log(`${shown(out)}: PKGBUILD and .SRCINFO of koonapin-bin ${version}-1\n${path.basename(deb)} sha256 ${sha256}`);

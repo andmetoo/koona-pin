@@ -29,7 +29,7 @@ import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs
 import path from "node:path";
 import { changeList } from "./lib/release-notes.mjs";
 import { SITE } from "./lib/site.mjs";
-import { publish, root, test } from "./lib/paths.mjs";
+import { publish, root, shown, test } from "./lib/paths.mjs";
 import { hasUpdateKey, signFile } from "./lib/sign.mjs";
 
 const dotenv = path.join(root, ".env");
@@ -77,7 +77,7 @@ if (only !== "linux") {
   const [installer, ...more] = await find(windows, (f) => f.endsWith("-setup.exe") && f.includes(`_${version}_`));
   if (!installer || more.length) {
     const how = unsignedWindows ? "bun run build:installer" : "bun run build:installer -- --sign";
-    console.error(`Expected one ${unsignedWindows ? "unsigned" : "signed"} installer of ${version} in ${path.relative(root, windows)}: ${how}`);
+    console.error(`Expected one ${unsignedWindows ? "unsigned" : "signed"} installer of ${version} in ${shown(windows)}: ${how}`);
     process.exit(1);
   }
   if (unsignedWindows) console.warn(`The installer of ${version} has no Certum signature: a test release, not one for people.`);
@@ -89,7 +89,7 @@ if (only !== "windows") {
   const rpm = (await find(publish.linux(version), (f) => f === `koonapin-${version}-1.x86_64.rpm`))[0];
   const appimage = (await find(publish.linux(version), (f) => f === `koonapin-${version}-x86_64.AppImage`))[0];
   if (!deb || !rpm || !appimage) {
-    console.error(`Expected the .deb, the .rpm and the AppImage of ${version} in ${path.relative(root, publish.linux(version))}: bun run build:linux`);
+    console.error(`Expected the .deb, the .rpm and the AppImage of ${version} in ${shown(publish.linux(version))}: bun run build:linux`);
     process.exit(1);
   }
   // No plain linux-x86_64: an app with an unknown bundle type must not get a package it cannot install.
@@ -108,7 +108,7 @@ if (only !== "windows") {
   const mac = publish.macos(version, "arm64");
   const [update] = await find(mac, (f) => f === `koonapin-${version}-macos-arm64.app.tar.gz`);
   if (update) packages.push([["macos-aarch64"], mac, update]);
-  else console.warn(`No koonapin-${version}-macos-arm64.app.tar.gz in ${path.relative(root, mac)}: latest.json without macOS`);
+  else console.warn(`No koonapin-${version}-macos-arm64.app.tar.gz in ${shown(mac)}: latest.json without macOS`);
 }
 
 const fresh = new Set();
@@ -127,7 +127,7 @@ const sums = [];
 for (const [targets, folder, file] of packages) {
   const name = published(file);
   if (fresh.has(file)) {
-    console.log(`kept the signature of ${path.relative(root, path.join(folder, file))}`);
+    console.log(`kept the signature of ${shown(path.join(folder, file))}`);
     await take(targets, folder, file, name);
     continue;
   }
@@ -135,7 +135,7 @@ for (const [targets, folder, file] of packages) {
     console.error(`Signing ${file} failed (the key or its password).`);
     process.exit(1);
   }
-  console.log(`signed ${path.relative(root, path.join(folder, file))}`);
+  console.log(`signed ${shown(path.join(folder, file))}`);
   await take(targets, folder, file, name);
 }
 
@@ -156,7 +156,7 @@ const latest = {
 };
 await writeFile(path.join(out, "latest.json"), `${JSON.stringify(latest, null, 2)}\n`);
 await writeFile(path.join(out, "SHA256SUMS.txt"), `${sums.join("\n")}\n`);
-console.log(`\n${path.relative(root, path.join(out, "latest.json"))}: ${Object.keys(platforms).join(", ")}`);
+console.log(`\n${shown(path.join(out, "latest.json"))}: ${Object.keys(platforms).join(", ")}`);
 // Entries of an earlier version cannot be carried over: each signature is bound to its version. The
 // other system finds no entry and stays up to date until a release has its package.
 if (only) console.log(`Only ${only}: the other system sees no update in this release.`);

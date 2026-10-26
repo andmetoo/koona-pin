@@ -23,7 +23,7 @@ import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { loadEnv } from "./lib/env.mjs";
-import { publish, root, test } from "./lib/paths.mjs";
+import { publish, root, shown, test } from "./lib/paths.mjs";
 
 if (process.platform !== "darwin") throw new Error("Build this on a Mac or the macOS Actions runner");
 const testBuild = process.argv.includes("--test");
@@ -287,4 +287,4 @@ const dirty = git("status", "--porcelain", "--untracked-files=no") ? " with unco
 const signature = identity ? `signed with Developer ID, ${notarize ? "notarized" : "not notarized"}, with Safari` : "unsigned (ad hoc), not notarized, without Safari";
 writeFileSync(path.join(output, "SHA256SUMS.txt"),
   `${sums.join("\n")}\n\n${signature}; commit ${git("rev-parse", "--short", "HEAD")}${dirty}; built ${new Date().toISOString()}\n`);
-console.log(`\n${sums.map((line) => line.replace(/^\S+ {2}/, `${path.relative(root, output)}/`)).join("\n")}\n${identity ? signature : "UNSIGNED (ad hoc): Gatekeeper needs the Mac owner's approval"}`);
+console.log(`\n${sums.map((line) => line.replace(/^\S+ {2}/, `${shown(output)}/`)).join("\n")}\n${identity ? signature : "UNSIGNED (ad hoc): Gatekeeper needs the Mac owner's approval"}`);

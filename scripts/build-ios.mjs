@@ -41,7 +41,7 @@ import path from "node:path";
 import { args, buildNumber, cleanMain, option, writeChecksums } from "./lib/store-build.mjs";
 import { loadEnv } from "./lib/env.mjs";
 import { app, appGroup, appleProject, bundleId, extensions, requireLlvmTools, version } from "./lib/ios.mjs";
-import { publish, root, test } from "./lib/paths.mjs";
+import { publish, root, shown, test } from "./lib/paths.mjs";
 
 if (process.platform !== "darwin") throw new Error("Build this on a Mac with Xcode");
 const validate = args.includes("--validate");
@@ -285,7 +285,7 @@ const dsyms = path.join(archive, "dSYMs");
 if (!existsSync(dsyms) || readdirSync(dsyms).length === 0) throw new Error("The archive has no dSYMs");
 execFileSync("ditto", ["-c", "-k", "--keepParent", dsyms, symbols]);
 writeChecksums(target);
-console.log(`iOS ${version} (${build}), App Store: ${path.relative(root, ipa)}`);
+console.log(`iOS ${version} (${build}), App Store: ${shown(ipa)}`);
 
 if (validate) altool("--validate-app", ipa);
 if (upload) altool("--upload-package", ipa);
