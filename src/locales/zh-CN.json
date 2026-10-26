@@ -200,7 +200,8 @@
     "saveOffline": "保存以便离线阅读",
     "removeOffline": "删除离线副本",
     "saveOfflineShort": "离线保存",
-    "savedOffline": "已离线保存"
+    "savedOffline": "已离线保存",
+    "editNote": "编辑笔记"
   },
   "selection": {
     "label": "所选书签",

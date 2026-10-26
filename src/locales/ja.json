@@ -200,7 +200,8 @@
     "saveOffline": "オフライン用に保存",
     "removeOffline": "オフラインコピーを削除",
     "saveOfflineShort": "オフライン保存",
-    "savedOffline": "オフライン保存済み"
+    "savedOffline": "オフライン保存済み",
+    "editNote": "メモを編集"
   },
   "selection": {
     "label": "選択したブックマーク",

@@ -115,6 +115,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     narrow,
     narrowed,
     navigate,
+    notesRequest,
     notice,
     notifications,
     offeredName,
@@ -206,6 +207,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     <BookmarkEditor
       key={editing.id}
       bookmark={editing}
+      notesRequest={notesRequest}
       collections={library.collections}
       onOpen={actions.open}
       onCancel={closeEditor}

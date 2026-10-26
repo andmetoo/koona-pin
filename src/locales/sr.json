@@ -220,7 +220,8 @@
     "saveOffline": "Сачувај за читање ван мреже",
     "removeOffline": "Уклони копију ван мреже",
     "saveOfflineShort": "Сачувај ван мреже",
-    "savedOffline": "Сачувано ван мреже"
+    "savedOffline": "Сачувано ван мреже",
+    "editNote": "Измени белешку"
   },
   "selection": {
     "label": "Изабрани обележивачи",

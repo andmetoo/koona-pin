@@ -200,7 +200,8 @@
     "saveOffline": "오프라인용으로 저장",
     "removeOffline": "오프라인 사본 삭제",
     "saveOfflineShort": "오프라인 저장",
-    "savedOffline": "오프라인 저장됨"
+    "savedOffline": "오프라인 저장됨",
+    "editNote": "메모 편집"
   },
   "selection": {
     "label": "선택한 북마크",

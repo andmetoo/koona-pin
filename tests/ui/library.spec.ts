@@ -2062,6 +2062,75 @@ test("editor: empty title is marked, tags are chips, the collection clears, Ctrl
   await page.getByRole("menuitem", { name: "Edit…" }).click();
   await expect(page.locator("dialog[open][data-drawer]").getByRole("textbox", { name: "Title" })).toBeFocused();
 });
+test("the note marker: only with a note, the note on hover above a card and under a row, a click edits the note (#410)", async ({ page }) => {
+  const marker = (id: number) => page.locator(`[data-bookmark-id="${id}"] [data-note-marker]`);
+  const peek = page.locator("[data-note-peek]").filter({ hasText: "Reread before the next project." });
+  await page.mouse.move(0, 0);
+  await expect(marker(1)).toBeVisible();
+  await expect(marker(1)).toHaveAccessibleName("Edit note");
+  // The note reaches a screen reader without the hover too.
+  await expect(marker(1)).toHaveAccessibleDescription("Reread before the next project.");
+  for (const id of [2, 3, 4, 5, 6]) await expect(marker(id)).toHaveCount(0);
+  await expect(peek).toHaveCount(0);
+
+  // Grid: hovered, the note shows above the marker; the pointer leaving hides it.
+  await marker(1).hover();
+  await expect(peek).toBeVisible();
+  expect((await peek.boundingBox())!.y + (await peek.boundingBox())!.height).toBeLessThanOrEqual((await marker(1).boundingBox())!.y);
+  await page.mouse.move(0, 0);
+  await expect(peek).toHaveCount(0);
+
+  // Tab onto the marker shows the note at once, Esc hides it.
+  await page.locator('[data-bookmark-id="1"] [data-offline-save]').focus();
+  await page.keyboard.press("Tab");
+  await expect(marker(1)).toBeFocused();
+  await expect(peek).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(peek).toHaveCount(0);
+
+  // A click opens the editor in the note, not in the title.
+  await marker(1).click();
+  const editor = page.locator("form").filter({ has: page.getByRole("textbox", { name: "Title" }) });
+  const noteField = editor.getByRole("textbox", { name: "Note" });
+  await expect(noteField).toBeFocused();
+  await expect(noteField).toHaveValue("Reread before the next project.");
+  // Saved from the keyboard: the focus is back on the marker, and the note does not pop up by itself.
+  await page.keyboard.type(" Twice.");
+  await page.keyboard.press("ControlOrMeta+Enter");
+  await expect(editor).toHaveCount(0);
+  await expect(marker(1)).toBeFocused();
+  await expect(page.locator("[data-note-peek]")).toHaveCount(0);
+
+  // Open already (Edit… of the card's menu), a click on the marker moves the caret to the note.
+  await page.locator('[data-bookmark-id="1"]').focus();
+  await page.keyboard.press("Shift+F10");
+  await page.getByRole("menuitem", { name: "Edit…" }).click();
+  await expect(editor.getByRole("textbox", { name: "Title" })).toBeFocused();
+  await marker(1).click();
+  await expect(noteField).toBeFocused();
+  // The note cleared: the marker goes, and the focus lands on the card, not on the page.
+  await noteField.fill("");
+  await page.keyboard.press("ControlOrMeta+Enter");
+  await expect(editor).toHaveCount(0);
+  await expect(marker(1)).toHaveCount(0);
+  await expect(page.locator('[data-bookmark-id="1"]')).toBeFocused();
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(marker(1)).toBeVisible();
+
+  // List: the note shows under the marker.
+  await page.getByRole("button", { name: "List", exact: true }).click();
+  await marker(1).hover();
+  await expect(peek).toBeVisible();
+  expect((await peek.boundingBox())!.y).toBeGreaterThanOrEqual((await marker(1).boundingBox())!.y + (await marker(1).boundingBox())!.height);
+
+  // Moved to the drawer, an editor opened from the marker does not pull the caret back to the note.
+  await marker(1).click();
+  await expect(noteField).toBeFocused();
+  await editor.getByRole("textbox", { name: "Title" }).click();
+  await page.setViewportSize({ width: 800, height: 550 });
+  const drawer = page.locator("dialog[open][data-drawer]");
+  await expect(drawer.getByRole("textbox", { name: "Title" })).toBeFocused();
+});
 test("the heart: one per card and row, seen without hover, one click, Ctrl Z, keyboard, Ctrl click selects (NP-086)", async ({ page, browserName }) => {
   const favorites = page.getByRole("button", { name: /^Favorites \d/ });
   const heart = (id: number) => page.locator(`[data-bookmark-id="${id}"] [data-favorite]`);

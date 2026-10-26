@@ -210,7 +210,8 @@
     "saveOffline": "Save for offline",
     "removeOffline": "Remove offline copy",
     "saveOfflineShort": "Save offline",
-    "savedOffline": "Saved offline"
+    "savedOffline": "Saved offline",
+    "editNote": "Edit note"
   },
   "selection": {
     "label": "Selected bookmarks",
