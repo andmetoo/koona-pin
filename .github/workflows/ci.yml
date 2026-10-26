@@ -186,8 +186,8 @@ jobs:
             -o "$RUNNER_TEMP/KoonaPinThumbnail" src-tauri/macos/thumbnail/ThumbnailProvider.swift
 
   # The phone builds (NP-151): that main still builds for Android and the iOS Simulator, debug, one
-  # architecture each. Nothing is signed for a store, run or uploaded; the checks on emulators and phones
-  # are made by hand (docs/testing.md).
+  # architecture each. Nothing is signed for a store or run; the checks on emulators and phones are made by
+  # hand (docs/testing.md). The site's debug APK is kept for testers, not for users (see its step).
   android:
     name: Android / build
     needs: changes
@@ -221,6 +221,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      # Gradle's distribution and dependencies, downloaded on every run before (1.5 minutes). The open
+      # «basic» provider (actions/cache), not the default proprietary one; saved from main only.
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
       - name: NDK and SDK platform from the SDK manager
         run: |
           # `yes` dies of SIGPIPE when sdkmanager closes stdin; that must not fail the step under pipefail.
@@ -229,8 +234,9 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" "platforms;android-37.0"
           echo "NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
       - run: bun install --frozen-lockfile
+      # The APK only: an AAB, Tauri's default beside it, cost a second Rust build through Gradle.
       - name: Android debug build (arm64)
-        run: bun run tauri android build --debug --target aarch64
+        run: bun run tauri android build --debug --target aarch64 --apk
       # The plugin's Kotlin unit tests (the WebView version check), with the Gradle project the build made.
       - name: Plugin unit tests
         working-directory: src-tauri/gen/android
@@ -245,11 +251,22 @@ jobs:
       # The site's APK carries no Google Play Billing (NP-154): no BILLING permission, no billing classes.
       - name: No Play Billing in the site's APK
         run: bun scripts/check-apk-billing.mjs src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk absent
+      # The site's APK as checked, before the Google Play build overwrites it: for testers, from the run's
+      # page. Not for users: a debug build, signed with the runner's own debug key, so the next run's APK
+      # installs only over nothing (uninstall first, the library goes with it). Users get a signed APK.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: koona-pin-android-debug
+          path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
       # The Google Play build (feature store-play): its Rust (cfg(play)) and the koona-play plugin's
       # Kotlin compile, the plugin's unit tests pass, and its APK carries Play Billing. Built over the
-      # same project: only the main crate and the plugin's module are new.
+      # same project: only the main crate and the plugin's module are new, and the interface is the one
+      # the first build made (no beforeBuildCommand).
       - name: Android debug build, Google Play (arm64)
-        run: bun run tauri android build --debug --target aarch64 --features store-play
+        run: bun run tauri android build --debug --target aarch64 --apk --features store-play --config '{"build":{"beforeBuildCommand":null}}'
       - name: Play plugin unit tests
         working-directory: src-tauri/gen/android
         run: ./gradlew :tauri-plugin-koona-play:testDebugUnitTest
