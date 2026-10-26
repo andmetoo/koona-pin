@@ -47,6 +47,11 @@ class KoonaMobilePlugin: Plugin {
     // The page is a fixed frame whose screens scroll by themselves: the WebView's own scroll view
     // bouncing would move the bars with it.
     webview.scrollView.bounces = false
+    // The page is edge to edge (viewport-fit=cover) and keeps clear of the bars itself, through
+    // env(safe-area-inset-*). The scroll view's automatic inset adjustment would take the same
+    // insets off the layout viewport as well: the page, drawn from the top, then ended the
+    // height of both bars short of the screen (iOS 18), a white strip below the nav pill.
+    webview.scrollView.contentInsetAdjustmentBehavior = .never
     // Nor does its edge effect (iOS 26) belong there: it would shade the status bar in the
     // system's appearance, not the page's, and the page draws its own fades.
     // Built with an older SDK (CI's Xcode 16) these APIs do not exist: compiled out, as the

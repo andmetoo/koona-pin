@@ -35,6 +35,11 @@ awaiting_sign_in: boolean,
  */
 play?: PlayProgress, 
 /**
+ * The same for a purchase through the App Store (billing/appstore.rs). Only the App Store
+ * build has one.
+ */
+appstore?: PlayProgress, 
+/**
  * The account is deleted on this date unless kept (billing/deletion.rs).
  */
 delete_at?: string, 

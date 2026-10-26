@@ -21,10 +21,11 @@ const day = (iso: string, language: string) => new Date(iso).toLocaleDateString(
  */
 export function planLine(plan: Plan, t: TFunction, language: string, sells = capabilities.purchase === "paddle"): string {
   const play = plan.store === "play";
+  const apple = plan.store === "appstore";
   if (plan.status === "past_due")
-    return play ? t("supporter.pastDuePlay") : sells ? t("supporter.pastDue") : t("phone.supporter.pastDue", { date: day(plan.valid_until!, language) });
+    return play ? t("supporter.pastDuePlay") : apple ? t("supporter.pastDueAppStore") : sells ? t("supporter.pastDue") : t("phone.supporter.pastDue", { date: day(plan.valid_until!, language) });
   if (plan.interval === "lifetime") {
-    if (plan.also_renews) return t(play ? "supporter.alsoRenewsPlay" : sells ? "supporter.alsoRenews" : "phone.supporter.alsoRenews");
+    if (plan.also_renews) return t(play ? "supporter.alsoRenewsPlay" : apple ? "supporter.alsoRenewsAppStore" : sells ? "supporter.alsoRenews" : "phone.supporter.alsoRenews");
     // No end, but a license tester's test purchase on Play has its one day.
     const when = plan.valid_until ? t("phone.you.until", { date: day(plan.valid_until, language) }) : t("phone.you.paidOnce");
     return t("phone.you.planLine", { plan: t("phone.you.plan.lifetime"), when });

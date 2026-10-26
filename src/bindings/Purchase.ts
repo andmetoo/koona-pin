@@ -2,6 +2,6 @@
 
 /**
  * How Supporter is bought: Paddle's checkout in the browser, Google Play Billing in the Play
- * build (NP-154), or not at all in this build.
+ * build (NP-154), StoreKit in the App Store build (`appstore`), or not at all in this build.
  */
-export type Purchase = "paddle" | "play" | "none";
+export type Purchase = "paddle" | "play" | "appstore" | "none";

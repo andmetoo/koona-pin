@@ -11,8 +11,10 @@
 //!
 //! The Google Play build sells through Play Billing instead of Paddle (NP-154, [`play`]): the
 //! purchase comes first, the email given after it claims it, and the server binds it once the code
-//! from that email has signed in.
+//! from that email has signed in. The App Store build sells through StoreKit 2 the same way
+//! ([`appstore`]).
 
+pub mod appstore;
 pub mod deletion;
 pub mod play;
 
@@ -28,12 +30,16 @@ use tauri_plugin_opener::OpenerExt;
 use ts_rs::TS;
 
 pub const EVENT: &str = "supporter-status";
-const FILE: &str = "account.json";
+pub(crate) const FILE: &str = "account.json";
 
 /// The Supabase project of accounts and the environment of Paddle, from `.env` (build.rs).
 const URL: Option<&str> = option_env!("KOONAPIN_ACCOUNT_URL");
 const KEY: Option<&str> = option_env!("KOONAPIN_ACCOUNT_KEY");
 const ENVIRONMENT: Option<&str> = option_env!("KOONAPIN_PADDLE_ENV");
+// A store's release build (Google Play, the App Store) cannot ship without the account service: it
+// would sell nothing and offer no «Restore purchases», which the store's review refuses.
+#[cfg(all(any(play, appstore), not(debug_assertions)))]
+const _: () = assert!(URL.is_some() && KEY.is_some(), "set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY in .env for a store build (docs/building.md)");
 
 /// The last days of a paid period, when the app asks once a day whether it renewed.
 const RENEWAL_WINDOW: TimeDelta = TimeDelta::days(3);
@@ -71,11 +77,12 @@ pub struct Service {
 
 /// The account service of this build, if it sells anything.
 pub fn service() -> Option<Service> {
-    service_of(URL, KEY, ENVIRONMENT, cfg!(play), cfg!(debug_assertions))
+    service_of(URL, KEY, ENVIRONMENT, cfg!(play) || cfg!(appstore), cfg!(debug_assertions))
 }
 
 /// The account service from the build's settings. Paddle's environment says whether it is the
-/// sandbox; the Google Play build (`play`, NP-154) sells nothing through Paddle, so it needs only the
+/// sandbox; the Google Play build (`play`, NP-154) and the App Store build (`appstore`) sell nothing
+/// through Paddle (`play` is true for both), so they need only the
 /// accounts project, and without the setting it is production. A sandbox never reaches a build
 /// people install (`debug` false).
 fn service_of(url: Option<&'static str>, key: Option<&'static str>, environment: Option<&str>, play: bool, debug: bool) -> Option<Service> {
@@ -115,14 +122,16 @@ pub enum PlanInterval {
 }
 
 /// Where the plan is paid and managed (NP-154): the channel of the renewing subscription, else of
-/// the purchase that sets `valid_until`. «Manage» opens Paddle's portal or Google Play's
-/// subscriptions.
+/// the purchase that sets `valid_until`. «Manage» opens Paddle's portal, Google Play's
+/// subscriptions or the App Store's (`appstore`, as the server names it).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 #[ts(export)]
 pub enum Store {
     Paddle,
     Play,
+    #[serde(rename = "appstore")]
+    AppStore,
 }
 
 /// The plan as the server signed it.
@@ -284,6 +293,18 @@ struct Stored {
     /// The Play purchase the sheet follows in this run: the one bought last, or claimed by an email.
     #[serde(skip)]
     play_followed: Option<String>,
+    /// Purchases made here through the App Store and not bound to an account yet, oldest first
+    /// (billing/appstore.rs); kept over Sign out as Play's are.
+    #[serde(default)]
+    appstore: Vec<appstore::AppStoreCheckout>,
+    /// The original transactions bought outside the app (no `appAccountToken`) that were given a
+    /// secret here: each is adopted once (billing/appstore.rs), kept over Sign out.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    appstore_adopted: Vec<String>,
+    #[serde(skip)]
+    appstore_outcome: Option<(String, play::PlayState)>,
+    #[serde(skip)]
+    appstore_followed: Option<String>,
     /// The account is deleted on this date unless kept (billing/deletion.rs): what the server said last.
     #[serde(default)]
     delete_at: Option<DateTime<Utc>>,
@@ -307,7 +328,7 @@ impl Stored {
     /// Signed out, as «Sign out» leaves the file: the environment stays, and Play purchases not bound
     /// yet (NP-154), whose secrets are their only claim; the account and all of its state go.
     fn signed_out(&mut self) {
-        *self = Stored { sandbox: self.sandbox, play: std::mem::take(&mut self.play), ..Stored::default() };
+        *self = Stored { sandbox: self.sandbox, play: std::mem::take(&mut self.play), appstore: std::mem::take(&mut self.appstore), appstore_adopted: std::mem::take(&mut self.appstore_adopted), ..Stored::default() };
     }
 
     /// Keeps the server's signed plan and what of it verifies for the account signed in here.
@@ -470,6 +491,11 @@ pub struct SupporterStatus {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub play: Option<play::PlayProgress>,
+    /// The same for a purchase through the App Store (billing/appstore.rs). Only the App Store
+    /// build has one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub appstore: Option<play::PlayProgress>,
     /// The account is deleted on this date unless kept (billing/deletion.rs).
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional, type = "string")]
@@ -576,6 +602,7 @@ fn status(stored: &Stored, now: DateTime<Utc>) -> SupporterStatus {
         plan_unknown: stored.session.is_some() && stored.plan.is_none() && stored.check_failed,
         awaiting_sign_in: stored.awaiting_sign_in && stored.session.is_none(),
         play: stored.play_progress(),
+        appstore: stored.appstore_progress(),
         delete_at: stored.delete_at.filter(|_| stored.session.is_some()),
         deletion_pending: deletion::pending(stored, now),
         paid_again: stored.paid_again.then_some(true),
@@ -585,6 +612,25 @@ fn status(stored: &Stored, now: DateTime<Utc>) -> SupporterStatus {
 /// A random secret for one purchase: 64 hex characters, 244 random bits.
 fn new_secret() -> String {
     format!("{}{}", uuid::Uuid::new_v4().simple(), uuid::Uuid::new_v4().simple())
+}
+
+/// The account kept in `account.json`, as this build uses it: none (or one that doesn't parse) is
+/// the empty one.
+fn stored_of(text: Option<String>) -> Stored {
+    let mut stored: Stored = text.and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default();
+    stored.migrate();
+    // An account of the other environment is not this build's.
+    if service().is_some_and(|s| s.sandbox != stored.sandbox) {
+        stored = Stored { sandbox: service().is_some_and(|s| s.sandbox), ..Stored::default() };
+    }
+    // The plan only as the server signed it: a plan written in the file by hand, or kept by
+    // the builds before 0.10, counts for nothing until the server answers.
+    let lease = stored.lease.take();
+    stored.keep_lease(lease, &plan_key());
+    if stored.unsigned_plan.take().is_some() && stored.lease.is_none() {
+        stored.checked_at = None;
+    }
+    stored
 }
 
 pub struct Billing {
@@ -605,26 +651,20 @@ pub struct Billing {
     /// One Play purchase step at a time, Play's sheet included (NP-154): the check on the way back
     /// to the screen waits for the purchase that put Play's sheet over the app.
     playing: tokio::sync::Mutex<()>,
+    /// The account could not be read at start (the iPhone's Keychain before the first unlock): it
+    /// is read again before anything is shown or written, so an empty state never overwrites it.
+    unread: std::sync::atomic::AtomicBool,
 }
 
 impl Billing {
     fn load(path: PathBuf) -> Self {
-        let mut stored: Stored = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|text| serde_json::from_str(&text).ok())
-            .unwrap_or_default();
-        stored.migrate();
-        // An account of the other environment is not this build's.
-        if service().is_some_and(|s| s.sandbox != stored.sandbox) {
-            stored = Stored { sandbox: service().is_some_and(|s| s.sandbox), ..Stored::default() };
-        }
-        // The plan only as the server signed it: a plan written in the file by hand, or kept by
-        // the builds before 0.10, counts for nothing until the server answers.
-        let lease = stored.lease.take();
-        stored.keep_lease(lease, &plan_key());
-        if stored.unsigned_plan.take().is_some() && stored.lease.is_none() {
-            stored.checked_at = None;
-        }
+        let (stored, unread) = match crate::secrets::read(&path) {
+            Ok(text) => (stored_of(text), false),
+            Err(error) => {
+                eprintln!("Koona Pin: the account can't be read yet, it is read again before use: {error}");
+                (stored_of(None), true)
+            }
+        };
         Billing {
             path,
             stored: Mutex::new(stored),
@@ -634,11 +674,26 @@ impl Billing {
             refreshing: tokio::sync::Mutex::new(()),
             portal_at: Mutex::new(None),
             playing: tokio::sync::Mutex::new(()),
+            unread: std::sync::atomic::AtomicBool::new(unread),
         }
     }
 
+    /// The account read now if it could not be read before; an error while it still can't be.
+    fn read_again(&self, stored: &mut Stored) -> std::io::Result<()> {
+        use std::sync::atomic::Ordering;
+        if !self.unread.load(Ordering::Acquire) {
+            return Ok(());
+        }
+        *stored = stored_of(crate::secrets::read(&self.path)?);
+        self.unread.store(false, Ordering::Release);
+        Ok(())
+    }
+
     fn get(&self) -> Stored {
-        self.stored.lock().map(|s| s.clone()).unwrap_or_default()
+        let Ok(mut stored) = self.stored.lock() else { return Stored::default() };
+        // Still unreadable: shown as signed out for now, never written.
+        let _ = self.read_again(&mut stored);
+        stored.clone()
     }
 
     /// Changes the stored state, writes the file and tells the interface. The lock is held until
@@ -653,6 +708,7 @@ impl Billing {
 
     fn apply(&self, change: impl FnOnce(&mut Stored)) -> Result<Stored, CommandError> {
         let mut stored = self.stored.lock().map_err(CommandError::internal)?;
+        self.read_again(&mut stored).map_err(CommandError::internal)?;
         let mut next = stored.clone();
         change(&mut next);
         self.write(&next)?;
@@ -661,14 +717,10 @@ impl Billing {
     }
 
     fn write(&self, stored: &Stored) -> Result<(), CommandError> {
-        if let Some(folder) = self.path.parent() {
-            std::fs::create_dir_all(folder).map_err(CommandError::internal)?;
-        }
         let text = serde_json::to_string_pretty(stored).map_err(CommandError::internal)?;
-        // Through a temporary file: a crash mid-write never leaves half an account.
-        let temporary = self.path.with_extension("json.tmp");
-        std::fs::write(&temporary, text).map_err(CommandError::internal)?;
-        std::fs::rename(&temporary, &self.path).map_err(CommandError::internal)
+        // Through the secrets' store (NP-153): a file renamed into place on a computer, so a crash
+        // mid-write never leaves half an account; the Keychain on an iPhone.
+        crate::secrets::write(&self.path, &text).map_err(CommandError::internal)
     }
 }
 
@@ -684,6 +736,9 @@ pub fn start(app: &AppHandle) {
     // Purchases through Google Play, on start and each time the app comes back (NP-154).
     #[cfg(play)]
     play::watch(app);
+    // Purchases through the App Store, the same way (billing/appstore.rs).
+    #[cfg(appstore)]
+    appstore::watch(app);
     let app = app.clone();
     let mut foreground = crate::lifecycle::foreground(&app);
     tauri::async_runtime::spawn(async move {
@@ -1192,6 +1247,7 @@ pub async fn verify_sign_in_code(app: AppHandle, email: String, code: String) ->
     // A Play purchase waiting for this sign-in is bound to the account now (NP-154); one that fails
     // here is asked about again when the app comes back to the screen.
     play::verify_waiting(&app).await;
+    appstore::verify_waiting(&app).await;
     // The review's answer carried its plan just now: asking again would only repeat it.
     if reviewed {
         return Ok(self::status(&billing.get(), Utc::now()));
@@ -1225,7 +1281,7 @@ pub async fn sign_out_supporter(app: AppHandle) -> Result<SupporterStatus, Comma
     // After a claim already asking: what it signs in is signed out here, and one starting later
     // finds no purchase.
     let _one_at_a_time = billing.claiming.lock().await;
-    // Play purchases not bound yet stay: their secrets are their only claim (NP-154).
+    // Play and App Store purchases not bound yet stay: their secrets are their only claim (NP-154).
     billing.update(&app, Stored::signed_out)
 }
 
@@ -1723,6 +1779,29 @@ mod tests {
         assert!(stored.waiting(PlanInterval::Year, at("2026-10-11T13:00:00Z")).is_none());
         let written = serde_json::to_value(&stored).unwrap();
         assert!(written.get("claim").is_none() && written.get("claim_started").is_none());
+    }
+
+    #[test]
+    fn an_account_that_cannot_be_read_now_is_read_again_and_never_overwritten() {
+        let folder = std::env::temp_dir().join(format!("koonapin-billing-unread-{}", uuid::Uuid::new_v4().simple()));
+        let path = folder.join(FILE);
+        // A folder where the file should be: reading fails, as a locked Keychain would.
+        std::fs::create_dir_all(&path).unwrap();
+        let billing = Billing::load(path.clone());
+        assert!(billing.get().session.is_none(), "shown as signed out meanwhile");
+        assert!(billing.apply(|s| s.checked_at = Some(Utc::now())).is_err(), "nothing is written over it");
+        assert!(path.is_dir());
+        // Readable again: the real account is read, then changed.
+        std::fs::remove_dir(&path).unwrap();
+        let mut real = Stored::default();
+        real.sandbox = service().is_some_and(|s| s.sandbox);
+        real.appstore_adopted = vec!["kept".into()];
+        std::fs::write(&path, serde_json::to_string(&real).unwrap()).unwrap();
+        assert_eq!(billing.get().appstore_adopted, ["kept"]);
+        billing.apply(|s| s.checked_at = Some(Utc::now())).unwrap();
+        let written: Stored = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(written.appstore_adopted, ["kept"]);
+        let _ = std::fs::remove_dir_all(folder);
     }
 
     #[test]

@@ -49,8 +49,23 @@ describe("the plan's action by where it is paid", () => {
     );
   });
 
-  it("is the same for both stores where there is nothing to manage or the plan is not checked", () => {
-    for (const store of ["paddle", "play"] as const) {
+  it("is the App Store for a plan paid through the App Store, which the server cannot stop", () => {
+    expect(action({ store: "appstore" })).toBe("manageInAppStore");
+    expect(action({ store: "appstore", status: "canceling", renews_at: null })).toBe("manageInAppStore");
+    expect(action({ store: "appstore", status: "past_due" })).toBe("fixInAppStore");
+    // The one-time purchase bought over a live App Store subscription: cancel it in Settings.
+    const both = planState(supporter({ store: "appstore", interval: "lifetime", renews_at: null, also_renews: true }), t, "en");
+    expect(both).toMatchObject({ status: t("supporter.alsoRenewsAppStore"), action: "manageInAppStore" });
+    expect(both.status).toMatch(/Settings/);
+    expect(planState(supporter({ store: "appstore", status: "past_due" }), t, "en").status).toBe(t("supporter.pastDueAppStore"));
+    // A Sandbox one-time purchase has its one day: the paid-until line, nothing to manage.
+    const sandboxDay = planState(supporter({ store: "appstore", interval: "lifetime", renews_at: null }), t, "en");
+    expect(sandboxDay.action).toBe("close");
+    expect(sandboxDay.status).not.toBe(t("supporter.lifetimeLine"));
+  });
+
+  it("is the same for every store where there is nothing to manage or the plan is not checked", () => {
+    for (const store of ["paddle", "play", "appstore"] as const) {
       expect(action({ store, interval: "lifetime", renews_at: null })).toBe("close");
       expect(action({ store }, true)).toBe("retry");
     }
@@ -61,6 +76,8 @@ describe("the plan's action by where it is paid", () => {
     expect(planLink("updateCard")).toBe("portal");
     expect(planLink("manageInPlay")).toBe("play");
     expect(planLink("fixInPlay")).toBe("play");
+    expect(planLink("manageInAppStore")).toBe("appstore");
+    expect(planLink("fixInAppStore")).toBe("appstore");
     expect(planLink("retry")).toBeNull();
     expect(planLink("close")).toBeNull();
   });

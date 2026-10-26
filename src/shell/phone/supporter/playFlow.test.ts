@@ -31,6 +31,7 @@ describe("the Play purchase's steps", () => {
       unavailable: { step: "plans", failure: "unavailable" },
       kept: { step: "plans", failure: "kept" },
       error: { step: "plans", failure: "failed" },
+      nothing_to_restore: { step: "plans", failure: "nothingToRestore" },
     };
     for (const [state, expected] of Object.entries(steps)) expect(playStep(state as PlayState), state).toEqual(expected);
   });
@@ -66,6 +67,12 @@ describe("the Play purchase's steps", () => {
     // Paid but not confirmed now is not «Play can't sell here».
     expect(failureLine("kept", t)).toBe(t("phone.supporter.play.kept"));
     expect(failureLine("kept", t)).not.toBe(failureLine("unavailable", t));
+    // The App Store build names the App Store; «Restore purchases» that found nothing says so.
+    for (const failure of ["failed", "invalid", "unavailable", "kept"] as const) {
+      expect(failureLine(failure, t, "appstore")).toBe(t(`phone.supporter.appstore.${failure}`));
+      expect(failureLine(failure, t, "appstore")).not.toMatch(/Google/);
+    }
+    expect(failureLine("nothingToRestore", t, "appstore")).toBe("This Apple Account has no Supporter purchase to restore.");
   });
 });
 

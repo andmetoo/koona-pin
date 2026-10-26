@@ -62,14 +62,16 @@ function PlanBody({ supporter }: { supporter: NonNullable<ReturnType<typeof useP
   // plan's lines say what is so without sending anyone to pay. A plan paid through Google Play
   // (NP-154) is managed on Google Play's page, in any build: the plan's own lines name it.
   const portal = planLink(action) === "portal";
+  // Paid through a store (Google Play, the App Store): managed there, its own lines name it.
+  const inStore = plan.store === "play" || plan.store === "appstore";
   // A failed renewal says until when the plan runs, in every build that does not sell through
   // Paddle; the button beside it says where it is fixed (P10).
   const shownStatus =
-    supporter.check_failed || (sells && plan.store !== "play")
+    supporter.check_failed || (sells && !inStore)
       ? status
       : plan.status === "past_due"
         ? t("phone.supporter.pastDue", { date: longDate(plan.valid_until!, i18n.language) })
-        : plan.interval === "lifetime" && plan.also_renews && plan.store !== "play"
+        : plan.interval === "lifetime" && plan.also_renews && !inStore
           ? t("phone.supporter.alsoRenews")
           : status;
   const name = t(plan.interval === "lifetime" ? "plan.lifetime" : plan.interval === "month" ? "plan.monthly" : "plan.yearly");
@@ -78,9 +80,9 @@ function PlanBody({ supporter }: { supporter: NonNullable<ReturnType<typeof useP
       <Button kind="primary" disabled={busy} onClick={() => act(action)}>
         {t("common.retry")}
       </Button>
-    ) : action === "manageInPlay" ? (
+    ) : action === "manageInPlay" || action === "manageInAppStore" ? (
       <Button kind="clear" icon={ExternalLink} disabled={busy} onClick={() => act(action)}>
-        {t("plan.manageInPlay")}
+        {t(action === "manageInPlay" ? "plan.manageInPlay" : "plan.manageInAppStore")}
       </Button>
     ) : !sells ? null : action === "updateCard" ? (
       <Button kind="primary" icon={ExternalLink} disabled={busy} onClick={() => act(action)}>
@@ -97,11 +99,11 @@ function PlanBody({ supporter }: { supporter: NonNullable<ReturnType<typeof useP
       title={t("phone.you.supporter")}
       className="sp-sheet"
       footer={
-        action === "fixInPlay" ? (
+        action === "fixInPlay" || action === "fixInAppStore" ? (
           // P10: the payment to fix is the one action, across the sheet; Sign out under it.
           <div className="sp-footer">
             <Button kind="primary" block icon={ExternalLink} disabled={busy} onClick={() => act(action)}>
-              {t("plan.fixInPlay")}
+              {t(action === "fixInPlay" ? "plan.fixInPlay" : "plan.fixInAppStore")}
             </Button>
             <Button kind="ghost" compact disabled={busy} className="sp-sign-out sp-sign-out-under" onClick={signOut}>
               {t("plan.signOut")}

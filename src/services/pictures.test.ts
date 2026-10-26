@@ -7,7 +7,7 @@ vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: (path: string, protocol: string) => `${protocol}://localhost/${encodeURIComponent(path)}`,
 }));
 
-import { hash8, pictureSrc } from "./pictures";
+import { hash8, pictureSrc, webFallback } from "./pictures";
 
 describe("hash8", () => {
   it("is FNV-1a 32 over UTF-8, as 8 hex digits", () => {
@@ -70,5 +70,11 @@ describe("pictureSrc", () => {
     expect(pictureSrc("bookmark-image", 12, "https://x.org/a.png")).toBe("https://x.org/a.png");
     expect(pictureSrc("post-thumb", 7, "http://x.org/a.jpg")).toBe("https://x.org/a.jpg");
     expect(pictureSrc("bookmark-icon", 12, null)).toBeNull();
+  });
+});
+
+describe("webFallback", () => {
+  it("lets the WebView try every source address where the build asks the icon service (a computer)", () => {
+    for (const kind of ["bookmark-image", "bookmark-icon", "post-thumb", "feed-icon"] as const) expect(webFallback(kind)).toBe(true);
   });
 });

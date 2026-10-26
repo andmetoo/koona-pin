@@ -1,0 +1,6 @@
+/* Written from src/locales/ja.json (phone.share) by `bun run locales:ios`; do not edit. */
+"saved" = "Koona Pin に保存しました";
+"inInbox" = "インボックス内 · %1$@";
+"done" = "完了";
+"noLink" = "保存するリンクがありません";
+"failed" = "リンクを保存できませんでした";

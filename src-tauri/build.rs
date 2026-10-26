@@ -12,7 +12,18 @@ fn main() {
     forward_from_dotenv("KOONAPIN_SYNC_URL", "KOONAPIN_SYNC_URL");
     collation_version();
     play();
+    appstore();
     tauri_build::build()
+}
+
+/// `cfg(appstore)`: the App Store build, the feature `store-appstore` on iOS. StoreKit's plugin and
+/// the commands of billing/appstore.rs exist only there; the feature means nothing elsewhere.
+fn appstore() {
+    println!("cargo:rustc-check-cfg=cfg(appstore)");
+    let ios = std::env::var("CARGO_CFG_TARGET_OS").is_ok_and(|os| os == "ios");
+    if ios && std::env::var_os("CARGO_FEATURE_STORE_APPSTORE").is_some() {
+        println!("cargo:rustc-cfg=appstore");
+    }
 }
 
 /// `cfg(play)`: the Google Play build (NP-154), the feature `store-play` on Android. Play Billing's

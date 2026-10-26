@@ -2,7 +2,7 @@
   "name": "koonapin",
   "private": true,
   "license": "GPL-3.0-only",
-  "version": "2.18.1",
+  "version": "2.19.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -31,6 +31,7 @@
     "test:extension:firefox:esr": "bun scripts/smoke-extension-firefox.mjs esr",
     "locales:sr-latn": "bun scripts/sr-latn.mjs",
     "locales:android": "bun scripts/android-strings.mjs",
+    "locales:ios": "bun scripts/ios-strings.mjs",
     "extension:build": "bun scripts/build-extension.mjs",
     "extension:sign:firefox": "bun scripts/sign-firefox.mjs",
     "extension:seed": "bun scripts/seed-firefox-release.mjs",

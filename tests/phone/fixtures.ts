@@ -37,6 +37,7 @@ export const phoneCapabilities = {
   // Android's share sheet; an iPhone has none until its share extension (openPhone).
   share_intake: true,
   haptics: true,
+  icon_service: false,
   purchase: "none",
 };
 

@@ -1,0 +1,6 @@
+/* Written from src/locales/ru.json (phone.share) by `bun run locales:ios`; do not edit. */
+"saved" = "Сохранено в Koona Pin";
+"inInbox" = "Во входящих · %1$@";
+"done" = "Готово";
+"noLink" = "Нет ссылки для сохранения";
+"failed" = "Не удалось сохранить ссылку";

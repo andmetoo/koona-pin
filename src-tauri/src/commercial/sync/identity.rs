@@ -9,8 +9,8 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use ring::signature::Ed25519KeyPair;
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::io::{self, Write};
+use crate::secrets;
+use std::io;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
@@ -54,13 +54,18 @@ impl Identity {
         koona_sync::crypto::public_key(&self.key_pair())
     }
 
-    fn read(path: &Path) -> Result<Option<Identity>, ()> {
-        let text = match fs::read_to_string(path) {
-            Ok(text) => text,
-            Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
-            Err(_) => return Err(()),
-        };
-        let stored: Stored = serde_json::from_str(&text).map_err(|_| ())?;
+    /// The identity kept at `path`: none, or `Err(())` for one that is there but damaged. A store
+    /// that can't be read now (the iPhone's Keychain before the first unlock) is an I/O error, not
+    /// damage: the key is still good and is read again later.
+    fn read(path: &Path) -> io::Result<Result<Option<Identity>, ()>> {
+        Ok(match secrets::read(path)? {
+            Some(text) => Identity::parse(&text),
+            None => Ok(None),
+        })
+    }
+
+    fn parse(text: &str) -> Result<Option<Identity>, ()> {
+        let stored: Stored = serde_json::from_str(text).map_err(|_| ())?;
         let pkcs8 = STANDARD.decode(stored.key).map_err(|_| ())?;
         if stored.v != 1 || stored.device.is_nil() || koona_sync::crypto::device_key(&pkcs8).is_err() {
             return Err(());
@@ -70,13 +75,13 @@ impl Identity {
 
     /// The device of this computer, made on first use. A damaged file is moved aside and a new
     /// device made: the relay sees a new device, which the hub pairs like any other, and the
-    /// old entry stays in the directory until removed.
+    /// old entry stays in the directory until removed. One that can't be read now is an error.
     pub fn load_or_create(path: &Path) -> io::Result<Identity> {
-        match Identity::read(path) {
+        match Identity::read(path)? {
             Ok(Some(identity)) => return Ok(identity),
             Ok(None) => {}
             Err(()) => {
-                let _ = fs::rename(path, damaged_path(path));
+                let _ = secrets::set_aside(path, &damaged_path(path));
             }
         }
         let identity = Identity::new("");
@@ -86,33 +91,9 @@ impl Identity {
 
     /// Through a temporary file, readable by this user only: the key signs for the account.
     pub fn save(&self, path: &Path) -> io::Result<()> {
-        if let Some(folder) = path.parent() {
-            fs::create_dir_all(folder)?;
-        }
         let stored = Stored { v: 1, device: self.device, key: STANDARD.encode(&self.pkcs8), name: self.name.clone() };
-        write_private(path, &serde_json::to_string_pretty(&stored).map_err(io::Error::other)?)
+        secrets::write(path, &serde_json::to_string_pretty(&stored).map_err(io::Error::other)?)
     }
-}
-
-/// `text` in `path` through a temporary file, readable by this user only.
-fn write_private(path: &Path, text: &str) -> io::Result<()> {
-    if let Some(folder) = path.parent() {
-        fs::create_dir_all(folder)?;
-    }
-    let temporary = path.with_extension("json.tmp");
-    let _ = fs::remove_file(&temporary);
-    let mut options = fs::OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
-    }
-    let mut file = options.open(&temporary)?;
-    file.write_all(text.as_bytes())?;
-    file.sync_all()?;
-    drop(file);
-    fs::rename(&temporary, path)
 }
 
 /// The library key of the account and its epoch, in `sync-key.json` beside `sync-device.json`
@@ -145,10 +126,9 @@ pub struct LoadedKey {
 /// A file that can't be opened at all is an error, tried again later.
 pub fn load_key(path: &Path, account: &str) -> io::Result<LoadedKey> {
     let found = |key| Ok(LoadedKey { key, set_aside: false });
-    let text = match fs::read_to_string(path) {
-        Ok(text) => text,
-        Err(e) if e.kind() == io::ErrorKind::NotFound => return found(None),
-        Err(e) => return Err(e),
+    let text = match secrets::read(path)? {
+        Some(text) => text,
+        None => return found(None),
     };
     let parsed = serde_json::from_str::<StoredKey>(&text).ok().and_then(|stored| {
         let key: koona_sync::crypto::LibraryKey = STANDARD.decode(&stored.key).ok()?.try_into().ok()?;
@@ -167,7 +147,7 @@ pub fn load_key(path: &Path, account: &str) -> io::Result<LoadedKey> {
         }
         None => {
             eprintln!("Sync's library key file doesn't read; it is set aside and the key asked for again");
-            let _ = fs::rename(path, damaged_path(path));
+            let _ = secrets::set_aside(path, &damaged_path(path));
             Ok(LoadedKey { key: None, set_aside: true })
         }
     }
@@ -179,12 +159,9 @@ pub fn save_key(path: &Path, account: &str, key: Option<&(u32, koona_sync::crypt
     match key {
         Some((epoch, key)) => {
             let stored = StoredKey { v: 1, account: Some(account.to_string()), epoch: *epoch, key: STANDARD.encode(key) };
-            write_private(path, &serde_json::to_string_pretty(&stored).map_err(io::Error::other)?)
+            secrets::write(path, &serde_json::to_string_pretty(&stored).map_err(io::Error::other)?)
         }
-        None => match fs::remove_file(path) {
-            Err(e) if e.kind() != io::ErrorKind::NotFound => Err(e),
-            _ => Ok(()),
-        },
+        None => secrets::delete(path),
     }
 }
 
@@ -200,6 +177,7 @@ fn name_or_host(name: &str) -> String {
 }
 
 /// The computer's name as the system gives it; `Computer` when it gives none.
+#[cfg(not(target_os = "ios"))]
 pub fn host_name() -> String {
     let name = system_host_name().unwrap_or_default();
     // macOS and some Linux names end in the local domain, which says nothing.
@@ -209,6 +187,19 @@ pub fn host_name() -> String {
     } else {
         name
     }
+}
+
+/// An iPhone's: `iPhone` and a random capital, made once with the device and kept with it. The
+/// system's own name often carries the person's, and the relay keeps the device's name (owner, 25
+/// October 2026).
+#[cfg(target_os = "ios")]
+pub fn host_name() -> String {
+    format!("iPhone {}", random_letter())
+}
+
+#[cfg(any(target_os = "ios", test))]
+fn random_letter() -> char {
+    char::from(b'A' + Uuid::new_v4().as_bytes()[0] % 26)
 }
 
 #[cfg(windows)]
@@ -228,7 +219,7 @@ fn system_host_name() -> Option<String> {
     Some(String::from_utf8_lossy(&buffer[..end]).into_owned())
 }
 
-#[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
+#[cfg(not(any(windows, target_os = "linux", target_os = "macos", target_os = "ios")))]
 fn system_host_name() -> Option<String> {
     None
 }
@@ -236,6 +227,26 @@ fn system_host_name() -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+
+    #[test]
+    fn a_store_that_cannot_be_read_now_is_an_error_not_damage() {
+        // A folder where the file should be: reading fails as a locked Keychain would.
+        let dir = folder("unreadable");
+        let path = dir.join(FILE);
+        fs::create_dir_all(&path).unwrap();
+        assert!(Identity::load_or_create(&path).is_err());
+        assert!(!damaged_path(&path).exists(), "nothing set aside");
+        assert!(path.is_dir(), "nothing replaced");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_random_letter_is_a_latin_capital() {
+        for _ in 0..200 {
+            assert!(random_letter().is_ascii_uppercase());
+        }
+    }
 
     fn folder(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("koonapin-sync-identity-{name}-{}", Uuid::new_v4().simple()));

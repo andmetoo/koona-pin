@@ -680,6 +680,15 @@ export function PlanDialog({
       <Button variant="outline" size="lg" disabled={busy} onClick={() => act(kind)}>
         {t("plan.manageInPlay")} ↗
       </Button>
+    ) : kind === "fixInAppStore" ? (
+      // A plan paid through the App Store: its payment and its management are Apple's.
+      <Button variant="primary" size="lg" disabled={busy} onClick={() => act(kind)}>
+        {t("plan.fixInAppStore")} ↗
+      </Button>
+    ) : kind === "manageInAppStore" ? (
+      <Button variant="outline" size="lg" disabled={busy} onClick={() => act(kind)}>
+        {t("plan.manageInAppStore")} ↗
+      </Button>
     ) : kind === "close" ? (
       <Button variant="outline" size="lg" onClick={onClose}>
         {t("common.close")}

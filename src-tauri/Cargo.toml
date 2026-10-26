@@ -1,6 +1,6 @@
 [package]
 name = "koonapin"
-version = "2.18.1"
+version = "2.19.0"
 description = "Koona Pin desktop bookmark library"
 license = "GPL-3.0-only"
 edition = "2021"
@@ -14,7 +14,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 # The sync engine (Р-68) is its own crate under the commercial license, without Tauri, so the
 # phone apps can wrap it later. One SQLite links: both crates use rusqlite 0.32.
 [workspace]
-members = [".", "commercial/koona-sync", "commercial/koona-play", "plugins/koona-mobile", "plugins/koona-share"]
+members = [".", "commercial/koona-sync", "commercial/koona-play", "commercial/koona-appstore", "plugins/koona-mobile", "plugins/koona-share"]
 
 [build-dependencies]
 tauri-build = { version = "2.0", features = [] }
@@ -28,6 +28,9 @@ public-release = []
 # The Google Play build (NP-154): Supporter through Play Billing, on Android only (`cfg(play)`, build.rs).
 # Off for every other build, so the site's APK has no billing library and no BILLING permission.
 store-play = ["dep:tauri-plugin-koona-play"]
+# The App Store build: Supporter through StoreKit 2, on iOS only (`cfg(appstore)`, build.rs). Off for
+# the Simulator's build unless asked for (`build:ios:sim -- --appstore`).
+store-appstore = ["dep:tauri-plugin-koona-appstore"]
 
 [dependencies]
 tauri = { version = "2.1", features = ["tray-icon"] }
@@ -97,6 +100,13 @@ tauri-plugin-updater = { version = "2.13", default-features = false, features = 
 # macOS and Windows. The links are read by open_requests.rs, not through the plugin's commands.
 tauri-plugin-deep-link = "2.6"
 
+# The account and the sync secrets in the Keychain on an iPhone (NP-153, secrets.rs). Already in the
+# tree through the updater's TLS verifier.
+[target.'cfg(target_os = "ios")'.dependencies]
+security-framework = { version = "3.7", default-features = false }
+# The App Store build only (feature `store-appstore`): StoreKit 2, under the commercial license.
+tauri-plugin-koona-appstore = { path = "commercial/koona-appstore", optional = true }
+
 # Phones only (NP-151): our own plugin for system Back, the iOS edge swipe, renderer loss, the
 # insets, and (NP-072b) the signals of the phone's look and the haptics (plugins/koona-mobile).
 [target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
@@ -115,6 +125,8 @@ tauri-plugin-koona-play = { path = "commercial/koona-play", optional = true }
 rusqlite = { version = "0.32", features = ["trace"] }
 # The answers of the Play plugin, so billing.rs's handling of them is tested on a desktop (NP-154).
 tauri-plugin-koona-play = { path = "commercial/koona-play" }
+# The same for the App Store plugin's answers (billing/appstore.rs).
+tauri-plugin-koona-appstore = { path = "commercial/koona-appstore" }
 
 # Native messaging (NP-016): the user's SID for the pipe name and its access
 # rule, registry keys for the browsers, starting the app from the host.

@@ -1,7 +1,6 @@
 import "./InboxScreen.css";
 import { type CSSProperties, useEffect, useLayoutEffect, useRef } from "react";
 import { BookOpen, Check, CircleAlert, Ellipsis, Trash2 } from "lucide-react";
-import { capabilities } from "../../../platform/capabilities";
 import { success } from "../../../platform/haptics";
 import { collectionColor } from "../../../services/collections";
 import { collectionKeys } from "../../../services/triage";
@@ -37,7 +36,7 @@ const LIFT = 90;
  * waiting here).
  */
 export function InboxScreen({ hidden }: { hidden: boolean }) {
-  const { app, stack, sheets, bar, fold } = usePhone();
+  const { app, stack, sheets, bar, fold, shareIntake } = usePhone();
   // iPhone Duo's inner display (DU3): two full-height panels, "Up next" and Undo on the left, the
   // card and the pill under the thumb on the right; no Done there (nor on the outer display, DO1).
   const duo = !!bar;
@@ -96,7 +95,7 @@ export function InboxScreen({ hidden }: { hidden: boolean }) {
             </Button>
           </div>
         ) : !state ? null : empty ? (
-          <InboxEmpty shareIntake={capabilities.share_intake} onLibrary={toLibrary} onNew={() => sheets.open({ kind: "newLink", props: {} })} />
+          <InboxEmpty shareIntake={shareIntake} onLibrary={toLibrary} onNew={() => sheets.open({ kind: "newLink", props: {} })} />
         ) : done ? (
           <InboxSorted sum={summary(state.steps)} minutes={minutesSpent(state)} onLibrary={toLibrary} onUndo={triage.undo} />
         ) : (

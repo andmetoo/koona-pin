@@ -1,0 +1,6 @@
+/* Written from src/locales/ko.json (phone.share) by `bun run locales:ios`; do not edit. */
+"saved" = "Koona Pin에 저장됨";
+"inInbox" = "받은함에 있음 · %1$@";
+"done" = "완료";
+"noLink" = "저장할 링크가 없습니다";
+"failed" = "링크를 저장할 수 없습니다";

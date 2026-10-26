@@ -1,6 +1,11 @@
-# What the Tauri build puts here for the Android build: a copy of Tauri's own native API, Gradle's
-# output, and the permissions of the (no) commands.
+# What the Tauri build puts here for the Android and iOS builds: a copy of Tauri's own native API,
+# Gradle's and Swift Package Manager's output, and the permissions of the (no) commands; and
+# `swift test`'s output for the share extension's queue.
 /.tauri
 /android/build
 /android/.tauri
+/ios/.build
+/ios/.swiftpm
+/ios-extension/.build
+/ios-extension/.swiftpm
 /permissions

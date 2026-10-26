@@ -201,11 +201,12 @@ const supporterListeners = new Set<(status: SupporterStatus) => void>();
 const inDays = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
 /**
  * A plan of the preview; `koonapin.demo.store` «play» makes it one paid through Google Play
- * (NP-154), which is managed there.
+ * (NP-154), which is managed there, and «appstore» one paid through the App Store.
  */
 function demoPlan(kind: string | null): SupporterStatus["plan"] {
   const plan = demoPlanOf(kind);
-  return plan && demoSwitch("koonapin.demo.store") === "play" ? { ...plan, store: "play" } : plan;
+  const store = demoSwitch("koonapin.demo.store");
+  return plan && (store === "play" || store === "appstore") ? { ...plan, store } : plan;
 }
 function demoPlanOf(kind: string | null): SupporterStatus["plan"] {
   // `offline_until` as the server signs it: 30 days ahead, never past the period and a week.
@@ -252,12 +253,18 @@ let demoPolls = 0;
  * when the sheet opens.
  */
 const DEMO_PLAY_KEY = "koonapin.demo.play";
-/** The preview server's verdict on a Play purchase of this plan, and the status it leaves. */
-function demoPlayVerdict(interval: PlanInterval): PlayState {
+/**
+ * The preview server's verdict on a Play purchase of this plan, and the status it leaves. The App
+ * Store build's purchase (billing/appstore.rs) takes the same verdicts from the same switch, kept in
+ * `appstore`; `koonapin.demo.restore` is what «Restore purchases» finds (`nothing_to_restore`
+ * without it).
+ */
+function demoPlayVerdict(interval: PlanInterval, channel: "play" | "appstore" = "play"): PlayState {
   const now = currentDemoSupporter();
   const state = (demoSwitch(DEMO_PLAY_KEY) as PlayState | null) ?? (now.email ? "paid" : "email");
   const plan = state === "paid" ? demoPlan(interval === "lifetime" ? "lifetime" : "supporter") : now.plan;
-  setDemoSupporter({ ...now, plan: plan && { ...plan, store: "play" }, play: { state, email: null } });
+  const store = channel === "play" ? "play" : "appstore";
+  setDemoSupporter({ ...now, plan: plan && { ...plan, store }, [channel]: { state, email: null } });
   return state;
 }
 const demoPlayPrice = (price: string, micros: number, period: string | null) => ({ price, currency: "EUR", micros, period });
@@ -2437,6 +2444,10 @@ export const demo = {
   async createStarterLibrary(_names: string[], _links: StarterLink[]): Promise<StarterLibrary> {
     return { collections: [], links: [] };
   },
+  /** The demo's share queue is there unless a test says not (an iPhone signed without its App Group). */
+  async shareIntakeReady(): Promise<boolean> {
+    return localStorage.getItem("koonapin.demo.shareQueue") !== "none";
+  },
   /** Starter links of the sample library: a test puts their ids into localStorage. */
   async getStarterLinks(): Promise<number[]> {
     try {
@@ -2637,6 +2648,45 @@ export const demo = {
     setDemoSupporter({ ...currentDemoSupporter(), play: { state: "sign_in", email: email.trim() } });
     return "sign_in";
   },
+  async getAppStoreOffer(): Promise<PlayOffer> {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    noServer();
+    const sells = demoSwitch("koonapin.demo.playProducts") !== "none";
+    const price = (text: string, micros: number, period: string | null) => ({ price: text, currency: "USD", micros, period });
+    return {
+      available: true,
+      month: sells ? price("$1.49", 1_490_000, "P1M") : null,
+      year: sells ? price("$9.99", 9_990_000, "P1Y") : null,
+      lifetime: sells ? price("$29.99", 29_990_000, null) : null,
+      suspended: demoSwitch("koonapin.demo.playSuspended") === "on",
+    };
+  },
+  async startAppStorePurchase(interval: PlanInterval): Promise<PlayState> {
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    noServer();
+    demoBought = interval;
+    return demoPlayVerdict(interval, "appstore");
+  },
+  async retryAppStorePurchase(): Promise<PlayState> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    noServer();
+    return demoPlayVerdict(demoBought ?? "year", "appstore");
+  },
+  async appStoreClaimEmail(email: string): Promise<PlayState> {
+    if (!emailShape(email.trim())) throw new CommandError("invalid_request", "The email address does not look right", "invalid_email");
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    noServer();
+    setDemoSupporter({ ...currentDemoSupporter(), appstore: { state: "sign_in", email: email.trim() } });
+    return "sign_in";
+  },
+  async restoreAppStorePurchases(): Promise<PlayState> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    noServer();
+    const found = (demoSwitch("koonapin.demo.restore") as PlayState | null) ?? "nothing_to_restore";
+    if (found !== "nothing_to_restore") return demoPlayVerdict(demoBought ?? "year", "appstore");
+    return found;
+  },
+  async manageAppStoreSubscriptions() {},
   async sendSignInCode(email: string) {
     if (!emailShape(email.trim())) throw new CommandError("invalid_request", "The email address does not look right", "invalid_email");
     await new Promise((resolve) => setTimeout(resolve, 300));
@@ -2652,12 +2702,15 @@ export const demo = {
     const unknown = address.startsWith("unknown@");
     // A Play purchase waiting for this code is bound by the sign-in (billing/play.rs), unless
     // `koonapin.demo.playBind` "fail": the server could not be asked, the purchase waits.
-    const waiting = currentDemoSupporter().play;
+    // An App Store purchase waiting for it (billing/appstore.rs) the same way.
+    const channel = currentDemoSupporter().appstore ? "appstore" : "play";
+    const waiting = currentDemoSupporter()[channel];
     const binds = waiting?.state === "sign_in" && demoSwitch("koonapin.demo.playBind") !== "fail";
     const play = binds ? ({ state: "paid", email: null } as const) : waiting;
     const bought = play?.state === "paid" ? demoPlan(demoBought === "lifetime" ? "lifetime" : "supporter") : null;
-    const plan = bought ? { ...bought, store: "play" as const } : address.startsWith("free@") || unknown ? null : demoPlan("supporter");
-    setDemoSupporter({ ...currentDemoSupporter(), email: email.trim(), plan, check_failed: unknown, plan_unknown: unknown, awaiting_sign_in: false, paid_again: undefined, play });
+    const store = channel === "play" ? ("play" as const) : ("appstore" as const);
+    const plan = bought ? { ...bought, store } : address.startsWith("free@") || unknown ? null : demoPlan("supporter");
+    setDemoSupporter({ ...currentDemoSupporter(), email: email.trim(), plan, check_failed: unknown, plan_unknown: unknown, awaiting_sign_in: false, paid_again: undefined, [channel]: play });
     return currentDemoSupporter();
   },
   async getBackupFolder(): Promise<BackupFolder> {
