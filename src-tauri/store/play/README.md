@@ -1,6 +1,6 @@
 # Google Play listing
 
-What Play Console asks for before a closed test, for the app `app.koona.pin` (English (US) by default, free). The owner fills the console; this folder keeps the texts and the pictures. Prepared on 20 October 2026 for app 2.8.0, before Share (the phone's share sheet), sync on phones and store purchases: update the texts when they land. Updated for 2.9.0, where the Play build sells Supporter through Google Play Billing.
+What Play Console asks for, for the app `app.koona.pin` (English (US) by default, free). The owner fills the console; this folder keeps the texts and the pictures as they were submitted. Current for app 2.19.1 (697): the closed test with this listing passed review and was published on 26 October 2026. When the app changes what it does, change the texts here and in the console together.
 
 **Before a build with Play Billing goes up** (`bun run build:android -- --play`), Play Console's Monetisation setup must exist: the organization's payments profile, the subscription `supporter` with the auto-renewing base plans `monthly` and `annual` (yearly; `yearly` and `yearly-pin` were saved as monthly by mistake and are inactive), and the one-time product `supporter_5_years` (the one-time purchase, $29.99; the five-year plan's product, renamed «One-time purchase» in Play on 2026-10-25 — it was never bought, and Play does not let an id be renamed). Those ids are the app's (`src-tauri/src/billing/play.rs`) and the server's secrets; a product Play does not know is simply not offered.
 
@@ -18,7 +18,7 @@ The App Bundle is `release/publish/android/<version>/koona-pin-<version>-<build>
 | Feature graphic 1024×500 | `en-US/feature-1024x500.png` |
 | Phone screenshots, in order | `en-US/phone-1-library.png`, `phone-2-inbox.png`, `phone-3-reading.png`, `phone-4-search.png`, `phone-5-library-dark.png` (1080×2160) |
 
-`bun scripts/play-assets.mjs` redraws the icon and the feature graphic from `app-icon.svg`. The screenshots come from a debug x86_64 build on the emulator `Medium_Phone_API_37.0` at 1080×2160 (`adb shell wm size 1080x2160`: Play refuses a side more than twice the other, and the emulator's 1080×2400 is), with the sample library of the site's shots (`scripts/shots/library.json`) restored through the WebView's DevTools and its previews put in the picture cache, and the status bar in demo mode. Retake them when Share or sync on phones lands.
+`bun scripts/play-assets.mjs` redraws the icon and the feature graphic from `app-icon.svg`. The screenshots come from a debug x86_64 build on the emulator `Medium_Phone_API_37.0` at 1080×2160 (`adb shell wm size 1080x2160`: Play refuses a side more than twice the other, and the emulator's 1080×2400 is), with the sample library of the site's shots (`scripts/shots/library.json`) restored through the WebView's DevTools and its previews put in the picture cache, and the status bar in demo mode. Retaken from 2.19.1 on 26 October 2026; retake them when a shown screen changes.
 
 ## Short description (80)
 
@@ -56,17 +56,27 @@ Supporter
 Koona Pin is free. Supporter is an optional subscription, or a one-time purchase, bought in the app through Google Play: it adds sync between your phone and your computers, the Paper and Sepia reading themes and the Supporter heart.
 ```
 
-## Release notes of the first closed test
+## What's new of the first production release (2.19.1)
+
+The first release on Google Play, so a summary of the app rather than of changes (500 characters at most):
 
 ```text
-The first test build of Koona Pin for Android: the library, the Inbox, search, collections and tags, the Reading list with reading mode, and feeds. Tell us what breaks: Settings → Send feedback.
+The first release of Koona Pin for Android. Save any link with its title and picture, sort new links in the Inbox one card at a time, and find them again with search. Read later in a clean reader that remembers where you stopped, follow sites through their RSS feeds, and keep links in collections inside collections, with icons and colours. Supporter, an optional purchase, adds sync with your computers, end-to-end encrypted.
 ```
+
+Later releases summarise what changed since the previous one, from the changelogs of the versions in between.
 
 ## App content (Policy → App content)
 
-- **Privacy policy:** https://koona.app/pin/privacy. Before the closed test it needs a section for the phone apps (the plan's "The site"): the phone keeps the library in the app's own folder, Android backup and device transfer are off, and what a phone sends is what the desktop sends.
+- **Privacy policy:** https://koona.app/pin/privacy. Its section "On phones" covers the phone apps: the library in the app's own storage, Android backup and device transfer off, and site icons asked only from the sites, never from Google.
 - **Ads:** No, the app contains no ads.
-- **App access:** "All or some functionality is restricted". Instructions for the reviewer: "Everything in the app works without signing in: saving links, the Inbox, search, collections, the Reading list, reading mode and feeds. Supporter is sold in the app through Google Play Billing: a subscription (monthly or yearly) or a one-time purchase. To reach the purchase sheet: tap the gear at the top right of the library (You & sync), then the Supporter card. After paying, the app asks for an email and a one-time code sent to it; that email becomes the Supporter account. Signing in on its own (I'm already a Supporter) is only for sync and for someone who already has Supporter." If Play asks for a login anyway, the owner decides whether to make a review account (a fixed code needs a change on the server).
+- **App access:** "Yes, some functionality is restricted" (Supporter), with the review account: its email as the user name and its fixed 6-digit code as the password. They live in Play Console and in the server's secrets `REVIEW_EMAIL` and `REVIEW_CODE` (koona-services, `review_sign_in`: the server gives that account an active Supporter plan), never here: ten wrong codes lock it for a day. "Other data required to sign in" (446 of 500 characters), as submitted:
+
+  ```text
+  No password: the app signs in with an email and a 6-digit code. Tap the button at the top right of the library (You & sync), then the Koona Pin Supporter card, then "I'm already a Supporter". Enter the email above, tap "Send code", type the 6-digit code given above as the password, tap "Sign in". No need to open the email: that code always works for this account. The account has an active Supporter plan (sync, Paper and Sepia reading themes).
+  ```
+
+  Keep "Allow Google to use these credentials for testing" on. If the sign-in screens change, change this text with them.
 - **Content rating:** the IARC questionnaire, below.
 - **Target audience:** 18 and over. Not designed for children; nothing appeals to them. Younger groups can be added later without the Families policy as long as under 13 stays out.
 - **News app:** No (it reads feeds the person chooses; it publishes no news).
@@ -93,7 +103,7 @@ What a phone build sends, from the README's "Privacy and where your data lives" 
 
 - **Does the app collect or share any of the required user data types?** Yes.
 - **Is all user data encrypted in transit?** Yes (HTTPS, and WSS for sync).
-- **Can people request deletion?** Yes, by email to the owner (the account is deleted with its plan). Since 2.9.0 the app creates an account when a Google Play purchase is claimed by an email, so Play's account-deletion requirement applies: a way to delete the account in the app and a web page for it. **Not built yet** (a separate task): it must exist before a build with Play Billing reaches production.
+- **Can people request deletion?** Yes. The app creates an account when a Google Play purchase is claimed by an email, so Play's account-deletion requirement applies, and both parts exist since 2.13.0: in the app, You & sync → the Supporter card → "Delete account…" (now or at the end of the paid period; payments stop at once, the library stays on the devices), and on the web at https://koona.app/pin/delete-account/ (filed in Play Console's App content). The review account cannot be deleted.
 
 | Data type | Collected | Shared | Optional | Purpose | Why |
 | --- | --- | --- | --- | --- | --- |
