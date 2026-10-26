@@ -29,6 +29,9 @@ function shortUrl(url: string) {
   }
 }
 
+/** The last `notesRequest` an editor served (`useEditing` numbers them and never reuses one). */
+let servedNotesRequest = 0;
+
 /**
  * The bookmark editor of frame 16: preview, page, title, collection, tags,
  * note. An empty title is marked on the field; a failed save shows the reason
@@ -59,9 +62,12 @@ export function BookmarkEditor({
   const form = useRef<HTMLFormElement>(null);
   const titleField = useRef<HTMLInputElement>(null);
   const notesField = useRef<HTMLTextAreaElement>(null);
+  // A request is served once: an editor remounted with it (moving to the drawer) leaves the caret be.
+  const toNotes = notesRequest > servedNotesRequest;
   useEffect(() => {
     const field = notesField.current;
-    if (!notesRequest || !field) return;
+    if (!toNotes || !field) return;
+    servedNotesRequest = notesRequest;
     field.focus();
     field.setSelectionRange(field.value.length, field.value.length);
   }, [notesRequest]);
@@ -128,7 +134,7 @@ export function BookmarkEditor({
           <input
             ref={titleField}
             id={id}
-            autoFocus={!notesRequest}
+            autoFocus={!toNotes}
             value={title}
             aria-invalid={!!titleError}
             aria-describedby={note}

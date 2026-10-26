@@ -1,4 +1,4 @@
-import { CSSProperties, memo, MouseEvent, ReactNode, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, memo, MouseEvent, ReactNode, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUpRight, BookCheck, BookOpen, Check, CircleArrowDown, Copy, ExternalLink, MoreHorizontal, Pencil, RefreshCw, RotateCcw, Heart, Tag as TagIcon, Trash2, Folder } from "lucide-react";
 import { TFunction } from "i18next";
@@ -15,6 +15,7 @@ import { usePicture } from "../../hooks/usePicture";
 import { Icon, NoteIcon, OfflineIcon } from "../icons";
 import { Hint } from "../ui/Hint";
 import { Menu, MenuEntry, MenuItem } from "../ui/Menu";
+import { isRestoringFocus, restoreFocus } from "../ui/focus";
 import { layerFor, windowBox } from "../ui/place";
 
 export interface BookmarkActions {
@@ -219,21 +220,11 @@ function OfflineMark({ b, actions, t, group, open, className = "" }: { b: Bookma
 const NOTE_DELAY_MS = 300;
 
 /**
- * The last key moved the focus (`Tab`): a focus right after it is the person walking the page,
- * not the editor giving the focus back after `Ctrl Enter` or `Esc`, which shows no note.
- */
-let tabbing = false;
-if (typeof window !== "undefined") {
-  addEventListener("keydown", (e) => (tabbing = e.key === "Tab"), true);
-  addEventListener("pointerdown", () => (tabbing = false), true);
-}
-
-/**
  * The note itself (#410, sheet T): a card at the marker, above it in the grid and
  * under it in a row, turned to the other side when the window has no room; up to
  * 280 px wide and 8 lines. Out of the list, so its scroll never cuts it.
  */
-function NotePeek({ id, text, anchor, side }: { id: string; text: string; anchor: HTMLElement; side: "top" | "bottom" }) {
+function NotePeek({ text, anchor, side }: { text: string; anchor: HTMLElement; side: "top" | "bottom" }) {
   const ref = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ left: -9999, top: -9999 });
   useLayoutEffect(() => {
@@ -247,12 +238,11 @@ function NotePeek({ id, text, anchor, side }: { id: string; text: string; anchor
     else if (side === "bottom" && top + box.height > bounds.bottom) top = above;
     const left = Math.min(at.right - box.width, bounds.right - box.width);
     setPosition({ left: Math.max(bounds.left, left), top: Math.max(bounds.top, top) });
-  }, [anchor, side]);
+  }, [anchor, side, text]);
   return createPortal(
     <div
       ref={ref}
-      id={id}
-      role="tooltip"
+      aria-hidden
       data-note-peek
       style={position}
       className="pointer-events-none fixed z-50 w-max max-w-[280px] rounded-[10px] border border-border bg-card px-3 py-3 text-[13px] leading-[18px] text-ink shadow-menu"
@@ -272,17 +262,17 @@ function NotePeek({ id, text, anchor, side }: { id: string; text: string; anchor
 function NoteMark({ b, actions, t, side, className = "" }: { b: Bookmark; actions: BookmarkActions; t: TFunction; side: "top" | "bottom"; className?: string }) {
   const id = useId();
   const timer = useRef(0);
-  const button = useRef<HTMLButtonElement>(null);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const note = b.notes?.trim();
-  // The note cleared while its marker has the focus (back from the editor): the card takes it,
-  // or it would fall to the page and the keyboard would start over from the top.
-  const refocus = useRef<HTMLElement | null>(null);
-  if (!note && button.current && document.activeElement === button.current) refocus.current = button.current.closest("article");
-  useLayoutEffect(() => {
-    refocus.current?.focus();
-    refocus.current = null;
-  }, [note]);
+  // The note cleared while its marker has the focus (back from the editor): the card takes it before
+  // the marker leaves, or it would fall to the page and the keyboard would start over from the top.
+  // React detaches the ref, running this cleanup, before it removes the button.
+  const keepFocus = useCallback((button: HTMLButtonElement | null) => {
+    if (!button) return;
+    return () => {
+      if (document.activeElement === button) restoreFocus(button.closest("article"));
+    };
+  }, []);
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
     if (!anchor) return;
@@ -303,11 +293,11 @@ function NoteMark({ b, actions, t, side, className = "" }: { b: Bookmark; action
   return (
     <>
       <button
-        ref={button}
+        ref={keepFocus}
         type="button"
         data-note-marker
         aria-label={t("card.editNote")}
-        aria-describedby={anchor ? id : undefined}
+        aria-describedby={id}
         onPointerEnter={(e) => {
           const target = e.currentTarget;
           clearTimeout(timer.current);
@@ -315,7 +305,8 @@ function NoteMark({ b, actions, t, side, className = "" }: { b: Bookmark; action
           timer.current = window.setTimeout(() => target.isConnected && target.matches(":hover") && setAnchor(target), NOTE_DELAY_MS);
         }}
         onPointerLeave={hide}
-        onFocus={(e) => tabbing && setAnchor(e.currentTarget)}
+        // From the keyboard, not the focus a closed editor gives back after `Ctrl Enter` or `Esc`.
+        onFocus={(e) => !isRestoringFocus() && e.currentTarget.matches(":focus-visible") && setAnchor(e.currentTarget)}
         onBlur={hide}
         onKeyDown={(e) => {
           if (e.key === "Escape" && anchor) {
@@ -331,7 +322,11 @@ function NoteMark({ b, actions, t, side, className = "" }: { b: Bookmark; action
       >
         <NoteIcon size={13} />
       </button>
-      {anchor && <NotePeek id={id} text={note} anchor={anchor} side={side} />}
+      {/* The note for a screen reader at any time, not only while it shows (browse mode never focuses the marker). */}
+      <span id={id} hidden>
+        {note}
+      </span>
+      {anchor && <NotePeek text={note} anchor={anchor} side={side} />}
     </>
   );
 }

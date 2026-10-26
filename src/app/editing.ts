@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import type { EditHooks } from "../components/library/Triage";
+import { restoreFocus } from "../components/ui/focus";
 import { useBack } from "../platform/useBack";
 import type { Bookmark } from "../types";
 
@@ -12,13 +13,15 @@ export function useEditing() {
    */
   const editorSession = useRef(0);
   /**
-   * Asked for the note (the note marker, #410): grows with each such open, 0 otherwise, so the
-   * editor already open for that bookmark moves its caret there too, keeping its draft.
+   * Asked for the note (the note marker, #410): a new number for each such open, never reused, 0
+   * otherwise. The editor already open for that bookmark moves its caret there too, keeping its
+   * draft, and one remounted later (the window crossing to the drawer) does not move it again.
    */
   const [notesRequest, setNotesRequest] = useState(0);
+  const notesRequests = useRef(0);
   const setEditing = useCallback((b: Bookmark | null, field: "notes" | null = null) => {
     editorSession.current++;
-    setNotesRequest((n) => (field === "notes" ? n + 1 : 0));
+    setNotesRequest(field === "notes" ? ++notesRequests.current : 0);
     setEditingState(b);
   }, []);
   const editingRef = useRef(editing);
@@ -28,11 +31,15 @@ export function useEditing() {
   /** The editor opened from triage: its save and «В корзину» are triage decisions. */
   const editHooks = useRef<EditHooks | null>(null);
   const closeEditor = () => {
-    const card = editingRef.current && document.querySelector<HTMLElement>(`article[data-bookmark-id="${editingRef.current.id}"]`);
+    const opener = editorFocus.current;
+    // The note marker of a note just cleared is gone: its card takes the focus instead (#410).
+    const card =
+      !opener?.isConnected && opener?.matches("[data-note-marker]") && editingRef.current
+        ? document.querySelector<HTMLElement>(`article[data-bookmark-id="${editingRef.current.id}"]`)
+        : null;
     editHooks.current = null;
     setEditing(null);
-    // What opened it may be gone (the note marker of a note just cleared): the card takes the focus then.
-    (editorFocus.current?.isConnected ? editorFocus.current : card)?.focus();
+    restoreFocus(card ?? opener);
   };
   // A phone's Back closes the editor, beside the list or in a drawer (NP-151). Registered here for
   // as long as it is open, so moving between the two (a Fold opening) keeps its place under a
