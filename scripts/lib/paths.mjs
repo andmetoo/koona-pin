@@ -8,6 +8,7 @@
 //     aur/<version>/       PKGBUILD and .SRCINFO of koonapin-bin     bun run build:aur
 //     ios/<version>/       App Store IPAs, their dSYMs in ZIPs, SHA256SUMS.txt   bun run build:ios
 //     android/<version>/   App Bundles for Google Play (upload key), SHA256SUMS.txt   bun run build:android
+//       site/              the site's APK (its own key), SHA256SUMS.txt; the GitHub Release   bun run build:android -- --site
 //     updates/<version>/   packages with .sig, SHA256SUMS.txt, latest.json and release.json; deployed to koona.app   bun run build:latest, build:release-data
 //   release/shots/     screenshots of the app for the site (andmetoo/koona-site)   bun run site:shots
 //     chrome/<version>/    koonapin-chrome.zip, Chrome Web Store    bun run extension:build

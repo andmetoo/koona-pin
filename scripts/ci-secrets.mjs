@@ -6,7 +6,9 @@
 // name the key's file (as Tauri accepts it): the file's contents go up then, and _PATH works the same way.
 // APPLE_CERTIFICATE comes from the .p12 at APPLE_CERTIFICATE_PATH (as base64) and APPLE_API_PRIVATE_KEY from
 // the .p8 at APPLE_API_KEY_PATH (its text), so neither is ever copied into .env, a terminal or a log.
-// The update key, the AMO keys and the deploy key go to the environment «release» (open to tags v* and
+// ANDROID_SITE_KEYSTORE_BASE64 comes from the .p12 at ANDROID_SITE_KEYSTORE (the path build:android reads),
+// the same way.
+// The update key, the AMO keys, the deploy key and the site's Android key go to the environment «release» (open to tags v* and
 // ext-v* only), not to the repository: no pull request, branch or run on main can read them.
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
@@ -39,13 +41,16 @@ const OPTIONAL = [
   "WEB_EXT_API_KEY", "WEB_EXT_API_SECRET",
   "DEPLOY_SSH_KEY", "DEPLOY_HOST", "DEPLOY_KNOWN_HOSTS",
   "AUR_SSH_KEY", "AUR_KNOWN_HOSTS",
+  // The site's APK (release.yml, build:android --site): its own key, never Google's upload key.
+  "ANDROID_SITE_KEYSTORE_BASE64", "ANDROID_SITE_KEYSTORE_PASSWORD", "ANDROID_SITE_KEY_ALIAS",
 ];
 
 /** Secrets of an environment instead of the repository's. */
 const ENVIRONMENT = Object.fromEntries(
   ["TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD",
     "APPLE_CERTIFICATE", "APPLE_CERTIFICATE_PASSWORD", "APPLE_SIGNING_IDENTITY", "APPLE_API_ISSUER", "APPLE_API_KEY", "APPLE_API_PRIVATE_KEY",
-    "WEB_EXT_API_KEY", "WEB_EXT_API_SECRET", "DEPLOY_SSH_KEY", "DEPLOY_HOST", "DEPLOY_KNOWN_HOSTS", "AUR_SSH_KEY", "AUR_KNOWN_HOSTS"].map((name) => [name, "release"]),
+    "WEB_EXT_API_KEY", "WEB_EXT_API_SECRET", "DEPLOY_SSH_KEY", "DEPLOY_HOST", "DEPLOY_KNOWN_HOSTS", "AUR_SSH_KEY", "AUR_KNOWN_HOSTS",
+    "ANDROID_SITE_KEYSTORE_BASE64", "ANDROID_SITE_KEYSTORE_PASSWORD", "ANDROID_SITE_KEY_ALIAS"].map((name) => [name, "release"]),
 );
 
 const isFile = (value) => !value.includes("\n") && existsSync(value) && statSync(value).isFile();
@@ -55,11 +60,12 @@ function value(name) {
     if (key && isFile(path.resolve(root, key))) return readFileSync(path.resolve(root, key), "utf8").trim();
     return key;
   }
-  const file = { APPLE_CERTIFICATE: "APPLE_CERTIFICATE_PATH", APPLE_API_PRIVATE_KEY: "APPLE_API_KEY_PATH" }[name];
+  const file = { APPLE_CERTIFICATE: "APPLE_CERTIFICATE_PATH", APPLE_API_PRIVATE_KEY: "APPLE_API_KEY_PATH",
+    ANDROID_SITE_KEYSTORE_BASE64: "ANDROID_SITE_KEYSTORE" }[name];
   if (!process.env[name] && file && process.env[file]) {
     const at = path.resolve(root, process.env[file]);
     if (!isFile(at)) throw new Error(`${file} names no file`);
-    return name === "APPLE_CERTIFICATE" ? readFileSync(at).toString("base64") : readFileSync(at, "utf8").trim();
+    return name === "APPLE_API_PRIVATE_KEY" ? readFileSync(at, "utf8").trim() : readFileSync(at).toString("base64");
   }
   return process.env[name];
 }
