@@ -89,7 +89,7 @@ This writes unpacked extensions to `release/dev/chrome`, `release/dev/edge` and 
 
 ## Local builds without signing
 
-`release/publish/` is the main checkout's for a build run in a git worktree (`.claude/worktrees/<name>`, where releases are built) whose HEAD is a commit of `origin/main`, as for the main checkout itself (`scripts/lib/paths.mjs`), so everything released is found in one place. A worktree on a branch publishes into its own `release/publish/`, so a branch's packages of the same version never replace the released ones. The choice depends on HEAD only, not on changes in the tree, so a build and a later script that reads its output agree. `release/test/` and `release/dev/` stay each checkout's own.
+`release/publish/` is the main checkout's for a build run in a git worktree (`.claude/worktrees/<name>`, where releases are built) that builds what main releases: HEAD detached or on `main`, at the tip of `origin/main` or a release tag of it (`v*`, `ext-v*`; `scripts/lib/paths.mjs`), so everything released is found in one place. Any other worktree, a session's branch even before its first commit, or an older commit of main, publishes into its own `release/publish/`. The choice uses local refs only, not the tree's changes, so a build and a later script that reads its output agree; Android and iOS use the same rule for what may go to a store and also refuse a tree with changes. `release/test/` and `release/dev/` stay each checkout's own.
 
 | What | Command | Output |
 | --- | --- | --- |

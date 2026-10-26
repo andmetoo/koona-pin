@@ -30,16 +30,18 @@
 // (Cargo and Tauri: debug and release EXEs, NSIS intermediates) and dist/ (Vite, the app's interface).
 //
 // release/publish/ is the main checkout's for a build of a git worktree (.claude/worktrees/<name>,
-// where releases are built) whose HEAD is a commit of origin/main, as it is for the main checkout
-// itself, so there is one place to look for what was released. A worktree on a branch publishes into
-// its own release/publish/, as before: a branch's packages of the same version never replace the
-// released ones. The choice depends on HEAD and the local origin/main only (no fetch, not the state of
-// the tree, which a build changes as it runs), so a build and the script that reads its output later
-// look in the same place. Android and iOS builds also refuse to publish a tree with changes
-// (store-build.mjs, cleanMain). release/test/, release/dev/ and release/shots/ are always the
-// checkout's own: its tests and builds read them by relative paths (the Safari project copies
-// <checkout>/release/dev/safari), and sessions in other worktrees must not overwrite them. Use
-// `publish.*` for what leaves the repository and `release` only for test/, dev/ and shots/.
+// where releases are built) that builds what main releases: HEAD is not on a branch of its own
+// (detached, or main) and is the tip of origin/main or a release tag of it (v*, ext-v*), so there is
+// one place to look for what was released. Any other worktree publishes into its own release/publish/,
+// as before: a session's branch (sync/…, feat/…, even before its first commit) or an older commit of
+// main never replaces the released packages. The choice depends on HEAD, its tags and the local
+// origin/main only (no fetch, not the state of the tree, which a build changes as it runs), so a build
+// and the script that reads its output later look in the same place. Android and iOS builds use the
+// same rule and also refuse a tree with changes (store-build.mjs, cleanMain). release/test/,
+// release/dev/ and release/shots/ are always the checkout's own: its tests and builds read them by
+// relative paths (the Safari project copies <checkout>/release/dev/safari), and sessions in other
+// worktrees must not overwrite them. Use `publish.*` for what leaves the repository and `release` only
+// for test/, dev/ and shots/.
 import { spawnSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
@@ -66,16 +68,32 @@ export function mainCheckoutOf(at) {
   return at;
 }
 
-/** Whether HEAD of the checkout at `at` is a commit of its local origin/main. */
-export const onMainOf = (at) => spawnSync("git", ["merge-base", "--is-ancestor", "HEAD", "origin/main"], { cwd: at }).status === 0;
+/** A release tag of the app or of the browser extension. */
+const RELEASE_TAG = /^(ext-)?v\d/;
 
 /**
- * release/publish/ for the checkout at `at`: its main checkout's when `at` is a worktree whose HEAD is
- * on origin/main (`onMain`, asked only for a worktree), else its own.
+ * Whether the checkout at `at` builds what main releases (the rule above): HEAD detached or on main,
+ * and the tip of its local origin/main or a release tag on it. Local refs only: no fetch.
+ */
+export function onMainOf(at) {
+  const git = (...args) => spawnSync("git", args, { cwd: at, encoding: "utf8" });
+  const branch = git("symbolic-ref", "--quiet", "--short", "HEAD");
+  if (branch.status === 0 && branch.stdout.trim() !== "main") return false;
+  const head = git("rev-parse", "--verify", "--quiet", "HEAD").stdout?.trim();
+  if (!head) return false;
+  if (git("rev-parse", "--verify", "--quiet", "origin/main").stdout?.trim() === head) return true;
+  const tagged = git("tag", "--points-at", "HEAD").stdout?.split(/\r?\n/).some((tag) => RELEASE_TAG.test(tag));
+  return Boolean(tagged) && git("merge-base", "--is-ancestor", "HEAD", "origin/main").status === 0;
+}
+
+/**
+ * release/publish/ for the checkout at `at`, and why: its main checkout's when `at` is a worktree that
+ * builds what main releases (`onMain`, asked only for a worktree), else its own.
  */
 export function publishRootOf(at, onMain = onMainOf) {
   const main = mainCheckoutOf(at);
-  return path.join(main !== at && onMain(at) ? main : at, "release", "publish");
+  const shared = main !== at && onMain(at);
+  return { folder: path.join(shared ? main : at, "release", "publish"), worktree: main !== at, shared };
 }
 
 /** This checkout's release/: its test/, dev/ and shots/. What is published goes through `publish`. */
@@ -85,9 +103,10 @@ let publishFolder;
 /** release/publish/ for what this run publishes (publishRootOf this checkout), decided once. */
 export function publishRoot() {
   if (publishFolder) return publishFolder;
-  publishFolder = publishRootOf(root);
-  if (mainCheckoutOf(root) !== root && publishFolder.startsWith(root + path.sep))
-    console.warn(`HEAD is not on origin/main: published into this worktree's own ${shown(publishFolder)}, not the main checkout's.`);
+  const { folder, worktree, shared } = publishRootOf(root);
+  if (worktree && !shared)
+    console.warn(`Not the tip of origin/main or a release tag, or on a branch: published into this worktree's own ${shown(folder)}, not the main checkout's.`);
+  publishFolder = folder;
   return publishFolder;
 }
 
