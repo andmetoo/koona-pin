@@ -11,11 +11,14 @@ export function useEditing() {
    * editor only if it is still the one that was saved, not one opened since with its draft.
    */
   const editorSession = useRef(0);
-  /** The field the editor starts in: the note when opened from the note marker (#410), else the title. */
-  const editorField = useRef<"notes" | null>(null);
+  /**
+   * Asked for the note (the note marker, #410): grows with each such open, 0 otherwise, so the
+   * editor already open for that bookmark moves its caret there too, keeping its draft.
+   */
+  const [notesRequest, setNotesRequest] = useState(0);
   const setEditing = useCallback((b: Bookmark | null, field: "notes" | null = null) => {
     editorSession.current++;
-    editorField.current = field;
+    setNotesRequest((n) => (field === "notes" ? n + 1 : 0));
     setEditingState(b);
   }, []);
   const editingRef = useRef(editing);
@@ -25,15 +28,17 @@ export function useEditing() {
   /** The editor opened from triage: its save and «В корзину» are triage decisions. */
   const editHooks = useRef<EditHooks | null>(null);
   const closeEditor = () => {
+    const card = editingRef.current && document.querySelector<HTMLElement>(`article[data-bookmark-id="${editingRef.current.id}"]`);
     editHooks.current = null;
     setEditing(null);
-    editorFocus.current?.focus();
+    // What opened it may be gone (the note marker of a note just cleared): the card takes the focus then.
+    (editorFocus.current?.isConnected ? editorFocus.current : card)?.focus();
   };
   // A phone's Back closes the editor, beside the list or in a drawer (NP-151). Registered here for
   // as long as it is open, so moving between the two (a Fold opening) keeps its place under a
   // dialog opened over it; the drawer does not register itself (`back={false}`).
   useBack(closeEditor, !!editing);
-  return { editing, setEditing, editingRef, editorSession, editorField, editorFocus, editHooks, closeEditor };
+  return { editing, setEditing, editingRef, editorSession, notesRequest, editorFocus, editHooks, closeEditor };
 }
 
 export type Editing = ReturnType<typeof useEditing>;

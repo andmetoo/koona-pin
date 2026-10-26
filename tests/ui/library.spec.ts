@@ -2078,12 +2078,42 @@ test("the note marker: only with a note, the note on hover above a card and unde
   await page.mouse.move(0, 0);
   await expect(peek).toHaveCount(0);
 
+  // Tab onto the marker shows the note at once, Esc hides it.
+  await page.locator('[data-bookmark-id="1"] [data-offline-save]').focus();
+  await page.keyboard.press("Tab");
+  await expect(marker(1)).toBeFocused();
+  await expect(peek).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(peek).toHaveCount(0);
+
   // A click opens the editor in the note, not in the title.
   await marker(1).click();
   const editor = page.locator("form").filter({ has: page.getByRole("textbox", { name: "Title" }) });
-  await expect(editor.getByRole("textbox", { name: "Note" })).toBeFocused();
-  await expect(editor.getByRole("textbox", { name: "Note" })).toHaveValue("Reread before the next project.");
-  await editor.getByRole("button", { name: "Cancel" }).click();
+  const noteField = editor.getByRole("textbox", { name: "Note" });
+  await expect(noteField).toBeFocused();
+  await expect(noteField).toHaveValue("Reread before the next project.");
+  // Saved from the keyboard: the focus is back on the marker, and the note does not pop up by itself.
+  await page.keyboard.type(" Twice.");
+  await page.keyboard.press("ControlOrMeta+Enter");
+  await expect(editor).toHaveCount(0);
+  await expect(marker(1)).toBeFocused();
+  await expect(page.getByRole("tooltip").filter({ hasText: "Twice." })).toHaveCount(0);
+
+  // Open already (Edit… of the card's menu), a click on the marker moves the caret to the note.
+  await page.locator('[data-bookmark-id="1"]').focus();
+  await page.keyboard.press("Shift+F10");
+  await page.getByRole("menuitem", { name: "Edit…" }).click();
+  await expect(editor.getByRole("textbox", { name: "Title" })).toBeFocused();
+  await marker(1).click();
+  await expect(noteField).toBeFocused();
+  // The note cleared: the marker goes, and the focus lands on the card, not on the page.
+  await noteField.fill("");
+  await page.keyboard.press("ControlOrMeta+Enter");
+  await expect(editor).toHaveCount(0);
+  await expect(marker(1)).toHaveCount(0);
+  await expect(page.locator('[data-bookmark-id="1"]')).toBeFocused();
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(marker(1)).toBeVisible();
 
   // List: the note shows under the marker.
   await page.getByRole("button", { name: "List", exact: true }).click();

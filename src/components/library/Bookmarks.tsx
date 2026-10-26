@@ -12,10 +12,10 @@ import { shortcut } from "../../services/keys";
 import { daysLeft } from "../../services/library";
 import { pictureSrc } from "../../services/pictures";
 import { usePicture } from "../../hooks/usePicture";
-import { safeArea } from "../../platform/safeArea";
 import { Icon, NoteIcon, OfflineIcon } from "../icons";
 import { Hint } from "../ui/Hint";
 import { Menu, MenuEntry, MenuItem } from "../ui/Menu";
+import { layerFor, windowBox } from "../ui/place";
 
 export interface BookmarkActions {
   open: (url: string) => void;
@@ -219,24 +219,34 @@ function OfflineMark({ b, actions, t, group, open, className = "" }: { b: Bookma
 const NOTE_DELAY_MS = 300;
 
 /**
+ * The last key moved the focus (`Tab`): a focus right after it is the person walking the page,
+ * not the editor giving the focus back after `Ctrl Enter` or `Esc`, which shows no note.
+ */
+let tabbing = false;
+if (typeof window !== "undefined") {
+  addEventListener("keydown", (e) => (tabbing = e.key === "Tab"), true);
+  addEventListener("pointerdown", () => (tabbing = false), true);
+}
+
+/**
  * The note itself (#410, sheet T): a card at the marker, above it in the grid and
  * under it in a row, turned to the other side when the window has no room; up to
- * 280 px wide and 8 lines. In the body, so the list's scroll never cuts it.
+ * 280 px wide and 8 lines. Out of the list, so its scroll never cuts it.
  */
-function NotePeek({ id, text, anchor, side }: { id: string; text: string; anchor: DOMRect; side: "top" | "bottom" }) {
+function NotePeek({ id, text, anchor, side }: { id: string; text: string; anchor: HTMLElement; side: "top" | "bottom" }) {
   const ref = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ left: -9999, top: -9999 });
   useLayoutEffect(() => {
     const box = ref.current!.getBoundingClientRect();
-    const safe = safeArea();
-    const [minTop, maxBottom] = [safe.top + 8, innerHeight - safe.bottom - 8];
-    const above = anchor.top - 6 - box.height;
-    const below = anchor.bottom + 6;
+    const at = anchor.getBoundingClientRect();
+    const bounds = windowBox();
+    const above = at.top - 6 - box.height;
+    const below = at.bottom + 6;
     let top = side === "top" ? above : below;
-    if (side === "top" && top < minTop) top = below;
-    else if (side === "bottom" && top + box.height > maxBottom) top = above;
-    const left = Math.min(anchor.right - box.width, innerWidth - safe.right - 8 - box.width);
-    setPosition({ left: Math.max(safe.left + 8, left), top: Math.max(minTop, top) });
+    if (side === "top" && top < bounds.top) top = below;
+    else if (side === "bottom" && top + box.height > bounds.bottom) top = above;
+    const left = Math.min(at.right - box.width, bounds.right - box.width);
+    setPosition({ left: Math.max(bounds.left, left), top: Math.max(bounds.top, top) });
   }, [anchor, side]);
   return createPortal(
     <div
@@ -249,7 +259,7 @@ function NotePeek({ id, text, anchor, side }: { id: string; text: string; anchor
     >
       <p className="line-clamp-8 break-words whitespace-pre-wrap">{text}</p>
     </div>,
-    document.body,
+    layerFor(anchor),
   );
 }
 
@@ -262,16 +272,29 @@ function NotePeek({ id, text, anchor, side }: { id: string; text: string; anchor
 function NoteMark({ b, actions, t, side, className = "" }: { b: Bookmark; actions: BookmarkActions; t: TFunction; side: "top" | "bottom"; className?: string }) {
   const id = useId();
   const timer = useRef(0);
-  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const note = b.notes?.trim();
+  // The note cleared while its marker has the focus (back from the editor): the card takes it,
+  // or it would fall to the page and the keyboard would start over from the top.
+  const refocus = useRef<HTMLElement | null>(null);
+  if (!note && button.current && document.activeElement === button.current) refocus.current = button.current.closest("article");
+  useLayoutEffect(() => {
+    refocus.current?.focus();
+    refocus.current = null;
+  }, [note]);
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
     if (!anchor) return;
-    // Scrolling moves the marker from under the note: it hides rather than float away.
+    // Scrolling or a new layout moves the marker from under the note: it hides rather than float away.
     const hide = () => setAnchor(null);
     addEventListener("scroll", hide, true);
-    return () => removeEventListener("scroll", hide, true);
+    addEventListener("resize", hide);
+    return () => {
+      removeEventListener("scroll", hide, true);
+      removeEventListener("resize", hide);
+    };
   }, [anchor]);
-  const note = b.notes?.trim();
   if (!note) return null;
   const hide = () => {
     clearTimeout(timer.current);
@@ -280,6 +303,7 @@ function NoteMark({ b, actions, t, side, className = "" }: { b: Bookmark; action
   return (
     <>
       <button
+        ref={button}
         type="button"
         data-note-marker
         aria-label={t("card.editNote")}
@@ -287,10 +311,11 @@ function NoteMark({ b, actions, t, side, className = "" }: { b: Bookmark; action
         onPointerEnter={(e) => {
           const target = e.currentTarget;
           clearTimeout(timer.current);
-          timer.current = window.setTimeout(() => setAnchor(target.getBoundingClientRect()), NOTE_DELAY_MS);
+          // Placed when it shows, and only if the pointer is still there: the list may have moved meanwhile.
+          timer.current = window.setTimeout(() => target.isConnected && target.matches(":hover") && setAnchor(target), NOTE_DELAY_MS);
         }}
         onPointerLeave={hide}
-        onFocus={(e) => e.currentTarget.matches(":focus-visible") && setAnchor(e.currentTarget.getBoundingClientRect())}
+        onFocus={(e) => tabbing && setAnchor(e.currentTarget)}
         onBlur={hide}
         onKeyDown={(e) => {
           if (e.key === "Escape" && anchor) {
@@ -756,12 +781,21 @@ function RowAction({ label, onClick, children, ...rest }: { label: string; onCli
 
 export const ROW_HEIGHT = 60;
 
+/** A row's columns, written out whole so Tailwind sees each class. */
+const COLUMNS = {
+  "compact-48": "grid-cols-[64px_minmax(0,1fr)_120px_48px_96px]",
+  "compact-72": "grid-cols-[64px_minmax(0,1fr)_120px_72px_96px]",
+  "full-48": "grid-cols-[64px_minmax(0,1fr)_170px_120px_48px_96px]",
+  "full-72": "grid-cols-[64px_minmax(0,1fr)_170px_120px_72px_96px]",
+};
+
 /** List row 60 px: checkbox, thumbnail, text, tags, collection, heart, date (frame 02, NP-086). Memoized like the card. */
 export const BookmarkRow = memo(function BookmarkRow({
   bookmark: b,
   collections,
   actions,
   compact,
+  noteColumn = false,
   selected,
   fresh = false,
 }: {
@@ -770,6 +804,8 @@ export const BookmarkRow = memo(function BookmarkRow({
   actions: BookmarkActions;
   /** Narrow window or docked editor: tags give way first (frame 16). */
   compact: boolean;
+  /** Some row of the list has a note: the marks column takes its marker too, 72 px instead of 48 (#410). */
+  noteColumn?: boolean;
   selected: boolean;
   /** Just saved by hand: it lands with a short spring. */
   fresh?: boolean;
@@ -794,7 +830,7 @@ export const BookmarkRow = memo(function BookmarkRow({
         menu.onKeyDown(e);
         if (!e.defaultPrevented) control.onKeyDown(e);
       }}
-      className={`group/row grid h-[60px] items-center gap-3.5 rounded-xl border py-[7px] pr-[11px] pl-[7px] transition-colors duration-150 ${background} ${compact ? "grid-cols-[64px_minmax(0,1fr)_120px_72px_96px]" : "grid-cols-[64px_minmax(0,1fr)_170px_120px_72px_96px]"}`}
+      className={`group/row grid h-[60px] items-center gap-3.5 rounded-xl border py-[7px] pr-[11px] pl-[7px] transition-colors duration-150 ${background} ${COLUMNS[`${compact ? "compact" : "full"}-${noteColumn ? 72 : 48}`]}`}
     >
       {/* Sheet S1: the thumbnail and the title are the link; the rest of the row selects. */}
       <RowLink b={b} actions={actions} label={t("card.open", { title: b.title || b.url })} className="h-11 w-16 overflow-hidden rounded-sm bg-hover">

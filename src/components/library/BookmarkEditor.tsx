@@ -1,4 +1,4 @@
-import { FormEvent, KeyboardEvent, useRef, useState } from "react";
+import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import { AlertCircle, ExternalLink } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Bookmark, Collection } from "../../types";
@@ -36,7 +36,7 @@ function shortUrl(url: string) {
  */
 export function BookmarkEditor({
   bookmark,
-  startInNotes = false,
+  notesRequest = 0,
   collections,
   onSave,
   onOpen,
@@ -44,8 +44,11 @@ export function BookmarkEditor({
   onCancel,
 }: {
   bookmark: Bookmark;
-  /** Opened from the note marker (#410): the caret at the end of the note, not in the title. */
-  startInNotes?: boolean;
+  /**
+   * Opened from the note marker (#410): the caret at the end of the note, not in the title.
+   * Grows with each such open, so an editor already open moves its caret there too.
+   */
+  notesRequest?: number;
   collections: Collection[];
   onSave: (data: BookmarkChanges) => Promise<void>;
   onOpen: (url: string) => void;
@@ -55,6 +58,13 @@ export function BookmarkEditor({
   const { t } = useTranslation();
   const form = useRef<HTMLFormElement>(null);
   const titleField = useRef<HTMLInputElement>(null);
+  const notesField = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const field = notesField.current;
+    if (!notesRequest || !field) return;
+    field.focus();
+    field.setSelectionRange(field.value.length, field.value.length);
+  }, [notesRequest]);
   const [title, setTitle] = useState(bookmark.title);
   const [notes, setNotes] = useState(bookmark.notes ?? "");
   const [collection, setCollection] = useState<number | null>(bookmark.collection_id ?? null);
@@ -118,7 +128,7 @@ export function BookmarkEditor({
           <input
             ref={titleField}
             id={id}
-            autoFocus={!startInNotes}
+            autoFocus={!notesRequest}
             value={title}
             aria-invalid={!!titleError}
             aria-describedby={note}
@@ -139,9 +149,8 @@ export function BookmarkEditor({
       <Field label={t("editor.notes")}>
         {(id) => (
           <textarea
+            ref={notesField}
             id={id}
-            autoFocus={startInNotes}
-            onFocus={(e) => startInNotes && e.currentTarget.setSelectionRange(notes.length, notes.length)}
             rows={3}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}

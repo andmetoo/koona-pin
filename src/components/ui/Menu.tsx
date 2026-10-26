@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Check, ChevronRight, LucideIcon, Search } from "lucide-react";
 import { Icon } from "../icons";
 import { isMac, shortcut } from "../../services/keys";
-import { safeArea } from "../../platform/safeArea";
+import { layerFor, windowBox } from "./place";
 
 export interface MenuItem {
   id: string;
@@ -87,10 +87,7 @@ export function Menu({
     if (!returnTo.current) returnTo.current = document.activeElement as HTMLElement | null;
     const menu = ref.current!.getBoundingClientRect();
     const rect = "width" in anchor ? anchor : new DOMRect(anchor.x, anchor.y, 0, 0);
-    // Inside the window, and on a phone inside its safe area: not under the bars or the keyboard (NP-151).
-    const safe = safeArea();
-    const [minLeft, maxRight] = [safe.left + 8, innerWidth - safe.right - 8];
-    const [minTop, maxBottom] = [safe.top + 8, innerHeight - safe.bottom - 8];
+    const { left: minLeft, right: maxRight, top: minTop, bottom: maxBottom } = windowBox();
     let left = nested ? rect.right + 4 : align === "end" ? rect.right - width : rect.left;
     let top = nested ? rect.top - 6 : rect.bottom + 6;
     if (left + width > maxRight) left = nested ? rect.left - width - 4 : maxRight - width;
@@ -289,6 +286,5 @@ export function Menu({
   // backdrop (a backdrop-filter starts a backdrop root) and placed from it, not from the window.
   // Opened from a modal dialog (the reading sheet's «Saved offline», NP-126), it lives in that
   // dialog: the top layer would cover anything in the body. A submenu follows its parent there.
-  const dialog = nested ? document.querySelector<HTMLElement>("dialog[open]") : trigger?.closest<HTMLElement>("dialog[open]");
-  return createPortal(menu, dialog ?? document.body);
+  return createPortal(menu, nested ? (document.querySelector<HTMLElement>("dialog[open]") ?? document.body) : layerFor(trigger));
 }

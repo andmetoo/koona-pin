@@ -276,6 +276,8 @@ export function BookmarkList({
   const cardWidth = (width - gapX * (columns - 1)) / columns;
   const cardHeight = Math.round((cardWidth * 10) / 16) + text;
 
+  /** A note anywhere in the list widens the marks column of every row for its marker (#410): hearts stay in one line. */
+  const noteColumn = useMemo(() => view === "list" && bookmarks.some((b) => b.notes?.trim()), [view, bookmarks]);
   const entries = useMemo<ListEntry[]>(() => {
     if (view !== "list") return [];
     if (!grouped) return bookmarks.map((bookmark, place) => ({ kind: "row", bookmark, place }));
@@ -402,6 +404,7 @@ export function BookmarkList({
                   collections={collections}
                   actions={actions}
                   compact={compact}
+                  noteColumn={noteColumn}
                   selected={selected.has(entry.bookmark.id)}
                   fresh={entry.bookmark.id === fresh}
                 />
