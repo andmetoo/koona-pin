@@ -232,6 +232,9 @@ export function Menu({
             title={entry.disabled ? entry.disabledHint : undefined}
             tabIndex={-1}
             onClick={(e) => select(entry, e.currentTarget)}
+            // The pointer's way in opened the submenu and focused its first stop (its search field): the
+            // press of the click must not take the focus back to this item.
+            onMouseDown={entry.submenu ? (e) => e.preventDefault() : undefined}
             onPointerEnter={(e) => {
               if (entry.submenu && !entry.disabled) setOpen({ id: entry.id, rect: e.currentTarget.getBoundingClientRect() });
               else if (open) setOpen(null);
