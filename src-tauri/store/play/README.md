@@ -47,7 +47,7 @@ Follow sites
 Follow RSS, Atom and JSON feeds. Posts come straight from the sites to your phone; save the ones worth keeping.
 
 Your library stays on your phone
-The library is a file on your device. Koona Pin shows no ads and sends no analytics, telemetry or crash reports. It requests pages, pictures and feeds from the sites of the links you save and the feeds you follow, and asks Google's icon service for site icons. It talks to Koona for your Supporter plan (with a purchase, Google Play's receipt of it and the email you give to claim it), with sync on to the sync relay, which passes your end-to-end encrypted library between your devices and keeps nothing, and for feedback, only when you send it.
+The library is a file on your device. Koona Pin shows no ads and sends no analytics, telemetry or crash reports. It requests pages, pictures and feeds from the sites of the links you save and the feeds you follow, and site icons from those sites too. It talks to Koona for your Supporter plan (with a purchase, Google Play's receipt of it and the email you give to claim it), with sync on to the sync relay, which passes your end-to-end encrypted library between your devices and keeps nothing, and for feedback, only when you send it.
 
 Bring your bookmarks
 Import bookmarks from a browser's HTML export, and feeds from OPML.
@@ -107,4 +107,4 @@ Not declared, with the reason (check each against Play's help before submitting)
 - **Device or other IDs:** a Google Play purchase carries a random id made on the phone for that purchase (the hash of a secret), not a device or advertising id; it only ties the purchase to its claim.
 - **The library through sync:** end-to-end encrypted with a key only the person's devices have; the relay passes it between devices online at the same time and keeps nothing.
 - **The pages, feeds and pictures of links:** requested from those sites at the person's action (saving a link, following a feed, opening reading mode); they never pass through Koona.
-- **Site icons:** the app asks Google's favicon service (`google.com/s2/favicons`) for the icon of a saved link's domain. That sends the domain to Google without a separate action. **Owner's decision:** declare it (Web browsing → "Web browsing history", shared, for App functionality) or stop using the service on phones. The full description names the service: if phones stop using it, take that clause out of the description in the same change.
+- **Site icons:** a phone asks only the site itself for its icon (`capabilities.rs`: `icon_service` is off on phones, `metadata::fetched_icon`), as for the page and its pictures; Google's favicon service is the desktop's only. Nothing goes to Google, and the privacy policy says so.
