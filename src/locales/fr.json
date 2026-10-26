@@ -220,7 +220,8 @@
     "saveOffline": "Enregistrer pour hors ligne",
     "removeOffline": "Supprimer la copie hors ligne",
     "saveOfflineShort": "Enregistrer hors ligne",
-    "savedOffline": "Enregistré hors ligne"
+    "savedOffline": "Enregistré hors ligne",
+    "editNote": "Modifier la note"
   },
   "selection": {
     "label": "Signets sélectionnés",

@@ -230,7 +230,8 @@
     "saveOffline": "Zapisz do czytania offline",
     "removeOffline": "Usuń kopię offline",
     "saveOfflineShort": "Zapisz offline",
-    "savedOffline": "Zapisano offline"
+    "savedOffline": "Zapisano offline",
+    "editNote": "Edytuj notatkę"
   },
   "selection": {
     "label": "Zaznaczone zakładki",

@@ -230,7 +230,8 @@
     "saveOffline": "Сохранить для офлайна",
     "removeOffline": "Удалить офлайн-копию",
     "saveOfflineShort": "Сохранить офлайн",
-    "savedOffline": "Сохранено офлайн"
+    "savedOffline": "Сохранено офлайн",
+    "editNote": "Изменить заметку"
   },
   "selection": {
     "label": "Выделенные закладки",

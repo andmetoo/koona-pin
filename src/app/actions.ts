@@ -215,9 +215,9 @@ export function useBookmarkActions({
     () => ({
       open,
       copy: (url) => void copy(url),
-      edit: (b) => {
+      edit: (b, field) => {
         editorFocus.current = document.activeElement as HTMLElement;
-        setEditing(b);
+        setEditing(b, field);
       },
       favorite: (b) => void api.updateBookmark(b.id, { is_favorite: !b.is_favorite }).catch((err) => say(describeError(err), true)),
       // Reading (NP-121): one bookmark through the bulk command, undone the same way.

@@ -220,7 +220,8 @@
     "saveOffline": "Salvar para ler offline",
     "removeOffline": "Remover cópia offline",
     "saveOfflineShort": "Salvar offline",
-    "savedOffline": "Salvo offline"
+    "savedOffline": "Salvo offline",
+    "editNote": "Editar nota"
   },
   "selection": {
     "label": "Marcadores selecionados",

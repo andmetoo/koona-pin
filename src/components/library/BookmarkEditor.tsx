@@ -36,6 +36,7 @@ function shortUrl(url: string) {
  */
 export function BookmarkEditor({
   bookmark,
+  startInNotes = false,
   collections,
   onSave,
   onOpen,
@@ -43,6 +44,8 @@ export function BookmarkEditor({
   onCancel,
 }: {
   bookmark: Bookmark;
+  /** Opened from the note marker (#410): the caret at the end of the note, not in the title. */
+  startInNotes?: boolean;
   collections: Collection[];
   onSave: (data: BookmarkChanges) => Promise<void>;
   onOpen: (url: string) => void;
@@ -115,7 +118,7 @@ export function BookmarkEditor({
           <input
             ref={titleField}
             id={id}
-            autoFocus
+            autoFocus={!startInNotes}
             value={title}
             aria-invalid={!!titleError}
             aria-describedby={note}
@@ -137,6 +140,8 @@ export function BookmarkEditor({
         {(id) => (
           <textarea
             id={id}
+            autoFocus={startInNotes}
+            onFocus={(e) => startInNotes && e.currentTarget.setSelectionRange(notes.length, notes.length)}
             rows={3}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}

@@ -1,4 +1,5 @@
-import { CSSProperties, memo, MouseEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, memo, MouseEvent, ReactNode, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowUpRight, BookCheck, BookOpen, Check, CircleArrowDown, Copy, ExternalLink, MoreHorizontal, Pencil, RefreshCw, RotateCcw, Heart, Tag as TagIcon, Trash2, Folder } from "lucide-react";
 import { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
@@ -11,14 +12,16 @@ import { shortcut } from "../../services/keys";
 import { daysLeft } from "../../services/library";
 import { pictureSrc } from "../../services/pictures";
 import { usePicture } from "../../hooks/usePicture";
-import { Icon, OfflineIcon } from "../icons";
+import { safeArea } from "../../platform/safeArea";
+import { Icon, NoteIcon, OfflineIcon } from "../icons";
 import { Hint } from "../ui/Hint";
 import { Menu, MenuEntry, MenuItem } from "../ui/Menu";
 
 export interface BookmarkActions {
   open: (url: string) => void;
   copy: (url: string) => void;
-  edit: (bookmark: Bookmark) => void;
+  /** The editor; `"notes"` puts the caret in the note (the note marker, #410). */
+  edit: (bookmark: Bookmark, field?: "notes") => void;
   favorite: (bookmark: Bookmark) => void;
   /** Into Reading or out of it, with an undo in the notice (NP-121). */
   reading: (bookmark: Bookmark) => void;
@@ -209,6 +212,102 @@ function OfflineMark({ b, actions, t, group, open, className = "" }: { b: Bookma
     >
       <OfflineIcon size={13} />
     </button>
+  );
+}
+
+/** Hover this long before the note shows: a pointer passing over the grid shows nothing. */
+const NOTE_DELAY_MS = 300;
+
+/**
+ * The note itself (#410, sheet T): a card at the marker, above it in the grid and
+ * under it in a row, turned to the other side when the window has no room; up to
+ * 280 px wide and 8 lines. In the body, so the list's scroll never cuts it.
+ */
+function NotePeek({ id, text, anchor, side }: { id: string; text: string; anchor: DOMRect; side: "top" | "bottom" }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ left: -9999, top: -9999 });
+  useLayoutEffect(() => {
+    const box = ref.current!.getBoundingClientRect();
+    const safe = safeArea();
+    const [minTop, maxBottom] = [safe.top + 8, innerHeight - safe.bottom - 8];
+    const above = anchor.top - 6 - box.height;
+    const below = anchor.bottom + 6;
+    let top = side === "top" ? above : below;
+    if (side === "top" && top < minTop) top = below;
+    else if (side === "bottom" && top + box.height > maxBottom) top = above;
+    const left = Math.min(anchor.right - box.width, innerWidth - safe.right - 8 - box.width);
+    setPosition({ left: Math.max(safe.left + 8, left), top: Math.max(minTop, top) });
+  }, [anchor, side]);
+  return createPortal(
+    <div
+      ref={ref}
+      id={id}
+      role="tooltip"
+      data-note-peek
+      style={position}
+      className="pointer-events-none fixed z-50 w-max max-w-[280px] rounded-[10px] border border-border bg-card px-3 py-3 text-[13px] leading-[18px] text-ink shadow-menu"
+    >
+      <p className="line-clamp-8 break-words whitespace-pre-wrap">{text}</p>
+    </div>,
+    document.body,
+  );
+}
+
+/**
+ * Right of the offline mark, left of the heart (#410, sheet T): a bookmark with a
+ * note carries the filled note in the accent, as a favorite its heart; none without
+ * one. Hovered for a moment or focused from the keyboard it shows the note, `Esc`
+ * hides it; a click opens the editor with the caret in the note.
+ */
+function NoteMark({ b, actions, t, side, className = "" }: { b: Bookmark; actions: BookmarkActions; t: TFunction; side: "top" | "bottom"; className?: string }) {
+  const id = useId();
+  const timer = useRef(0);
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(() => {
+    if (!anchor) return;
+    // Scrolling moves the marker from under the note: it hides rather than float away.
+    const hide = () => setAnchor(null);
+    addEventListener("scroll", hide, true);
+    return () => removeEventListener("scroll", hide, true);
+  }, [anchor]);
+  const note = b.notes?.trim();
+  if (!note) return null;
+  const hide = () => {
+    clearTimeout(timer.current);
+    setAnchor(null);
+  };
+  return (
+    <>
+      <button
+        type="button"
+        data-note-marker
+        aria-label={t("card.editNote")}
+        aria-describedby={anchor ? id : undefined}
+        onPointerEnter={(e) => {
+          const target = e.currentTarget;
+          clearTimeout(timer.current);
+          timer.current = window.setTimeout(() => setAnchor(target.getBoundingClientRect()), NOTE_DELAY_MS);
+        }}
+        onPointerLeave={hide}
+        onFocus={(e) => e.currentTarget.matches(":focus-visible") && setAnchor(e.currentTarget.getBoundingClientRect())}
+        onBlur={hide}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && anchor) {
+            e.stopPropagation();
+            hide();
+          }
+        }}
+        onClick={() => {
+          hide();
+          actions.edit(b, "notes");
+        }}
+        className={`flex size-6 shrink-0 items-center justify-center rounded-md text-accent ${className}`}
+      >
+        <NoteIcon size={13} />
+      </button>
+      {anchor && <NotePeek id={id} text={note} anchor={anchor} side={side} />}
+    </>
   );
 }
 
@@ -618,6 +717,7 @@ export const BookmarkCard = memo(function BookmarkCard({
         ) : (
           <>
             <OfflineMark b={b} actions={actions} t={t} group="card" open={menu.open} className="-my-[4.5px] -mr-1.5" />
+            <NoteMark b={b} actions={actions} t={t} side="top" className="-my-[4.5px] -mr-1.5" />
             <FavoriteButton b={b} actions={actions} t={t} className="-my-[4.5px] -mr-[5.5px]" />
           </>
         )}
@@ -694,7 +794,7 @@ export const BookmarkRow = memo(function BookmarkRow({
         menu.onKeyDown(e);
         if (!e.defaultPrevented) control.onKeyDown(e);
       }}
-      className={`group/row grid h-[60px] items-center gap-3.5 rounded-xl border py-[7px] pr-[11px] pl-[7px] transition-colors duration-150 ${background} ${compact ? "grid-cols-[64px_minmax(0,1fr)_120px_48px_96px]" : "grid-cols-[64px_minmax(0,1fr)_170px_120px_48px_96px]"}`}
+      className={`group/row grid h-[60px] items-center gap-3.5 rounded-xl border py-[7px] pr-[11px] pl-[7px] transition-colors duration-150 ${background} ${compact ? "grid-cols-[64px_minmax(0,1fr)_120px_72px_96px]" : "grid-cols-[64px_minmax(0,1fr)_170px_120px_72px_96px]"}`}
     >
       {/* Sheet S1: the thumbnail and the title are the link; the rest of the row selects. */}
       <RowLink b={b} actions={actions} label={t("card.open", { title: b.title || b.url })} className="h-11 w-16 overflow-hidden rounded-sm bg-hover">
@@ -749,12 +849,13 @@ export const BookmarkRow = memo(function BookmarkRow({
         <span className="truncate">{collection?.name ?? t("card.noCollection")}</span>
       </span>
       {/* Its own column, so the hearts stand in a line as in the grid (NP-086, variant A); none in the trash.
-          The offline marker shares it, left of the heart (NP-126). */}
+          The offline marker shares it, left of the heart (NP-126), and the note marker between them (#410). */}
       {b.deleted_at ? (
         <span />
       ) : (
         <span className="flex items-center justify-end">
           <OfflineMark b={b} actions={actions} t={t} group="row" open={open} />
+          <NoteMark b={b} actions={actions} t={t} side="bottom" />
           <FavoriteButton b={b} actions={actions} t={t} />
         </span>
       )}

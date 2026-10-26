@@ -11,8 +11,11 @@ export function useEditing() {
    * editor only if it is still the one that was saved, not one opened since with its draft.
    */
   const editorSession = useRef(0);
-  const setEditing = useCallback((b: Bookmark | null) => {
+  /** The field the editor starts in: the note when opened from the note marker (#410), else the title. */
+  const editorField = useRef<"notes" | null>(null);
+  const setEditing = useCallback((b: Bookmark | null, field: "notes" | null = null) => {
     editorSession.current++;
+    editorField.current = field;
     setEditingState(b);
   }, []);
   const editingRef = useRef(editing);
@@ -30,7 +33,7 @@ export function useEditing() {
   // as long as it is open, so moving between the two (a Fold opening) keeps its place under a
   // dialog opened over it; the drawer does not register itself (`back={false}`).
   useBack(closeEditor, !!editing);
-  return { editing, setEditing, editingRef, editorSession, editorFocus, editHooks, closeEditor };
+  return { editing, setEditing, editingRef, editorSession, editorField, editorFocus, editHooks, closeEditor };
 }
 
 export type Editing = ReturnType<typeof useEditing>;

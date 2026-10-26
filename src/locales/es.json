@@ -220,7 +220,8 @@
     "saveOffline": "Guardar para leer sin conexión",
     "removeOffline": "Quitar copia sin conexión",
     "saveOfflineShort": "Guardar sin conexión",
-    "savedOffline": "Guardado sin conexión"
+    "savedOffline": "Guardado sin conexión",
+    "editNote": "Editar nota"
   },
   "selection": {
     "label": "Marcadores seleccionados",

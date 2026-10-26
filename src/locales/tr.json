@@ -210,7 +210,8 @@
     "saveOffline": "Çevrimdışı okumak için kaydet",
     "removeOffline": "Çevrimdışı kopyayı kaldır",
     "saveOfflineShort": "Çevrimdışı kaydet",
-    "savedOffline": "Çevrimdışı kaydedildi"
+    "savedOffline": "Çevrimdışı kaydedildi",
+    "editNote": "Notu düzenle"
   },
   "selection": {
     "label": "Seçili yer işaretleri",

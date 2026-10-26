@@ -210,7 +210,8 @@
     "saveOffline": "Für offline speichern",
     "removeOffline": "Offline-Kopie entfernen",
     "saveOfflineShort": "Offline speichern",
-    "savedOffline": "Offline gespeichert"
+    "savedOffline": "Offline gespeichert",
+    "editNote": "Notiz bearbeiten"
   },
   "selection": {
     "label": "Ausgewählte Lesezeichen",

@@ -85,6 +85,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     droppedFile,
     editHooks,
     editing,
+    editorField,
     editorFocus,
     endImportOffer,
     exportFeeds,
@@ -206,6 +207,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     <BookmarkEditor
       key={editing.id}
       bookmark={editing}
+      startInNotes={editorField.current === "notes"}
       collections={library.collections}
       onOpen={actions.open}
       onCancel={closeEditor}

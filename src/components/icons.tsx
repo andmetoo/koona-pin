@@ -1,4 +1,4 @@
-import { CircleArrowDown, createLucideIcon, type LucideIcon, type LucideProps } from "lucide-react";
+import { CircleArrowDown, createLucideIcon, StickyNote, type LucideIcon, type LucideProps } from "lucide-react";
 import spiritMark from "../../design/brand/pin-spirit-flat/pin-spirit-micro.svg";
 
 // One outline set (docs/design.md): 16 px frame, 1.5 px stroke,
@@ -48,4 +48,13 @@ export function Icon({ icon: Glyph, size = 16, ...rest }: { icon: LucideIcon } &
  */
 export function OfflineIcon({ filled = false, size = 16, cut = "[&_path]:stroke-on-accent", className = "" }: { filled?: boolean; size?: number; cut?: string; className?: string }) {
   return <Icon icon={CircleArrowDown} size={size} className={filled ? `fill-current ${cut} ${className}` : className} />;
+}
+
+/**
+ * The marker of a bookmark with a note (#410, sheet T): Lucide's sticky note filled
+ * in the current colour, its folded corner cut out in the accent's own ink, as the
+ * arrow of the offline marker.
+ */
+export function NoteIcon({ size = 16, className = "" }: { size?: number; className?: string }) {
+  return <Icon icon={StickyNote} size={size} className={`fill-current [&_path:last-child]:fill-none [&_path:last-child]:stroke-on-accent ${className}`} />;
 }
