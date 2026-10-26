@@ -30,81 +30,70 @@
 // (Cargo and Tauri: debug and release EXEs, NSIS intermediates) and dist/ (Vite, the app's interface).
 //
 // release/publish/ is the main checkout's for a build of a git worktree (.claude/worktrees/<name>,
-// where releases are built) that is a clean commit of origin/main, so there is one place to look for
-// what was released. A worktree on a branch, or with changes, publishes into its own release/publish/
-// as before: a branch's packages of the same version never replace the released ones. release/test/,
-// release/dev/ and release/shots/ are always the checkout's own: its tests and builds read them by
-// relative paths (the Safari project copies <checkout>/release/dev/safari), and sessions in other
-// worktrees must not overwrite them. Use `publish.*` for what leaves the repository and `release` only
-// for test/, dev/ and shots/.
+// where releases are built) whose HEAD is a commit of origin/main, as it is for the main checkout
+// itself, so there is one place to look for what was released. A worktree on a branch publishes into
+// its own release/publish/, as before: a branch's packages of the same version never replace the
+// released ones. The choice depends on HEAD and the local origin/main only (no fetch, not the state of
+// the tree, which a build changes as it runs), so a build and the script that reads its output later
+// look in the same place. Android and iOS builds also refuse to publish a tree with changes
+// (store-build.mjs, cleanMain). release/test/, release/dev/ and release/shots/ are always the
+// checkout's own: its tests and builds read them by relative paths (the Safari project copies
+// <checkout>/release/dev/safari), and sessions in other worktrees must not overwrite them. Use
+// `publish.*` for what leaves the repository and `release` only for test/, dev/ and shots/.
 import { spawnSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 export const root = path.resolve(import.meta.dirname, "..", "..");
 
-const git = (...args) => spawnSync("git", args, { cwd: root, encoding: "utf8" }).stdout?.trim() ?? "";
-
 /**
- * Whether HEAD is a clean commit of origin/main as it is now: origin/main is fetched first (else a
- * commit of main reads as a branch's), and a new file that Git does not ignore is a change too: the build
- * has it, the commit does not.
+ * The main checkout of the checkout at `at`: a worktree's .git file names <main>/.git/worktrees/<name>
+ * (absolute, or relative to the worktree with worktree.useRelativePaths). Only a main checkout that is
+ * there counts: a copy of a worktree (act's container) names a folder of another machine, and is its
+ * own place. `at` itself when it is not a worktree.
  */
-export function cleanMain() {
-  const fetched = spawnSync("git", ["fetch", "--quiet", "origin", "main"], {
-    cwd: root, stdio: ["ignore", "ignore", "pipe"], encoding: "utf8", timeout: 60_000, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
-  });
-  if (fetched.status !== 0) {
-    console.warn(`Could not fetch origin/main (${fetched.error?.message ?? fetched.stderr.trim().split("\n")[0]}): `
-      + "the check below uses the local origin/main, which may be out of date.");
-  }
-  const onMain = spawnSync("git", ["merge-base", "--is-ancestor", "HEAD", "origin/main"], { cwd: root }).status === 0;
-  const dirty = Boolean(git("status", "--porcelain", "--untracked-files=normal"));
-  return { onMain, dirty, clean: onMain && !dirty };
-}
-
-/**
- * The main checkout: a worktree's .git file names <main>/.git/worktrees/<name> (absolute, or relative
- * to the worktree with worktree.useRelativePaths). Only a main checkout that is there counts: a copy
- * of a worktree (act's container) names a folder of another machine, and publishes into itself.
- */
-function mainCheckout() {
+export function mainCheckoutOf(at) {
   try {
-    const gitdir = /^gitdir:\s*(.+)$/m.exec(readFileSync(path.join(root, ".git"), "utf8"))?.[1].trim();
-    if (!gitdir) return root;
-    const absolute = path.resolve(root, gitdir).replaceAll("\\", "/");
-    const at = absolute.lastIndexOf("/.git/worktrees/");
-    const main = at > 0 ? absolute.slice(0, at) : null;
+    const gitdir = /^gitdir:\s*(.+)$/m.exec(readFileSync(path.join(at, ".git"), "utf8"))?.[1].trim();
+    if (!gitdir) return at;
+    const absolute = path.resolve(at, gitdir).replaceAll("\\", "/");
+    const cut = absolute.lastIndexOf("/.git/worktrees/");
+    const main = cut > 0 ? absolute.slice(0, cut) : null;
     if (main && statSync(path.join(main, ".git")).isDirectory()) return path.resolve(main);
   } catch {
     // .git is a folder (the main checkout, CI) or names nothing here: this checkout is the place.
   }
-  return root;
+  return at;
+}
+
+/** Whether HEAD of the checkout at `at` is a commit of its local origin/main. */
+export const onMainOf = (at) => spawnSync("git", ["merge-base", "--is-ancestor", "HEAD", "origin/main"], { cwd: at }).status === 0;
+
+/**
+ * release/publish/ for the checkout at `at`: its main checkout's when `at` is a worktree whose HEAD is
+ * on origin/main (`onMain`, asked only for a worktree), else its own.
+ */
+export function publishRootOf(at, onMain = onMainOf) {
+  const main = mainCheckoutOf(at);
+  return path.join(main !== at && onMain(at) ? main : at, "release", "publish");
 }
 
 /** This checkout's release/: its test/, dev/ and shots/. What is published goes through `publish`. */
 export const release = path.join(root, "release");
 
 let publishFolder;
-/**
- * release/publish/ for what this run publishes: the main checkout's when this checkout is a worktree
- * at a clean commit of origin/main, else this checkout's own. Decided on first use, so a script that
- * publishes nothing never fetches.
- */
+/** release/publish/ for what this run publishes (publishRootOf this checkout), decided once. */
 export function publishRoot() {
   if (publishFolder) return publishFolder;
-  const main = mainCheckout();
-  publishFolder = path.join(root, "release", "publish");
-  if (main !== root) {
-    if (cleanMain().clean) publishFolder = path.join(main, "release", "publish");
-    else console.warn(`Not a clean commit of origin/main: published into this worktree's own ${shown(publishFolder)}, not the main checkout's.`);
-  }
+  publishFolder = publishRootOf(root);
+  if (mainCheckoutOf(root) !== root && publishFolder.startsWith(root + path.sep))
+    console.warn(`HEAD is not on origin/main: published into this worktree's own ${shown(publishFolder)}, not the main checkout's.`);
   return publishFolder;
 }
 
-/** A path for a message: relative to this checkout when inside it, else in full (the main checkout's release/publish). */
-export function shown(file) {
-  const relative = path.relative(root, file);
+/** A path for a message: relative to `at` (this checkout) when inside it, else in full (the main checkout's release/publish). */
+export function shown(file, at = root) {
+  const relative = path.relative(at, file);
   return relative && !relative.startsWith("..") && !path.isAbsolute(relative) ? relative : file;
 }
 
