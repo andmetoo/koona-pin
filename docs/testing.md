@@ -102,11 +102,10 @@ Each builds the extension, loads the unpacked build into a fresh profile and tal
 | --- | --- | --- |
 | `images` | — | Finds the CI images below in GHCR, or builds and pushes the missing ones. |
 | `build` | `void` | The release build (`build-linux-packages.mjs --stage compile`): stripped binaries, Tauri's raw `.deb` and the AppImage. `scripts/linux/check-glibc.sh` fails it if a binary needs a glibc newer than 2.41, the oldest of the matrix (Debian 13). |
-| `test` | `void` | The main tests: Rust tests, bindings unchanged, TypeScript and Vite build, Vitest, extension lint. |
-| `debug-build` | `void` | The development build for `deb` (`linux-debug`), beside `test`, so `deb` does not wait for the tests. |
-| `ui` | `ui` | Playwright UI without `@visual`, in Chromium. |
+| `test` | `void` | The main tests: Rust tests, bindings unchanged, TypeScript and Vite build, Vitest, extension lint; then a development build for `deb`. |
+| `ui` | `ui` | Playwright UI without `@visual`, in Chromium, in three shards (`--shard=N/3`; `fullyParallel` splits them by test). |
 | `deb-package` | `debian` | Packs the `.deb` (`--stage deb`) from the release build and uploads `linux-deb`. Does not wait for the development build or distribution tests. |
-| `deb` | `debian` | Checks `linux-deb` with `lintian`, `desktop-file-validate`, `appstreamcli validate`; the AppImage, the installed package, the native WebKitGTK tests, host registration with Debian's Chromium and Firefox ESR, Chrome and Edge, the extension smoke test, reinstall and removal. Needs the development build from `debug-build`; skipped in releases. |
+| `deb` | `debian` | Checks `linux-deb` with `lintian`, `desktop-file-validate`, `appstreamcli validate`; the AppImage, the installed package, the native WebKitGTK tests, host registration with Debian's Chromium and Firefox ESR, Chrome and Edge, the extension smoke test, reinstall and removal. Needs the development build from `test`; skipped in releases. |
 | `rpm` | `fedora` | Packs the `.rpm` (`--stage rpm`, from Tauri's raw `.deb`, beside `deb-package`), `rpmlint`; the AppImage, the package with `dnf`, the native WebKitGTK tests, Fedora's Firefox and Chromium, reinstall and removal. |
 | `ubuntu` | `ubuntu` | The `.deb` of `deb-package` on Ubuntu 26.04: the AppImage, the package with `apt`, the native WebKitGTK tests, reinstall and removal. |
 | `arch` | `arch` | Off (`if: false`) while the AUR package is not published. When on: the AUR package `koonapin-bin` built from the `.deb` with `makepkg`, `namcap`; the AppImage, the package, the native WebKitGTK tests, Arch's Firefox and Chromium, reinstall and removal. |
@@ -129,7 +128,7 @@ bun scripts/linux/images.mjs ensure --push void  # and push it (docker login ghc
 
 `KOONAPIN_CI_REGISTRY` sets another registry.
 
-The Void image includes `tar`, `gzip` and `zstd` so `Swatinem/rust-cache` can save and restore its archives. Linux build, test and development build caches are separate, saved on `main` and restored by pull requests and releases. The Rust caches of Windows, macOS, Android and the iOS Simulator (`ci.yml`) are saved on `main` only too: a pull request that saved its own pushed `main`'s out of the repository's 10 GB. After rebuilding the image, the first successful run on `main` populates the caches; subsequent runs can reuse them.
+The Void image includes `tar`, `gzip` and `zstd` so `Swatinem/rust-cache` can save and restore its archives. Linux build and test caches are separate, saved on `main` and restored by pull requests and releases. The Rust caches of Windows, macOS, Android and the iOS Simulator (`ci.yml`) are saved on `main` only too: pull requests that saved their own pushed `main`'s out of the repository's 10 GB. After rebuilding the image, the first successful run on `main` populates the caches; subsequent runs can reuse them.
 
 ### Reproducing locally
 

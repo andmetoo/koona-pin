@@ -115,9 +115,8 @@ jobs:
         working-directory: src-tauri
         run: cargo test --locked --workspace
 
-  # macOS checks for #56: what only macOS compiles — the Rust tests here, the app bundle in «macos-bundle»
-  # beside it (a debug and a release build share no compiled crate). No artifacts, no Apple credentials
-  # (release.yml builds the macOS release).
+  # macOS checks for #56: what only macOS compiles — the Rust tests and the app bundle. No artifacts, no
+  # Apple credentials (release.yml builds the macOS release).
   macos:
     # A plain name: GitHub adds the matrix in brackets, «macOS 15 (arm64)», when the job runs; an
     # expression of the matrix would show unexpanded when the job is skipped (a pull request of scripts).
@@ -128,38 +127,6 @@ jobs:
       fail-fast: false
       matrix:
         # Intel is temporarily disabled; add x64 (runner macos-15-intel) when requested.
-        arch: [arm64]
-    runs-on: ${{ matrix.arch == 'x64' && 'macos-15-intel' || 'macos-15' }}
-    timeout-minutes: 30
-    env:
-      MACOSX_DEPLOYMENT_TARGET: '15.0'
-    steps:
-      - uses: actions/checkout@v7
-      - name: Rust from rust-toolchain.toml
-        run: rustup show active-toolchain || rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-          key: macos-test-${{ matrix.arch }}
-          cache-on-failure: true
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-      # Network tests use 127.0.0.2..11 to represent different hosts. Unlike Linux/Windows,
-      # macOS only binds configured loopback addresses; keep the tests themselves unchanged.
-      - name: Loopback aliases for local HTTP tests
-        run: |
-          for suffix in {2..11}; do
-            sudo ifconfig lo0 alias "127.0.0.$suffix" up
-          done
-      - name: Rust tests
-        run: cargo test --locked --workspace --manifest-path src-tauri/Cargo.toml
-
-  macos-bundle:
-    name: macOS 15 / app bundle
-    needs: changes
-    if: needs.changes.outputs.native == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
         arch: [arm64]
     runs-on: ${{ matrix.arch == 'x64' && 'macos-15-intel' || 'macos-15' }}
     timeout-minutes: 30
@@ -180,10 +147,19 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          key: macos-bundle-${{ matrix.arch }}
+          key: macos-test-${{ matrix.arch }}
           cache-on-failure: true
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: bun install --frozen-lockfile
+      # Network tests use 127.0.0.2..11 to represent different hosts. Unlike Linux/Windows,
+      # macOS only binds configured loopback addresses; keep the tests themselves unchanged.
+      - name: Loopback aliases for local HTTP tests
+        run: |
+          for suffix in {2..11}; do
+            sudo ifconfig lo0 alias "127.0.0.$suffix" up
+          done
+      - name: Rust tests
+        run: cargo test --locked --workspace --manifest-path src-tauri/Cargo.toml
       # The app bundle alone, so a packaging problem shows here; Tauri's beforeBuildCommand runs the
       # TypeScript and Vite build first. Nothing is zipped or uploaded.
       - name: TypeScript, Vite and the app bundle
@@ -212,16 +188,10 @@ jobs:
   # The phone builds (NP-151): that main still builds for Android and the iOS Simulator, debug, one
   # architecture each. Nothing is signed for a store, run or uploaded; the checks on emulators and phones
   # are made by hand (docs/testing.md).
-  # Two builds side by side: the site's APK and the Google Play build (feature store-play).
   android:
-    # A plain name: GitHub adds the matrix in brackets, «Android / build (site)».
     name: Android / build
     needs: changes
     if: needs.changes.outputs.native == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        store: [site, play]
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -244,16 +214,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          key: android-${{ matrix.store }}
+          key: android
           cache-on-failure: true
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
-      # Gradle's distribution and dependencies, downloaded on every run before (1.5 minutes). The action
-      # saves from main only and restores everywhere.
-      - uses: gradle/actions/setup-gradle@v6
       - name: NDK and SDK platform from the SDK manager
         run: |
           # `yes` dies of SIGPIPE when sdkmanager closes stdin; that must not fail the step under pipefail.
@@ -262,31 +229,32 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" "platforms;android-37.0"
           echo "NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
       - run: bun install --frozen-lockfile
-      # With store-play the Google Play build's Rust (cfg(play)) and the koona-play plugin's Kotlin compile.
       - name: Android debug build (arm64)
-        run: bun run tauri android build --debug --target aarch64 ${{ matrix.store == 'play' && '--features store-play' || '' }}
+        run: bun run tauri android build --debug --target aarch64
       # The plugin's Kotlin unit tests (the WebView version check), with the Gradle project the build made.
       - name: Plugin unit tests
-        if: matrix.store == 'site'
         working-directory: src-tauri/gen/android
         run: ./gradlew :tauri-plugin-koona-mobile:testDebugUnitTest
       # The share sheet's queue files against the fixtures the Rust tests read too, its link finding.
       - name: Share plugin unit tests
-        if: matrix.store == 'site'
         working-directory: src-tauri/gen/android
         run: ./gradlew :tauri-plugin-koona-share:testDebugUnitTest
       # Android's 16 KB pages: zipalign and the ELF LOAD alignment, as build:android checks its release APK.
       - name: 16 KB alignment of the APK
-        if: matrix.store == 'site'
         run: bun scripts/build-android.mjs --check src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+      # The site's APK carries no Google Play Billing (NP-154): no BILLING permission, no billing classes.
+      - name: No Play Billing in the site's APK
+        run: bun scripts/check-apk-billing.mjs src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk absent
+      # The Google Play build (feature store-play): its Rust (cfg(play)) and the koona-play plugin's
+      # Kotlin compile, the plugin's unit tests pass, and its APK carries Play Billing. Built over the
+      # same project: only the main crate and the plugin's module are new.
+      - name: Android debug build, Google Play (arm64)
+        run: bun run tauri android build --debug --target aarch64 --features store-play
       - name: Play plugin unit tests
-        if: matrix.store == 'play'
         working-directory: src-tauri/gen/android
         run: ./gradlew :tauri-plugin-koona-play:testDebugUnitTest
-      # The site's APK carries no Google Play Billing (NP-154): no BILLING permission, no billing classes;
-      # the Google Play build's does.
-      - name: Play Billing in the APK ${{ matrix.store == 'play' && 'present' || 'absent' }}
-        run: bun scripts/check-apk-billing.mjs src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk ${{ matrix.store == 'play' && 'present' || 'absent' }}
+      - name: Play Billing in the Google Play build's APK
+        run: bun scripts/check-apk-billing.mjs src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk present
 
   ios:
     name: iOS Simulator / build
@@ -344,7 +312,7 @@ jobs:
   ci:
     name: CI
     if: ${{ always() }}
-    needs: [changes, linux, windows, macos, macos-bundle, android, ios]
+    needs: [changes, linux, windows, macos, android, ios]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

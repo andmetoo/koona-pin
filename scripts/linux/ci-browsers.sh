@@ -3,7 +3,7 @@
 # browsers on it (scripts/smoke-registration.mjs --installed):
 #   Debian (.deb, NP-055, NP-100)  first the development registration: the app's own --register-host in a
 #                                  temporary home, Debian's Chromium and Firefox capture through the host —
-#                                  the debug binaries of the «debug-build» job in src-tauri/target/debug; then the
+#                                  the debug binaries of the «test» job in src-tauri/target/debug; then the
 #                                  package: Chromium, Google Chrome and Microsoft Edge find its manifests
 #                                  through the links in /etc and refuse the development extension (they let in
 #                                  only the store ones), Firefox saves through /usr/bin/koonapin-host before

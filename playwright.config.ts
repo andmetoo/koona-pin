@@ -1,6 +1,9 @@
 import { defineConfig } from "@playwright/test";
 export default defineConfig({
   forbidOnly: !!process.env.CI,
+  // Every test opens its own page with its own demo data: the tests of one file run in parallel too, and
+  // CI's shards (linux.yml, «ui») split by test, not by file.
+  fullyParallel: true,
   use: {
     baseURL: "http://127.0.0.1:1420",
     viewport: { width: 1200, height: 800 },
