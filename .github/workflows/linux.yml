@@ -183,8 +183,35 @@ jobs:
         run: su dev -s /bin/bash -c "bun run build && bun run test"
       - name: Extension packages, web-ext lint
         run: su dev -s /bin/bash -c "bun run extension:lint"
-      # The development build for the «deb» job's development registration and extension smoke (NP-100,
-      # NP-054), which need Debian's browsers: the image here has none. Debug info stripped for the artifact.
+
+  # The development build for the «deb» job's development registration and extension smoke (NP-100,
+  # NP-054), which need Debian's browsers: the image here has none. Beside «test», so «deb» does not wait
+  # for the tests. Debug info stripped for the artifact.
+  debug-build:
+    name: Development build (Void)
+    needs: images
+    if: ${{ !inputs.release }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      image: ${{ needs.images.outputs.void }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      CARGO_HOME: /usr/local/cargo
+    steps:
+      - uses: actions/checkout@v7
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: linux-debug
+          cache-bin: false
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - run: chown -R dev "$GITHUB_WORKSPACE" "$CARGO_HOME"
+      # The interface first, as in «test», where this build ran after the Vite build.
+      - name: bun install, Vite build
+        run: su dev -s /bin/bash -c "bun install --frozen-lockfile && bun run build"
       - name: Development build
         run: |
           su dev -s /bin/bash -c "cd src-tauri && cargo build --locked"
@@ -258,10 +285,10 @@ jobs:
 
   # On Debian 13: lintian (NP-055), the AppImage before any package (NP-116), the installed package,
   # native WebKitGTK tests (NP-095), development registration and extension smoke (NP-100, NP-054),
-  # reinstall and removal. Only these tests need the development build from «test».
+  # reinstall and removal. Only these tests need the development build from «debug-build».
   deb:
     name: .deb, Debian 13
-    needs: [images, build, test, deb-package]
+    needs: [images, build, debug-build, deb-package]
     if: ${{ !inputs.release }}
     # These tests are advisory in CI, but the summary still waits for the whole Linux workflow.
     # Releases skip the tests and require the packaging jobs to succeed.
