@@ -128,7 +128,9 @@ bun scripts/linux/images.mjs ensure --push void  # and push it (docker login ghc
 
 `KOONAPIN_CI_REGISTRY` sets another registry.
 
-The Void image includes `tar`, `gzip` and `zstd` so `Swatinem/rust-cache` can save and restore its archives. Linux build and test caches are separate, saved on `main` and restored by pull requests and releases. After rebuilding the image, the first successful run on `main` populates the caches; subsequent runs can reuse them.
+The Void image includes `tar`, `gzip` and `zstd` so `Swatinem/rust-cache` can save and restore its archives. Linux build and test caches are separate, saved on `main` and restored by pull requests and releases. The Rust caches of Windows, macOS, Android and the iOS Simulator (`ci.yml`) are saved on `main` only too: pull requests that saved their own pushed `main`'s out of the repository's 10 GB. After rebuilding the image, the first successful run on `main` populates the caches; subsequent runs can reuse them.
+
+In the Android job of `ci.yml`, Gradle's distribution and dependencies are cached by `gradle/actions/setup-gradle` with the open `basic` provider, saved on `main` only.
 
 ### Reproducing locally
 

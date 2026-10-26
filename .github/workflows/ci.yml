@@ -98,9 +98,12 @@ jobs:
           restore-keys: bun-windows-
       - name: Rust toolchain from rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
+      # Saved from main only, as on Linux: every pull request saved 3 GB of Rust caches and pushed main's out
+      # of the repository's 10 GB.
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: bun install --frozen-lockfile
       # What differs on Windows: paths, the registry of the native host (NP-016), the single-instance pipe.
       # The IPC types they regenerate are checked on Linux (linux.yml, check:bindings).
@@ -146,6 +149,7 @@ jobs:
           workspaces: src-tauri
           key: macos-test-${{ matrix.arch }}
           cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: bun install --frozen-lockfile
       # Network tests use 127.0.0.2..11 to represent different hosts. Unlike Linux/Windows,
       # macOS only binds configured loopback addresses; keep the tests themselves unchanged.
@@ -212,10 +216,16 @@ jobs:
           workspaces: src-tauri
           key: android
           cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
+      # Gradle's distribution and dependencies, downloaded on every run before (1.5 minutes). The open
+      # «basic» provider (actions/cache), not the default proprietary one; saved from main only.
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
       - name: NDK and SDK platform from the SDK manager
         run: |
           # `yes` dies of SIGPIPE when sdkmanager closes stdin; that must not fail the step under pipefail.
@@ -224,8 +234,9 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" "platforms;android-37.0"
           echo "NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
       - run: bun install --frozen-lockfile
+      # The APK only: an AAB, Tauri's default beside it, cost a second Rust build through Gradle.
       - name: Android debug build (arm64)
-        run: bun run tauri android build --debug --target aarch64
+        run: bun run tauri android build --debug --target aarch64 --apk
       # The plugin's Kotlin unit tests (the WebView version check), with the Gradle project the build made.
       - name: Plugin unit tests
         working-directory: src-tauri/gen/android
@@ -242,9 +253,10 @@ jobs:
         run: bun scripts/check-apk-billing.mjs src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk absent
       # The Google Play build (feature store-play): its Rust (cfg(play)) and the koona-play plugin's
       # Kotlin compile, the plugin's unit tests pass, and its APK carries Play Billing. Built over the
-      # same project: only the main crate and the plugin's module are new.
+      # same project: only the main crate and the plugin's module are new, and the interface is the one
+      # the first build made (no beforeBuildCommand).
       - name: Android debug build, Google Play (arm64)
-        run: bun run tauri android build --debug --target aarch64 --features store-play
+        run: bun run tauri android build --debug --target aarch64 --apk --features store-play --config '{"build":{"beforeBuildCommand":null}}'
       - name: Play plugin unit tests
         working-directory: src-tauri/gen/android
         run: ./gradlew :tauri-plugin-koona-play:testDebugUnitTest
@@ -295,6 +307,7 @@ jobs:
           # Per Xcode: the swift-rs objects of the plugins are built by its Swift.
           key: ios-sim-xcode-27.1
           cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: bun install --frozen-lockfile
       # Signed to run in the Simulator only: no team, no profile.
       - name: iOS Simulator debug build (arm64)
