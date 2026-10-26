@@ -1,0 +1,84 @@
+{
+  "_comment": "More invented feeds for the Google Play screenshots and video (scripts/play-shots.mjs), added to feeds.json's: a news site, a travel site and a blog, so the phone's Feeds show the kinds of feeds people follow. Sites and authors are made up; `picture` is a file of scripts/shots/previews.",
+  "feeds": [
+    { "uid": "shots-feed-brief", "url": "https://worldbrief.news/feed.xml", "title": "World Brief", "site": "https://worldbrief.news/" },
+    { "uid": "shots-feed-roads", "url": "https://slowroads.travel/feed.xml", "title": "Slow Roads", "site": "https://slowroads.travel/" },
+    { "uid": "shots-feed-quiet", "url": "https://quietpages.blog/feed.xml", "title": "Quiet Pages", "site": "https://quietpages.blog/" }
+  ],
+  "posts": [
+    {
+      "feed": "shots-feed-brief",
+      "hoursAgo": 0.2,
+      "author": "Elena Marsh",
+      "picture": "street-dusk.jpg",
+      "title": "Cities switch their street lights to warmer, dimmer nights",
+      "excerpt": "A dozen cities are trading bright white street lights for warmer, dimmer ones after midnight, and residents say they sleep better.",
+      "body": [
+        "A dozen cities are trading bright white street lights for warmer, dimmer ones after midnight, and residents say they sleep better.",
+        "The change costs little: most new lamps can be dimmed from a central system, and the warmer colour scatters less light into bedrooms and the night sky.",
+        "Councils report energy savings of around a third, with no rise in accidents on the streets that changed first."
+      ]
+    },
+    {
+      "feed": "shots-feed-brief",
+      "hoursAgo": 2.5,
+      "author": "Tom Avery",
+      "picture": "satellite.jpg",
+      "title": "A small satellite will map river floods every six hours",
+      "excerpt": "A satellite the size of a suitcase is set to send flood maps four times a day, fast enough for towns downstream to prepare.",
+      "body": [
+        "A satellite the size of a suitcase is set to send flood maps four times a day, fast enough for towns downstream to prepare.",
+        "Its radar sees through cloud, which is exactly when floods happen and when ordinary pictures from orbit show nothing useful."
+      ]
+    },
+    {
+      "feed": "shots-feed-roads",
+      "hoursAgo": 0.7,
+      "author": "Inés Calder",
+      "picture": "trail.jpg",
+      "title": "Three days on foot along the old salt road",
+      "excerpt": "The salt road crosses two valleys and one pass, and you can still walk it in three easy days with a light pack.",
+      "body": [
+        "The salt road crosses two valleys and one pass, and you can still walk it in three easy days with a light pack.",
+        "Villages sit a day apart, each with a guesthouse that will dry your boots and feed you more than you planned to eat.",
+        "Go in early autumn: the pass is clear of snow, the days are still long, and the crowds have gone home."
+      ]
+    },
+    {
+      "feed": "shots-feed-roads",
+      "hoursAgo": 5,
+      "author": "Inés Calder",
+      "picture": "fog.jpg",
+      "title": "Why the best coastal towns are worth visiting in fog",
+      "excerpt": "Fog empties the promenades and fills the cafés, and a coastal town shows a side of itself the summer never does.",
+      "body": [
+        "Fog empties the promenades and fills the cafés, and a coastal town shows a side of itself the summer never does.",
+        "Bring a warm layer, walk the harbour at dawn, and listen for the foghorn: it carries further than you would think."
+      ]
+    },
+    {
+      "feed": "shots-feed-quiet",
+      "hoursAgo": 1.2,
+      "author": "Anna Weller",
+      "picture": "journal.jpg",
+      "title": "Keeping a reading journal without making it a chore",
+      "excerpt": "Two lines per book is enough: what it was about, and the one thing you want to remember from it.",
+      "body": [
+        "Two lines per book is enough: what it was about, and the one thing you want to remember from it.",
+        "A journal that asks for more gets abandoned by March. One that asks for two lines is still going in December, and those lines add up to a year of reading you can look back on."
+      ]
+    },
+    {
+      "feed": "shots-feed-quiet",
+      "hoursAgo": 26,
+      "author": "Anna Weller",
+      "picture": "notebook.jpg",
+      "title": "Notes in the margin, and why paper still wins for them",
+      "excerpt": "A pencil note in a margin sits exactly where the thought started, which is why so many of us still read with one in hand.",
+      "body": [
+        "A pencil note in a margin sits exactly where the thought started, which is why so many of us still read with one in hand.",
+        "Digital highlights are easier to search, but harder to stumble on again. The best system may simply be both."
+      ]
+    }
+  ]
+}

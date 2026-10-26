@@ -9,6 +9,7 @@
 //     ios/<version>/       App Store IPAs, their dSYMs in ZIPs, SHA256SUMS.txt   bun run build:ios
 //     android/<version>/   App Bundles for Google Play (upload key), SHA256SUMS.txt   bun run build:android
 //       site/              the site's APK (its own key), SHA256SUMS.txt; the GitHub Release   bun run build:android -- --site
+//       store/             the Play listing's files for that version: preview video, screenshots, icon, feature graphic   bun run play:package
 //     updates/<version>/   packages with .sig, SHA256SUMS.txt, latest.json and release.json; deployed to koona.app   bun run build:latest, build:release-data
 //   release/shots/     screenshots of the app for the site (andmetoo/koona-site)   bun run site:shots
 //     chrome/<version>/    koonapin-chrome.zip, Chrome Web Store    bun run extension:build
@@ -27,27 +28,58 @@
 //
 // Tools keep their own working folders and nothing is taken from them by hand: src-tauri/target
 // (Cargo and Tauri: debug and release EXEs, NSIS intermediates) and dist/ (Vite, the app's interface).
+//
+// release/publish/ is always the main checkout's: a build in a git worktree (.claude/worktrees/<name>,
+// where releases are built) publishes there too, so there is one place to look for what was built.
+// release/test/ and release/dev/ stay the checkout's own: its tests and builds read them by relative
+// paths (the Safari project copies <checkout>/release/dev/safari), and sessions in other worktrees
+// must not overwrite them.
+import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 export const root = path.resolve(import.meta.dirname, "..", "..");
+
+/**
+ * The main checkout: a worktree's .git file names <main>/.git/worktrees/<name> (absolute, or relative
+ * to the worktree with worktree.useRelativePaths). Only a main checkout that is there counts: a copy
+ * of a worktree (act's container) names a folder of another machine, and publishes into itself.
+ */
+function mainCheckout() {
+  try {
+    const gitdir = /^gitdir:\s*(.+)$/m.exec(readFileSync(path.join(root, ".git"), "utf8"))?.[1].trim();
+    if (!gitdir) return root;
+    const absolute = path.resolve(root, gitdir).replaceAll("\\", "/");
+    const at = absolute.lastIndexOf("/.git/worktrees/");
+    const main = at > 0 ? absolute.slice(0, at) : null;
+    if (main && statSync(path.join(main, ".git")).isDirectory()) return path.resolve(main);
+  } catch {
+    // .git is a folder (the main checkout, CI) or names nothing here: this checkout is the place.
+  }
+  return root;
+}
+
 export const release = path.join(root, "release");
+/** What leaves the repository, from whichever checkout built it. */
+export const published = path.join(mainCheckout(), "release", "publish");
 
 export const publish = {
-  windows: (version) => path.join(release, "publish", "windows", version),
-  linux: (version) => path.join(release, "publish", "linux", version),
+  windows: (version) => path.join(published, "windows", version),
+  linux: (version) => path.join(published, "linux", version),
   /** arch is process.arch of the building Mac: arm64 or x64. */
-  macos: (version, arch) => path.join(release, "publish", "macos", version, arch),
-  aur: (version) => path.join(release, "publish", "aur", version),
+  macos: (version, arch) => path.join(published, "macos", version, arch),
+  aur: (version) => path.join(published, "aur", version),
   /** Every build number of the version side by side: KoonaPin-<version>-<build>.ipa (build-ios.mjs). */
-  ios: (version) => path.join(release, "publish", "ios", version),
+  ios: (version) => path.join(published, "ios", version),
   /** Every build number of the version side by side: koona-pin-<version>-<build>.aab (build-android.mjs). */
-  android: (version) => path.join(release, "publish", "android", version),
+  android: (version) => path.join(published, "android", version),
+  /** The Play listing's files for that version, beside its App Bundles (play-package.mjs). */
+  play: (version) => path.join(published, "android", version, "store"),
   /** One folder per version (build-latest.mjs, build-release-data.mjs). */
-  updates: path.join(release, "publish", "updates"),
-  chrome: (version) => path.join(release, "publish", "chrome", version),
-  edge: (version) => path.join(release, "publish", "edge", version),
+  updates: path.join(published, "updates"),
+  chrome: (version) => path.join(published, "chrome", version),
+  edge: (version) => path.join(published, "edge", version),
   /** The address of these files is inside every signed XPI (gecko.update_url): only the local folder moves. */
-  firefox: path.join(release, "publish", "firefox"),
+  firefox: path.join(published, "firefox"),
 };
 
 export const test = {

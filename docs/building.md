@@ -89,6 +89,8 @@ This writes unpacked extensions to `release/dev/chrome`, `release/dev/edge` and 
 
 ## Local builds without signing
 
+`release/publish/` is always the main checkout's: a build run in a git worktree (`.claude/worktrees/<name>`, where releases are built) publishes into the main checkout's `release/publish/` too (`scripts/lib/paths.mjs`), so everything built for people and stores is found in one place. `release/test/` and `release/dev/` stay each checkout's own.
+
 | What | Command | Output |
 | --- | --- | --- |
 | App executable only | `bun run tauri build` | `src-tauri/target/release/` |
@@ -98,6 +100,7 @@ This writes unpacked extensions to `release/dev/chrome`, `release/dev/edge` and 
 | Linux `.deb`, `.rpm` and AppImage | `bun run build:linux` | `release/publish/linux/<version>/` with `SHA256SUMS.txt` |
 | AUR `PKGBUILD` and `.SRCINFO` (the package is not published) | `bun run build:aur` | `release/publish/aur/<version>/` |
 | Android App Bundle for Google Play, signed with the upload key | `bun run build:android` | `release/publish/android/<version>/`: `koona-pin-<version>-<build>.aab`, `SHA256SUMS.txt` |
+| The Play listing's upload: preview video, screenshots, icon, feature graphic | `bun run play:package` (`-- --render` renders the film first) | `release/publish/android/<version>/store/` |
 | Android App Bundle and arm64 APK for testing (debug key, a branch or changes) | `bun run build:android` | `release/test/android/<version>/` with `SHA256SUMS.txt` |
 | The site's arm64 APK, signed with the site's own key (release.yml builds it into the GitHub Release) | `bun run build:android -- --site` | `release/publish/android/<version>/site/`: `koonapin-<version>-android-arm64.apk`, `SHA256SUMS.txt` (`release/test/…/site/` when not a clean commit of `origin/main`) |
 | iOS Simulator `.app` (Apple Silicon) | `bun run build:ios:sim` | `release/test/ios-simulator/<version>/` |

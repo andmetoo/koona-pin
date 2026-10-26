@@ -2,6 +2,26 @@
 
 What Play Console asks for before a closed test, for the app `app.koona.pin` (English (US) by default, free). The owner fills the console; this folder keeps the texts and the pictures. Prepared on 20 October 2026 for app 2.8.0, before Share (the phone's share sheet), sync on phones and store purchases: update the texts when they land. Updated for 2.9.0, where the Play build sells Supporter through Google Play Billing.
 
+## What is where
+
+Sources are kept here, in Git. What is built from them goes to one folder per version in the main checkout, `release/publish/android/<version>/` (`C:/Work/netamipin/release/...` on the Windows PC), whichever worktree built it.
+
+| What | Where |
+| --- | --- |
+| Listing texts, App content, Data safety, content rating | this README |
+| The submission process and its record | [review.md](review.md) |
+| Preview video: scenario | [video/scenario.md](video/scenario.md) |
+| Preview video: motion rules | [video/MOTION.md](video/MOTION.md) |
+| Preview video: Remotion project (`bunx remotion studio` in it) | `video/film/`; its clips in `video/film/public/clips/`, not in Git, recorded from the app's own interface by `bun run play:clips` |
+| Screenshots, icon, feature graphic (sources) | `en-US/` |
+| Sample library on the emulator, for the screenshots | `scripts/play-shots.mjs` |
+| **The App Bundle to upload** | `release/publish/android/<version>/koona-pin-<version>-play-<build>.aab` (`bun run build:android -- --play`) |
+| **The video, screenshots, icon and feature graphic to upload** | `release/publish/android/<version>/store/` (`bun run play:package`, `-- --render` to render the film first) |
+
+Nothing meant to be found is left in a worktree, a scratch folder or `video/film/out/`: `play:package` copies the film out of there.
+
+**Before a submission to review** go through [review.md](review.md): the rules, the gates and the record.
+
 **Before a build with Play Billing goes up** (`bun run build:android -- --play`), Play Console's Monetisation setup must exist: the organization's payments profile, the subscription `supporter` with the auto-renewing base plans `monthly` and `annual` (yearly; `yearly` and `yearly-pin` were saved as monthly by mistake and are inactive), and the one-time product `supporter_5_years` (the one-time purchase, $29.99; the five-year plan's product, renamed «One-time purchase» in Play on 2026-10-25 — it was never bought, and Play does not let an id be renamed). Those ids are the app's (`src-tauri/src/billing/play.rs`) and the server's secrets; a product Play does not know is simply not offered.
 
 The App Bundle is `release/publish/android/<version>/koona-pin-<version>-<build>.aab` from `bun run build:android` with the upload key ([docs/building.md](../../../docs/building.md)).
@@ -18,7 +38,7 @@ The App Bundle is `release/publish/android/<version>/koona-pin-<version>-<build>
 | Feature graphic 1024×500 | `en-US/feature-1024x500.png` |
 | Phone screenshots, in order | `en-US/phone-1-library.png`, `phone-2-inbox.png`, `phone-3-reading.png`, `phone-4-search.png`, `phone-5-library-dark.png` (1080×2160) |
 
-`bun scripts/play-assets.mjs` redraws the icon and the feature graphic from `app-icon.svg`. The screenshots come from a debug x86_64 build on the emulator `Medium_Phone_API_37.0` at 1080×2160 (`adb shell wm size 1080x2160`: Play refuses a side more than twice the other, and the emulator's 1080×2400 is), with the sample library of the site's shots (`scripts/shots/library.json`) restored through the WebView's DevTools and its previews put in the picture cache, and the status bar in demo mode. Retake them when Share or sync on phones lands.
+`bun scripts/play-assets.mjs` redraws the icon and the feature graphic from `app-icon.svg`. The screenshots come from a debug x86_64 build (`bun run tauri android build --debug --apk --target x86_64`) on the emulator `Medium_Phone_API_37.0` at 1080×2160 (`adb shell wm size 1080x2160`: Play refuses a side more than twice the other, and the emulator's 1080×2400 is). Start the app once, then `bun scripts/play-shots.mjs` puts in the sample library of the site's shots (`scripts/shots/library.json`, restored through the WebView's DevTools, its previews written into the picture cache, Inspiration nested in Design) and the feeds of `scripts/shots/feeds.json`, and sets the status bar's demo mode (9:41, full Wi-Fi and battery, the emulator's notifications snoozed). Then, by hand with adb: Library; Inbox; Reading; search for `read` with the keyboard put away; Library in the dark theme (`adb shell cmd uimode night yes`, then restart the app: switched while it runs, the status bar keeps dark icons). Save each as a PNG without alpha (`adb exec-out screencap -p`, then `sharp(...).removeAlpha()`). Last retaken on 26 October 2026 for 2.19.1; retake when a shown screen changes (`review.md`, gate C).
 
 ## Short description (80)
 
