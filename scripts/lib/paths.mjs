@@ -28,128 +28,29 @@
 //
 // Tools keep their own working folders and nothing is taken from them by hand: src-tauri/target
 // (Cargo and Tauri: debug and release EXEs, NSIS intermediates) and dist/ (Vite, the app's interface).
-//
-// release/publish/ is the main checkout's for a build of a git worktree (.claude/worktrees/<name>,
-// where releases are built) that builds main, so there is one place to look for what was released.
-// Two rules, by what a build does to its folder (both on local refs only: no fetch, not the state of
-// the tree, which a build changes as it runs, so a build and the script that reads its output later
-// look in the same place):
-// - onMainOf: HEAD detached or on main, and a commit of origin/main. Enough for the store builds
-//   (Android, iOS, the Play listing's files), which add files side by side by build number and refuse
-//   one that is there; it is also their rule for what may go to a store (store-build.mjs, cleanMain,
-//   which also wants a clean tree), so a second upload of an older commit of main with --build works.
-// - releasesOf: onMainOf, and the tip of origin/main or a release tag of it (vX.Y.Z, ext-vX.Y.Z). For
-//   everything else, whose version folder a build replaces: an older commit of main never overwrites
-//   newer packages of the same version.
-// A session's branch (sync/…, feat/…, even before its first commit) publishes into its own
-// release/publish/, as before. release/test/, release/dev/ and release/shots/ are always the
-// checkout's own: its tests and builds read them by relative paths (the Safari project copies
-// <checkout>/release/dev/safari), and sessions in other worktrees must not overwrite them. Use
-// `publish.*` for what leaves the repository and `release` only for test/, dev/ and shots/.
-import { spawnSync } from "node:child_process";
-import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 export const root = path.resolve(import.meta.dirname, "..", "..");
-
-/**
- * The main checkout of the checkout at `at`: a worktree's .git file names <main>/.git/worktrees/<name>
- * (absolute, or relative to the worktree with worktree.useRelativePaths). Only a main checkout that is
- * there counts: a copy of a worktree (act's container) names a folder of another machine, and is its
- * own place. `at` itself when it is not a worktree.
- */
-export function mainCheckoutOf(at) {
-  try {
-    const gitdir = /^gitdir:\s*(.+)$/m.exec(readFileSync(path.join(at, ".git"), "utf8"))?.[1].trim();
-    if (!gitdir) return at;
-    const absolute = path.resolve(at, gitdir).replaceAll("\\", "/");
-    const cut = absolute.lastIndexOf("/.git/worktrees/");
-    const main = cut > 0 ? absolute.slice(0, cut) : null;
-    if (main && statSync(path.join(main, ".git")).isDirectory()) return path.resolve(main);
-  } catch {
-    // .git is a folder (the main checkout, CI) or names nothing here: this checkout is the place.
-  }
-  return at;
-}
-
-/** A release tag of the app or of the browser extension. */
-const RELEASE_TAG = /^(ext-)?v\d+\.\d+\.\d+$/;
-
-const gitIn = (at) => (...args) => spawnSync("git", args, { cwd: at, encoding: "utf8" });
-
-/** Whether the checkout at `at` builds main: HEAD detached or on main, and a commit of its local origin/main. */
-export function onMainOf(at) {
-  const git = gitIn(at);
-  const branch = git("symbolic-ref", "--quiet", "--short", "HEAD");
-  if (branch.status === 0 && branch.stdout.trim() !== "main") return false;
-  return git("merge-base", "--is-ancestor", "HEAD", "origin/main").status === 0;
-}
-
-/** Whether the checkout at `at` builds what main releases now: onMainOf, at the tip of origin/main or a release tag. */
-export function releasesOf(at) {
-  if (!onMainOf(at)) return false;
-  const git = gitIn(at);
-  const head = git("rev-parse", "--verify", "--quiet", "HEAD").stdout?.trim();
-  if (head && git("rev-parse", "--verify", "--quiet", "origin/main").stdout?.trim() === head) return true;
-  return Boolean(git("tag", "--points-at", "HEAD").stdout?.split(/\r?\n/).some((tag) => RELEASE_TAG.test(tag.trim())));
-}
-
-/**
- * release/publish/ for the checkout at `at`, and why: its main checkout's when `at` is a worktree that
- * passes `rule` (asked only for a worktree), else its own.
- */
-export function publishRootOf(at, rule = releasesOf) {
-  const main = mainCheckoutOf(at);
-  const shared = main !== at && rule(at);
-  return { folder: path.join(shared ? main : at, "release", "publish"), worktree: main !== at, shared };
-}
-
-/** This checkout's release/: its test/, dev/ and shots/. What is published goes through `publish`. */
 export const release = path.join(root, "release");
 
-const decided = new Map();
-/** release/publish/ for what this run publishes under `rule` (publishRootOf this checkout), decided once per rule. */
-function publishRoot(rule, why) {
-  if (!decided.has(rule)) {
-    const { folder, worktree, shared } = publishRootOf(root, rule);
-    if (worktree && !shared) console.warn(`${why}: published into this worktree's own ${shown(folder)}, not the main checkout's.`);
-    decided.set(rule, folder);
-  }
-  return decided.get(rule);
-}
-/** For the store builds, which add files side by side (onMainOf). */
-const storeRoot = () => publishRoot(onMainOf, "On a branch, or not a commit of origin/main");
-/** For a build that replaces its version folder (releasesOf). */
-const releaseRoot = () => publishRoot(releasesOf, "On a branch, or not the tip of origin/main or a release tag");
-
-/** A path for a message: relative to `at` (this checkout) when inside it, else in full (the main checkout's release/publish). */
-export function shown(file, at = root) {
-  const relative = path.relative(at, file);
-  return relative && !relative.startsWith("..") && !path.isAbsolute(relative) ? relative : file;
-}
-
 export const publish = {
-  windows: (version) => path.join(releaseRoot(), "windows", version),
-  linux: (version) => path.join(releaseRoot(), "linux", version),
+  windows: (version) => path.join(release, "publish", "windows", version),
+  linux: (version) => path.join(release, "publish", "linux", version),
   /** arch is process.arch of the building Mac: arm64 or x64. */
-  macos: (version, arch) => path.join(releaseRoot(), "macos", version, arch),
-  aur: (version) => path.join(releaseRoot(), "aur", version),
+  macos: (version, arch) => path.join(release, "publish", "macos", version, arch),
+  aur: (version) => path.join(release, "publish", "aur", version),
   /** Every build number of the version side by side: KoonaPin-<version>-<build>.ipa (build-ios.mjs). */
-  ios: (version) => path.join(storeRoot(), "ios", version),
+  ios: (version) => path.join(release, "publish", "ios", version),
   /** Every build number of the version side by side: koona-pin-<version>-<build>.aab (build-android.mjs). */
-  android: (version) => path.join(storeRoot(), "android", version),
+  android: (version) => path.join(release, "publish", "android", version),
   /** The Play listing's upload set for that version, beside its App Bundles. */
-  play: (version) => path.join(storeRoot(), "android", version, "store"),
+  play: (version) => path.join(release, "publish", "android", version, "store"),
   /** One folder per version (build-latest.mjs, build-release-data.mjs). */
-  get updates() {
-    return path.join(releaseRoot(), "updates");
-  },
-  chrome: (version) => path.join(releaseRoot(), "chrome", version),
-  edge: (version) => path.join(releaseRoot(), "edge", version),
+  updates: path.join(release, "publish", "updates"),
+  chrome: (version) => path.join(release, "publish", "chrome", version),
+  edge: (version) => path.join(release, "publish", "edge", version),
   /** The address of these files is inside every signed XPI (gecko.update_url): only the local folder moves. */
-  get firefox() {
-    return path.join(releaseRoot(), "firefox");
-  },
+  firefox: path.join(release, "publish", "firefox"),
 };
 
 export const test = {

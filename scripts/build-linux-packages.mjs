@@ -28,7 +28,7 @@ import { chmod, copyFile, cp, mkdir, mkdtemp, readdir, readFile, realpath, renam
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { gzipSync } from "node:zlib";
-import { publish, root, shown } from "./lib/paths.mjs";
+import { publish, root } from "./lib/paths.mjs";
 
 const dotenv = path.join(root, ".env");
 if (existsSync(dotenv)) process.loadEnvFile(dotenv);
@@ -419,7 +419,7 @@ async function collect() {
     await copyFile(file, copy);
     await chmod(copy, file === files.appimage ? 0o755 : 0o644);
     sums.push(`${createHash("sha256").update(await readFile(copy)).digest("hex")}  ${path.basename(file)}`);
-    console.log(`${shown(copy)}: ${await mb(copy)}`);
+    console.log(`${path.relative(root, copy)}: ${await mb(copy)}`);
   }
   const git = (...args) => spawnSync("git", args, { cwd: root, encoding: "utf8" }).stdout?.trim() ?? "";
   const dirty = git("status", "--porcelain", "--untracked-files=no") ? " with uncommitted changes" : "";
@@ -483,7 +483,7 @@ async function fromCi(ref) {
   for (const file of [...packages, ...signatures, "SHA256SUMS.txt"]) await copyFile(path.join(unpacked, file), path.join(out, file));
   await chmod(path.join(out, packages[2]), 0o755);
   await rm(unpacked, { recursive: true, force: true });
-  for (const file of packages) console.log(`${shown(path.join(out, file))}: ${await mb(path.join(out, file))}`);
+  for (const file of packages) console.log(`${path.relative(root, path.join(out, file))}: ${await mb(path.join(out, file))}`);
   console.log(`${signatures.length ? `with ${signatures.join(", ")}` : "no .sig (not a release run)"}\n\n${sums.trim()}`);
 }
 

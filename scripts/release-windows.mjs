@@ -18,7 +18,7 @@ import { copyFile, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/pro
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { releaseNotes } from "./lib/release-notes.mjs";
-import { publish, root, shown } from "./lib/paths.mjs";
+import { publish, root } from "./lib/paths.mjs";
 import { version as currentVersion } from "./version.mjs";
 
 const fail = (message) => {
@@ -65,11 +65,11 @@ if (!noBuild) {
 const folder = publish.windows(version);
 const files = existsSync(folder) ? await readdir(folder) : [];
 const installer = files.find((f) => f.endsWith("-setup.exe") && f.includes(`_${version}_`));
-if (!installer || !files.includes("SHA256SUMS.txt")) fail(`No signed installer of ${version} in ${shown(folder)}: bun run build:windows`);
+if (!installer || !files.includes("SHA256SUMS.txt")) fail(`No signed installer of ${version} in ${path.relative(root, folder)}: bun run build:windows`);
 const sums = await readFile(path.join(folder, "SHA256SUMS.txt"), "utf8");
 const builtFrom = sums.match(/commit ([0-9a-f]{7,40})/)?.[1];
 if (!builtFrom || !commit.startsWith(builtFrom) || sums.includes("with uncommitted changes") || !sums.includes("\n\nsigned;")) {
-  fail(`${shown(folder)} is not the signed build of ${tag} (${commit.slice(0, 7)}): run without --no-build`);
+  fail(`${path.relative(root, folder)} is not the signed build of ${tag} (${commit.slice(0, 7)}): run without --no-build`);
 }
 
 // The names GitHub keeps as they are: no space in the installer, one SHA256SUMS per system.

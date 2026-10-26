@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { copyFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { nsisBundle as dir, publish, root, shown, test } from "./lib/paths.mjs";
+import { nsisBundle as dir, publish, root, test } from "./lib/paths.mjs";
 
 const sign = process.argv.includes("--sign");
 
@@ -66,4 +66,4 @@ await writeFile(
   path.join(out, "SHA256SUMS.txt"),
   `${sha256}  ${installer}\n\n${sign ? "signed" : "unsigned, for a test machine only"}; commit ${git("rev-parse", "--short", "HEAD")}${dirty}; built ${new Date().toISOString()}\n`,
 );
-console.log(`\n${shown(file)}\nSHA-256 ${sha256}\n${sign ? "signed" : "UNSIGNED: for a test machine only, not for publishing"}`);
+console.log(`\n${path.relative(root, file)}\nSHA-256 ${sha256}\n${sign ? "signed" : "UNSIGNED: for a test machine only, not for publishing"}`);

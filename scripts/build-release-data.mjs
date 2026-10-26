@@ -26,7 +26,7 @@ import { existsSync } from "node:fs";
 import { copyFile, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { entries, folder as changelogFolder } from "./lib/changelog.mjs";
-import { publish, root, shown } from "./lib/paths.mjs";
+import { publish, root } from "./lib/paths.mjs";
 import { hasUpdateKey, signFile } from "./lib/sign.mjs";
 import { SITE } from "./lib/site.mjs";
 
@@ -47,7 +47,7 @@ const macos = path.resolve(arg("--macos") ?? publish.macos(version, "arm64"));
 if (sign && !hasUpdateKey()) fail("The update key is not set: TAURI_SIGNING_PRIVATE_KEY or TAURI_SIGNING_PRIVATE_KEY_PATH (NP-042, .env.example); --no-sign for a test.");
 
 const folder = path.join(updates, version);
-const where = shown(folder);
+const where = folder.startsWith(`${root}${path.sep}`) ? path.relative(root, folder) : folder;
 if (!existsSync(path.join(folder, "latest.json"))) fail(`${where}/latest.json is missing: bun run build:latest`);
 const latest = JSON.parse(await readFile(path.join(folder, "latest.json"), "utf8"));
 if (latest.version !== version) fail(`${where}/latest.json announces ${latest.version}, not ${version}`);
@@ -109,7 +109,7 @@ if (existsSync(path.join(macos, dmg))) {
   }
   files.macos = await described(dmg);
 } else {
-  console.warn(`No ${dmg} in ${shown(macos)}: release.json without macos`);
+  console.warn(`No ${dmg} in ${macos.startsWith(`${root}${path.sep}`) ? path.relative(root, macos) : macos}: release.json without macos`);
 }
 files.sums = await described("SHA256SUMS.txt");
 

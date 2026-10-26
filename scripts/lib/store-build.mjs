@@ -11,7 +11,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { onMainOf, root } from "./paths.mjs";
+import { root } from "./paths.mjs";
 
 export const args = process.argv.slice(2);
 
@@ -61,11 +61,9 @@ export function buildNumber(given) {
 }
 
 /**
- * Whether HEAD is a clean commit of origin/main as it is now, not on a branch of its own (paths.mjs,
- * onMainOf: detached or on main; any commit of main, so a second upload of an older one with --build
- * works): origin/main is fetched first (else a commit of main reads as a branch's), and a new file
- * that Git does not ignore is a change too: the build has it, the commit does not. The store builds'
- * publish folder (paths.mjs) follows the same rule.
+ * Whether HEAD is a clean commit of origin/main as it is now: origin/main is fetched first (else a
+ * commit of main reads as a branch's), and a new file that Git does not ignore is a change too: the build
+ * has it, the commit does not.
  */
 export function cleanMain() {
   const fetched = spawnSync("git", ["fetch", "--quiet", "origin", "main"], {
@@ -75,7 +73,7 @@ export function cleanMain() {
     console.warn(`Could not fetch origin/main (${fetched.error?.message ?? fetched.stderr.trim().split("\n")[0]}): `
       + "the check below uses the local origin/main, which may be out of date.");
   }
-  const onMain = onMainOf(root);
+  const onMain = spawnSync("git", ["merge-base", "--is-ancestor", "HEAD", "origin/main"], { cwd: root }).status === 0;
   const dirty = Boolean(git("status", "--porcelain", "--untracked-files=normal"));
   return { onMain, dirty, clean: onMain && !dirty };
 }

@@ -7,14 +7,13 @@
 //   bun run build:ios -- --validate      then App Store Connect's validation of the IPA (altool)
 //   bun run build:ios -- --upload        then the upload to App Store Connect (altool)
 //   bun scripts/build-ios.mjs --ipa <file> --validate   the validation of an IPA built already
-//   A build that is not a clean commit of origin/main, detached or on main (any commit of it: lib/paths.mjs,
-//   onMainOf), goes to release/test/ios/<version>/ instead.
+//   A build that is not a clean commit of origin/main goes to release/test/ios/<version>/ instead.
 //
 // Build numbers: CFBundleShortVersionString is the app's version; CFBundleVersion is the number of
 // commits up to HEAD (`git rev-list --count HEAD`), so every commit of main builds a higher number, for
 // iOS and later for Android's versionCode. A second upload of the same commit takes `--build` with a
-// higher number. --upload takes only a clean commit on origin/main, detached or on main (a branch's count can pass a
-// later commit of main), with or without --build; the script fetches origin/main first.
+// higher number. --upload takes only a clean commit on origin/main (a branch's count can pass a later commit
+// of main), with or without --build; the script fetches origin/main first.
 //
 // Signing is Xcode's automatic, cloud-managed signing through the App Store Connect API key, with no
 // certificate or profile in the repository: APPLE_STORE_KEY, APPLE_STORE_ISSUER and APPLE_STORE_KEY_PATH (a
@@ -42,7 +41,7 @@ import path from "node:path";
 import { args, buildNumber, cleanMain, option, writeChecksums } from "./lib/store-build.mjs";
 import { loadEnv } from "./lib/env.mjs";
 import { app, appGroup, appleProject, bundleId, extensions, requireLlvmTools, version } from "./lib/ios.mjs";
-import { publish, root, shown, test } from "./lib/paths.mjs";
+import { publish, root, test } from "./lib/paths.mjs";
 
 if (process.platform !== "darwin") throw new Error("Build this on a Mac with Xcode");
 const validate = args.includes("--validate");
@@ -123,9 +122,9 @@ const build = buildNumber(option("--build"));
 const { dirty, clean: publishable } = cleanMain();
 if (upload && !publishable) {
   throw new Error(dirty ? "The worktree has changes or new files: an upload is built from a commit as it is"
-    : "Upload builds of main only: HEAD is on a branch or not a commit of origin/main (--build is for a second upload of a commit of main)");
+    : "Upload builds of main only: HEAD is not on origin/main (--build is for a second upload of a commit of main)");
 }
-if (!publishable) console.warn(`Not a clean commit of origin/main, detached or on main: a test build in ${path.relative(root, test.ios(version))}.`);
+if (!publishable) console.warn(`Not a clean commit of origin/main: a test build in ${path.relative(root, test.ios(version))}.`);
 
 requireLlvmTools();
 
@@ -286,7 +285,7 @@ const dsyms = path.join(archive, "dSYMs");
 if (!existsSync(dsyms) || readdirSync(dsyms).length === 0) throw new Error("The archive has no dSYMs");
 execFileSync("ditto", ["-c", "-k", "--keepParent", dsyms, symbols]);
 writeChecksums(target);
-console.log(`iOS ${version} (${build}), App Store: ${shown(ipa)}`);
+console.log(`iOS ${version} (${build}), App Store: ${path.relative(root, ipa)}`);
 
 if (validate) altool("--validate-app", ipa);
 if (upload) altool("--upload-package", ipa);
