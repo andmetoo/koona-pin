@@ -17,7 +17,8 @@
 // Signing (NP-074a). Google Play's upload key is in .env (ANDROID_UPLOAD_KEYSTORE, a PKCS12 file;
 // ANDROID_UPLOAD_KEYSTORE_PASSWORD; ANDROID_UPLOAD_KEY_ALIAS), and Play signs what it delivers with the
 // app signing key it keeps (Play App Signing). Gradle signs with the upload key only a build of a clean
-// commit of origin/main: its AAB goes to release/publish/android/<version>/ for Play Console, and its APK
+// commit of origin/main, detached or on main (any commit of it, so --build can upload one again:
+// lib/paths.mjs, onMainOf): its AAB goes to release/publish/android/<version>/ for Play Console, and its APK
 // stays in Gradle's folder (phones refuse Play's updates over an APK of the upload key). Any other build
 // (no key, a branch, a worktree with changes) is signed with the debug key, which Play refuses, and both
 // files go to release/test/android/<version>/. --sign-test signs such a test build with the upload key to
@@ -179,7 +180,7 @@ if (publishable && !site && existsSync(published)) {
     + "or delete the file if it was never uploaded");
 }
 if (!publishable) {
-  const why = !hasKey ? "no upload key in .env" : dirty ? "the worktree has changes or new files" : "HEAD is not on origin/main";
+  const why = !hasKey ? "no upload key in .env" : dirty ? "the worktree has changes or new files" : "HEAD is on a branch or not a commit of origin/main (fetch, then checkout --detach origin/main)";
   console.warn(`Not for ${site ? "the release" : "Play"} (${why}): a test build in ${path.relative(root, test.android(version))}, `
     + `signed with ${site ? "the site's key" : upload ? "the upload key (--sign-test)" : "the debug key"}.`);
 }

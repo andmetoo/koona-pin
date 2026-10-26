@@ -61,10 +61,11 @@ export function buildNumber(given) {
 }
 
 /**
- * Whether HEAD is a clean commit of what main releases as it is now (paths.mjs, onMainOf: detached or
- * on main, the tip of origin/main or a release tag of it): origin/main is fetched first (else a commit
- * of main reads as a branch's), and a new file that Git does not ignore is a change too: the build has
- * it, the commit does not. The publish folder (paths.mjs) follows the same rule.
+ * Whether HEAD is a clean commit of origin/main as it is now, not on a branch of its own (paths.mjs,
+ * onMainOf: detached or on main; any commit of main, so a second upload of an older one with --build
+ * works): origin/main is fetched first (else a commit of main reads as a branch's), and a new file
+ * that Git does not ignore is a change too: the build has it, the commit does not. The store builds'
+ * publish folder (paths.mjs) follows the same rule.
  */
 export function cleanMain() {
   const fetched = spawnSync("git", ["fetch", "--quiet", "origin", "main"], {

@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { mainCheckoutOf, onMainOf, publishRootOf, shown } from "./paths.mjs";
+import { mainCheckoutOf, onMainOf, publishRootOf, releasesOf, shown } from "./paths.mjs";
 
 // Where a build publishes (paths.mjs): the main checkout's release/publish for a worktree that builds
 // what main releases, else its own. Checkouts are folders and repositories made here.
@@ -51,9 +51,17 @@ describe("publishRootOf", () => {
   });
 });
 
-describe("onMainOf, in a real repository", () => {
-  const git = (cwd, ...args) =>
-    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false", ...args], { cwd, encoding: "utf8" }).trim();
+describe("onMainOf and releasesOf, in a real repository", () => {
+  /** git as on a bare machine: no global or system configuration, no hooks of the developer's. */
+  const git = (cwd, ...args) => {
+    const quiet = path.join(base, "no-config");
+    writeFileSync(quiet, "");
+    return execFileSync(
+      "git",
+      ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false", "-c", `core.hooksPath=${path.join(base, "no-hooks")}`, ...args],
+      { cwd, encoding: "utf8", env: { ...process.env, GIT_CONFIG_GLOBAL: quiet, GIT_CONFIG_NOSYSTEM: "1" } },
+    ).trim();
+  };
 
   /** main with two commits, origin/main at the second; `first` and `second` are their hashes. */
   function repository() {
@@ -74,28 +82,33 @@ describe("onMainOf, in a real repository", () => {
     return { main, first, second, worktree };
   }
 
-  it("takes a detached worktree at the tip of origin/main", () => {
+  it("take a detached worktree at the tip of origin/main", () => {
     const { second, worktree } = repository();
-    expect(onMainOf(worktree("tip", second))).toBe(true);
+    const tip = worktree("tip", second);
+    expect([onMainOf(tip), releasesOf(tip)]).toEqual([true, true]);
   });
 
-  it("refuses a session's branch cut from origin/main, before its first commit", () => {
+  it("refuse a session's branch cut from origin/main, before its first commit", () => {
     const { second, worktree } = repository();
-    expect(onMainOf(worktree("feature", second, "sync/feature"))).toBe(false);
+    const feature = worktree("feature", second, "sync/feature");
+    expect([onMainOf(feature), releasesOf(feature)]).toEqual([false, false]);
   });
 
-  it("refuses an older commit of main, unless it carries a release tag", () => {
+  it("an older commit of main is main for a store build, and a release only with a release tag", () => {
     const { main, first, worktree } = repository();
     const old = worktree("old", first);
-    expect(onMainOf(old)).toBe(false);
+    expect([onMainOf(old), releasesOf(old)]).toEqual([true, false]);
+    git(main, "tag", "v1-try", first);
+    expect(releasesOf(old)).toBe(false);
     git(main, "tag", "v1.0.0", first);
-    expect(onMainOf(old)).toBe(true);
+    expect(releasesOf(old)).toBe(true);
   });
 
-  it("refuses a repository without origin/main", () => {
+  it("refuse a repository without origin/main", () => {
     const { main, worktree } = repository();
     git(main, "update-ref", "-d", "refs/remotes/origin/main");
-    expect(onMainOf(worktree("lone", "HEAD"))).toBe(false);
+    const lone = worktree("lone", "HEAD");
+    expect([onMainOf(lone), releasesOf(lone)]).toEqual([false, false]);
   });
 });
 
