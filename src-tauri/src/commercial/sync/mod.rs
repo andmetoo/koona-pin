@@ -158,10 +158,15 @@ impl SyncState {
         if let Some((identity, _)) = &*slot {
             return identity.clone();
         }
-        let loaded = if self.identity_path.exists() { Identity::load_or_create(&self.identity_path).ok() } else { None };
-        let entry = match loaded {
-            Some(identity) => (identity, true),
-            None => (Identity::new(""), false),
+        let entry = if crate::secrets::exists(&self.identity_path) {
+            match Identity::load_or_create(&self.identity_path) {
+                Ok(identity) => (identity, true),
+                // There but unreadable now (the iPhone's Keychain before the first unlock): shown
+                // for this once, not kept, so the next look reads the real one.
+                Err(_) => return Identity::new(""),
+            }
+        } else {
+            (Identity::new(""), false)
         };
         let identity = entry.0.clone();
         *slot = Some(entry);
@@ -176,7 +181,7 @@ impl SyncState {
         }
         let identity = match slot.take() {
             // The one shown so far, unless a file appeared meanwhile.
-            Some((shown, false)) if !self.identity_path.exists() => {
+            Some((shown, false)) if !crate::secrets::exists(&self.identity_path) => {
                 shown.save(&self.identity_path).map_err(CommandError::internal)?;
                 shown
             }

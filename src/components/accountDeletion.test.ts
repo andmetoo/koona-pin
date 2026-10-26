@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import i18n from "../i18n";
 import type { Plan, SupporterStatus } from "../types";
-import { cancelsPlay, refundKey } from "./accountDeletion";
+import { cancelsPlay, paymentsKey, refundKey } from "./accountDeletion";
 import { planState } from "./supporterFlow";
 
 const t = i18n.getFixedT("en");
@@ -31,6 +31,14 @@ describe("deleting the account", () => {
     // Vitest runs as a desktop build (purchase "paddle"): never, even for a plan paid through Play.
     expect(cancelsPlay(plan({ store: "play" }))).toBe(false);
     expect(cancelsPlay(null)).toBe(false);
+  });
+
+  it("says an App Store subscription is the person's to cancel in Settings: the server cannot stop it", () => {
+    expect(t(paymentsKey(plan({ store: "appstore" })))).toMatch(/Settings/);
+    expect(paymentsKey(plan({ store: "appstore", interval: "lifetime", renews_at: null, also_renews: true }))).toBe("deleteAccount.paymentsAppStore");
+    expect(paymentsKey(plan({ store: "appstore", interval: "lifetime", renews_at: null }))).toBe("deleteAccount.payments");
+    for (const store of [undefined, "paddle", "play"] as const) expect(paymentsKey(plan({ store }))).toBe("deleteAccount.payments");
+    expect(paymentsKey(null)).toBe("deleteAccount.payments");
   });
 
   it("says the one-time purchase goes with the account, a subscription's paid time is not refunded", () => {

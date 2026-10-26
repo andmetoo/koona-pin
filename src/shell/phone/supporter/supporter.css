@@ -313,6 +313,18 @@
 .phone .sp-hint.sp-terms {
   margin-top: 20px;
 }
+/* The App Store build (App Review 3.1.2): «Restore purchases» under the plans, then the Terms of
+   Use and the Privacy Policy side by side. */
+.phone .sp-restore {
+  margin-top: 12px;
+}
+.phone .sp-legal {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 12px;
+  margin: 8px 0 0;
+}
 
 /* A notice on paper (P8): a 40 well with the alert glyph, the title, the words, an action. Red for
    what went wrong, amber for what waits. */

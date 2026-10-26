@@ -10,6 +10,16 @@ export const version = JSON.parse(readFileSync(path.join(root, "src-tauri", "tau
 export const app = "Koona Pin.app";
 export const bundleId = "app.koona.pin";
 export const appleProject = path.join(root, "src-tauri", "gen", "apple");
+/** The App Group of the app and its share extension: only the share queue lives there (koona-share). */
+export const appGroup = "group.app.koona.pin";
+/** The app's extensions, in its PlugIns folder: the bundle, its id and the entitlements file it is built with. */
+export const extensions = [
+  {
+    appex: "KoonaPinShare.appex",
+    id: `${bundleId}.share`,
+    entitlements: path.join(appleProject, "koonapin_Share", "koonapin_Share.entitlements"),
+  },
+];
 
 /**
  * A release build needs rustup's llvm-tools: swift-rs uses its llvm-objcopy to keep the plugins' Swift

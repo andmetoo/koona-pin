@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { openPhone, systemBack, topScreen } from "./fixtures";
-import { ARTICLE } from "../ui/picture-viewer.spec";
+import { ARTICLE } from "../fixtures/article";
 
 // #400 on a phone (frame P4): a tap opens the picture in a card, Back or a swipe down puts it back.
 

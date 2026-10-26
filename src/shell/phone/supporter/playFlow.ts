@@ -9,7 +9,12 @@ import type { PlanInterval, PlayOffer, PlayPrice, PlayProgress, PlayState, Suppo
 // Supporter through Google Play Billing in the Play build (NP-154, flow B), apart from how its
 // sheet looks (./SupporterSheet.tsx): Play's sheet first, then the server's verdict
 // (src-tauri/src/billing/play.rs) — paid when signed in, else the email that claims the purchase
-// and the code sent to it. Nothing here names where else Supporter is sold.
+// and the code sent to it. Nothing here names where else Supporter is sold. The App Store build
+// (`purchase: "appstore"`, billing/appstore.rs) takes the same steps through StoreKit, with
+// «Restore purchases» besides: its `StoreChannel` is "appstore".
+
+/** The store a phone build sells through: Google Play, or the App Store. */
+export type StoreChannel = "play" | "appstore";
 
 /**
  * The sheet's steps: the plans; the email and the code that claim a purchase; a slow payment;
@@ -24,7 +29,7 @@ export type PlayStep = "plans" | "email" | "code" | "pending" | "paid" | "alread
  * any payment. `kept`: after one, the purchase could not be confirmed now; it is kept, and «Try
  * again» asks the server, never Play's sheet.
  */
-export type PlayFailure = "failed" | "invalid" | "unavailable" | "kept";
+export type PlayFailure = "failed" | "invalid" | "unavailable" | "kept" | "nothingToRestore";
 
 /**
  * Where a verdict leads. `sign_in`: a code went to the email given, the code step. `owned`: a
@@ -60,6 +65,8 @@ export function playStep(state: PlayState): { step: PlayStep; failure: PlayFailu
       return { step: "plans", failure: "kept" };
     case "error":
       return { step: "plans", failure: "failed" };
+    case "nothing_to_restore":
+      return { step: "plans", failure: "nothingToRestore" };
   }
 }
 
@@ -111,29 +118,60 @@ export function playBadge(value: PlanInterval, offer: PlayOffer | null, t: TFunc
   return null;
 }
 
-/** The words of a failure under the plans. */
-export function failureLine(failure: PlayFailure, t: TFunction): string {
+/** The words of a failure under the plans, naming the store it happened in. */
+export function failureLine(failure: PlayFailure, t: TFunction, channel: StoreChannel = "play"): string {
   const keys = {
-    invalid: "phone.supporter.play.invalid",
-    unavailable: "phone.supporter.play.unavailable",
-    kept: "phone.supporter.play.kept",
-    failed: "phone.supporter.play.failed",
+    play: {
+      invalid: "phone.supporter.play.invalid",
+      unavailable: "phone.supporter.play.unavailable",
+      kept: "phone.supporter.play.kept",
+      failed: "phone.supporter.play.failed",
+      nothingToRestore: "phone.supporter.appstore.nothingToRestore",
+    },
+    appstore: {
+      invalid: "phone.supporter.appstore.invalid",
+      unavailable: "phone.supporter.appstore.unavailable",
+      kept: "phone.supporter.appstore.kept",
+      failed: "phone.supporter.appstore.failed",
+      nothingToRestore: "phone.supporter.appstore.nothingToRestore",
+    },
   } as const;
-  return t(keys[failure]);
+  return t(keys[channel][failure]);
 }
+
+/** Each store's commands (src/services/api.ts), and where its purchase waiting here shows. */
+const STORES = {
+  play: {
+    offer: () => api.getPlayOffer(),
+    buy: (interval: PlanInterval) => api.startPlayPurchase(interval),
+    claim: (email: string) => api.playClaimEmail(email),
+    retry: () => api.retryPlayPurchase(),
+    progress: (status: SupporterStatus | null | undefined) => status?.play ?? null,
+    fixPayment: () => api.openUrl(PLAY_SUBSCRIPTIONS_URL),
+  },
+  appstore: {
+    offer: () => api.getAppStoreOffer(),
+    buy: (interval: PlanInterval) => api.startAppStorePurchase(interval),
+    claim: (email: string) => api.appStoreClaimEmail(email),
+    retry: () => api.retryAppStorePurchase(),
+    progress: (status: SupporterStatus | null | undefined) => status?.appstore ?? null,
+    fixPayment: () => api.manageAppStoreSubscriptions(),
+  },
+} as const;
 
 /**
  * The purchase in the Play build: Play's prices, a plan bought, the server's verdict and the steps
  * that follow it. The app follows a purchase by itself too (a slow payment confirmed, a purchase
  * verified again when the app comes back): `supporter.play` changing moves the open sheet on.
  */
-export function usePlayPurchase(supporter: SupporterStatus | null) {
+export function usePlayPurchase(supporter: SupporterStatus | null, channel: StoreChannel = "play") {
   const { t } = useTranslation();
-  const play = supporter?.play ?? null;
+  const store = STORES[channel];
+  const play = store.progress(supporter);
   const [step, setStep] = useState<PlayStep>(() => resumedStep(play));
   const [error, setError] = useState<string | null>(() => {
     const failure = resumedFailure(play);
-    return failure ? failureLine(failure, t) : null;
+    return failure ? failureLine(failure, t, channel) : null;
   });
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState(play?.email ?? "");
@@ -149,8 +187,8 @@ export function usePlayPurchase(supporter: SupporterStatus | null) {
   useEffect(() => {
     let alive = true;
     setOfferFailed(false);
-    api
-      .getPlayOffer()
+    store
+      .offer()
       .then((answer) => alive && setOffer(answer))
       .catch(() => alive && setOfferFailed(true));
     return () => {
@@ -162,7 +200,7 @@ export function usePlayPurchase(supporter: SupporterStatus | null) {
   const show = (state: PlayState) => {
     const next = playStep(state);
     setStep(next.step);
-    setError(next.failure ? failureLine(next.failure, t) : null);
+    setError(next.failure ? failureLine(next.failure, t, channel) : null);
     setKept(next.failure === "kept");
   };
 
@@ -203,12 +241,12 @@ export function usePlayPurchase(supporter: SupporterStatus | null) {
   /** «Subscribe» or «Buy» on a plan: Google Play's sheet, then the verdict. */
   const buy = (interval: PlanInterval) => {
     setLast(interval);
-    return run(async () => show(await api.startPlayPurchase(interval)), true);
+    return run(async () => show(await store.buy(interval)), true);
   };
   /** The email step: the code goes there. */
   const claim = () =>
     run(async () => {
-      const state = await api.playClaimEmail(email);
+      const state = await store.claim(email);
       if (state === "sign_in") {
         setCode("");
         countdown();
@@ -223,7 +261,7 @@ export function usePlayPurchase(supporter: SupporterStatus | null) {
   const verify = () =>
     run(async () => {
       const status = await api.verifySignInCode(email, code);
-      const state = status.play?.state ?? (status.plan ? "paid" : "error");
+      const state = store.progress(status)?.state ?? (status.plan ? "paid" : "error");
       if (state === "sign_in" && status.email) unreachable();
       else show(state);
     });
@@ -231,7 +269,7 @@ export function usePlayPurchase(supporter: SupporterStatus | null) {
   const retry = () => {
     if (!kept) return last ? buy(last) : Promise.resolve();
     return run(async () => {
-      const state = await api.retryPlayPurchase();
+      const state = await store.retry();
       if (state === "sign_in" && supporter?.email) unreachable();
       else show(state);
     }, true);
@@ -254,7 +292,12 @@ export function usePlayPurchase(supporter: SupporterStatus | null) {
    * Google Play's page, not bought again.
    */
   const suspended = step === "suspended" || (step === "plans" && !!offer?.suspended);
-  const fixPayment = () => run(() => api.openUrl(PLAY_SUBSCRIPTIONS_URL));
+  const fixPayment = () => run(() => store.fixPayment());
+  /**
+   * «Restore purchases» (the App Store build): what this Apple Account owns, verified again; a
+   * purchase made here resumes its step, one bought for an account asks to sign in to it.
+   */
+  const restore = () => run(async () => show(await api.restoreAppStorePurchases()), true);
 
-  return { step, setStep, error, busy, offer, offerFailed, askOffer, last, kept, retry, buy, email, setEmail, claim, code, setCode, verify, resend, wait, anotherEmail, codeReady, suspended, fixPayment };
+  return { step, setStep, error, busy, offer, offerFailed, askOffer, last, kept, retry, buy, email, setEmail, claim, code, setCode, verify, resend, wait, anotherEmail, codeReady, suspended, fixPayment, restore };
 }

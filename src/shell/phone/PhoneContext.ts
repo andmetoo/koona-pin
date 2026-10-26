@@ -52,6 +52,11 @@ export type Phone = {
   /** The rail's primary action, set by the screen in the detail pane. */
   primary: PrimaryAction | null;
   setPrimary: Dispatch<SetStateAction<PrimaryAction | null>>;
+  /**
+   * Links shared from other apps arrive here: the build has a share sheet and the app its queue (an
+   * iPhone signed without its App Group has none). Asked of the app once, when the shell starts.
+   */
+  shareIntake: boolean;
 };
 
 export const PhoneContext = createContext<Phone | null>(null);

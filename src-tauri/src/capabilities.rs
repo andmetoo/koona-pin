@@ -35,13 +35,14 @@ pub enum UpdateSource {
 }
 
 /// How Supporter is bought: Paddle's checkout in the browser, Google Play Billing in the Play
-/// build (NP-154), or not at all in this build.
+/// build (NP-154), StoreKit in the App Store build (`appstore`), or not at all in this build.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
 #[serde(rename_all = "lowercase")]
 #[ts(export)]
 pub enum Purchase {
     Paddle,
     Play,
+    AppStore,
     None,
 }
 
@@ -68,6 +69,8 @@ pub struct Capabilities {
     pub share_intake: bool,
     /// Haptic feedback.
     pub haptics: bool,
+    /// Site icons from Google's icon service; a phone asks only the site (`metadata::fetched_icon`).
+    pub icon_service: bool,
     pub purchase: Purchase,
 }
 
@@ -104,6 +107,7 @@ impl AppInfo {
                 share_intake: share_intake(platform),
                 // Played by the `haptic` command of koona-mobile, a plugin registered on phones only.
                 haptics: !desktop,
+                icon_service: desktop,
                 purchase: purchase(desktop),
             },
         }
@@ -112,9 +116,11 @@ impl AppInfo {
 
 /// How this build sells Supporter, with the billing service. A computer: Paddle's checkout. The
 /// Play build (`cfg(play)`, the feature `store-play` on Android): only Play Billing, never a link to
-/// the Paddle checkout (Google Play's payments policy; NP-154). Any other phone: nothing; the site's
-/// APK gets `Paddle` through its own flavour (NP-074, NP-078). Signing in with the email code stays
-/// on phones, so someone who pays on a computer is a Supporter on the phone too.
+/// the Paddle checkout (Google Play's payments policy; NP-154). The App Store build (`cfg(appstore)`,
+/// the feature `store-appstore` on iOS): only StoreKit, never a Paddle link (App Review 3.1.1). Any
+/// other phone, the Simulator's build among them: nothing; the site's APK gets `Paddle` through its
+/// own flavour (NP-074, NP-078). Signing in with the email code stays on phones, so someone who pays
+/// on a computer is a Supporter on the phone too.
 fn purchase(desktop: bool) -> Purchase {
     if crate::billing::service().is_none() {
         Purchase::None
@@ -122,15 +128,17 @@ fn purchase(desktop: bool) -> Purchase {
         Purchase::Paddle
     } else if cfg!(play) {
         Purchase::Play
+    } else if cfg!(appstore) {
+        Purchase::AppStore
     } else {
         Purchase::None
     }
 }
 
-/// Links shared from other apps: Android's share sheet (koona-share, NP-071). iOS gets it with its
-/// share extension, which feeds the same queue.
+/// Links shared from other apps: Android's share sheet and iOS's share extension (koona-share,
+/// NP-071), which feed the same queue.
 fn share_intake(platform: Platform) -> bool {
-    platform == Platform::Android
+    matches!(platform, Platform::Android | Platform::Ios)
 }
 
 /// The script that hands [`AppInfo`] to the page, before the page's own scripts.
@@ -161,15 +169,16 @@ mod tests {
     }
 
     #[test]
-    fn a_phone_sells_nothing_outside_the_play_build() {
+    fn a_phone_sells_nothing_outside_the_store_builds() {
         assert_eq!(purchase(false), Purchase::None);
         assert_eq!(serde_json::to_string(&Purchase::Play).unwrap(), r#""play""#);
+        assert_eq!(serde_json::to_string(&Purchase::AppStore).unwrap(), r#""appstore""#);
     }
 
     #[test]
-    fn only_android_takes_links_shared_from_other_apps() {
-        assert!(share_intake(Platform::Android));
-        assert!(!share_intake(Platform::Ios) && !share_intake(Platform::Desktop));
+    fn only_phones_take_links_shared_from_other_apps() {
+        assert!(share_intake(Platform::Android) && share_intake(Platform::Ios));
+        assert!(!share_intake(Platform::Desktop));
     }
 
     #[test]

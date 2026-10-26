@@ -1,0 +1,6 @@
+/* Written from src/locales/sr-Latn.json (phone.share) by `bun run locales:ios`; do not edit. */
+"saved" = "Sačuvano u Koona Pin";
+"inInbox" = "U prijemnom sandučetu · %1$@";
+"done" = "Gotovo";
+"noLink" = "Nema linka za čuvanje";
+"failed" = "Link nije sačuvan";

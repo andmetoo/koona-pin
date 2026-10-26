@@ -1,0 +1,6 @@
+# What the Tauri build puts here for the iOS build: a copy of Tauri's own native API, Swift Package
+# Manager's output, and the permissions of the (no) commands.
+/.tauri
+/ios/.build
+/ios/.swiftpm
+/permissions

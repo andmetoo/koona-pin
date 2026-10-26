@@ -38,6 +38,7 @@ pub mod reader;
 pub mod reading;
 pub mod refresh;
 pub mod restore;
+pub mod secrets;
 pub mod share_queue;
 #[cfg(all(desktop, not(feature = "public-release")))]
 pub mod shot_previews;
@@ -105,6 +106,8 @@ pub fn run() {
             platform::prepare(app);
             // Before anything that reads or writes beside the library.
             app.manage(Arc::new(library_state::Library::new(platform::library_paths(app)?)));
+            // The iPhone's Keychain takes over the account and sync files before they are read (NP-153).
+            secrets::prepare(&app.state::<Arc<library_state::Library>>().paths.folder());
             // Before the library: its first daily copy goes to a Supporter's folder too, which
             // needs both states managed.
             billing::start(app.handle());

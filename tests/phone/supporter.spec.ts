@@ -320,6 +320,86 @@ test("the sign-in's action stays above the keyboard", async ({ page }) => {
   expect(field.y).toBeGreaterThan(0);
 });
 
+// ── The App Store build (StoreKit 2) ────────────────────────────────────────
+
+const APP_STORE = { purchase: "appstore" };
+const openAppStore = async (page: Page, settings: Record<string, string> = FREE) => {
+  await openPhone(page, { settings, capabilities: APP_STORE, platform: "ios" });
+  const you = await openYou(page);
+  await you.locator('[data-supporter="free"]').click();
+  const supporter = sheet(page, "supporter");
+  await expect(supporter.getByRole("dialog", { name: "Koona Pin Supporter" })).toBeVisible();
+  return supporter;
+};
+
+test("the App Store build: StoreKit's prices, what renews and how to cancel, Restore purchases, the terms and the privacy policy", async ({ page }) => {
+  const supporter = await openAppStore(page);
+  const plans = supporter.getByRole("list", { name: "Plan" }).getByRole("listitem");
+  await expect(plans).toHaveText([/Yearly.*\$9\.99 a year.*Subscribe/, /Monthly.*\$1\.49 a month.*Subscribe/, /One-time.*\$29\.99 once.*Buy/]);
+  await expect(supporter.locator("[data-play-terms] p").first()).toHaveText(/renew automatically at their price until you cancel\. Cancel any time in Settings/);
+  await expect(supporter).not.toContainText("Google");
+  await expect(supporter).not.toContainText("Paddle");
+  await recordLinks(page);
+  await supporter.getByRole("button", { name: "Terms of Use" }).click();
+  await supporter.getByRole("button", { name: "Privacy Policy" }).click();
+  expect(await opened(page)).toEqual(["https://koona.app/pin/terms", "https://koona.app/pin/privacy"]);
+  // Nothing this Apple Account owns: said under the plans.
+  await supporter.getByRole("button", { name: "Restore purchases" }).click();
+  await expect(supporter.getByRole("alert")).toHaveText("This Apple Account has no Supporter purchase to restore.");
+});
+
+test("the App Store build: bought signed out, the email claims it, the code signs in, and the plan is managed in the App Store", async ({ page }) => {
+  const supporter = await openAppStore(page);
+  await supporter.getByRole("button", { name: "Subscribe · Monthly" }).click();
+  await expect(supporter.getByRole("dialog", { name: "Where should we send your code?" })).toBeVisible();
+  await expect(supporter).toContainText("The App Store has your payment");
+  await supporter.getByLabel("Email").fill("anna@example.com");
+  await supporter.getByLabel("Email").press("Enter");
+  await expect(supporter.getByRole("dialog", { name: "Check your email" })).toBeVisible();
+  await supporter.getByLabel("Code").fill("123456");
+  await supporter.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(supporter.getByRole("dialog", { name: "Thank you for supporting Koona Pin" })).toBeVisible();
+  await supporter.getByRole("button", { name: "Done" }).click();
+  const you = await openYou(page);
+  await you.locator('[data-supporter="plan"]').click();
+  await expect(sheet(page, "plan").getByRole("button", { name: "Manage in the App Store" })).toBeVisible();
+});
+
+test("the App Store build: with nothing on sale, Restore purchases and the legal links stay", async ({ page }) => {
+  const supporter = await openAppStore(page, { ...FREE, "demo.playProducts": "none" });
+  await expect(supporter).toContainText("The App Store can't sell Supporter on this iPhone right now.");
+  await supporter.getByRole("button", { name: "Restore purchases" }).click();
+  await expect(supporter.getByRole("alert")).toHaveText("This Apple Account has no Supporter purchase to restore.");
+  await expect(supporter.getByRole("button", { name: "Terms of Use" })).toBeVisible();
+});
+
+test("the App Store build: Ask to Buy waits for approval, and the sheet opens on it again", async ({ page }) => {
+  const supporter = await openAppStore(page, { ...FREE, "demo.play": "pending" });
+  await supporter.getByRole("button", { name: "Buy · One-time" }).click();
+  await expect(supporter.getByRole("status")).toHaveText("Waiting for the purchase to be approved…");
+  expect(await systemBack(page)).toBe(true);
+  await expect(sheet(page, "supporter")).toHaveCount(0);
+  await reopenPlay(page);
+  await expect(sheet(page, "supporter").getByRole("status")).toHaveText("Waiting for the purchase to be approved…");
+});
+
+test("the App Store build: a Supporter buying again keeps the plan and is told Apple can refund it", async ({ page }) => {
+  const supporter = await openAppStore(page, { ...FREE, "demo.play": "already_supporter" });
+  await supporter.getByRole("button", { name: "Subscribe · Yearly" }).click();
+  await expect(supporter.getByRole("dialog", { name: "You already have Supporter" })).toBeVisible();
+  await expect(supporter).toContainText("Apple can refund this purchase");
+});
+
+test("the App Store build: deleting the account says the App Store subscription is cancelled in Settings", async ({ page }) => {
+  await openPhone(page, { settings: { ...SUPPORTER, "demo.store": "appstore" }, capabilities: APP_STORE, platform: "ios" });
+  const you = await openYou(page);
+  await you.locator('[data-supporter="plan"]').click();
+  await sheet(page, "plan").getByRole("button", { name: "Delete account" }).click();
+  const deletion = sheet(page, "deleteAccount");
+  await expect(deletion).toContainText("Your App Store subscription doesn't stop with the account: cancel it in Settings");
+  await expect(deletion).not.toContainText("Payments stop now.");
+});
+
 // ── The Play build (NP-154) ─────────────────────────────────────────────────
 
 /** The Play build's Supporter sheet, opened from You. */
@@ -538,6 +618,8 @@ test("the Play build: paid but not confirmed now is kept, and Try again asks the
   await expect(supporter.getByRole("alert")).toHaveText(
     "Koona Pin couldn't confirm your purchase with Google Play yet. If you paid, it's kept and checked again when you come back to the app — no need to buy it again.",
   );
+  // Nothing can be bought twice while the paid purchase waits for its confirmation.
+  for (const name of ["Subscribe · Yearly", "Subscribe · Monthly", "Buy · One-time"]) await expect(supporter.getByRole("button", { name })).toBeDisabled();
   // Closed and opened again (as after a restart), the sheet still says the purchase is kept.
   expect(await systemBack(page)).toBe(true);
   await expect(sheet(page, "supporter")).toHaveCount(0);

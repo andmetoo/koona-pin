@@ -1,11 +1,13 @@
 import "../../styles/phone.css";
-import { type CSSProperties, useCallback, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { useAppState } from "../../app/appState";
 import { useMedia } from "../../app/layout";
+import { capabilities } from "../../platform/capabilities";
 import { useKeyboardUp } from "../../platform/keyboard";
 import { flatGlass, largeText, useSystemSignals } from "../../platform/system";
 import { useVerticalBar, type VerticalBar } from "../../platform/verticalBar";
+import { api } from "../../services/api";
 import { preference, savePreference } from "../../services/preferences";
 import { usePhoneStack } from "./navigation/usePhoneStack";
 import { type Phone, PhoneContext, type PrimaryAction, usePhone } from "./PhoneContext";
@@ -68,10 +70,11 @@ export function PhoneShell() {
   const bookmarkId = fold && (detail?.name === "bookmark" || detail?.name === "reader") ? detail.bookmarkId : null;
   const postId = fold && detail?.name === "post" ? detail.itemId : null;
   const selected = useMemo(() => ({ bookmarkId, postId }), [bookmarkId, postId]);
+  const shareIntake = useShareIntake();
 
   const phone = useMemo<Phone>(
-    () => ({ app, stack, sheets, fold, hand, setHand, bar, column, thumb, keyboardUp, pillShown, setBottomLift, selected, primary, setPrimary }),
-    [app, stack, sheets, fold, hand, setHand, bar, column, thumb, keyboardUp, pillShown, selected, primary],
+    () => ({ app, stack, sheets, fold, hand, setHand, bar, column, thumb, keyboardUp, pillShown, setBottomLift, selected, primary, setPrimary, shareIntake }),
+    [app, stack, sheets, fold, hand, setHand, bar, column, thumb, keyboardUp, pillShown, selected, primary, shareIntake],
   );
   const account = useMemo(
     () => (
@@ -231,4 +234,30 @@ function PhoneSnackbar() {
       />
     </div>,
   );
+}
+
+/**
+ * Whether links shared from other apps arrive ({@link Phone.shareIntake}): the build's capability,
+ * then the app's answer, asked once; a failed ask is tried once more a little later.
+ */
+function useShareIntake(): boolean {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (!capabilities.share_intake) return;
+    let live = true;
+    let again: ReturnType<typeof setTimeout> | undefined;
+    const ask = (tries: number) =>
+      api.shareIntakeReady().then(
+        (answer) => live && setReady(answer),
+        () => {
+          if (live && tries > 0) again = setTimeout(() => void ask(tries - 1), 2000);
+        },
+      );
+    void ask(1);
+    return () => {
+      live = false;
+      clearTimeout(again);
+    };
+  }, []);
+  return ready;
 }

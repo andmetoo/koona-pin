@@ -114,17 +114,38 @@ pub async fn guard_pictures(meta: &mut PageMetadata) {
     }
 }
 
-/// What is known of a page before it is read: its domain and Google's icon.
+/// Google's icon service: the icon of a page before it is read.
+const ICON_SERVICE: &str = "https://www.google.com/s2/favicons?domain=";
+
+/// What is known of a page before it is read: its domain and Google's icon. Every device keeps the
+/// same address, so a link synced between them has the same icon; only the fetch differs
+/// ([`fetched_icon`]).
 pub fn base_metadata(target_url: &str) -> PageMetadata {
     let domain = extract_domain(target_url);
     PageMetadata {
         domain: domain.clone(),
-        favicon_url: Some(format!(
-            "https://www.google.com/s2/favicons?domain={}&sz=128",
-            domain
-        )),
+        favicon_url: Some(format!("{ICON_SERVICE}{domain}&sz=128")),
         ..Default::default()
     }
+}
+
+/// Where an icon is fetched from. A phone never asks Google's icon service, so no third party
+/// learns which sites the person saves (owner, 25 October 2026: the App Store and Play privacy
+/// labels): its address becomes the site's own `/favicon.ico`. Anything else, and every address on
+/// a computer, is fetched as it is.
+pub fn fetched_icon(address: &str) -> std::borrow::Cow<'_, str> {
+    if cfg!(mobile) {
+        if let Some(icon) = own_icon(address) {
+            return icon.into();
+        }
+    }
+    address.into()
+}
+
+fn own_icon(address: &str) -> Option<String> {
+    let rest = address.trim().strip_prefix(ICON_SERVICE)?;
+    let domain = rest.split('&').next().filter(|d| !d.is_empty() && !d.contains(['/', '?', '#', '@']))?;
+    Some(format!("https://{domain}/favicon.ico"))
 }
 
 pub async fn fetch_with(target_url: &str, limits: &Limits) -> PageMetadata {
@@ -723,6 +744,13 @@ pub fn read_page(html: &str, base: &Url, meta: &mut PageMetadata) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_google_icon_becomes_the_sites_own() {
+        assert_eq!(own_icon("https://www.google.com/s2/favicons?domain=example.org&sz=128").as_deref(), Some("https://example.org/favicon.ico"));
+        assert_eq!(own_icon("https://www.google.com/s2/favicons?domain=evil.test/x&sz=128"), None);
+        assert_eq!(own_icon("https://example.org/touch.png"), None);
+    }
+
     use super::*;
 
     #[test]

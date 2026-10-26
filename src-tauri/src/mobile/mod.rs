@@ -21,6 +21,9 @@ pub fn plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry
     // The Play build's purchases (NP-154, billing/play.rs): Play Billing, under the commercial license.
     #[cfg(play)]
     let builder = builder.plugin(tauri_plugin_koona_play::init());
+    // The App Store build's purchases (billing/appstore.rs): StoreKit 2, under the commercial license.
+    #[cfg(appstore)]
+    let builder = builder.plugin(tauri_plugin_koona_appstore::init());
     // iOS ended the page's WebContent process (memory, a crash): the same page again, which
     // reads the library anew. What was committed is in the library already.
     #[cfg(target_os = "ios")]

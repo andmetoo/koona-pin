@@ -2236,6 +2236,7 @@ pub fn get_domains(conn: &Connection) -> Result<Vec<DomainCount>> {
 mod tests {
     use super::*;
 
+    #[cfg(desktop)]
     #[test]
     fn the_library_lives_in_the_brand_folder() {
         // Р-56, and Р-9: the folder never changes after the first public installer.

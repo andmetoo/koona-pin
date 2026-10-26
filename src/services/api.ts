@@ -217,6 +217,8 @@ const native = {
     call<StarterLibrary>("create_starter_library", { names, links }),
   /** The starter links still in the library: triage names them (NP-117). */
   getStarterLinks: () => call<number[]>("get_starter_links"),
+  /** Whether links shared from other apps reach the app now (a phone's share queue exists). */
+  shareIntakeReady: () => call<boolean>("share_intake_ready"),
   /** «Title A–Z» and «Site A–Z» compare in this language; true when the keys were written anew (NP-114). */
   setSortLanguage: (language: string) => call<boolean>("set_sort_language", { language }),
   deleteCollection: async (id: number) => {
@@ -359,6 +361,21 @@ const native = {
   playClaimEmail: (email: string) => call<PlayState>("play_claim_email", { email }),
   /** «Try again» when the server could not be asked about a purchase: asks it now, not Play's sheet. */
   retryPlayPurchase: () => call<PlayState>("retry_play_purchase"),
+  // Supporter through the App Store (StoreKit 2): registered in the App Store build only, where
+  // `capabilities.purchase` is "appstore". The same steps as Play's; a purchase waiting here shows
+  // in `SupporterStatus.appstore`.
+  /** StoreKit's prices for the sheet; `available: false` where the App Store cannot sell. */
+  getAppStoreOffer: () => call<PlayOffer>("get_appstore_offer"),
+  /** The App Store's sheet for this plan, then the server's verdict. */
+  startAppStorePurchase: (interval: PlanInterval) => call<PlayState>("start_appstore_purchase", { interval }),
+  /** The email step of an App Store purchase made signed out. */
+  appStoreClaimEmail: (email: string) => call<PlayState>("appstore_claim_email", { email }),
+  /** «Try again» when the server could not be asked: asks it now, not the App Store's sheet. */
+  retryAppStorePurchase: () => call<PlayState>("retry_appstore_purchase"),
+  /** «Restore purchases»: `AppStore.sync()` and what the Apple Account owns; `nothing_to_restore` for none. */
+  restoreAppStorePurchases: () => call<PlayState>("restore_appstore_purchases"),
+  /** The system's sheet of this app's subscriptions. */
+  manageAppStoreSubscriptions: () => call<void>("manage_appstore_subscriptions"),
   // Supporter's backups to a folder of one's choice (commercial/backup_folder.rs).
   getBackupFolder: () => call<BackupFolder>("get_backup_folder"),
   onBackupFolder: (callback: (folder: BackupFolder) => void) => subscription("backup-folder", callback),

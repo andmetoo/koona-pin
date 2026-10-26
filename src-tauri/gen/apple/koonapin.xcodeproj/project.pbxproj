@@ -11,16 +11,47 @@
 		15486CA8D50C0291E30AC943 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D88D61AA8BA070C70FC5EA69 /* UIKit.framework */; };
 		1824F34469F663EA17E304F9 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9BDA7D6B903DBE3E655D20C4 /* main.mm */; };
 		501B12AECA52A5433A6584F3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EE1D6E986F2AD9BA4398A851 /* Assets.xcassets */; };
+		6D694BD840EECBFFADE333FE /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 5117C5CB2CBE00C9C01EA12F /* PrivacyInfo.xcprivacy */; };
+		77027B1A92E2621787ACFF98 /* koonapin_Share.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F1676241535C07400BB3EC22 /* koonapin_Share.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		97ADEA0F7E48C795B25006A5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 11C902135ED6609CF66C0460 /* Assets.xcassets */; };
+		A7DA2322304E4F9506DF83A6 /* ShareQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D9280406DAF69D5D0AC76D /* ShareQueue.swift */; };
+		BBB53EE124134C18C40D9564 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 62F6BA98857D7698803A10FC /* Localizable.strings */; };
 		BEA0782019742D569E410457 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 89E2D6F8CABA24F0E793A48F /* PrivacyInfo.xcprivacy */; };
 		C44ED92A3E45A34AE27A1362 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 42B845BE7194FDC95A0C42CF /* CoreGraphics.framework */; };
 		CA6EF07811958DF571166E1C /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3C5E92D5FC124B0ABF68832E /* QuartzCore.framework */; };
+		CEC632948360856A2668E768 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47EC0F1B69F64FBE5364BD73 /* ShareViewController.swift */; };
 		D0F3A6A74D343596C6A25F2F /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CD2870F6DFF92198F0E490EC /* Security.framework */; };
 		D3AC00C286D5A72BF2F531B9 /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 61921EA12C58230CE719F939 /* libapp.a */; };
 		DC0F1C7043A0676034F200DE /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2D0568E559D4EDB11F891B16 /* WebKit.framework */; };
+		E4DF68D005187E0E300C3F21 /* Preprocess.js in Resources */ = {isa = PBXBuildFile; fileRef = 2C0BA905D7A446FD0A9E906A /* Preprocess.js */; };
 		F7B21CC1000A3D2B50737B43 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 209CBA8F877EF0A340F8F5FF /* MetalKit.framework */; };
 		FA62BEEAF1EB314F6EED339F /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7650E83CF7F0B996D3C41334 /* Metal.framework */; };
 		FFA10520522B262616616091 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 99B907E73733438D2099776C /* LaunchScreen.storyboard */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		020FEEB93AC40700E9D03CFC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 352822C7B9B33B9E976F2898 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C3DC77A8073003DFC8D4FDFB;
+			remoteInfo = koonapin_Share;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		0D9E3A3344AC507476666895 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				77027B1A92E2621787ACFF98 /* koonapin_Share.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		0409BB3C31F11156C250C3F8 /* status.rs */ = {isa = PBXFileReference; path = status.rs; sourceTree = "<group>"; };
@@ -28,38 +59,52 @@
 		06EE362C4B058D1C60C3D740 /* appimage.rs */ = {isa = PBXFileReference; path = appimage.rs; sourceTree = "<group>"; };
 		0766B646B5737DCC4AA9C96E /* cache.rs */ = {isa = PBXFileReference; path = cache.rs; sourceTree = "<group>"; };
 		10A148A8AA35A8F772AEAF51 /* pipe_name.rs */ = {isa = PBXFileReference; path = pipe_name.rs; sourceTree = "<group>"; };
+		11C902135ED6609CF66C0460 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		124BD8B5A51FC6B79482C0C2 /* library_state.rs */ = {isa = PBXFileReference; path = library_state.rs; sourceTree = "<group>"; };
 		13F349A82C531E69A821635D /* koonapin_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = koonapin_iOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		16C25D15DCDC3F92E1B08A1A /* channel_client.rs */ = {isa = PBXFileReference; path = channel_client.rs; sourceTree = "<group>"; };
 		197C533F645CF0184CF04332 /* native_host.rs */ = {isa = PBXFileReference; path = native_host.rs; sourceTree = "<group>"; };
 		1A01B0A9FB4D7279D171EF07 /* mcp_tools.rs */ = {isa = PBXFileReference; path = mcp_tools.rs; sourceTree = "<group>"; };
+		1ADEF3F58BF70594A1F9C730 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		1D0BE6949ECF6082C193717D /* export.rs */ = {isa = PBXFileReference; path = export.rs; sourceTree = "<group>"; };
 		209CBA8F877EF0A340F8F5FF /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		20C55633C0A7F3545A38077B /* quick_search.rs */ = {isa = PBXFileReference; path = quick_search.rs; sourceTree = "<group>"; };
 		2255167DC910749ADA434C07 /* sorting.rs */ = {isa = PBXFileReference; path = sorting.rs; sourceTree = "<group>"; };
 		25322DD688B2AA660DAFB444 /* NOTICE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = NOTICE.md; sourceTree = "<group>"; };
+		2C0BA905D7A446FD0A9E906A /* Preprocess.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = Preprocess.js; sourceTree = "<group>"; };
 		2D0568E559D4EDB11F891B16 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+		2E4FF7D742C9723AC4917F66 /* play.rs */ = {isa = PBXFileReference; path = play.rs; sourceTree = "<group>"; };
 		2F1C386F1E213CAB1F839E40 /* ipc.rs */ = {isa = PBXFileReference; path = ipc.rs; sourceTree = "<group>"; };
 		3012C702683F410E6FBC5F30 /* autostart.rs */ = {isa = PBXFileReference; path = autostart.rs; sourceTree = "<group>"; };
 		31759E21EDF515F57B2BA0C8 /* open_requests.rs */ = {isa = PBXFileReference; path = open_requests.rs; sourceTree = "<group>"; };
+		33030A86A38CBD21B03FFF42 /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/Localizable.strings; sourceTree = "<group>"; };
+		345F73B1743B8E81E177FE82 /* share_queue.rs */ = {isa = PBXFileReference; path = share_queue.rs; sourceTree = "<group>"; };
 		35412883ED100FE8E3D51B4F /* journal.rs */ = {isa = PBXFileReference; path = journal.rs; sourceTree = "<group>"; };
+		3AAE22439B62198DB7AC5267 /* pl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pl; path = pl.lproj/Localizable.strings; sourceTree = "<group>"; };
 		3C5E92D5FC124B0ABF68832E /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		3D77EEDC6002C1B943CFFD27 /* commands.rs */ = {isa = PBXFileReference; path = commands.rs; sourceTree = "<group>"; };
 		3EDD52300B6B36A78F8CB6F6 /* channel.rs */ = {isa = PBXFileReference; path = channel.rs; sourceTree = "<group>"; };
 		3F3033575178AC9B1542C3EC /* mcp.rs */ = {isa = PBXFileReference; path = mcp.rs; sourceTree = "<group>"; };
+		3F42D29BF6562C6EA462AFA8 /* appstore.rs */ = {isa = PBXFileReference; path = appstore.rs; sourceTree = "<group>"; };
 		40085160D7D884F33112B7C6 /* tray.rs */ = {isa = PBXFileReference; path = tray.rs; sourceTree = "<group>"; };
+		414F33319EDF1D3FDA14C58B /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/Localizable.strings; sourceTree = "<group>"; };
 		42B845BE7194FDC95A0C42CF /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		4655BA02C452B6572C33F2F3 /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
+		47EC0F1B69F64FBE5364BD73 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		47FD10C9E63E52B0A8C5048B /* position_keys.rs */ = {isa = PBXFileReference; path = position_keys.rs; sourceTree = "<group>"; };
 		4A8891EE2DA8ED8F9120DBF7 /* capture.rs */ = {isa = PBXFileReference; path = capture.rs; sourceTree = "<group>"; };
 		4C2E9D55AF37ED0D7A606160 /* capabilities.rs */ = {isa = PBXFileReference; path = capabilities.rs; sourceTree = "<group>"; };
 		4DA9AE1A490EEA02BCFE6148 /* download.rs */ = {isa = PBXFileReference; path = download.rs; sourceTree = "<group>"; };
+		4DDC4AB7670FD53BAE6560BD /* it */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = it; path = it.lproj/Localizable.strings; sourceTree = "<group>"; };
+		4E28C57FBE07F420BE4407D3 /* tr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = tr; path = tr.lproj/Localizable.strings; sourceTree = "<group>"; };
 		4FE7D47FB727651EBEB29EEE /* schedule.rs */ = {isa = PBXFileReference; path = schedule.rs; sourceTree = "<group>"; };
+		5117C5CB2CBE00C9C01EA12F /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		521B9CCE9906F704332ED766 /* export.rs */ = {isa = PBXFileReference; path = export.rs; sourceTree = "<group>"; };
 		5520D4EF824166CC99ABAAAF /* linkcheck.rs */ = {isa = PBXFileReference; path = linkcheck.rs; sourceTree = "<group>"; };
 		55AA02C8F7446700B0510B6E /* identity.rs */ = {isa = PBXFileReference; path = identity.rs; sourceTree = "<group>"; };
 		57B643AAE4C8485BF1C63073 /* worker.rs */ = {isa = PBXFileReference; path = worker.rs; sourceTree = "<group>"; };
 		5D51EC10B0EF64A6275BFFB2 /* koonapin_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = koonapin_iOS.entitlements; sourceTree = "<group>"; };
+		5EFB5F809739CF520AA46F65 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/Localizable.strings; sourceTree = "<group>"; };
 		61921EA12C58230CE719F939 /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
 		659993BA249EC73702379F4B /* format.rs */ = {isa = PBXFileReference; path = format.rs; sourceTree = "<group>"; };
 		686006208199FA9BD964E0A3 /* capture_server.rs */ = {isa = PBXFileReference; path = capture_server.rs; sourceTree = "<group>"; };
@@ -68,8 +113,11 @@
 		6F070A7BD441F9E6D3A79393 /* dedupe.rs */ = {isa = PBXFileReference; path = dedupe.rs; sourceTree = "<group>"; };
 		70D16298925A4272A54F62FD /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
 		7650E83CF7F0B996D3C41334 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		765143491BA13E4D42584344 /* deletion.rs */ = {isa = PBXFileReference; path = deletion.rs; sourceTree = "<group>"; };
+		78F8DE5AF47CF83BDC510547 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/Localizable.strings; sourceTree = "<group>"; };
 		795211738745BECFFF21B4AE /* db.rs */ = {isa = PBXFileReference; path = db.rs; sourceTree = "<group>"; };
 		79C9AB7B5A879DCDD6E73C23 /* test_libraries.rs */ = {isa = PBXFileReference; path = test_libraries.rs; sourceTree = "<group>"; };
+		79D9280406DAF69D5D0AC76D /* ShareQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareQueue.swift; sourceTree = "<group>"; };
 		7CB23BF650FA0A6B398BBFEF /* migrations.rs */ = {isa = PBXFileReference; path = migrations.rs; sourceTree = "<group>"; };
 		7E444111AE76E2547B999179 /* feedback.rs */ = {isa = PBXFileReference; path = feedback.rs; sourceTree = "<group>"; };
 		7E78D54C942912DCDF194BAE /* shot_previews.rs */ = {isa = PBXFileReference; path = shot_previews.rs; sourceTree = "<group>"; };
@@ -80,6 +128,8 @@
 		8588292DA1C9A3217B078E9E /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
 		8750142470C9DE139CBFC2EC /* thumbs.rs */ = {isa = PBXFileReference; path = thumbs.rs; sourceTree = "<group>"; };
 		89E2D6F8CABA24F0E793A48F /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		8C31E1A27C3277F81258DBAA /* sr-Latn */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "sr-Latn"; path = "sr-Latn.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		8DC24A74C36673FA532F9941 /* sr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = sr; path = sr.lproj/Localizable.strings; sourceTree = "<group>"; };
 		8E6BCD0DDB5BC150BF59AE2C /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
 		9067FA1AF53C6CA0DEE1C560 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
 		94C9B1214AD941637C533687 /* koonapin-host.rs */ = {isa = PBXFileReference; path = "koonapin-host.rs"; sourceTree = "<group>"; };
@@ -90,14 +140,18 @@
 		A114F47F032C4D1A08A4FC5C /* metadata.rs */ = {isa = PBXFileReference; path = metadata.rs; sourceTree = "<group>"; };
 		A862490C21A1B946FFA3EB3A /* restore.rs */ = {isa = PBXFileReference; path = restore.rs; sourceTree = "<group>"; };
 		AC74608090D474E070E97FE1 /* offline.rs */ = {isa = PBXFileReference; path = offline.rs; sourceTree = "<group>"; };
+		AE93CABB9B9A29D84858F2FA /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/Localizable.strings; sourceTree = "<group>"; };
 		AF2E56F5F64726314C8B8870 /* reader.rs */ = {isa = PBXFileReference; path = reader.rs; sourceTree = "<group>"; };
 		B66FA31C6FEA31874D3266D4 /* updates.rs */ = {isa = PBXFileReference; path = updates.rs; sourceTree = "<group>"; };
 		B6A09F8711EA5B5FACE2AE0E /* sync_library.rs */ = {isa = PBXFileReference; path = sync_library.rs; sourceTree = "<group>"; };
+		B6C1F659EC8C4BC80E6B3486 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		B9BE21BAC5B0AA9AA67C5249 /* secrets.rs */ = {isa = PBXFileReference; path = secrets.rs; sourceTree = "<group>"; };
 		BA9A36482436CAE77F3CB1EF /* error.rs */ = {isa = PBXFileReference; path = error.rs; sourceTree = "<group>"; };
 		BD4CC9361EA74C4A5524E6D3 /* commands.rs */ = {isa = PBXFileReference; path = commands.rs; sourceTree = "<group>"; };
 		C2F7E5577D76FB0738AAD2CC /* safari_socket.rs */ = {isa = PBXFileReference; path = safari_socket.rs; sourceTree = "<group>"; };
 		C34C550DC78A1D7A78ED6B8F /* library.rs */ = {isa = PBXFileReference; path = library.rs; sourceTree = "<group>"; };
 		C3C726ACC0E854A223EAC160 /* preview.rs */ = {isa = PBXFileReference; path = preview.rs; sourceTree = "<group>"; };
+		C3E27FFB7BBBB885039C7005 /* keychain.rs */ = {isa = PBXFileReference; path = keychain.rs; sourceTree = "<group>"; };
 		C3EE8BB4C315ACF021BD5638 /* save.rs */ = {isa = PBXFileReference; path = save.rs; sourceTree = "<group>"; };
 		C9B3E9E27CCE51FF08FAD7A3 /* lifecycle.rs */ = {isa = PBXFileReference; path = lifecycle.rs; sourceTree = "<group>"; };
 		CBD88E98A9846F70D20C97AB /* net_guard.rs */ = {isa = PBXFileReference; path = net_guard.rs; sourceTree = "<group>"; };
@@ -109,12 +163,17 @@
 		CF6D642EFC47DEF51DC957A7 /* opml.rs */ = {isa = PBXFileReference; path = opml.rs; sourceTree = "<group>"; };
 		CFE1774FF563D30E1C3D6580 /* parse.rs */ = {isa = PBXFileReference; path = parse.rs; sourceTree = "<group>"; };
 		D19DFC205E0A47C79B82BB3C /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
+		D1BC723C6142E1F1C85EB488 /* uk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk; path = uk.lproj/Localizable.strings; sourceTree = "<group>"; };
 		D692C3DED14244F40C375625 /* backup.rs */ = {isa = PBXFileReference; path = backup.rs; sourceTree = "<group>"; };
+		D7C7B65A65B9BFF8AEC92780 /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = ru.lproj/Localizable.strings; sourceTree = "<group>"; };
 		D88D61AA8BA070C70FC5EA69 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		DE1BF8C92674B3F25E087885 /* pt-BR */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "pt-BR"; path = "pt-BR.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		DE610B829169C66822E48816 /* discover.rs */ = {isa = PBXFileReference; path = discover.rs; sourceTree = "<group>"; };
 		DEBD23A5DC9A74D3D5A3A6FB /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
+		E2DD7DF56BF3423003F7CA6D /* hash.rs */ = {isa = PBXFileReference; path = hash.rs; sourceTree = "<group>"; };
 		E368C313C246B18AF9DFCFDB /* koonapin-mcp.rs */ = {isa = PBXFileReference; path = "koonapin-mcp.rs"; sourceTree = "<group>"; };
 		EE1D6E986F2AD9BA4398A851 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F1676241535C07400BB3EC22 /* koonapin_Share.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = koonapin_Share.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F27992ACA550A0102BB05D19 /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
 		F3FF34A89D086912043AA13F /* browsers.rs */ = {isa = PBXFileReference; path = browsers.rs; sourceTree = "<group>"; };
 		F6BA1FF37CB5BEF807863C87 /* trash.rs */ = {isa = PBXFileReference; path = trash.rs; sourceTree = "<group>"; };
@@ -151,6 +210,15 @@
 			path = koonapin_iOS;
 			sourceTree = "<group>";
 		};
+		1133211BC4027D53E5B8DA8E /* Strings */ = {
+			isa = PBXGroup;
+			children = (
+				62F6BA98857D7698803A10FC /* Localizable.strings */,
+			);
+			name = Strings;
+			path = "../../plugins/koona-share/ios-extension/Strings";
+			sourceTree = "<group>";
+		};
 		1D8181C7AF43B29D5CD63E99 /* Externals */ = {
 			isa = PBXGroup;
 			children = (
@@ -181,11 +249,23 @@
 				99B907E73733438D2099776C /* LaunchScreen.storyboard */,
 				1D8181C7AF43B29D5CD63E99 /* Externals */,
 				0240E366D37A7C16AE128405 /* koonapin_iOS */,
+				E53457E75F28054F7606B19F /* koonapin_Share */,
+				F872526506FB6BD301494BE1 /* Queue */,
+				C09EFA90E48D1158936128C1 /* Sheet */,
 				C79D9E3DCB508D771B29A6C7 /* Sources */,
 				78FDA4D10A728E75AF964F41 /* src */,
+				1133211BC4027D53E5B8DA8E /* Strings */,
 				D9D45FB64F2576DF8D0E1156 /* Frameworks */,
 				9750455D54BA63F8AA6865D8 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		39572F8764EF715B0DEA15C3 /* secrets */ = {
+			isa = PBXGroup;
+			children = (
+				C3E27FFB7BBBB885039C7005 /* keychain.rs */,
+			);
+			path = secrets;
 			sourceTree = "<group>";
 		};
 		56F6B2FFEB5AD5BA4334D65F /* commercial */ = {
@@ -216,6 +296,7 @@
 				BA9A36482436CAE77F3CB1EF /* error.rs */,
 				521B9CCE9906F704332ED766 /* export.rs */,
 				7E444111AE76E2547B999179 /* feedback.rs */,
+				E2DD7DF56BF3423003F7CA6D /* hash.rs */,
 				8144C555308F9BBABAD563D0 /* import.rs */,
 				2F1C386F1E213CAB1F839E40 /* ipc.rs */,
 				35412883ED100FE8E3D51B4F /* journal.rs */,
@@ -236,6 +317,8 @@
 				9DFE8A8C82978DE1E40EC807 /* reading.rs */,
 				8304189821F26E92F3861204 /* refresh.rs */,
 				A862490C21A1B946FFA3EB3A /* restore.rs */,
+				B9BE21BAC5B0AA9AA67C5249 /* secrets.rs */,
+				345F73B1743B8E81E177FE82 /* share_queue.rs */,
 				7E78D54C942912DCDF194BAE /* shot_previews.rs */,
 				CD347B9DE86D3471E7529EF3 /* shots.rs */,
 				2255167DC910749ADA434C07 /* sorting.rs */,
@@ -243,21 +326,34 @@
 				79C9AB7B5A879DCDD6E73C23 /* test_libraries.rs */,
 				8750142470C9DE139CBFC2EC /* thumbs.rs */,
 				F6BA1FF37CB5BEF807863C87 /* trash.rs */,
+				8B2B52098DECA7735A3E6EBC /* billing */,
 				D7D796185D3FAE7B3538A82D /* bin */,
 				56F6B2FFEB5AD5BA4334D65F /* commercial */,
 				D297C3640ACEA919552595C6 /* desktop */,
 				31A2F2A0B8402C75397D2357 /* feeds */,
 				D70B276F50E09C26864D45C9 /* lists */,
 				CC0A0850D12DA48C99260B42 /* mobile */,
+				39572F8764EF715B0DEA15C3 /* secrets */,
 			);
 			name = src;
 			path = ../../src;
+			sourceTree = "<group>";
+		};
+		8B2B52098DECA7735A3E6EBC /* billing */ = {
+			isa = PBXGroup;
+			children = (
+				3F42D29BF6562C6EA462AFA8 /* appstore.rs */,
+				765143491BA13E4D42584344 /* deletion.rs */,
+				2E4FF7D742C9723AC4917F66 /* play.rs */,
+			);
+			path = billing;
 			sourceTree = "<group>";
 		};
 		9750455D54BA63F8AA6865D8 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				13F349A82C531E69A821635D /* koonapin_iOS.app */,
+				F1676241535C07400BB3EC22 /* koonapin_Share.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -279,6 +375,17 @@
 				9067FA1AF53C6CA0DEE1C560 /* bindings.h */,
 			);
 			path = bindings;
+			sourceTree = "<group>";
+		};
+		C09EFA90E48D1158936128C1 /* Sheet */ = {
+			isa = PBXGroup;
+			children = (
+				11C902135ED6609CF66C0460 /* Assets.xcassets */,
+				2C0BA905D7A446FD0A9E906A /* Preprocess.js */,
+				47EC0F1B69F64FBE5364BD73 /* ShareViewController.swift */,
+			);
+			name = Sheet;
+			path = "../../plugins/koona-share/ios-extension/Sheet";
 			sourceTree = "<group>";
 		};
 		C79D9E3DCB508D771B29A6C7 /* Sources */ = {
@@ -356,6 +463,14 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		E53457E75F28054F7606B19F /* koonapin_Share */ = {
+			isa = PBXGroup;
+			children = (
+				5117C5CB2CBE00C9C01EA12F /* PrivacyInfo.xcprivacy */,
+			);
+			path = koonapin_Share;
+			sourceTree = "<group>";
+		};
 		ED5E3E44A7A831C6F442450B /* koonapin */ = {
 			isa = PBXGroup;
 			children = (
@@ -365,18 +480,13 @@
 			path = koonapin;
 			sourceTree = "<group>";
 		};
-		"TEMP_7DDD4207-5D0C-4F36-95EA-4B2C8FD1CF2C" /* x86_64 */ = {
+		F872526506FB6BD301494BE1 /* Queue */ = {
 			isa = PBXGroup;
 			children = (
+				79D9280406DAF69D5D0AC76D /* ShareQueue.swift */,
 			);
-			path = x86_64;
-			sourceTree = "<group>";
-		};
-		"TEMP_AE413F77-A71D-431C-A141-DF73E5C91B2A" /* arm64 */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = arm64;
+			name = Queue;
+			path = "../../plugins/koona-share/ios-extension/Queue";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -390,10 +500,12 @@
 				2BB56D85E3041A8BA27E8B9F /* Sources */,
 				9CB9F75F03227D81FA054B79 /* Resources */,
 				DAD7B65D4F1A65AEF73A416A /* Frameworks */,
+				0D9E3A3344AC507476666895 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				990648751D09F0A01602F074 /* PBXTargetDependency */,
 			);
 			name = koonapin_iOS;
 			packageProductDependencies = (
@@ -401,6 +513,25 @@
 			productName = koonapin_iOS;
 			productReference = 13F349A82C531E69A821635D /* koonapin_iOS.app */;
 			productType = "com.apple.product-type.application";
+		};
+		C3DC77A8073003DFC8D4FDFB /* koonapin_Share */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C358D6313A0925A4CC6AE0D9 /* Build configuration list for PBXNativeTarget "koonapin_Share" */;
+			buildPhases = (
+				B190E30C5DE56913E1C5544C /* Sources */,
+				F37E5BC9EA548E0B8710B32E /* Resources */,
+				1222E1F58AF9D75FB352D859 /* The app's version */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = koonapin_Share;
+			packageProductDependencies = (
+			);
+			productName = koonapin_Share;
+			productReference = F1676241535C07400BB3EC22 /* koonapin_Share.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -418,7 +549,21 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				Base,
+				de,
 				en,
+				es,
+				fr,
+				it,
+				ja,
+				ko,
+				pl,
+				"pt-BR",
+				ru,
+				sr,
+				"sr-Latn",
+				tr,
+				uk,
+				"zh-Hans",
 			);
 			mainGroup = 35741564E92D0250F51D123B;
 			minimizedProjectReferenceProxies = 1;
@@ -428,6 +573,7 @@
 			projectRoot = "";
 			targets = (
 				BFA349CA19B9FF26964A0DAF /* koonapin_iOS */,
+				C3DC77A8073003DFC8D4FDFB /* koonapin_Share */,
 			);
 		};
 /* End PBXProject section */
@@ -444,9 +590,40 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F37E5BC9EA548E0B8710B32E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				97ADEA0F7E48C795B25006A5 /* Assets.xcassets in Resources */,
+				BBB53EE124134C18C40D9564 /* Localizable.strings in Resources */,
+				E4DF68D005187E0E300C3F21 /* Preprocess.js in Resources */,
+				6D694BD840EECBFFADE333FE /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		1222E1F58AF9D75FB352D859 /* The app's version */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/koonapin_iOS/Info.plist",
+			);
+			name = "The app's version";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "app=\"${SRCROOT:?}/koonapin_iOS/Info.plist\"\nbuilt=\"${TARGET_BUILD_DIR:?}/${INFOPLIST_PATH:?}\"\nfor key in CFBundleShortVersionString CFBundleVersion; do\n  value=$(/usr/libexec/PlistBuddy -c \"Print :$key\" \"$app\")\n  /usr/libexec/PlistBuddy -c \"Set :$key $value\" \"$built\"\ndone\n";
+		};
 		3B77E3B242FBB889CB62BC74 /* Build Rust Code */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -466,7 +643,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd \"${SRCROOT:?}/../../..\" && bun run tauri ios xcode-script -v --platform \"${PLATFORM_DISPLAY_NAME:?}\" --sdk-root \"${SDKROOT:?}\" --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration \"${CONFIGURATION:?}\" ${FORCE_COLOR} ${ARCHS:?}\n";
+			shellScript = "if ! command -v bun >/dev/null 2>&1; then\n  # Only the marked line counts: whatever the shell's own files print is left out, and\n  # nothing waits on input.\n  found=\"$(\"${SHELL:-/bin/zsh}\" -ilc 'printf \"\\n__KOONA_PATH__=%s\\n\" \"$PATH\"' </dev/null 2>/dev/null | sed -n 's/^__KOONA_PATH__=//p' | tail -n 1)\"\n  if [ -n \"$found\" ]; then PATH=\"$found:$PATH\"; export PATH; fi\nfi\ncd \"${SRCROOT:?}/../../..\" && bun run tauri ios xcode-script -v --platform \"${PLATFORM_DISPLAY_NAME:?}\" --sdk-root \"${SDKROOT:?}\" --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration \"${CONFIGURATION:?}\" ${FORCE_COLOR} ${ARCHS:?}\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -479,7 +656,49 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B190E30C5DE56913E1C5544C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A7DA2322304E4F9506DF83A6 /* ShareQueue.swift in Sources */,
+				CEC632948360856A2668E768 /* ShareViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		990648751D09F0A01602F074 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C3DC77A8073003DFC8D4FDFB /* koonapin_Share */;
+			targetProxy = 020FEEB93AC40700E9D03CFC /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		62F6BA98857D7698803A10FC /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				78F8DE5AF47CF83BDC510547 /* de */,
+				B6C1F659EC8C4BC80E6B3486 /* en */,
+				5EFB5F809739CF520AA46F65 /* es */,
+				414F33319EDF1D3FDA14C58B /* fr */,
+				4DDC4AB7670FD53BAE6560BD /* it */,
+				AE93CABB9B9A29D84858F2FA /* ja */,
+				33030A86A38CBD21B03FFF42 /* ko */,
+				3AAE22439B62198DB7AC5267 /* pl */,
+				DE1BF8C92674B3F25E087885 /* pt-BR */,
+				D7C7B65A65B9BFF8AEC92780 /* ru */,
+				8DC24A74C36673FA532F9941 /* sr */,
+				8C31E1A27C3277F81258DBAA /* sr-Latn */,
+				4E28C57FBE07F420BE4407D3 /* tr */,
+				D1BC723C6142E1F1C85EB488 /* uk */,
+				1ADEF3F58BF70594A1F9C730 /* zh-Hans */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		1B6C90EB22FFDFA4A8C5D98F /* release */ = {
@@ -600,6 +819,30 @@
 			};
 			name = release;
 		};
+		A131C27E314154DA08010CD3 /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ARCHS = (
+					arm64,
+				);
+				CODE_SIGN_ENTITLEMENTS = koonapin_Share/koonapin_Share.entitlements;
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				INFOPLIST_FILE = koonapin_Share/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.koona.pin.share;
+				PRODUCT_NAME = KoonaPinShare;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = release;
+		};
 		BD112DC1217B59E1B53A8956 /* debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -663,6 +906,30 @@
 			};
 			name = debug;
 		};
+		CDD6B4F762A655F1265C260B /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ARCHS = (
+					arm64,
+				);
+				CODE_SIGN_ENTITLEMENTS = koonapin_Share/koonapin_Share.entitlements;
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				INFOPLIST_FILE = koonapin_Share/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.koona.pin.share;
+				PRODUCT_NAME = KoonaPinShare;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -671,6 +938,15 @@
 			buildConfigurations = (
 				8AC58E4183EA91C357CA924E /* debug */,
 				A028B85862309BFB058685FE /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+		C358D6313A0925A4CC6AE0D9 /* Build configuration list for PBXNativeTarget "koonapin_Share" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CDD6B4F762A655F1265C260B /* debug */,
+				A131C27E314154DA08010CD3 /* release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = debug;

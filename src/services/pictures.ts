@@ -1,6 +1,7 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { isTauri } from "./api";
 import { pictureUrl } from "./feedsView";
+import { capabilities } from "../platform/capabilities";
 
 /**
  * The pictures the app keeps a local copy of (NP-146): a bookmark's preview and
@@ -23,6 +24,13 @@ export function pictureSource(kind: PictureKind, sourceUrl: string | null | unde
   if (!sourceUrl) return null;
   return FEED_KINDS.has(kind) ? pictureUrl(sourceUrl) : sourceUrl;
 }
+
+/**
+ * Whether the WebView may load the source address itself when the local copy fails. Not a
+ * bookmark's icon where the build asks no icon service (a phone): its address may be Google's,
+ * and only the backend's fetch turns it into the site's own (`metadata::fetched_icon`).
+ */
+export const webFallback = (kind: PictureKind): boolean => kind !== "bookmark-icon" || capabilities.icon_service;
 
 /**
  * FNV-1a, 32 bits, over the UTF-8 bytes of `text`, as 8 lowercase hex digits.
