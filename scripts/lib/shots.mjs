@@ -64,6 +64,66 @@ export function servePreviews(host = "127.0.0.1") {
   });
 }
 
+export const escapeHtml = (text) => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+
+/** Paragraphs as HTML; one that starts with «## » is a heading. */
+export const html = (paragraphs) =>
+  paragraphs.map((p) => (p.startsWith("## ") ? `<h2>${escapeHtml(p.slice(3))}</h2>` : `<p>${escapeHtml(p)}</p>`)).join("\n");
+
+/** A preview photo as a `data:` address: feed pictures load over https or from data only (feedsView.ts). */
+export const dataUrl = async (file) => `data:image/jpeg;base64,${(await readFile(path.join(previews, file))).toString("base64")}`;
+
+/** The built interface (dist/) on a port of its own: outside Tauri it is the browser preview, with its demo data. */
+export function serveDist() {
+  const dist = path.join(root, "dist");
+  const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".woff2": "font/woff2", ".json": "application/json", ".ico": "image/x-icon" };
+  return new Promise((resolve) => {
+    const server = createServer(async (req, res) => {
+      const pathname = decodeURIComponent(new URL(req.url, "http://x").pathname);
+      const file = path.join(dist, path.normalize(pathname === "/" ? "/index.html" : pathname));
+      try {
+        if (!file.startsWith(dist)) throw new Error("outside");
+        res.writeHead(200, { "content-type": types[path.extname(file)] ?? "application/octet-stream" }).end(await readFile(file));
+      } catch {
+        res.writeHead(404).end();
+      }
+    });
+    server.listen(0, "127.0.0.1", () => resolve({ server, url: `http://127.0.0.1:${server.address().port}/` }));
+  });
+}
+
+/**
+ * The sample library and `feeds` ({ feeds, posts }, as scripts/shots/feeds.json) in the browser
+ * preview's own storage (src/services/demo.ts): the two keys to put in localStorage. `anchor` is when
+ * the newest was saved; `collectionIds` the ids the real app gave the collections, when a shot
+ * matches it; `fetchedAt` when the feeds were last checked.
+ */
+export async function demoStorage(base, { anchor, feeds, collectionIds = [], fetchedAt = Date.now() }) {
+  const day = (i) => saved(i, anchor);
+  const bookmarks = library.bookmarks.map((b, i) => ({
+    id: i + 1, url: b.url, title: b.title, description: null, image_url: `${base}/${b.preview}`, favicon_url: null,
+    site_name: null, domain: new URL(b.url).hostname.replace(/^www\./, ""), notes: null, is_favorite: b.favorite,
+    collection_id: collectionIds[b.collection] ?? b.collection + 1, created_at: day(i), updated_at: day(i), tags: b.tags, revision: 1,
+    triaged_at: b.inbox ? null : day(i), deleted_at: null, source: b.inbox ? "chrome" : "import",
+    reading_at: b.reading === undefined ? null : day(b.article ? -1 : i), reading_progress: b.article ? 0 : (b.reading ?? 0), read_at: null, offline_at: null,
+  }));
+  const collections = library.collections.map((c, i) => ({ id: collectionIds[i] ?? i + 1, name: c, color: null, icon: null, count: null, created_at: day(20) }));
+  const { feeds: list, posts } = feeds;
+  const items = [];
+  for (const [i, p] of posts.entries()) {
+    const at = new Date(anchor - p.hoursAgo * 3600e3).toISOString();
+    items.push({
+      id: i + 1, feed_uid: p.feed, url: `${list.find((f) => f.uid === p.feed).site}${i}`, title: p.title, author: p.author, excerpt: p.excerpt,
+      thumbnail_url: p.picture ? await dataUrl(p.picture) : null, published_at: at, fetched_at: at, read_at: p.read ? at : null,
+      bookmark_id: null, html: html(p.body), full: true,
+    });
+  }
+  return {
+    "koonapin.demo.v4": JSON.stringify({ bookmarks, collections }),
+    "koonapin.demo.feeds.v1": JSON.stringify({ feeds: list.map((f) => ({ uid: f.uid, url: f.url, title: f.title, destination: "feeds" })), items, fetched_at: new Date(fetchedAt).toISOString() }),
+  };
+}
+
 /**
  * The page pasted into New link: a site of the sample (earlytrail.org, its day hikes are in
  * library.json) with a feed. The site does not exist: the test app takes the answers of the page

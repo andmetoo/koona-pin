@@ -23,14 +23,13 @@
 import { chromium } from "@playwright/test";
 import { execFileSync, spawn } from "node:child_process";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { createServer } from "node:http";
 import net from "node:net";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { appBinary, assertNoOtherApp, hello, hostMessage, pipeReady, testPipe } from "./lib/native-host.mjs";
 import { root } from "./lib/paths.mjs";
 import {
-  click, copyOf, HELP_VIEWS, label, library, lit, previews, previewSeed, saved, servePreviews, SETTLED, shotsDir, shotsOut as out, until, webpEncoder,
+  click, copyOf, dataUrl, demoStorage, HELP_VIEWS, html, label, library, lit, previews, previewSeed, servePreviews, serveDist, SETTLED, shotsDir, shotsOut as out, until, webpEncoder,
 } from "./lib/shots.mjs";
 
 if (process.platform !== "darwin") throw new Error("site-screenshots-macos.mjs shoots a Mac window: run it on a Mac");
@@ -131,15 +130,7 @@ class Driver {
 const oneLine = (text) => text.replace(/\s*\n\s*/g, " ");
 /** A string as an SQL literal. */
 const q = (value) => (value === null || value === undefined ? "NULL" : `'${String(value).replaceAll("'", "''")}'`);
-const escapeHtml = (text) => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-/** Paragraphs as HTML; one that starts with «## » is a heading. */
-const html = (paragraphs) =>
-  paragraphs.map((p) => (p.startsWith("## ") ? `<h2>${escapeHtml(p.slice(3))}</h2>` : `<p>${escapeHtml(p)}</p>`)).join("\n");
-
-/** A preview photo as a `data:` address: feed pictures load over https or from data only (feedsView.ts). */
-const dataUrl = async (file) => `data:image/jpeg;base64,${(await readFile(path.join(previews, file))).toString("base64")}`;
 
 /** The on-screen window of a process: `[id, x, y, w, h]` (scripts/shots/window.swift). */
 function windowOf(pid) {
@@ -377,53 +368,6 @@ async function shootApp(base, encode, frames, page) {
   }
 }
 
-/** The built interface (dist/) on a port of its own: outside Tauri it is the browser preview, with its demo data. */
-function serveDist() {
-  const dist = path.join(root, "dist");
-  const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".woff2": "font/woff2", ".json": "application/json", ".ico": "image/x-icon" };
-  return new Promise((resolve) => {
-    const server = createServer(async (req, res) => {
-      const pathname = decodeURIComponent(new URL(req.url, "http://x").pathname);
-      const file = path.join(dist, path.normalize(pathname === "/" ? "/index.html" : pathname));
-      try {
-        if (!file.startsWith(dist)) throw new Error("outside");
-        res.writeHead(200, { "content-type": types[path.extname(file)] ?? "application/octet-stream" }).end(await readFile(file));
-      } catch {
-        res.writeHead(404).end();
-      }
-    });
-    server.listen(0, "127.0.0.1", () => resolve({ server, url: `http://127.0.0.1:${server.address().port}/` }));
-  });
-}
-
-/** The sample library and feeds in the browser preview's own storage (src/services/demo.ts). */
-async function demoStorage(base) {
-  const day = (i) => saved(i, ANCHOR);
-  const bookmarks = library.bookmarks.map((b, i) => ({
-    id: i + 1, url: b.url, title: b.title, description: null, image_url: `${base}/${b.preview}`, favicon_url: null,
-    site_name: null, domain: new URL(b.url).hostname.replace(/^www\./, ""), notes: null, is_favorite: b.favorite,
-    collection_id: collectionIds[b.collection] ?? b.collection + 1, created_at: day(i), updated_at: day(i), tags: b.tags, revision: 1,
-    triaged_at: b.inbox ? null : day(i), deleted_at: null, source: b.inbox ? "chrome" : "import",
-    reading_at: b.reading === undefined ? null : day(b.article ? -1 : i), reading_progress: b.article ? 0 : (b.reading ?? 0), read_at: null, offline_at: null,
-  }));
-  const collections = library.collections.map((c, i) => ({ id: collectionIds[i] ?? i + 1, name: c, color: null, icon: null, count: null, created_at: day(20) }));
-  const now = Date.now();
-  const { feeds: list, posts } = feeds;
-  const items = [];
-  for (const [i, p] of posts.entries()) {
-    const at = new Date(ANCHOR - p.hoursAgo * 3600e3).toISOString();
-    items.push({
-      id: i + 1, feed_uid: p.feed, url: `${list.find((f) => f.uid === p.feed).site}${i}`, title: p.title, author: p.author, excerpt: p.excerpt,
-      thumbnail_url: p.picture ? await dataUrl(p.picture) : null, published_at: at, fetched_at: at, read_at: p.read ? at : null,
-      bookmark_id: null, html: html(p.body), full: true,
-    });
-  }
-  return {
-    "koonapin.demo.v4": JSON.stringify({ bookmarks, collections }),
-    "koonapin.demo.feeds.v1": JSON.stringify({ feeds: list.map((f) => ({ uid: f.uid, url: f.url, title: f.title, destination: "feeds" })), items, fetched_at: new Date(now).toISOString() }),
-  };
-}
-
 /**
  * The sync dialog, from the browser preview: the real one needs a plan and a second computer. The
  * preview lays the window out as on a Mac (`native_frame`), in WebKit at the window's size; the
@@ -433,7 +377,7 @@ async function shootSync(base, encode, frames, encoderPage) {
   const { server, url } = await serveDist();
   const browser = await chromium.launch();
   try {
-    const storage = await demoStorage(base);
+    const storage = await demoStorage(base, { anchor: ANCHOR, feeds, collectionIds });
     for (const theme of themes) {
       const page = await browser.newPage({ viewport: SIZE, deviceScaleFactor: 2, colorScheme: theme, locale: "en-US" });
       await page.addInitScript((entries) => {

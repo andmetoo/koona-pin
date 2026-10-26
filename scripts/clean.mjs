@@ -15,7 +15,7 @@ import { existsSync } from "node:fs";
 import { lstat, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { release, root } from "./lib/paths.mjs";
+import { published, release, root } from "./lib/paths.mjs";
 
 const args = new Set(process.argv.slice(2));
 const RECENT = 30 * 60 * 1000;
@@ -72,7 +72,7 @@ if (args.has("--list")) {
     ["temp koonapin-*", null, "Rust tests and the app"],
     ["dist", from("dist"), "the app's interface, rebuilt by every build"],
     ...cargoProjects.map((p) => [`${p}/target`, from(p, "target"), "Cargo, --cargo removes it"]),
-    ["release/publish", path.join(release, "publish"), "to people and stores, kept"],
+    ["release/publish", published, "to people and stores, kept (the main checkout's)"],
     ["release/test", path.join(release, "test"), "test machines, kept"],
     ["release/dev", path.join(release, "dev"), "unpacked extensions, rebuilt"],
     [".cache", from(".cache"), "Playwright browsers, kept"],
