@@ -138,6 +138,8 @@ test("a tap opens the reader; a long press opens the menu with the bookmark's ti
   await expect(topScreen(page)).not.toHaveAttribute("data-route");
   for (const name of ["Open original", "Edit", "Move to collection", "Copy link", "Move to Trash"])
     await expect(dialog.getByRole("button", { name, exact: true })).toBeVisible();
+  // Reading is the first row: the quick way in from the list (#414).
+  await expect(dialog.locator(".lib-menu-shelf").first().getByRole("button").first()).toHaveAccessibleName(/^(Send to Reading|Remove from Reading)$/);
   // Move to collection: the menu gives way to the collection picker for this bookmark.
   await dialog.getByRole("button", { name: "Move to collection" }).click();
   await expect(menu(page)).toHaveCount(0);

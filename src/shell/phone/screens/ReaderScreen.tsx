@@ -4,7 +4,7 @@ import { ALargeSmall, Ellipsis, ExternalLink, Heart } from "lucide-react";
 import type { Route } from "../navigation/stack";
 import { useBottomLift, usePhone } from "../PhoneContext";
 import { CircleButton } from "../ui/buttons";
-import { PhIcon } from "../ui/icons";
+import { PhIcon, ReadingToggleIcon } from "../ui/icons";
 import { Screen } from "../ui/Screen";
 import { ArticleFailure, ReaderBar } from "../reader/parts";
 import { LiquidProgress } from "../reader/LiquidProgress";
@@ -24,13 +24,14 @@ import type { Bookmark, BookmarkChange } from "../../../types";
  * edge's fade (Back; Aa, the reading look as a sheet; more, the bookmark's menu); the hero picture
  * with the site and a big title; the source line, the title, the authors, a short rule and the
  * page's text in Literata (`ArticleView`, the reader's extraction; no offline copy: the text
- * comes from the page). A floating action pill: favourite, open original and how far it is read,
- * a pie (owner, 19 October: no Done). Pulling the pie up out of the pill finishes the reading (it
- * is marked read and moves to Reading's Read page, one Undo); a tap asks first, and the ⋯ menu's
- * "Mark as read" does the same. Reaching the article's end marks it read by itself (owner, 20
- * October 2026: no button there). On iPhone Duo's outer display the pill gives way to the column (DO2): the
- * actions on a slab under the status block, the navigation, and the progress as a drop to pull up
- * in the rail's "+" slot with the time left above it. A page that cannot be read shows why and opens
+ * comes from the page). A floating action pill: favourite, open original, Reading (into it or
+ * out) and how far it is read, a pie (owner, 19 October: no Done). Pulling the pie up out of the
+ * pill finishes the reading (it is marked read and moves to Reading's Read page, one Undo); a tap
+ * asks first, and the ⋯ menu's "Mark as read" does the same. Reaching the article's end marks it
+ * read by itself (owner, 20 October 2026: no button there). On iPhone Duo's outer display the
+ * pill gives way to the column (DO2): the actions on a slab under the status block, the
+ * navigation, and the progress as a drop to pull up in the rail's "+" slot with the time left
+ * above it. A page that cannot be read shows why and opens
  * the original. There is no Share: the app has no way to share on a phone yet.
  */
 export function ReaderScreen({ route, hidden }: { route: Extract<Route, { name: "reader" }>; hidden: boolean }) {
@@ -81,9 +82,10 @@ function Reader({ bookmark: b, hidden }: { bookmark: Bookmark; hidden: boolean }
   const read = !!b.read_at;
   const [finishedNow, setFinished] = useState(false);
   const finishing = useRef(false);
+  // Unread again, or out of Reading (the book next to the heart): nothing is finished here now.
   useEffect(() => {
-    if (!read) setFinished(false);
-  }, [read]);
+    if (!read || !inReading) setFinished(false);
+  }, [read, inReading]);
   const finished = finishedNow || (inReading && read);
   const finish = () => {
     if (!b.reading_at || finished || finishing.current) return;
@@ -127,6 +129,20 @@ function Reader({ bookmark: b, hidden }: { bookmark: Bookmark; hidden: boolean }
   const original = (
     <button type="button" className="rd-action ph-hit" aria-label={t("phone.reader.openOriginal")} onClick={() => app.open(b.url)}>
       <PhIcon icon={ExternalLink} />
+    </button>
+  );
+  // Into Reading or out of it, next to the heart (issue #414, RD1–RD2): one name, "Send to
+  // Reading" (not the Reading tab's), with aria-pressed for whether it is there; on in the active
+  // tab's accent-soft well; once in Reading the progress can finish it.
+  const reading = (
+    <button
+      type="button"
+      className="rd-action rd-reading ph-hit"
+      aria-label={t("card.toReading")}
+      aria-pressed={inReading}
+      onClick={() => app.actions.reading(b)}
+    >
+      <PhIcon icon={ReadingToggleIcon} />
     </button>
   );
 
@@ -187,6 +203,7 @@ function Reader({ bookmark: b, hidden }: { bookmark: Bookmark; hidden: boolean }
             <div role="toolbar" aria-label={t("phone.reader.actions")} className="ph-vbar-slab ph-glass">
               {favorite}
               {original}
+              {reading}
             </div>
           </ColumnActions>
           {/* Nothing to read (loading, a page that cannot be shown): no drop, the navigation stays low. */}
@@ -205,6 +222,7 @@ function Reader({ bookmark: b, hidden }: { bookmark: Bookmark; hidden: boolean }
           <div role="toolbar" aria-label={t("phone.reader.actions")} className="rd-actions ph-glass">
             {favorite}
             {original}
+            {reading}
             <span className="rd-divider" aria-hidden="true" />
             <LiquidProgress variant="pie" threshold={80} {...progressProps} />
           </div>

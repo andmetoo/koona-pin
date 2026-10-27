@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { BookCheck, BookOpen, Copy, ExternalLink, FolderInput, Heart, Pencil, Trash2 } from "lucide-react";
+import { BookCheck, Copy, ExternalLink, FolderInput, Heart, Pencil, Trash2 } from "lucide-react";
 import { api } from "../../../services/api";
 import type { Bookmark } from "../../../types";
 import "../library/library.css";
 import { usePhone } from "../PhoneContext";
 import { Sheet, useCloseSheet } from "../ui/Sheet";
 import { Shelf, ShelfRow } from "../ui/Shelf";
+import { ReadingToggleIcon } from "../ui/icons";
 
 /**
  * `bookmark`: the one the opener has at hand (a search result is not in the app's list); the menu
@@ -23,8 +24,8 @@ export type BookmarkMenuProps = {
 
 /**
  * A bookmark's long-press menu (NP-072b): a detached sheet with its title and site, and the
- * actions of the desktop's card menu that make sense on a phone — open the original, edit, the
- * favourite, Reading (and read or unread there), file into a collection (the collection picker),
+ * actions of the desktop's card menu that make sense on a phone — Reading first (and read or unread
+ * there), open the original, edit, the favourite, file into a collection (the collection picker),
  * copy the link, and the trash with Undo in the snackbar. Left out: offline copies (the phone keeps
  * none), "Refresh preview" (pull to refresh does it for the list), tags (not on the desktop's menu
  * yet) and sharing as a list (the share bundle is not on the phone). Opens with a haptic tick.
@@ -44,11 +45,9 @@ export function BookmarkMenu({ props }: { props: BookmarkMenuProps }) {
       {bookmark && (
         <>
           <Shelf className="lib-menu-shelf">
-            <ShelfRow icon={ExternalLink} title={t("phone.bookmarkMenu.open")} onClick={run((b) => actions.open(b.url))} />
-            <ShelfRow icon={Pencil} title={t("phone.bookmarkMenu.edit")} onClick={run(actions.edit)} />
-            <ShelfRow icon={Heart} title={bookmark.is_favorite ? t("card.unfavorite") : t("card.favorite")} onClick={run(actions.favorite)} />
+            {/* Reading first: the quick way in from the list (#414, RD4). */}
             <ShelfRow
-              icon={BookOpen}
+              icon={ReadingToggleIcon}
               title={bookmark.reading_at ? t("card.fromReading") : t("card.toReading")}
               onClick={run(actions.reading)}
             />
@@ -60,6 +59,9 @@ export function BookmarkMenu({ props }: { props: BookmarkMenuProps }) {
                 onClick={run(props.onFinish && bookmark.reading_at && !bookmark.read_at ? props.onFinish : actions.read)}
               />
             )}
+            <ShelfRow icon={ExternalLink} title={t("phone.bookmarkMenu.open")} onClick={run((b) => actions.open(b.url))} />
+            <ShelfRow icon={Pencil} title={t("phone.bookmarkMenu.edit")} onClick={run(actions.edit)} />
+            <ShelfRow icon={Heart} title={bookmark.is_favorite ? t("card.unfavorite") : t("card.favorite")} onClick={run(actions.favorite)} />
             <ShelfRow
               icon={FolderInput}
               title={t("phone.bookmarkMenu.collection")}

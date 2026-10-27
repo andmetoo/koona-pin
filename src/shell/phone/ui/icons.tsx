@@ -1,4 +1,4 @@
-import { createLucideIcon, type LucideIcon, type LucideProps } from "lucide-react";
+import { BookMarked, createLucideIcon, type LucideIcon, type LucideProps } from "lucide-react";
 
 // The phone's icons (doc/mobile-design.md, Icons): Lucide geometry at four sizes, with the app's
 // own paperclip (All bookmarks) and inbox tray (Inbox) from src/components/icons.tsx.
@@ -9,6 +9,13 @@ export const CloudCheck = createLucideIcon("CloudCheck", [
   ["path", { d: "m17 15-5.5 5.5L9 18", key: "check" }],
   ["path", { d: "M5 17.743A7 7 0 1 1 15.71 10h1.79a4.5 4.5 0 0 1 1.5 8.742", key: "cloud" }],
 ]);
+
+/**
+ * The Reading toggle's book, wherever a bookmark has one (the reader, iPhone Duo's slab, the
+ * Fold's detail, the long-press menu): a book with a ribbon, not the open book of Read on the
+ * Fold's rail and of the Reading tab (#416).
+ */
+export const ReadingToggleIcon = BookMarked;
 
 /** Where an icon sits: its size and stroke. */
 export const ICON = {

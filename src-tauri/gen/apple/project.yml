@@ -60,7 +60,7 @@ targets:
         # rustls' TLS are standard algorithms outside the system's; YES without an approved
         # ITSEncryptionExportComplianceCode fails App Store validation (90592), and the only document Apple
         # asks for them is the French declaration. App Store Connect asks per build (docs/building.md).
-        CFBundleShortVersionString: 2.20.1
+        CFBundleShortVersionString: 2.21.0
         CFBundleVersion: "2.5.0"
     entitlements:
       path: koonapin_iOS/koonapin_iOS.entitlements

@@ -2350,7 +2350,7 @@
       "empty": {
         "libraryHint": "Stuknij +, aby zapisać link: poczeka tutaj z tytułem i obrazkiem.",
         "favoritesHint": "Przytrzymaj zakładkę i wybierz „Dodaj do ulubionych” — pojawi się tutaj.",
-        "readingHint": "Przytrzymaj zakładkę i wybierz „Odłóż do przeczytania”. Przeczytane znikają po tygodniu.",
+        "readingHint": "Otwórz zakładkę i stuknij książkę albo przytrzymaj ją i wybierz „Odłóż do przeczytania”. Przeczytane znikają po tygodniu.",
         "collectionHint": "Przytrzymaj zakładkę i wybierz „Przenieś do kolekcji” albo zapisz tu nowy link.",
         "read": "Nic jeszcze nie skończone",
         "readHint": "Skończ artykuł w czytniku – pociągnij jego postęp w górę – a trafi tutaj."

@@ -2229,7 +2229,7 @@
       "empty": {
         "libraryHint": "Tocca + per salvare un link: aspetta qui con il suo titolo e l’immagine.",
         "favoritesHint": "Tieni premuto un segnalibro e scegli «Aggiungi ai preferiti»: apparirà qui.",
-        "readingHint": "Tieni premuto un segnalibro e scegli «Aggiungi a Da leggere». Quelli letti escono dopo una settimana.",
+        "readingHint": "Apri un segnalibro e tocca il libro, oppure tienilo premuto e scegli «Aggiungi a Da leggere». Quelli letti escono dopo una settimana.",
         "collectionHint": "Tieni premuto un segnalibro e scegli «Sposta in una raccolta», oppure salva qui un nuovo link.",
         "read": "Ancora niente di finito",
         "readHint": "Finisci un articolo nel lettore — trascina in alto il suo avanzamento — e arriva qui."

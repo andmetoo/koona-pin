@@ -2229,7 +2229,7 @@
       "empty": {
         "libraryHint": "Touchez + pour enregistrer un lien : il attend ici avec son titre et son image.",
         "favoritesHint": "Appuyez longuement sur un signet et choisissez « Ajouter aux favoris » — il apparaîtra ici.",
-        "readingHint": "Appuyez longuement sur un signet et choisissez « Ajouter à À lire ». Les signets lus partent au bout d’une semaine.",
+        "readingHint": "Ouvrez un signet et touchez le livre, ou appuyez longuement dessus et choisissez « Ajouter à À lire ». Les signets lus partent au bout d’une semaine.",
         "collectionHint": "Appuyez longuement sur un signet et choisissez « Déplacer vers une collection », ou enregistrez ici un nouveau lien.",
         "read": "Rien de terminé pour l’instant",
         "readHint": "Terminez un article dans le lecteur — tirez sa progression vers le haut — et il arrive ici."

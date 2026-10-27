@@ -333,6 +333,30 @@
   color: var(--ph-accent);
   fill: var(--ph-accent);
 }
+/* Reading on (#414, RD2): the active tab's accent-soft well behind the book, 52 round in the
+   pill; a press still shows the well. On the Duo slab and the Fold's clear circles the circle
+   itself takes the colour, so its rim stays. */
+.phone .rd-reading[aria-pressed="true"] {
+  color: var(--ph-on-accent-soft);
+}
+.phone .rd-reading[aria-pressed="true"]::before {
+  content: "";
+  position: absolute;
+  inset: 0 2px;
+  border-radius: inherit;
+  background: var(--ph-accent-soft);
+}
+.phone .rd-reading[aria-pressed="true"]:active::before {
+  background: var(--ph-well);
+}
+.phone .ph-vbar-slab .rd-reading[aria-pressed="true"],
+.phone .ph-circle.rd-reading[aria-pressed="true"] {
+  background: var(--ph-accent-soft);
+}
+.phone .ph-vbar-slab .rd-reading[aria-pressed="true"]::before,
+.phone .ph-circle.rd-reading[aria-pressed="true"]::before {
+  content: none;
+}
 /* The reading progress (LiquidProgress.tsx): a 26 pie, an accent sector on a hairline track, no
    number; pulled up out of the pill it stretches into a drop. Owner, 19 October: no Done. */
 .phone .rd-actions .lq-pie {
