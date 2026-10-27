@@ -12,6 +12,8 @@ export const bundleId = "app.koona.pin";
 export const appleProject = path.join(root, "src-tauri", "gen", "apple");
 /** The App Group of the app and its share extension: only the share queue lives there (koona-share). */
 export const appGroup = "group.app.koona.pin";
+/** The entitlements file the app is built with (its App Group). */
+export const appEntitlements = path.join(appleProject, "koonapin_iOS", "koonapin_iOS.entitlements");
 /** The app's extensions, in its PlugIns folder: the bundle, its id and the entitlements file it is built with. */
 export const extensions = [
   {

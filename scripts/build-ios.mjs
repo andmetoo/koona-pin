@@ -40,7 +40,7 @@ import os from "node:os";
 import path from "node:path";
 import { args, buildNumber, cleanMain, option, writeChecksums } from "./lib/store-build.mjs";
 import { loadEnv } from "./lib/env.mjs";
-import { app, appGroup, appleProject, bundleId, extensions, requireLlvmTools, version } from "./lib/ios.mjs";
+import { app, appEntitlements, appGroup, appleProject, bundleId, extensions, requireLlvmTools, version } from "./lib/ios.mjs";
 import { publish, root, test } from "./lib/paths.mjs";
 
 if (process.platform !== "darwin") throw new Error("Build this on a Mac with Xcode");
@@ -164,18 +164,20 @@ try {
 }
 if (!existsSync(archive)) throw new Error(`The build left no ${path.relative(root, archive)}`);
 
-// The share extension's entitlements (the App Group of its queue) through the export. Tauri archives
-// with code signing off when an API key is set and then signs only the app's own binary with a dummy
-// certificate, so its entitlements survive `-exportArchive`; an appex left unsigned is exported with
-// the profile's defaults alone and loses the App Group (tauri-apps/tauri#15663, open for Tauri 2.12).
-// Signing each appex ad hoc with its own entitlements file first keeps them; the export re-signs both
-// with the distribution certificate. Harmless once Tauri does it itself.
+// The entitlements (the App Group of the share queue) through the export. Tauri archives with code
+// signing off when an API key is set, and what it leaves carries no entitlements: the app and the
+// appex are then exported with the profile's defaults alone and lose the App Group
+// (tauri-apps/tauri#15663, open for Tauri 2.12; seen on the app itself with 2.21.0). Each appex, then
+// the app around it, is signed ad hoc with its own entitlements file first, which the export keeps
+// when it re-signs both with the distribution certificate. Harmless once Tauri does it itself.
 const archivedApp = path.join(archive, "Products", "Applications", app);
 for (const { appex, entitlements } of extensions) {
   const archived = path.join(archivedApp, "PlugIns", appex);
   if (!existsSync(archived)) throw new Error(`The archive has no PlugIns/${appex}`);
   execFileSync("codesign", ["--force", "--sign", "-", "--timestamp=none", "--entitlements", entitlements, archived]);
 }
+// The app last: its signature seals the appex signed above, which it leaves as it is (no --deep).
+execFileSync("codesign", ["--force", "--sign", "-", "--timestamp=none", "--preserve-metadata=flags", "--entitlements", appEntitlements, archivedApp]);
 
 // 2. The export for App Store Connect, signed by Xcode with the key: the team's cloud-managed Apple
 // Distribution certificate and an App Store profile it makes or renews. Its own options file per build:
