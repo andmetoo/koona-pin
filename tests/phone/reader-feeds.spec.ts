@@ -159,23 +159,47 @@ test.describe("the reader", () => {
   test("the book next to the heart puts the bookmark into Reading with Undo; then the pie can finish it", async ({ page }) => {
     await openPhone(page);
     const reader = await openFirstBookmark(page);
-    const book = reader.locator(".rd-actions").getByRole("button", { name: /Send to Reading|Remove from Reading/ });
+    const book = reader.locator(".rd-actions").getByRole("button", { name: "Reading", exact: true });
     // Start outside Reading.
     if ((await book.getAttribute("aria-pressed")) === "true") {
       await book.click();
       await expect(book).toHaveAttribute("aria-pressed", "false");
     }
-    await expect(book).toHaveAccessibleName("Send to Reading");
     await expect(reader.getByRole("button", { name: "Mark as finished" })).toHaveCount(0);
     await book.click();
+    // One name for the toggle; aria-pressed says whether it is in Reading (#416).
     await expect(book).toHaveAttribute("aria-pressed", "true");
-    await expect(book).toHaveAccessibleName("Remove from Reading");
-    const snackbar = page.locator("[data-snackbar]");
-    await expect(snackbar).toContainText("Sent to Reading");
+    await expect(book).toHaveAccessibleName("Reading");
+    // This change's snackbar, not the one of the step before that may still be leaving.
+    const snackbar = page.locator("[data-snackbar]", { hasText: "Sent to Reading" });
+    await expect(snackbar).toBeVisible();
     await expect(reader.getByRole("button", { name: "Mark as finished" })).toHaveCount(1);
     await snackbar.getByRole("button", { name: "Undo" }).click();
     await expect(book).toHaveAttribute("aria-pressed", "false");
     await expect(reader.getByRole("button", { name: "Mark as finished" })).toHaveCount(0);
+  });
+
+  test("a finished article sent to Reading again starts over; taken out, it is no longer finished", async ({ page }) => {
+    await openPhone(page);
+    await navPill(page).getByRole("button", { name: "Reading" }).click();
+    const reader = await openFirstBookmark(page);
+    const book = reader.locator(".rd-actions").getByRole("button", { name: "Reading", exact: true });
+    const bar = reader.getByRole("progressbar", { name: "Read so far" });
+    // Read some of it first, so starting over has something to undo.
+    await reader.locator(".rd-column").hover();
+    await page.mouse.wheel(0, 600);
+    await expect(bar).not.toHaveAttribute("aria-valuenow", "0");
+    await reader.getByRole("button", { name: "More" }).click();
+    await page.locator('[data-sheet-kind="bookmarkMenu"]').getByRole("button", { name: "Mark as read" }).click();
+    await expect(reader.locator(".lq[data-finished]")).toHaveCount(1);
+    // Out of Reading: the pie no longer says finished.
+    await book.click();
+    await expect(book).toHaveAttribute("aria-pressed", "false");
+    await expect(reader.locator(".lq[data-finished]")).toHaveCount(0);
+    // Back in: the server starts it at 0, and the reader shows that.
+    await book.click();
+    await expect(book).toHaveAttribute("aria-pressed", "true");
+    await expect(bar).toHaveAttribute("aria-valuenow", "0");
   });
 
   test("outside Reading the pie only shows the progress", async ({ page }) => {

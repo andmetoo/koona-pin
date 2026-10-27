@@ -35,6 +35,17 @@ export function useReadingProgress(bookmark: Bookmark, scroller: RefObject<HTMLE
     // The bookmark's own progress changes with every write; only another id starts anew.
   }, [bookmark.id, save]);
 
+  // Started over from outside (sent to Reading again once read: the server sets it to 0): take
+  // it, or the reader would keep showing, and counting from, what was read before. Only a reset
+  // to 0: a write of ours that lands late is lower than `saved` too, and is not one.
+  useEffect(() => {
+    const s = state.current;
+    if (s.id !== bookmark.id || bookmark.reading_progress !== 0 || (s.saved === 0 && s.reached === 0)) return;
+    window.clearTimeout(s.timer);
+    state.current = { ...s, saved: bookmark.reading_progress, reached: bookmark.reading_progress, timer: 0 };
+    setProgress(bookmark.reading_progress);
+  }, [bookmark.id, bookmark.reading_progress]);
+
   useEffect(() => {
     const element = scroller.current;
     if (!element || !ready) return;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookCheck, BookOpen, Copy, ExternalLink, FolderInput, Heart, Pencil, Trash2 } from "lucide-react";
+import { BookCheck, BookMarked, Copy, ExternalLink, FolderInput, Heart, Pencil, Trash2 } from "lucide-react";
 import { api } from "../../../services/api";
 import type { Bookmark } from "../../../types";
 import "../library/library.css";
@@ -46,7 +46,7 @@ export function BookmarkMenu({ props }: { props: BookmarkMenuProps }) {
           <Shelf className="lib-menu-shelf">
             {/* Reading first: the quick way in from the list (#414, RD4). */}
             <ShelfRow
-              icon={BookOpen}
+              icon={BookMarked}
               title={bookmark.reading_at ? t("card.fromReading") : t("card.toReading")}
               onClick={run(actions.reading)}
             />

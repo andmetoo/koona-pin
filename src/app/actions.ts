@@ -195,22 +195,31 @@ export function useBookmarkActions({
     const bookmark = library.bookmarks.find((b) => b.id === id);
     if (bookmark) selectionDrag.start(e, bookmark, selection.ids.size);
   };
+  const readingBusy = useRef(new Set<number>());
   /**
    * One bookmark's Reading change through the bulk command (into or out of Reading, read or
    * unread, or the phone's "finished": read to the end, onto Reading's Read page, in one command), its notice with
    * Undo or the error; true once done.
    */
-  const readingChange = (b: Bookmark, change: BulkChange): Promise<boolean> =>
-    api.bulkUpdate([b.id], change).then(
-      ({ command }) => {
-        say(readingNotice(t, change, b), false, undoing(command));
-        return true;
-      },
-      (err) => {
-        say(describeError(err), true);
-        return false;
-      },
-    );
+  const readingChange = (b: Bookmark, change: BulkChange): Promise<boolean> => {
+    // One change per bookmark at a time: a second tap before the first lands would act on the
+    // bookmark as it was and send the same change again (#416).
+    if (readingBusy.current.has(b.id)) return Promise.resolve(false);
+    readingBusy.current.add(b.id);
+    return api
+      .bulkUpdate([b.id], change)
+      .then(
+        ({ command }) => {
+          say(readingNotice(t, change, b), false, undoing(command));
+          return true;
+        },
+        (err) => {
+          say(describeError(err), true);
+          return false;
+        },
+      )
+      .finally(() => readingBusy.current.delete(b.id));
+  };
   const actions: BookmarkActions = useMemo(
     () => ({
       open,

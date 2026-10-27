@@ -1,6 +1,6 @@
 import "../reader/reader.css";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
-import { ALargeSmall, BookOpen, Ellipsis, ExternalLink, Heart } from "lucide-react";
+import { ALargeSmall, BookMarked, Ellipsis, ExternalLink, Heart } from "lucide-react";
 import type { Route } from "../navigation/stack";
 import { useBottomLift, usePhone } from "../PhoneContext";
 import { CircleButton } from "../ui/buttons";
@@ -33,6 +33,13 @@ import type { Bookmark, BookmarkChange } from "../../../types";
  * in the rail's "+" slot with the time left above it. A page that cannot be read shows why and opens
  * the original. There is no Share: the app has no way to share on a phone yet.
  */
+/**
+ * The Reading toggle's book, wherever a bookmark has one next to its heart (the reader, iPhone
+ * Duo's slab, the Fold's detail, the long-press menu): a book with a ribbon, not the open book
+ * of Read on the Fold's rail and of the Reading tab (#416).
+ */
+export const READING_TOGGLE_ICON = BookMarked;
+
 export function ReaderScreen({ route, hidden }: { route: Extract<Route, { name: "reader" }>; hidden: boolean }) {
   const { app, stack, sheets } = usePhone();
   const { t } = app;
@@ -81,9 +88,10 @@ function Reader({ bookmark: b, hidden }: { bookmark: Bookmark; hidden: boolean }
   const read = !!b.read_at;
   const [finishedNow, setFinished] = useState(false);
   const finishing = useRef(false);
+  // Unread again, or out of Reading (the book next to the heart): nothing is finished here now.
   useEffect(() => {
-    if (!read) setFinished(false);
-  }, [read]);
+    if (!read || !inReading) setFinished(false);
+  }, [read, inReading]);
   const finished = finishedNow || (inReading && read);
   const finish = () => {
     if (!b.reading_at || finished || finishing.current) return;
@@ -129,17 +137,17 @@ function Reader({ bookmark: b, hidden }: { bookmark: Bookmark; hidden: boolean }
       <PhIcon icon={ExternalLink} />
     </button>
   );
-  // Into Reading or out of it, next to the heart and like it (issue #414, RD1–RD2): on in the
-  // active tab's accent-soft well; once in Reading the progress can finish it.
+  // Into Reading or out of it, next to the heart (issue #414, RD1–RD2): a toggle named "Reading",
+  // on in the active tab's accent-soft well; once in Reading the progress can finish it.
   const reading = (
     <button
       type="button"
       className="rd-action rd-reading ph-hit"
-      aria-label={inReading ? t("card.fromReading") : t("card.toReading")}
+      aria-label={t("phone.nav.reading")}
       aria-pressed={inReading}
       onClick={() => app.actions.reading(b)}
     >
-      <PhIcon icon={BookOpen} />
+      <PhIcon icon={READING_TOGGLE_ICON} />
     </button>
   );
 
