@@ -25,6 +25,14 @@ val siteKeystore = System.getenv("ANDROID_SITE_KEYSTORE")?.takeIf { it.isNotEmpt
 android {
     compileSdk = 37
     namespace = "app.koona.pin"
+    // The NDK that builds the Rust library (NDK_HOME, scripts/build-android.mjs and CI), with its version:
+    // Gradle strips the library and takes its symbol table out with it (below), and refuses an NDK of
+    // another version than ndkVersion, its own default otherwise.
+    System.getenv("NDK_HOME")?.takeIf { it.isNotEmpty() }?.let { home ->
+        ndkPath = home
+        Properties().apply { file("$home/source.properties").inputStream().use { load(it) } }
+            .getProperty("Pkg.Revision")?.let { ndkVersion = it }
+    }
     signingConfigs {
         if (uploadKeystore != null) {
             create("upload") {
@@ -60,12 +68,6 @@ android {
             isDebuggable = true
             isJniDebuggable = true
             isMinifyEnabled = false
-            packaging {
-                jniLibs.keepDebugSymbols.add("*/arm64-v8a/*.so")
-                jniLibs.keepDebugSymbols.add("*/armeabi-v7a/*.so")
-                jniLibs.keepDebugSymbols.add("*/x86/*.so")
-                jniLibs.keepDebugSymbols.add("*/x86_64/*.so")
-            }
         }
         getByName("release") {
             signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.findByName("site")
@@ -79,6 +81,12 @@ android {
                   exclude("build/**")
                 }.files.toTypedArray()
             )
+            // The Rust library's symbol table in the AAB (BUNDLE-METADATA), for Play Console's crash and
+            // ANR stacks; phones get the library without it. The release profile has no debug info, so
+            // there is no FULL to give.
+            ndk {
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
         }
     }
     compileOptions {
@@ -87,6 +95,17 @@ android {
     }
     buildFeatures {
         buildConfig = true
+    }
+}
+
+// A debug build keeps the native libraries whole, for a debugger. This was a packaging block inside the debug
+// build type, which is the whole module's packaging: release kept the Rust library unstripped too (38 MB on
+// phones) and Gradle extracted no symbol table for the AAB.
+androidComponents {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        variant.packaging.jniLibs.keepDebugSymbols.addAll(
+            listOf("*/arm64-v8a/*.so", "*/armeabi-v7a/*.so", "*/x86/*.so", "*/x86_64/*.so"),
+        )
     }
 }
 
