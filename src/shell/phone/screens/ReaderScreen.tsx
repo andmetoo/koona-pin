@@ -27,10 +27,11 @@ import type { Bookmark, BookmarkChange } from "../../../types";
  * comes from the page). A floating action pill: favourite, open original, Reading (into it or
  * out) and how far it is read, a pie (owner, 19 October: no Done). Pulling the pie up out of the
  * pill finishes the reading (it is marked read and moves to Reading's Read page, one Undo); a tap
- * asks first, and the ⋯ menu's "Mark as read" does the same. Reaching the article's end marks it read by itself (owner, 20
- * October 2026: no button there). On iPhone Duo's outer display the pill gives way to the column (DO2): the
- * actions on a slab under the status block, the navigation, and the progress as a drop to pull up
- * in the rail's "+" slot with the time left above it. A page that cannot be read shows why and opens
+ * asks first, and the ⋯ menu's "Mark as read" does the same. Reaching the article's end marks it
+ * read by itself (owner, 20 October 2026: no button there). On iPhone Duo's outer display the
+ * pill gives way to the column (DO2): the actions on a slab under the status block, the
+ * navigation, and the progress as a drop to pull up in the rail's "+" slot with the time left
+ * above it. A page that cannot be read shows why and opens
  * the original. There is no Share: the app has no way to share on a phone yet.
  */
 export function ReaderScreen({ route, hidden }: { route: Extract<Route, { name: "reader" }>; hidden: boolean }) {

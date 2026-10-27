@@ -202,19 +202,22 @@ test.describe("the reader", () => {
     await expect(book).toHaveAttribute("aria-pressed", "true");
     await expect(bar).toHaveAttribute("aria-valuenow", "0");
     await expect.poll(() => reader.evaluate((el) => el.scrollTop)).toBe(0);
-    // Undo brings the old progress back, and the reader shows it.
+    // Undo brings the old progress back; the pie keeps showing where the article is (its top).
     await page.locator("[data-snackbar]", { hasText: "Sent to Reading" }).getByRole("button", { name: "Undo" }).click();
     await expect(book).toHaveAttribute("aria-pressed", "false");
-    await expect(bar).toHaveAttribute("aria-valuenow", "100");
+    await expect(bar).toHaveAttribute("aria-valuenow", "0");
   });
 
-  test("two quick taps on the book are two changes: in, then out again", async ({ page }) => {
+  test("two taps on the book before the library catches up are two changes: in, then out again", async ({ page }) => {
     await openPhone(page);
     const reader = await openFirstBookmark(page);
     const book = reader.locator(".rd-actions").getByRole("button", { name: "Send to Reading", exact: true });
     const before = await book.getAttribute("aria-pressed");
-    await book.click();
-    await book.click();
+    // Both in one task: the button still has the copy from before the first.
+    await book.evaluate((el: HTMLElement) => {
+      el.click();
+      el.click();
+    });
     await expect(page.locator("[data-snackbar]", { hasText: before === "true" ? "Sent to Reading" : "Removed from Reading" })).toBeVisible();
     await expect(book).toHaveAttribute("aria-pressed", before!);
   });

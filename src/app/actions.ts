@@ -23,7 +23,7 @@ import type { Navigation } from "./navigation";
 import type { Notices } from "./notices";
 import type { Reading } from "./reading";
 import type { Surfaces } from "./surfaces";
-import { type Asked, toggleState } from "./toggle";
+import { type Asked, pruneAsked, toggleState } from "./toggle";
 import { opener } from "../services/opener";
 
 type Selection = ReturnType<typeof useSelection>;
@@ -212,15 +212,16 @@ export function useBookmarkActions({
         return false;
       },
     );
-  // What a Reading toggle last asked for, until the library's copy shows it: a second tap before
+  // What a Reading toggle last asked for, until the library's copy is newer: a second tap before
   // then toggles from there, not from the copy the button still has, which would send the same
-  // change again (#416). Kept a few seconds at most, so a change made elsewhere wins after that.
+  // change again (#416). A newer copy (this change, an Undo, a change elsewhere) wins.
   const asked = useRef(new Map<string, Asked>());
   const toggle = (b: Bookmark, field: "reading" | "read"): Promise<boolean> => {
     const key = `${field}:${b.id}`;
     const shown = field === "reading" ? !!b.reading_at : !!b.read_at;
-    const on = !toggleState(shown, asked.current.get(key));
-    asked.current.set(key, { on, at: Date.now() });
+    const on = !toggleState(shown, b.revision, asked.current.get(key));
+    pruneAsked(asked.current);
+    asked.current.set(key, { on, at: Date.now(), revision: b.revision });
     const change: BulkChange = field === "reading" ? { action: "reading", reading: on } : { action: "read", read: on };
     return readingChange(b, change).then((done) => {
       if (!done && asked.current.get(key)?.on === on) asked.current.delete(key);

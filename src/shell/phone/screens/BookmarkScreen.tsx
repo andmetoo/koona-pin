@@ -19,9 +19,9 @@ import type { Bookmark } from "../../../types";
 /**
  * FL1 · a bookmark in the Fold's detail sheet (route `bookmark`, chosen from a list on the unfolded
  * Fold; a phone opens the reader instead). Clear circles along the sheet's top — more (the
- * bookmark's menu) on the outer side; open original, Reading and favourite next to the list — then the
- * reader's hero, the title, "site · Saved today, 9:12 · 12 min read", the description, chips for the
- * collection and the tags, and the note. The rail's primary circle reads it: the reader opens in
+ * bookmark's menu) on the outer side; open original, Reading and favourite next to the list —
+ * then the reader's hero, the title, "site · Saved today, 9:12 · 12 min read", the description,
+ * chips for the collection and the tags, and the note. The rail's primary circle reads it: the reader opens in
  * this sheet. There is no Share: the app has no way to share on a phone yet.
  */
 export function BookmarkScreen({ route, hidden }: { route: Extract<Route, { name: "bookmark" }>; hidden: boolean }) {
