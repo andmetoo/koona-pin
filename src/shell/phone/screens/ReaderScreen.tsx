@@ -1,10 +1,10 @@
 import "../reader/reader.css";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
-import { ALargeSmall, BookMarked, Ellipsis, ExternalLink, Heart } from "lucide-react";
+import { ALargeSmall, Ellipsis, ExternalLink, Heart } from "lucide-react";
 import type { Route } from "../navigation/stack";
 import { useBottomLift, usePhone } from "../PhoneContext";
 import { CircleButton } from "../ui/buttons";
-import { PhIcon } from "../ui/icons";
+import { PhIcon, ReadingToggleIcon } from "../ui/icons";
 import { Screen } from "../ui/Screen";
 import { ArticleFailure, ReaderBar } from "../reader/parts";
 import { LiquidProgress } from "../reader/LiquidProgress";
@@ -24,22 +24,15 @@ import type { Bookmark, BookmarkChange } from "../../../types";
  * edge's fade (Back; Aa, the reading look as a sheet; more, the bookmark's menu); the hero picture
  * with the site and a big title; the source line, the title, the authors, a short rule and the
  * page's text in Literata (`ArticleView`, the reader's extraction; no offline copy: the text
- * comes from the page). A floating action pill: favourite, open original, Reading (into it or out)
- * and how far it is read, a pie (owner, 19 October: no Done). Pulling the pie up out of the pill finishes the reading (it
- * is marked read and moves to Reading's Read page, one Undo); a tap asks first, and the ⋯ menu's
- * "Mark as read" does the same. Reaching the article's end marks it read by itself (owner, 20
+ * comes from the page). A floating action pill: favourite, open original, Reading (into it or
+ * out) and how far it is read, a pie (owner, 19 October: no Done). Pulling the pie up out of the
+ * pill finishes the reading (it is marked read and moves to Reading's Read page, one Undo); a tap
+ * asks first, and the ⋯ menu's "Mark as read" does the same. Reaching the article's end marks it read by itself (owner, 20
  * October 2026: no button there). On iPhone Duo's outer display the pill gives way to the column (DO2): the
  * actions on a slab under the status block, the navigation, and the progress as a drop to pull up
  * in the rail's "+" slot with the time left above it. A page that cannot be read shows why and opens
  * the original. There is no Share: the app has no way to share on a phone yet.
  */
-/**
- * The Reading toggle's book, wherever a bookmark has one next to its heart (the reader, iPhone
- * Duo's slab, the Fold's detail, the long-press menu): a book with a ribbon, not the open book
- * of Read on the Fold's rail and of the Reading tab (#416).
- */
-export const READING_TOGGLE_ICON = BookMarked;
-
 export function ReaderScreen({ route, hidden }: { route: Extract<Route, { name: "reader" }>; hidden: boolean }) {
   const { app, stack, sheets } = usePhone();
   const { t } = app;
@@ -137,17 +130,18 @@ function Reader({ bookmark: b, hidden }: { bookmark: Bookmark; hidden: boolean }
       <PhIcon icon={ExternalLink} />
     </button>
   );
-  // Into Reading or out of it, next to the heart (issue #414, RD1–RD2): a toggle named "Reading",
-  // on in the active tab's accent-soft well; once in Reading the progress can finish it.
+  // Into Reading or out of it, next to the heart (issue #414, RD1–RD2): one name, "Send to
+  // Reading" (not the Reading tab's), with aria-pressed for whether it is there; on in the active
+  // tab's accent-soft well; once in Reading the progress can finish it.
   const reading = (
     <button
       type="button"
       className="rd-action rd-reading ph-hit"
-      aria-label={t("phone.nav.reading")}
+      aria-label={t("card.toReading")}
       aria-pressed={inReading}
       onClick={() => app.actions.reading(b)}
     >
-      <PhIcon icon={READING_TOGGLE_ICON} />
+      <PhIcon icon={ReadingToggleIcon} />
     </button>
   );
 

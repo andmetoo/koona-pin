@@ -9,9 +9,9 @@ import { savedLine } from "../fold/savedLine";
 import { CircleButton } from "../ui/buttons";
 import { Chip } from "../ui/controls";
 import { CollectionGlyph } from "../ui/CollectionGlyph";
-import { PhIcon } from "../ui/icons";
+import { PhIcon, ReadingToggleIcon } from "../ui/icons";
 import { Screen } from "../ui/Screen";
-import { Hero, READING_TOGGLE_ICON, useRouteBookmark } from "./ReaderScreen";
+import { Hero, useRouteBookmark } from "./ReaderScreen";
 import { SiteMark } from "../../../components/library/Bookmarks";
 import { knownMinutes } from "../../../services/reader";
 import type { Bookmark } from "../../../types";
@@ -55,10 +55,10 @@ function Detail({ b, shown }: { b: Bookmark; shown: boolean }) {
           <ColumnActions rank={2} active={shown}>
             <CircleButton icon={ExternalLink} kind="clear" size={44} label={t("phone.reader.openOriginal")} onClick={() => app.open(b.url)} />
             <CircleButton
-              icon={READING_TOGGLE_ICON}
+              icon={ReadingToggleIcon}
               kind="clear"
               size={44}
-              label={t("phone.nav.reading")}
+              label={t("card.toReading")}
               aria-pressed={!!b.reading_at}
               className="rd-reading"
               onClick={() => app.actions.reading(b)}

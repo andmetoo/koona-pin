@@ -23,6 +23,7 @@ import type { Navigation } from "./navigation";
 import type { Notices } from "./notices";
 import type { Reading } from "./reading";
 import type { Surfaces } from "./surfaces";
+import { type Asked, toggleState } from "./toggle";
 import { opener } from "../services/opener";
 
 type Selection = ReturnType<typeof useSelection>;
@@ -195,30 +196,36 @@ export function useBookmarkActions({
     const bookmark = library.bookmarks.find((b) => b.id === id);
     if (bookmark) selectionDrag.start(e, bookmark, selection.ids.size);
   };
-  const readingBusy = useRef(new Set<number>());
   /**
    * One bookmark's Reading change through the bulk command (into or out of Reading, read or
    * unread, or the phone's "finished": read to the end, onto Reading's Read page, in one command), its notice with
    * Undo or the error; true once done.
    */
-  const readingChange = (b: Bookmark, change: BulkChange): Promise<boolean> => {
-    // One change per bookmark at a time: a second tap before the first lands would act on the
-    // bookmark as it was and send the same change again (#416).
-    if (readingBusy.current.has(b.id)) return Promise.resolve(false);
-    readingBusy.current.add(b.id);
-    return api
-      .bulkUpdate([b.id], change)
-      .then(
-        ({ command }) => {
-          say(readingNotice(t, change, b), false, undoing(command));
-          return true;
-        },
-        (err) => {
-          say(describeError(err), true);
-          return false;
-        },
-      )
-      .finally(() => readingBusy.current.delete(b.id));
+  const readingChange = (b: Bookmark, change: BulkChange): Promise<boolean> =>
+    api.bulkUpdate([b.id], change).then(
+      ({ command }) => {
+        say(readingNotice(t, change, b), false, undoing(command));
+        return true;
+      },
+      (err) => {
+        say(describeError(err), true);
+        return false;
+      },
+    );
+  // What a Reading toggle last asked for, until the library's copy shows it: a second tap before
+  // then toggles from there, not from the copy the button still has, which would send the same
+  // change again (#416). Kept a few seconds at most, so a change made elsewhere wins after that.
+  const asked = useRef(new Map<string, Asked>());
+  const toggle = (b: Bookmark, field: "reading" | "read"): Promise<boolean> => {
+    const key = `${field}:${b.id}`;
+    const shown = field === "reading" ? !!b.reading_at : !!b.read_at;
+    const on = !toggleState(shown, asked.current.get(key));
+    asked.current.set(key, { on, at: Date.now() });
+    const change: BulkChange = field === "reading" ? { action: "reading", reading: on } : { action: "read", read: on };
+    return readingChange(b, change).then((done) => {
+      if (!done && asked.current.get(key)?.on === on) asked.current.delete(key);
+      return done;
+    });
   };
   const actions: BookmarkActions = useMemo(
     () => ({
@@ -230,8 +237,8 @@ export function useBookmarkActions({
       },
       favorite: (b) => void api.updateBookmark(b.id, { is_favorite: !b.is_favorite }).catch((err) => say(describeError(err), true)),
       // Reading (NP-121): one bookmark through the bulk command, undone the same way.
-      reading: (b) => readingChange(b, { action: "reading", reading: !b.reading_at }),
-      read: (b) => readingChange(b, { action: "read", read: !b.read_at }),
+      reading: (b) => toggle(b, "reading"),
+      read: (b) => toggle(b, "read"),
       offline: (b) => void (b.offline_at ? offlineRef.current.remove(b) : offlineRef.current.save(b)),
       move: (b, collectionId) =>
         void api

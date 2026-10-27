@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { BookCheck, BookMarked, Copy, ExternalLink, FolderInput, Heart, Pencil, Trash2 } from "lucide-react";
+import { BookCheck, Copy, ExternalLink, FolderInput, Heart, Pencil, Trash2 } from "lucide-react";
 import { api } from "../../../services/api";
 import type { Bookmark } from "../../../types";
 import "../library/library.css";
 import { usePhone } from "../PhoneContext";
 import { Sheet, useCloseSheet } from "../ui/Sheet";
 import { Shelf, ShelfRow } from "../ui/Shelf";
+import { ReadingToggleIcon } from "../ui/icons";
 
 /**
  * `bookmark`: the one the opener has at hand (a search result is not in the app's list); the menu
@@ -46,7 +47,7 @@ export function BookmarkMenu({ props }: { props: BookmarkMenuProps }) {
           <Shelf className="lib-menu-shelf">
             {/* Reading first: the quick way in from the list (#414, RD4). */}
             <ShelfRow
-              icon={BookMarked}
+              icon={ReadingToggleIcon}
               title={bookmark.reading_at ? t("card.fromReading") : t("card.toReading")}
               onClick={run(actions.reading)}
             />
