@@ -38,6 +38,7 @@
 // debuggable, the signer (the upload key when it is set), bundletool's validation of the AAB (BUNDLETOOL,
 // the path of bundletool-all-<version>.jar; required for Play), and Android's 16 KB pages (zipalign keeps
 // every uncompressed native library on a 16 KB boundary, and its ELF LOAD segments are 16 KB aligned).
+// The AAB carries the Rust library's symbol table for Play Console's crash stacks (build.gradle.kts).
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -262,9 +263,20 @@ if (site) {
   if (validated.status !== 0) failures.push(`bundletool validate fails: ${validated.stderr.trim().split("\n")[0]}`);
 } else if (publishable) failures.push("BUNDLETOOL is not set: a build for Play is validated with bundletool");
 else console.warn("BUNDLETOOL is not set: the AAB is not validated with bundletool");
+// Play Console warns of native code without debug symbols, and its crash stacks are addresses then.
+if (!site) {
+  const symbols = "BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libkoonapin_lib.so.sym";
+  try {
+    unzip(aab, symbols, work);
+  } catch {
+    // Not in the AAB: the check below says so.
+  }
+  if (!existsSync(path.join(work, ...symbols.split("/")))) failures.push(`the AAB has no ${symbols}`);
+}
 if (failures.length > 0) throw new Error(`The build fails its checks:\n- ${failures.join("\n- ")}`);
 console.log(`Checked: ${packageName} ${version} (${build}), SDK ${minSdk}–${targetSdk}, not debuggable, `
-  + `signed with ${upload ? keyName : "the debug key"}${env.BUNDLETOOL && !site ? ", bundletool validate passes" : ""}`);
+  + `signed with ${upload ? keyName : "the debug key"}${env.BUNDLETOOL && !site ? ", bundletool validate passes" : ""}`
+  + `${site ? "" : ", native debug symbols"}`);
 check16k();
 checkBilling(apk, play ? "present" : "absent");
 if (signTest && !publishable) {
