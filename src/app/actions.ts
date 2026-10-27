@@ -1,4 +1,4 @@
-import { MutableRefObject, useMemo, useRef, useState } from "react";
+import { MutableRefObject, useEffect, useMemo, useRef, useState } from "react";
 import type { TFunction } from "i18next";
 import { landInBundle } from "../components/bundle/Capsule";
 import { addedText, addView, bookmarksByIds } from "../components/bundle/actions";
@@ -23,7 +23,7 @@ import type { Navigation } from "./navigation";
 import type { Notices } from "./notices";
 import type { Reading } from "./reading";
 import type { Surfaces } from "./surfaces";
-import { type Asked, pruneAsked, toggleState } from "./toggle";
+import { type Asked, settleAsked, toggleState } from "./toggle";
 import { opener } from "../services/opener";
 
 type Selection = ReturnType<typeof useSelection>;
@@ -212,16 +212,24 @@ export function useBookmarkActions({
         return false;
       },
     );
-  // What a Reading toggle last asked for, until the library's copy is newer: a second tap before
+  // What a Reading toggle last asked for, until the library's copy shows it: a second tap before
   // then toggles from there, not from the copy the button still has, which would send the same
-  // change again (#416). A newer copy (this change, an Undo, a change elsewhere) wins.
+  // change again (#416). Once the copy shows it the ask is done, so an Undo after it is the copy's.
   const asked = useRef(new Map<string, Asked>());
+  useEffect(() => {
+    if (!asked.current.size) return;
+    const byId = new Map(library.bookmarks.map((b) => [b.id, b]));
+    settleAsked(asked.current, (key) => {
+      const [field, id] = key.split(":");
+      const b = byId.get(Number(id));
+      return b && (field === "reading" ? !!b.reading_at : !!b.read_at);
+    });
+  }, [library.bookmarks]);
   const toggle = (b: Bookmark, field: "reading" | "read"): Promise<boolean> => {
     const key = `${field}:${b.id}`;
     const shown = field === "reading" ? !!b.reading_at : !!b.read_at;
-    const on = !toggleState(shown, b.revision, asked.current.get(key));
-    pruneAsked(asked.current);
-    asked.current.set(key, { on, at: Date.now(), revision: b.revision });
+    const on = !toggleState(shown, asked.current.get(key));
+    asked.current.set(key, { on, at: Date.now() });
     const change: BulkChange = field === "reading" ? { action: "reading", reading: on } : { action: "read", read: on };
     return readingChange(b, change).then((done) => {
       if (!done && asked.current.get(key)?.on === on) asked.current.delete(key);

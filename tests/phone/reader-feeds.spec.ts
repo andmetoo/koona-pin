@@ -208,6 +208,42 @@ test.describe("the reader", () => {
     await expect(bar).toHaveAttribute("aria-valuenow", "0");
   });
 
+  test("the book, Undo, the book again: back in Reading", async ({ page }) => {
+    await openPhone(page);
+    const reader = await openFirstBookmark(page);
+    const book = reader.locator(".rd-actions").getByRole("button", { name: "Send to Reading", exact: true });
+    if ((await book.getAttribute("aria-pressed")) === "true") {
+      await book.click();
+      await expect(book).toHaveAttribute("aria-pressed", "false");
+    }
+    await book.click();
+    await expect(book).toHaveAttribute("aria-pressed", "true");
+    await page.locator("[data-snackbar]", { hasText: "Sent to Reading" }).getByRole("button", { name: "Undo" }).click();
+    await expect(book).toHaveAttribute("aria-pressed", "false");
+    // Right away, well within the toggle's own memory: the Undo is the copy's, and it wins.
+    await book.click();
+    await expect(book).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("marked unread mid-article, the reader stays where it is", async ({ page }) => {
+    await openPhone(page);
+    await navPill(page).getByRole("button", { name: "Reading" }).click();
+    const reader = await openFirstBookmark(page);
+    await reader.locator(".rd-column").hover();
+    await page.mouse.wheel(0, 600);
+    await expect.poll(() => reader.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    const menu = page.locator('[data-sheet-kind="bookmarkMenu"]');
+    await reader.getByRole("button", { name: "More" }).click();
+    await menu.getByRole("button", { name: "Mark as read" }).click();
+    await expect(reader.locator(".lq[data-finished]")).toHaveCount(1);
+    await expect(menu).toHaveCount(0);
+    const at = await reader.evaluate((el) => el.scrollTop);
+    await reader.getByRole("button", { name: "More" }).click();
+    await menu.getByRole("button", { name: "Mark as unread" }).click();
+    await expect(reader.locator(".lq[data-finished]")).toHaveCount(0);
+    expect(await reader.evaluate((el) => el.scrollTop)).toBe(at);
+  });
+
   test("two taps on the book before the library catches up are two changes: in, then out again", async ({ page }) => {
     await openPhone(page);
     const reader = await openFirstBookmark(page);
