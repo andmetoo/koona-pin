@@ -2229,7 +2229,7 @@
       "empty": {
         "libraryHint": "Dodirnite + da sačuvate link: čeka ovde sa naslovom i slikom.",
         "favoritesHint": "Zadržite prst na obeleživaču i izaberite „Dodaj u omiljeno“ — pojaviće se ovde.",
-        "readingHint": "Zadržite prst na obeleživaču i izaberite „Ostavi za čitanje“. Pročitani odlaze posle nedelju dana.",
+        "readingHint": "Otvorite obeleživač i dodirnite knjigu ili zadržite prst na njemu i izaberite „Ostavi za čitanje“. Pročitani odlaze posle nedelju dana.",
         "collectionHint": "Zadržite prst na obeleživaču i izaberite „Premesti u kolekciju“ ili ovde sačuvajte novi link.",
         "read": "Još ništa nije dočitano",
         "readHint": "Dočitajte članak u čitaču — povucite napredak nagore — i on prelazi ovde."

@@ -2108,7 +2108,7 @@
       "empty": {
         "libraryHint": "Tap + to save a link: it waits here with its title and picture.",
         "favoritesHint": "Long-press a bookmark and choose Add to favorites — it will appear here.",
-        "readingHint": "Long-press a bookmark and choose Send to Reading. Read ones leave after a week.",
+        "readingHint": "Open a bookmark and tap the book, or long-press it and choose Send to Reading. Read ones leave after a week.",
         "collectionHint": "Long-press a bookmark and choose Move to collection, or save a new link here.",
         "read": "Nothing finished yet",
         "readHint": "Finish an article in the reader — pull its progress up — and it moves here."

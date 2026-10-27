@@ -333,6 +333,20 @@
   color: var(--ph-accent);
   fill: var(--ph-accent);
 }
+/* Reading on (#414, RD2): the active tab's accent-soft well behind the book, 52 round. */
+.phone .rd-reading[aria-pressed="true"] {
+  color: var(--ph-on-accent-soft);
+}
+.phone .rd-reading[aria-pressed="true"]::before {
+  content: "";
+  position: absolute;
+  inset: 0 2px;
+  border-radius: inherit;
+  background: var(--ph-accent-soft);
+}
+.phone .ph-vbar-slab .rd-reading[aria-pressed="true"]::before {
+  inset: 0;
+}
 /* The reading progress (LiquidProgress.tsx): a 26 pie, an accent sector on a hairline track, no
    number; pulled up out of the pill it stretches into a drop. Owner, 19 October: no Done. */
 .phone .rd-actions .lq-pie {

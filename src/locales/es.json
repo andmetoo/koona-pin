@@ -2229,7 +2229,7 @@
       "empty": {
         "libraryHint": "Toca + para guardar un enlace: espera aquí con su título y su imagen.",
         "favoritesHint": "Mantén pulsado un marcador y elige «Añadir a favoritos»: aparecerá aquí.",
-        "readingHint": "Mantén pulsado un marcador y elige «Añadir a Para leer». Los leídos se van al cabo de una semana.",
+        "readingHint": "Abre un marcador y toca el libro, o mantenlo pulsado y elige «Añadir a Para leer». Los leídos se van al cabo de una semana.",
         "collectionHint": "Mantén pulsado un marcador y elige «Mover a una colección», o guarda aquí un enlace nuevo.",
         "read": "Aún no has terminado nada",
         "readHint": "Termina un artículo en el lector —desliza su progreso hacia arriba— y aparecerá aquí."

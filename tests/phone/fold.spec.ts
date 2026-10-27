@@ -84,8 +84,11 @@ test("controls on the left are the exact mirror", async ({ page }) => {
   const more = await box(detailScreen(page).getByRole("button", { name: "More" }));
   const open = await box(detailScreen(page).getByRole("button", { name: "Open original" }));
   const heart = await box(detailScreen(page).getByRole("button", { name: /favorite/i }));
+  // Reading stands next to the heart, between it and open original (#414).
+  const book = await box(detailScreen(page).getByRole("button", { name: /Send to Reading|Remove from Reading/ }));
   expect(more.x).toBeGreaterThan(open.x);
-  expect(open.x).toBeGreaterThan(heart.x);
+  expect(open.x).toBeGreaterThan(book.x);
+  expect(book.x).toBeGreaterThan(heart.x);
   // Text stays left-aligned.
   await expect(detailScreen(page).getByRole("heading", { level: 1 })).toHaveCSS("text-align", /start|left/);
 });

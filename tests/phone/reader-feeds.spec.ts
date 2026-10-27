@@ -156,6 +156,28 @@ test.describe("the reader", () => {
     await expect(screen.locator("[data-bookmark-id]", { hasText: title })).toHaveCount(1);
   });
 
+  test("the book next to the heart puts the bookmark into Reading with Undo; then the pie can finish it", async ({ page }) => {
+    await openPhone(page);
+    const reader = await openFirstBookmark(page);
+    const book = reader.locator(".rd-actions").getByRole("button", { name: /Send to Reading|Remove from Reading/ });
+    // Start outside Reading.
+    if ((await book.getAttribute("aria-pressed")) === "true") {
+      await book.click();
+      await expect(book).toHaveAttribute("aria-pressed", "false");
+    }
+    await expect(book).toHaveAccessibleName("Send to Reading");
+    await expect(reader.getByRole("button", { name: "Mark as finished" })).toHaveCount(0);
+    await book.click();
+    await expect(book).toHaveAttribute("aria-pressed", "true");
+    await expect(book).toHaveAccessibleName("Remove from Reading");
+    const snackbar = page.locator("[data-snackbar]");
+    await expect(snackbar).toContainText("Sent to Reading");
+    await expect(reader.getByRole("button", { name: "Mark as finished" })).toHaveCount(1);
+    await snackbar.getByRole("button", { name: "Undo" }).click();
+    await expect(book).toHaveAttribute("aria-pressed", "false");
+    await expect(reader.getByRole("button", { name: "Mark as finished" })).toHaveCount(0);
+  });
+
   test("outside Reading the pie only shows the progress", async ({ page }) => {
     await openPhone(page);
     const reader = await openFirstBookmark(page);

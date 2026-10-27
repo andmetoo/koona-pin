@@ -19,7 +19,7 @@ import type { Bookmark } from "../../../types";
 /**
  * FL1 · a bookmark in the Fold's detail sheet (route `bookmark`, chosen from a list on the unfolded
  * Fold; a phone opens the reader instead). Clear circles along the sheet's top — more (the
- * bookmark's menu) on the outer side; open original and favourite next to the list — then the
+ * bookmark's menu) on the outer side; open original, Reading and favourite next to the list — then the
  * reader's hero, the title, "site · Saved today, 9:12 · 12 min read", the description, chips for the
  * collection and the tags, and the note. The rail's primary circle reads it: the reader opens in
  * this sheet. There is no Share: the app has no way to share on a phone yet.
@@ -54,6 +54,15 @@ function Detail({ b, shown }: { b: Bookmark; shown: boolean }) {
           // On iPhone Duo they move into the vertical bar's slots, unless the list pane holds them (DU1).
           <ColumnActions rank={2} active={shown}>
             <CircleButton icon={ExternalLink} kind="clear" size={44} label={t("phone.reader.openOriginal")} onClick={() => app.open(b.url)} />
+            <CircleButton
+              icon={BookOpen}
+              kind="clear"
+              size={44}
+              label={b.reading_at ? t("card.fromReading") : t("card.toReading")}
+              aria-pressed={!!b.reading_at}
+              className={b.reading_at ? "rd-pressed" : undefined}
+              onClick={() => app.actions.reading(b)}
+            />
             <CircleButton
               icon={Heart}
               kind="clear"

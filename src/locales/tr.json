@@ -2108,7 +2108,7 @@
       "empty": {
         "libraryHint": "Bir bağlantı kaydetmek için + simgesine dokunun: başlığı ve resmiyle burada bekler.",
         "favoritesHint": "Bir yer işaretine basılı tutun ve “Favorilere ekle”yi seçin; burada görünür.",
-        "readingHint": "Bir yer işaretine basılı tutun ve “Okuma listesine ekle”yi seçin. Okunanlar bir hafta sonra çıkar.",
+        "readingHint": "Bir yer işaretini açıp kitaba dokunun ya da basılı tutup “Okuma listesine ekle”yi seçin. Okunanlar bir hafta sonra çıkar.",
         "collectionHint": "Bir yer işaretine basılı tutun ve “Koleksiyona taşı”yı seçin ya da buraya yeni bir bağlantı kaydedin.",
         "read": "Henüz bitirilen yok",
         "readHint": "Okuyucuda bir makaleyi bitirin (ilerlemesini yukarı çekin), buraya taşınır."

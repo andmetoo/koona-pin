@@ -2108,7 +2108,7 @@
       "empty": {
         "libraryHint": "Tippen Sie auf +, um einen Link zu speichern: Er wartet hier mit Titel und Bild.",
         "favoritesHint": "Halten Sie ein Lesezeichen gedrückt und wählen Sie „Zu Favoriten hinzufügen“ — es erscheint dann hier.",
-        "readingHint": "Halten Sie ein Lesezeichen gedrückt und wählen Sie „Auf die Leseliste“. Gelesene verlassen die Liste nach einer Woche.",
+        "readingHint": "Öffnen Sie ein Lesezeichen und tippen Sie auf das Buch, oder halten Sie es gedrückt und wählen Sie „Auf die Leseliste“. Gelesene verlassen die Liste nach einer Woche.",
         "collectionHint": "Halten Sie ein Lesezeichen gedrückt und wählen Sie „In Sammlung verschieben“, oder speichern Sie hier einen neuen Link.",
         "read": "Noch nichts zu Ende gelesen",
         "readHint": "Lies einen Artikel zu Ende – zieh im Leser den Fortschritt nach oben –, dann landet er hier."

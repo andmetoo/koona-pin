@@ -105,12 +105,14 @@ test("inner display (DU1): the rail in the column, the list between the fold and
   const list = await box(listPane(page));
   expect(list.x).toBeGreaterThanOrEqual(495.5);
   expect(list.x + list.width).toBeLessThanOrEqual(867);
-  // Read is the rail's primary circle (52); open original and favourite take the column's slots.
+  // Read is the rail's primary circle (52); open original, Reading (#414) and favourite take the column's slots.
   expect((await box(page.locator("[data-rail-primary]"))).width).toBe(52);
-  await expect(columnActions(page)).toHaveCount(2);
+  await expect(columnActions(page)).toHaveCount(3);
   const first = await box(columnActions(page).first());
   expect(Math.round(first.y)).toBe(124 + 5);
   expect(Math.round(first.x)).toBe(867 + 17);
+  const last = await box(columnActions(page).last());
+  expect(last.y + last.height).toBeLessThanOrEqual(r.y);
   await expect(detailPane(page).getByRole("button", { name: "Open original" })).toHaveCount(0);
 });
 
