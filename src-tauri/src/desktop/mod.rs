@@ -141,16 +141,23 @@ pub fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
     }
 }
 
-/// macOS hands files and links to the running app, at a cold start too, as `Opened`.
+/// macOS hands files and links to the running app, at a cold start too, as `Opened`. A click on
+/// the Dock icon, or a start from Finder or Launchpad, while the window is hidden in the menu bar
+/// starts no second copy: it comes as `Reopen` and brings the window back, as Windows and Linux
+/// do through the single-instance plugin.
 pub fn on_run_event(app: &tauri::AppHandle, event: &tauri::RunEvent) {
     #[cfg(target_os = "macos")]
-    if let tauri::RunEvent::Opened { urls } = event {
-        let root = std::path::Path::new("/");
-        if let Some(request) = urls.iter().find_map(|url| open_requests::parse(url.as_str(), root)) {
-            if open_requests::keep(app, request) {
-                crate::show_window(app);
+    match event {
+        tauri::RunEvent::Opened { urls } => {
+            let root = std::path::Path::new("/");
+            if let Some(request) = urls.iter().find_map(|url| open_requests::parse(url.as_str(), root)) {
+                if open_requests::keep(app, request) {
+                    crate::show_window(app);
+                }
             }
         }
+        tauri::RunEvent::Reopen { .. } => crate::show_window(app),
+        _ => {}
     }
     #[cfg(not(target_os = "macos"))]
     let _ = (app, event);
