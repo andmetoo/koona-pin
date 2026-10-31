@@ -1,6 +1,6 @@
 # Koona Pin
 
-A desktop bookmark library for Windows, macOS and Linux. Save the page you are on from Chrome, Edge, Firefox or Safari with one button; the link lands in the app and stays on your computer. Read it later in reading mode, without menus or banners, and follow the sites you like through their feeds.
+A bookmark library for Windows, macOS, Linux and Android. On the computer, save the page you are on from Chrome, Edge, Firefox or Safari with one button; on Android, paste a link or share one from another app. The link lands in the app and stays on your device. Read it later in reading mode, without menus or banners, and follow the sites you like through their feeds.
 
 Website and downloads: **[koona.app/pin](https://koona.app/pin/)**
 
@@ -35,7 +35,7 @@ Website and downloads: **[koona.app/pin](https://koona.app/pin/)**
 
 Koona Pin is free, and everything above stays free. **Supporter**, an optional subscription ($1.49 or €1.49 a month, $9.99 or €9.99 a year, or $29.99 or €29.99 as a one-time purchase), funds the project and adds:
 
-- **Sync between your computers**: bookmarks, collections, tags, the Reading list and where you stopped reading, and the feeds you follow. Posts and read marks stay on each computer. Sync is end-to-end encrypted and passes through a relay that stores nothing, so **it works only while Koona Pin is running on both computers at the same time**: changes wait on a computer until another one is online. One computer is the main one; another joins when you confirm a 6-digit code on the main one. Keep every computer up to date: after some updates sync pauses until all of them have the new version.
+- **Sync between your devices**: bookmarks, collections, tags, the Reading list and where you stopped reading, and the feeds you follow. Posts and read marks stay on each device. Sync is end-to-end encrypted and passes through a relay that stores nothing, so **it works only while Koona Pin is running on both devices at the same time**: changes wait on a device until another one is online. One device is the main one; another joins when you confirm a 6-digit code on the main one. Keep every device up to date: after some updates sync pauses until all of them have the new version.
 - **Automatic backups to a folder you choose**, such as a cloud drive.
 - **The Paper and Sepia reading themes** and a Supporter badge.
 
@@ -52,6 +52,7 @@ Get the current version from **[koona.app/pin/downloads](https://koona.app/pin/d
 | Ubuntu 26.04, Debian 13 | `.deb` | `sudo apt install ./<file>.deb` |
 | Fedora 44 | `.rpm` | `sudo dnf install ./<file>.rpm` |
 | Other Linux distributions | AppImage | Runs without installing |
+| Android | [Google Play](https://play.google.com/store/apps/details?id=app.koona.pin) | Same library; sync with your computers through Supporter |
 
 Linux builds are 64-bit (x86_64) and target GNOME or KDE Plasma on Wayland. An Arch Linux (AUR) package is not available yet.
 
@@ -78,7 +79,7 @@ Your library is a SQLite file on your computer:
 
 Automatic backups go to a `backups` folder next to it. Feed posts are kept in `feeds.db` and offline copies in an `offline` folder in the same place; neither is synced or exported. Uninstalling the Linux package keeps the library.
 
-The app sends no analytics, telemetry or crash reports. It connects to the network only to read the title and preview of a link you save from that link's website, to ask Google's favicon service for missing site icons, and to ask koona.app once a day whether a new version is out. Reading mode requests the page you open from its website, and the next article in the queue ahead of time while reading mode is open. It also requests the feeds you follow from their websites, about once an hour while it runs (nothing goes through a Koona server), the links the link check tests, the pictures of an article you save for offline, and, when you paste a link into «New link» (or, on a phone, type one and press Go), that page, to show its preview and whether it has a feed, and, when that page names no feed, the same site's home page. With Supporter, the optional subscription, it also asks the Koona server about your plan: while a purchase waits for its payment, once a day in the last days of a paid period, when you sign in or out, and, while sync is on, for a sign-in token for the sync relay. Sync carries your library between your computers through that relay, end-to-end encrypted with a key only your computers have, so the relay can't read it. The relay keeps nothing of your library and only passes changes between computers that are online at the same time. The extension reads only the address and title of the tab you save. Feedback reaches the developer only if you choose to send it; a Supporter purchase sends them the email you paid with. Details: [privacy policy](https://koona.app/pin/privacy).
+The app sends no analytics, telemetry or crash reports. It connects to the network only to read the title and preview of a link you save from that link's website, to ask Google's favicon service for missing site icons, and to ask koona.app once a day whether a new version is out. Reading mode requests the page you open from its website, and the next article in the queue ahead of time while reading mode is open. It also requests the feeds you follow from their websites, about once an hour while it runs (nothing goes through a Koona server), the links the link check tests, the pictures of an article you save for offline, and, when you paste a link into «New link» (or, on a phone, type one and press Go), that page, to show its preview and whether it has a feed, and, when that page names no feed, the same site's home page. With Supporter, the optional subscription, it also asks the Koona server about your plan: while a purchase waits for its payment, once a day in the last days of a paid period, when you sign in or out, and, while sync is on, for a sign-in token for the sync relay. Sync carries your library between your devices through that relay, end-to-end encrypted with a key only your devices have, so the relay can't read it. The relay keeps nothing of your library and only passes changes between devices that are online at the same time. The extension reads only the address and title of the tab you save. Feedback reaches the developer only if you choose to send it; a Supporter purchase sends them the email you paid with. Details: [privacy policy](https://koona.app/pin/privacy).
 
 ## Building from source
 
