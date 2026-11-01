@@ -1,5 +1,5 @@
 /* The phone's reader (R1) and post view (FL2's content), NP-072b: full-bleed reading under glass
-   circles, Inter titles, the text in Literata at the reading look's size (reader/look.ts sets
+   circles, Onest titles, the text in Literata at the reading look's size (reader/look.ts sets
    --rd-size, --rd-line and data-reader-font, and the phone's tokens for a chosen theme). Scoped under
    `.phone`; the desktop's article rules (app.css, a layer) give way to these. */
 

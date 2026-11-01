@@ -109,7 +109,7 @@ test("free: a free theme, size, column and font survive a restart; Esc closes th
   const body = mode(page).locator(".reader-body");
   await expect(body).toHaveCSS("font-size", "20px");
   await expect(body).toHaveCSS("line-height", "33px");
-  await expect(body).toHaveCSS("font-family", /Inter/);
+  await expect(body).toHaveCSS("font-family", /Onest/);
   await expect(mode(page).locator(".reader-article")).toHaveCSS("max-width", "760px");
   // Esc closes the panel and gives focus back to «Aa»; the mode stays.
   await panel(page).getByRole("radio", { name: "Wide" }).focus();
@@ -124,7 +124,7 @@ test("free: a free theme, size, column and font survive a restart; Esc closes th
   await openMode(page);
   await expect(mode(page)).toHaveAttribute("data-reader-look", "dark");
   await expect(body).toHaveCSS("font-size", "20px");
-  await expect(body).toHaveCSS("font-family", /Inter/);
+  await expect(body).toHaveCSS("font-family", /Onest/);
   await expect(mode(page).locator(".reader-article")).toHaveCSS("max-width", "760px");
   await openPanel(page);
   await expect(swatch(page, "dark")).toHaveAttribute("aria-checked", "true");

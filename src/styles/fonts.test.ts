@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
-// The system fonts for Chinese, Japanese and Korean after Inter (NP-090) are written in three
+// The system fonts for Chinese, Japanese and Korean after Onest (NP-090) are written in three
 // places that share no code: the app, the extension's pages and its message on a web page. They
 // must name the same fonts in the same order. The site (andmetoo/koona-site) keeps its own copy.
 const read = (file: string) => readFileSync(new URL(`../../${file}`, import.meta.url), "utf8");
-/** The font names of a family list, without Inter and the generic families. */
+/** The font names of a family list, without Onest and the generic families. */
 const names = (list: string) =>
   list
     .split(",")
     .map((name) => name.trim().replace(/^"|"$/g, ""))
-    .filter((name) => name && !["Inter", "Inter Variable", "system-ui", "sans-serif"].includes(name));
+    .filter((name) => name && !["Onest", "Onest Variable", "system-ui", "sans-serif"].includes(name));
 /** The font list of each `:lang(xx)` rule, from the property that holds it. */
 function stacks(css: string, property: string) {
   const out: Record<string, string[]> = {};

@@ -9,7 +9,7 @@ import { preference, savePreference, storedValue } from "./preferences";
  * chosen. Paper and Sepia are Supporter's: their palettes are commercial code
  * (`src/components/commercial/readerThemes.ts`) that registers itself here.
  * Without it — a community build — they stay locked. Both fonts, Serif (Literata)
- * and Sans (Inter), are free (owner, 2026-10-15: no paid fonts yet).
+ * and Sans (Onest), are free (owner, 2026-10-15: no paid fonts yet).
  */
 
 /** One set of `--np-read-*` values: the page, the queue, lines and words (src/styles/app.css). */
@@ -161,7 +161,7 @@ export interface ReaderLook {
   theme: ReaderTheme;
   palette: ReaderPalette;
   /**
-   * Literata and Inter ship with the app (OFL). The font is no CSS variable: a stack set on
+   * Literata and Onest ship with the app (OFL). The font is no CSS variable: a stack set on
    * the mode's root is resolved there, in the interface's language. The root carries
    * `data-reader-font` and the article picks its own Chinese, Japanese or Korean fallback
    * by its `lang` (app.css, --reader-serif and --np-font).

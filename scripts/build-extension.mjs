@@ -191,10 +191,10 @@ export async function buildExtension({ log = console.log } = {}) {
       data: await readFile(file),
     })),
   );
-  // Inter, as in the app (SIL OFL 1.1): the options page needs no network.
-  const fonts = path.join(root, "node_modules", "@fontsource-variable", "inter", "files");
+  // Onest, as in the app (SIL OFL 1.1): the options page needs no network.
+  const fonts = path.join(root, "node_modules", "@fontsource-variable", "onest", "files");
   // latin-ext: Polish, Turkish and Serbian Latin letters (NP-089).
-  for (const font of ["inter-latin-wght-normal.woff2", "inter-latin-ext-wght-normal.woff2", "inter-cyrillic-wght-normal.woff2"])
+  for (const font of ["onest-latin-wght-normal.woff2", "onest-latin-ext-wght-normal.woff2", "onest-cyrillic-wght-normal.woff2"])
     files.push({ name: `fonts/${font}`, data: await readFile(path.join(fonts, font)) });
   // The button draws its frames from the micro mark, the page message shows the
   // mascot (NP-080): one source with the app's icons, design/brand.

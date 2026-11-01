@@ -35,7 +35,7 @@ Keep placeholders such as `{{name}}` and `{{count}}` exactly as in English.
 1. Create `src/locales/<code>.json` with all keys of `en.json` and `language.name`, the language's name in itself. Use a BCP 47 code, with a script or region only when it distinguishes variants (`sr-Latn`, `pt-BR`).
 2. Provide every plural form the language needs (see above).
 3. Add `extension/src/_locales/<Chrome code>/messages.json` and the code to the list in `extension/src/locales.test.js`. The extension name must fit 75 characters and the description 132 (store limits; tested).
-4. Fonts: Inter covers Latin, Latin Extended and Cyrillic. For other alphabets that Inter has, add the subset in `scripts/build-extension.mjs`, `options.css` and `search.css`. For scripts Inter lacks (Chinese, Japanese, Korean), the app falls back to the system font chosen by `:lang()` in `src/styles/app.css`; `src/styles/fonts.test.ts` keeps the app and extension font lists equal; the site keeps its own copy.
+4. Fonts: Onest covers Latin, Latin Extended, Cyrillic and Vietnamese. For other alphabets that Onest has, add the subset in `scripts/build-extension.mjs`, `options.css` and `search.css`. For scripts Onest lacks (Greek, Chinese, Japanese, Korean), the app falls back to the system font chosen by `:lang()` in `src/styles/app.css`; `src/styles/fonts.test.ts` keeps the app and extension font lists equal; the site keeps its own copy.
 5. Site: the landing page is translated in the site's repository (`andmetoo/koona-site`); once it has the language, add it to `languages` in `scripts/lib/site.mjs`, which the app's links to the site are tested against.
 6. Installer: an NSIS language file in `src-tauri/nsis` and entries in `tauri.conf.json`.
 7. Add the terms to the glossary below.

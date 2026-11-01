@@ -85,7 +85,7 @@
 }
 .phone .lib-chip-count {
   color: var(--ph-meta);
-  font-weight: 400;
+  font-weight: var(--np-text-weight);
 }
 .phone .ph-chip[data-active]:not([data-all]) .lib-chip-count {
   color: color-mix(in srgb, var(--ph-on-ink-button) 70%, transparent);
