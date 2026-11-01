@@ -2,7 +2,7 @@
   "name": "koonapin",
   "private": true,
   "license": "GPL-3.0-only",
-  "version": "2.21.0",
+  "version": "2.22.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -64,8 +64,8 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/literata": "^5.3.0",
+    "@fontsource-variable/onest": "^5.3.1",
     "@tanstack/react-virtual": "^3.14.13",
     "@tauri-apps/api": "^2.2.0",
     "@tauri-apps/plugin-opener": "^2.2.0",

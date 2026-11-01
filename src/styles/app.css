@@ -1,8 +1,8 @@
 /* Koona Pin, iteration 1. Tokens come from docs/design.md; the values
    live here once and switch with data-theme on <html> (Р-5). */
 @import "tailwindcss";
-@import "@fontsource-variable/inter";
-@import "@fontsource-variable/inter/wght-italic.css";
+/* The interface font: Onest, SIL OFL 1.1, as on koona.app. It has no italics; the browser slants it. */
+@import "@fontsource-variable/onest";
 /* The serif of reading (NP-124, B8): Literata, SIL OFL 1.1, with its optical sizes and real italics. */
 @import "@fontsource-variable/literata/opsz.css";
 @import "@fontsource-variable/literata/opsz-italic.css";
@@ -213,32 +213,38 @@
   --np-season-soft: #3a2a20;
 }
 
-/* Inter has no Chinese, Japanese or Korean characters: after it, the system
+/* Onest has no Chinese, Japanese or Korean characters: after it, the system
    font of the interface's language, so a character shared by the three takes
    that language's form, not the one the browser happens to pick (NP-090).
    Windows first; macOS and Linux names for the later builds. No CJK font is
    bundled: one weighs about as much as the whole installer. The extension and
    the site name the same fonts: src/styles/fonts.test.ts keeps them equal. An article in
    reading mode takes them again by its own `lang`, for its Sans (`data-reader-font`). */
+/* Onest at 400 reads thin at the interface's 11–13 px: its regular text is a step heavier.
+   Tailwind's font-normal and every explicit regular weight take this token; an article stays 400. */
+:root {
+  --np-text-weight: 450;
+}
 :root,
 .reader-article {
-  --np-font: "Inter Variable", "Inter", system-ui, sans-serif;
+  --np-font: "Onest Variable", "Onest", system-ui, sans-serif;
 }
 :root:lang(zh),
 .reader-article:lang(zh) {
-  --np-font: "Inter Variable", "Inter", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
+  --np-font: "Onest Variable", "Onest", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
 }
 :root:lang(ja),
 .reader-article:lang(ja) {
-  --np-font: "Inter Variable", "Inter", "Yu Gothic UI", "Meiryo UI", "Hiragino Sans", "Noto Sans CJK JP", system-ui, sans-serif;
+  --np-font: "Onest Variable", "Onest", "Yu Gothic UI", "Meiryo UI", "Hiragino Sans", "Noto Sans CJK JP", system-ui, sans-serif;
 }
 :root:lang(ko),
 .reader-article:lang(ko) {
-  --np-font: "Inter Variable", "Inter", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans CJK KR", system-ui, sans-serif;
+  --np-font: "Onest Variable", "Onest", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans CJK KR", system-ui, sans-serif;
 }
 
 @theme inline {
   --font-sans: var(--np-font);
+  --font-weight-normal: var(--np-text-weight);
 
   --color-*: initial;
   --color-transparent: transparent;
@@ -408,6 +414,7 @@
     font-family: var(--font-sans);
     font-size: 13px;
     line-height: 18px;
+    font-weight: var(--np-text-weight);
     -webkit-font-smoothing: antialiased;
     /* A desktop app: buttons, headings, labels and cards are not text to select. What is read
        (the article) and what is typed opt back in, as does `select-text` for a line to copy. */
@@ -1144,6 +1151,7 @@
   .reader-article {
     color: var(--np-sheet-ink);
     overflow-wrap: break-word;
+    font-weight: 400;
     font-optical-sizing: auto;
     font-kerning: normal;
   }
@@ -1572,7 +1580,7 @@
     --reader-column: var(--reader-width, 640px);
   }
   .reading-mode .reader-meta {
-    font-weight: 400;
+    font-weight: var(--np-text-weight);
   }
   .read-serif {
     font-family: var(--reader-serif);
@@ -2392,7 +2400,7 @@
     margin-left: auto;
     color: var(--np-subtle);
     font-size: 11.5px;
-    font-weight: 400;
+    font-weight: var(--np-text-weight);
     white-space: nowrap;
   }
   .nt-text {

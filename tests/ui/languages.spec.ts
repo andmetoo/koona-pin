@@ -106,7 +106,7 @@ test("sidebar rows fit in every language", { tag: "@languages" }, async ({ page 
   );
   // One canvas, one round trip for every word.
   const widths = await page.evaluate(async (all) => {
-    // Inter comes in subsets by unicode-range, loaded only for the letters a page shows: the English demo
+    // Onest comes in subsets by unicode-range, loaded only for the letters a page shows: the English demo
     // has no Cyrillic, and a canvas would measure the system's fallback font instead.
     await Promise.all(all.map(({ word, font }) => document.fonts.load(font, word)));
     const ctx = document.createElement("canvas").getContext("2d")!;

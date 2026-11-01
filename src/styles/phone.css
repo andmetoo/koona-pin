@@ -193,7 +193,7 @@
 .phone .ph-body {
   font-size: 16px;
   line-height: 24px;
-  font-weight: 400;
+  font-weight: var(--np-text-weight);
 }
 .phone .ph-callout {
   font-size: 15px;
@@ -203,12 +203,12 @@
 .phone .ph-subhead {
   font-size: 14px;
   line-height: 20px;
-  font-weight: 400;
+  font-weight: var(--np-text-weight);
 }
 .phone .ph-meta {
   font-size: 13px;
   line-height: 18px;
-  font-weight: 400;
+  font-weight: var(--np-text-weight);
   color: var(--ph-meta);
 }
 .phone .ph-caption {

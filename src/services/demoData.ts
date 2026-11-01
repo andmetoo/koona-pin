@@ -27,7 +27,7 @@ export interface DemoLibrary {
 export const poster = ([from, to, word]: [string, string, string]) =>
   "data:image/svg+xml," +
   encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"><defs><linearGradient id="g" x2="1" y2="1"><stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient></defs><rect width="320" height="200" fill="url(#g)"/><text x="24" y="172" font-family="Inter, sans-serif" font-size="34" font-weight="600" fill="#fffefa" fill-opacity="0.9">${word}</text></svg>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"><defs><linearGradient id="g" x2="1" y2="1"><stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient></defs><rect width="320" height="200" fill="url(#g)"/><text x="24" y="172" font-family="Onest, sans-serif" font-size="34" font-weight="600" fill="#fffefa" fill-opacity="0.9">${word}</text></svg>`,
   );
 
 const ru: DemoLibrary = {

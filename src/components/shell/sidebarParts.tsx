@@ -39,7 +39,7 @@ export function FadeLabel({ text }: { text: string }) {
     const el = ref.current!;
     const measure = () => setClipped(el.scrollWidth > el.clientWidth);
     measure();
-    // Inter arrives after the first paint, and a folded section opens to its width later.
+    // Onest arrives after the first paint, and a folded section opens to its width later.
     const watch = new ResizeObserver(measure);
     watch.observe(el);
     document.fonts.ready.then(measure);

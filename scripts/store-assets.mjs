@@ -82,12 +82,12 @@ if (macApp)
 
 const font = async (name) =>
   `data:font/woff2;base64,${(await readFile(path.join(built.unpacked.chrome, "fonts", name))).toString("base64")}`;
-const [latin, cyrillic] = [await font("inter-latin-wght-normal.woff2"), await font("inter-cyrillic-wght-normal.woff2")];
+const [latin, cyrillic] = [await font("onest-latin-wght-normal.woff2"), await font("onest-cyrillic-wght-normal.woff2")];
 const fontFace = `
-  @font-face { font-family: Inter; src: url("${latin}") format("woff2"); font-weight: 100 900; }
-  @font-face { font-family: Inter; src: url("${cyrillic}") format("woff2"); font-weight: 100 900; unicode-range: U+0400-04FF; }
+  @font-face { font-family: Onest; src: url("${latin}") format("woff2"); font-weight: 100 900; }
+  @font-face { font-family: Onest; src: url("${cyrillic}") format("woff2"); font-weight: 100 900; unicode-range: U+0400-04FF; }
   * { margin: 0; box-sizing: border-box; }
-  body { font-family: Inter, sans-serif; }`;
+  body { font-family: Onest, sans-serif; }`;
 
 /** What is in the library before the shots, and the article the note appears on. */
 const content = {

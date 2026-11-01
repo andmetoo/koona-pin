@@ -337,7 +337,7 @@
   color: var(--ph-faint);
 }
 .phone .cp-path {
-  font-weight: 400;
+  font-weight: var(--np-text-weight);
   color: var(--ph-meta);
 }
 .phone .cp-suggested .cp-path {

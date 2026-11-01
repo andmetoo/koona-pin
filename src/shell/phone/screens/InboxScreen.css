@@ -518,7 +518,7 @@
 .phone .inb-stat .ph-shelf-title {
   font-size: 15px;
   line-height: 20px;
-  font-weight: 400;
+  font-weight: var(--np-text-weight);
 }
 .phone .inb-stat .ph-meta {
   font-size: 12px;

@@ -283,7 +283,7 @@
 .phone .st-shelf .ph-shelf-title {
   font-size: 16px;
   line-height: 22px;
-  font-weight: 400;
+  font-weight: var(--np-text-weight);
 }
 .phone .st-shelf .ph-shelf-text {
   padding: 4px 0;

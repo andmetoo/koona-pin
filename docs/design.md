@@ -62,7 +62,7 @@ The theme is the `data-theme` attribute (`light` or `dark`) on `<html>`, set bef
 
 ## Typography
 
-Inter (variable, from `@fontsource-variable/inter`, SIL OFL 1.1) is bundled, so no network is needed. Reading (NP-124) bundles Literata (variable, from Fontsource, SIL OFL 1.1), the serif of the Aa panel; its sans is Inter. Chinese, Japanese and Korean fall back to the system font of the interface language, chosen with `:lang()` on `<html>`; no CJK font is bundled.
+Onest (variable, from `@fontsource-variable/onest`, SIL OFL 1.1, the font of koona.app) is bundled, so no network is needed. Reading (NP-124) bundles Literata (variable, from Fontsource, SIL OFL 1.1), the serif of the Aa panel; its sans is Onest. Onest has no italics: the browser slants the upright. Its regular reads thin at 11–13 px, so interface text uses weight 450 (`--np-text-weight`, also Tailwind's `font-normal`); article text stays 400. Chinese, Japanese and Korean fall back to the system font of the interface language, chosen with `:lang()` on `<html>`; no CJK font is bundled.
 
 Text sizes replace Tailwind's scale:
 
