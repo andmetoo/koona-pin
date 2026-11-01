@@ -1,8 +1,12 @@
 # Koona Pin
 
-A bookmark library for Windows, macOS, Linux and Android. On the computer, save the page you are on from Chrome, Edge, Firefox or Safari with one button; on Android, paste a link or share one from another app. The link lands in the app and stays on your device. Read it later in reading mode, without menus or banners, and follow the sites you like through their feeds.
+Your bookmarks and reading list, in one file on your computer. Koona Pin is a bookmark library for Windows, macOS, Linux and Android. On the computer, save the page you are on from Chrome, Edge, Firefox or Safari with one button; on Android, paste a link or share one from another app. Read it later in reading mode, without menus or banners, and follow the sites you like through their feeds. It works offline.
 
-Website and downloads: **[koona.app/pin](https://koona.app/pin/)**
+- **Where your data lives:** in a SQLite file on your device, with automatic backups next to it ([paths](#privacy-and-where-your-data-lives)). No Koona server holds a copy of your library.
+- **What the app sends out:** no analytics, telemetry or crash reports. It connects to the sites you save, read and follow; on a computer, to Google's favicon service for missing site icons and to koona.app once a day for updates; with Supporter, to the Koona server about your plan and to the sync relay, which passes end-to-end encrypted changes and stores none of them ([full list](#privacy-and-where-your-data-lives)).
+- **What it costs:** nothing. Everything in [What it does](#what-it-does) is free, local backups included. [Supporter](#supporter), optional ($1.49 a month, $9.99 a year or $29.99 once), adds sync, backups to a folder you choose and two more reading themes.
+
+**[Download for Windows, macOS and Linux](https://koona.app/pin/downloads/)** · [Android on Google Play](https://play.google.com/store/apps/details?id=app.koona.pin) · [koona.app/pin](https://koona.app/pin/)
 
 ![Koona Pin in the light theme: bookmarks in a compact grid with pictures, site names and titles; Inbox, Reading, Feeds, collections and tags in the sidebar](docs/shots/app-en-light-grid-1280.webp)
 
@@ -19,7 +23,7 @@ Website and downloads: **[koona.app/pin](https://koona.app/pin/)**
 - **A Reading list without a limit.** Send links there with R, from the card menu, or with «Save to Reading» in the extension (right-click a page or a link, or Alt+Shift+R). Reading remembers where you stopped.
 - **Offline copies.** «Save for offline» keeps an article's text and pictures on your computer, to read without a connection; Settings can do it for every article you open from Reading (off by default). Copies are never uploaded or synced.
 - **Feeds.** Follow a site's RSS, Atom or JSON feed and read new posts in three columns: feeds in the sidebar, the posts, and the article on a card with next and previous story. S saves a post, R sends it to Reading, F to Favorites, O opens it in the browser. A post becomes a bookmark only when you save it; unsaved posts are kept for 30 days. The app fetches feeds itself, straight from the sites, about once an hour or as often as you choose. Feeds import and export as OPML.
-- **Collections, tags, favorites and notes** to group links the way you think about them.
+- **Collections three levels deep**, tags, favorites and a note on every link. Importing your browser's bookmarks keeps its folder tree as collections; folders deeper than that become tags.
 - **Grid, compact grid and list views**, a light and a dark theme. A link without a picture shows the site's name on its cover. A click selects; the arrow keys move the selection and Shift extends it. Drag selected links onto a collection, a tag, Favorites, Reading or Trash.
 - **Search** across titles, sites and tags as you type; Ctrl K (⌘K on a Mac) opens it from anywhere.
 - **Housekeeping.** Find and merge duplicates, check for links that no longer open, refresh previews, and undo with Ctrl Z (⌘Z on a Mac).
@@ -27,11 +31,13 @@ Website and downloads: **[koona.app/pin](https://koona.app/pin/)**
 - **Trash** keeps deleted links for 30 days, so you can restore them.
 - **Import and export.** Import the bookmarks file your browser exports or an OPML file of feeds; export to HTML, JSON or CSV; keep a full JSON copy and restore from it. «Import a file…» in the ⋯ menu (drop a file on its window or click to choose one), or a file dropped on the list, works out which kind it is from what it holds.
 - **Shareable lists.** Open a `.kpin` list of links and feeds someone published, see what it holds and choose what to import; make one in the bundle: drag bookmarks, collections, tags or feeds to it (or open it with «Share as list…» in the ⋯ menu and add the view on screen), then save it as a `.kpin` or copy it as Markdown. The bundle lives only while the app is open. The format is open and public domain: [docs/kpin](docs/kpin/README.md).
-- **AI assistants.** Claude and other assistants on your computer can search your links and, if you allow it, save, tag, file and star them, through MCP. It is off until you turn it on, and nothing deletes ([how it works](docs/architecture.md#ai-assistants-mcp)).
-- **Works offline.** The library is a file on your disk with automatic backups.
+- **AI assistants.** Claude, Cursor and other assistants on your computer can search your links and, if you allow it, save, tag, file and star them, through MCP. It is off until you turn it on, and nothing deletes ([how it works](docs/architecture.md#ai-assistants-mcp)).
+- **Works offline.** The library is a file on your disk with free automatic backups next to it, once a day.
 - **Lives in the tray** (the menu bar on a Mac) and can start with the system.
 - **Updates** are checked once a day and installed only when you agree.
 - **15 interface languages** (see [Translations](#translations)).
+
+### Supporter
 
 Koona Pin is free, and everything above stays free. **Supporter**, an optional subscription ($1.49 or €1.49 a month, $9.99 or €9.99 a year, or $29.99 or €29.99 as a one-time purchase), funds the project and adds:
 
@@ -79,7 +85,7 @@ Your library is a SQLite file on your computer:
 
 Automatic backups go to a `backups` folder next to it. Feed posts are kept in `feeds.db` and offline copies in an `offline` folder in the same place; neither is synced or exported. Uninstalling the Linux package keeps the library.
 
-The app sends no analytics, telemetry or crash reports. It connects to the network only to read the title and preview of a link you save from that link's website, to ask Google's favicon service for missing site icons, and to ask koona.app once a day whether a new version is out. Reading mode requests the page you open from its website, and the next article in the queue ahead of time while reading mode is open. It also requests the feeds you follow from their websites, about once an hour while it runs (nothing goes through a Koona server), the links the link check tests, the pictures of an article you save for offline, and, when you paste a link into «New link» (or, on a phone, type one and press Go), that page, to show its preview and whether it has a feed, and, when that page names no feed, the same site's home page. With Supporter, the optional subscription, it also asks the Koona server about your plan: while a purchase waits for its payment, once a day in the last days of a paid period, when you sign in or out, and, while sync is on, for a sign-in token for the sync relay. Sync carries your library between your devices through that relay, end-to-end encrypted with a key only your devices have, so the relay can't read it. The relay keeps nothing of your library and only passes changes between devices that are online at the same time. The extension reads only the address and title of the tab you save. Feedback reaches the developer only if you choose to send it; a Supporter purchase sends them the email you paid with. Details: [privacy policy](https://koona.app/pin/privacy).
+The app sends no analytics, telemetry or crash reports. It connects to the network only to read the title and preview of a link you save from that link's website, on a computer to ask Google's favicon service for missing site icons (phones ask only the site), and to ask koona.app once a day whether a new version is out. Reading mode requests the page you open from its website, and the next article in the queue ahead of time while reading mode is open. It also requests the feeds you follow from their websites, about once an hour while it runs (nothing goes through a Koona server), the links the link check tests, the pictures of an article you save for offline, and, when you paste a link into «New link» (or, on a phone, type one and press Go), that page, to show its preview and whether it has a feed, and, when that page names no feed, the same site's home page. With Supporter, the optional subscription, it also asks the Koona server about your plan: while a purchase waits for its payment, once a day in the last days of a paid period, when you sign in or out, and, while sync is on, for a sign-in token for the sync relay. Sync carries your library between your devices through that relay, end-to-end encrypted with a key only your devices have, so the relay can't read it. The relay keeps nothing of your library and only passes changes between devices that are online at the same time. The extension reads only the address and title of the tab you save. Feedback reaches the developer only if you choose to send it; a Supporter purchase sends them the email you paid with. Details: [privacy policy](https://koona.app/pin/privacy).
 
 ## Building from source
 
