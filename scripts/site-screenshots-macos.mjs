@@ -29,7 +29,7 @@ import { parseArgs } from "node:util";
 import { appBinary, assertNoOtherApp, hello, hostMessage, pipeReady, testPipe } from "./lib/native-host.mjs";
 import { root } from "./lib/paths.mjs";
 import {
-  click, copyOf, dataUrl, demoStorage, HELP_VIEWS, html, label, library, lit, previews, previewSeed, servePreviews, serveDist, SETTLED, shotsDir, shotsOut as out, until, webpEncoder,
+  click, copyOf, demoStorage, feedsSql, HELP_VIEWS, html, label, library, lit, previews, previewSeed, q, servePreviews, serveDist, SETTLED, shotsDir, shotsOut as out, until, webpEncoder,
 } from "./lib/shots.mjs";
 
 if (process.platform !== "darwin") throw new Error("site-screenshots-macos.mjs shoots a Mac window: run it on a Mac");
@@ -128,8 +128,6 @@ class Driver {
 }
 
 const oneLine = (text) => text.replace(/\s*\n\s*/g, " ");
-/** A string as an SQL literal. */
-const q = (value) => (value === null || value === undefined ? "NULL" : `'${String(value).replaceAll("'", "''")}'`);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** The on-screen window of a process: `[id, x, y, w, h]` (scripts/shots/window.swift). */
@@ -196,24 +194,9 @@ async function fill({ driver, data, env }, base) {
   // fetched a moment ago and not due again for a month, so the app fetches nothing.
   const now = Date.now();
   const stamp = (ms) => new Date(ms).toISOString();
-  const { feeds: list, posts } = feeds;
-  let cache = "";
-  for (const f of list)
-    cache += `INSERT INTO feed_state (feed_uid, title, site_url, fetched_at, succeeded_at, next_fetch_at, failures)
-      VALUES (${q(f.uid)}, ${q(f.title)}, ${q(f.site)}, ${q(stamp(now))}, ${q(stamp(now))}, ${q(stamp(now + 30 * 86400e3))}, 0);`;
-  for (const p of posts) {
-    const url = `${new URL(list.find((f) => f.uid === p.feed).site).origin}/${p.title.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "")}`;
-    const at = stamp(ANCHOR - p.hoursAgo * 3600e3);
-    cache += `INSERT INTO feed_items (feed_uid, key, url, title, author, excerpt, content_html, full, thumbnail_url, published_at, fetched_at, read_at)
-      VALUES (${q(p.feed)}, ${q(url)}, ${q(url)}, ${q(p.title)}, ${q(p.author)}, ${q(p.excerpt)}, ${q(html(p.body))}, 1,
-      ${q(p.picture ? await dataUrl(p.picture) : null)}, ${q(at)}, ${q(at)}, ${p.read ? q(stamp(now)) : "NULL"});`;
-  }
-  await driver.feedsSql(cache);
-  await driver.sql(
-    list
-      .map((f, i) => `INSERT INTO feeds (uid, url, title, destination, created_at, updated_at) VALUES (${q(f.uid)}, ${q(f.url)}, NULL, 'feeds', ${q(stamp(now - (40 - i) * 86400e3))}, ${q(stamp(now - (40 - i) * 86400e3))});`)
-      .join(" "),
-  );
+  const sql = await feedsSql(feeds, { now, anchor: ANCHOR });
+  await driver.feedsSql(sql.cache);
+  await driver.sql(sql.library);
 
   // The article to read: an offline copy (offline.rs), so the reader shows it without the web.
   for (const [i, b] of library.bookmarks.entries()) {

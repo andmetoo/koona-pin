@@ -74,6 +74,35 @@ export const html = (paragraphs) =>
 /** A preview photo as a `data:` address: feed pictures load over https or from data only (feedsView.ts). */
 export const dataUrl = async (file) => `data:image/jpeg;base64,${(await readFile(path.join(previews, file))).toString("base64")}`;
 
+/** A value as an SQL literal. */
+export const q = (value) => (value === null || value === undefined ? "NULL" : `'${String(value).replaceAll("'", "''")}'`);
+
+/**
+ * The SQL that puts `feeds` ({ feeds, posts }, as scripts/shots/feeds.json) where the app keeps
+ * them: `library`, the subscriptions in the library (their triggers want the app's own connection);
+ * `cache`, the posts in the feed cache `feeds.db`, as a fetch leaves them, fetched at `now` and not
+ * due again for a month, so the app fetches nothing. A post is `hoursAgo` before `anchor`.
+ */
+export async function feedsSql(feeds, { now = Date.now(), anchor = now } = {}) {
+  const stamp = (ms) => new Date(ms).toISOString();
+  const { feeds: list, posts } = feeds;
+  let cache = "";
+  for (const f of list)
+    cache += `INSERT OR REPLACE INTO feed_state (feed_uid, title, site_url, fetched_at, succeeded_at, next_fetch_at, failures)
+      VALUES (${q(f.uid)}, ${q(f.title)}, ${q(f.site)}, ${q(stamp(now))}, ${q(stamp(now))}, ${q(stamp(now + 30 * 86400e3))}, 0);\n`;
+  for (const p of posts) {
+    const url = `${new URL(list.find((f) => f.uid === p.feed).site).origin}/${p.title.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "")}`;
+    const at = stamp(anchor - p.hoursAgo * 3600e3);
+    cache += `INSERT OR REPLACE INTO feed_items (feed_uid, key, url, title, author, excerpt, content_html, full, thumbnail_url, published_at, fetched_at, read_at)
+      VALUES (${q(p.feed)}, ${q(url)}, ${q(url)}, ${q(p.title)}, ${q(p.author)}, ${q(p.excerpt)}, ${q(html(p.body))}, 1,
+      ${q(p.picture ? await dataUrl(p.picture) : null)}, ${q(at)}, ${q(at)}, ${p.read ? q(stamp(now)) : "NULL"});\n`;
+  }
+  const library = list
+    .map((f, i) => `INSERT OR IGNORE INTO feeds (uid, url, title, destination, created_at, updated_at) VALUES (${q(f.uid)}, ${q(f.url)}, NULL, 'feeds', ${q(stamp(now - (40 - i) * 86400e3))}, ${q(stamp(now - (40 - i) * 86400e3))});`)
+    .join("\n");
+  return { library, cache };
+}
+
 /** The built interface (dist/) on a port of its own: outside Tauri it is the browser preview, with its demo data. */
 export function serveDist() {
   const dist = path.join(root, "dist");
