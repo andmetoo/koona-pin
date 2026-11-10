@@ -43,6 +43,7 @@ check() {
     kill -0 $app 2> /dev/null || { echo "FAIL: the first instance exited"; exit 1; }
     echo "ok: second start handed over and exited ($status), the first keeps running"
     kill $app
+    wait $app || true
   ' check "$app"
 }
 
@@ -68,6 +69,7 @@ xdg() {
     echo "ok: autostart entry under \$XDG_CONFIG_HOME: this program with --autostart, TryExec"
     kill $app
     wait $app || true
+    wait $app || true
     # A power cut right after the first start leaves the entry empty (Debian 13, 0.3.3): the next start mends it.
     : > "$entry"
     "$1" > "$HOME/again.log" 2>&1 &
@@ -77,6 +79,7 @@ xdg() {
     [ ! -e "$XDG_CONFIG_HOME/autostart/.koonapin.desktop.partial" ] || { echo "FAIL: the partial file was left behind"; exit 1; }
     echo "ok: an empty autostart entry is mended at the next start"
     kill $app
+    wait $app || true
   ' xdg "$app"
 }
 
@@ -107,6 +110,7 @@ activation() {
       echo "note: this Weston offers no xdg-activation; the token is checked on a desktop (NP-104)"
     fi
     kill $app
+    wait $app || true
   ' activation "$app"
 }
 
@@ -133,6 +137,7 @@ startup() {
     fi
     echo "ok: a second start passed its startup id on, the window carries it"
     kill $app
+    wait $app || true
   ' startup "$app"
 }
 
@@ -152,6 +157,7 @@ drawn() {
     bun "$2/scripts/linux/screen-colours.mjs" "$(shoot window)" || { cat "$HOME/app.log"; exit 1; }
     echo "ok: the window is drawn"
     kill $app
+    wait $app || true
   ' drawn "$app" "$PWD"
 }
 

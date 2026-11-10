@@ -155,7 +155,7 @@ test("the row menu renames in place, styles the collection and makes one inside"
   await row(page, "Web").hover();
   await row(page, "Web").getByRole("button", { name: "Web: more" }).click();
   const menu = page.getByRole("menu", { name: "Web: more" });
-  await expect(menu.getByRole("menuitem")).toHaveText([/Rename\s*F2/, /Icon and colour…/, /New collection inside/, /Move to/, /Delete…/]);
+  await expect(menu.getByRole("menuitem")).toHaveText([/Rename\s*F2/, /Icon and color…/, /New collection inside/, /Move to/, /Delete…/]);
   await menu.getByRole("menuitem", { name: /Move to/ }).hover();
   const moveTo = page.getByRole("menu", { name: "Move to" });
   // Without itself and its own, its parent ticked, the hint of the keys at the end.
@@ -182,8 +182,8 @@ test("the row menu renames in place, styles the collection and makes one inside"
   // Icon and colour (frame N5): each pick shows at once.
   await row(page, "Frontend").hover();
   await row(page, "Frontend").getByRole("button", { name: "Frontend: more" }).click();
-  await page.getByRole("menuitem", { name: /Icon and colour/ }).click();
-  const style = page.getByRole("dialog", { name: "Icon and colour of Frontend" });
+  await page.getByRole("menuitem", { name: /Icon and color/ }).click();
+  const style = page.getByRole("dialog", { name: "Icon and color of Frontend" });
   await expect(style.getByRole("radio")).toHaveCount(45);
   await style.getByRole("radio", { name: "globe" }).click();
   await style.getByRole("radio", { name: "Blue" }).click();
@@ -241,7 +241,7 @@ test("deleting a parent moves its children up a level, into its place", async ({
   expect(await rows(page)).toEqual(["1 Design", "1 Rust", "1 Web", "2 React", "1 Tools", "1 Inspiration", "1 To read"]);
 });
 
-test("a parent shows what is inside it; «Only this collection» leaves that out", async ({ page }) => {
+test("a parent shows what is inside it; “Only this collection” leaves that out", async ({ page }) => {
   await item(page, "Development").click();
   const header = page.locator("[data-collection-header]");
   await expect(header.getByRole("button")).toHaveText([/^Rust\s*\d+$/, /^Web\s*1$/, /^Tools\s*0$/]);
@@ -258,7 +258,7 @@ test("a parent shows what is inside it; «Only this collection» leaves that out
   await expect(only).not.toBeChecked();
 });
 
-test("«Move to collection» of a bookmark is the tree; past eight collections a field finds one by its path", async ({ page }) => {
+test("“Move to collection” of a bookmark is the tree; past eight collections a field finds one by its path", async ({ page }) => {
   const card = page.locator("[data-bookmark-id]").first();
   await card.hover();
   await card.getByRole("button", { name: /^Actions: / }).click();

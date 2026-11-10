@@ -427,7 +427,7 @@ const recordLinks = (page: Page) =>
   });
 const opened = (page: Page) => page.evaluate(() => (window as unknown as { opened: string[] }).opened);
 
-test("the Play build: «I'm already a Supporter» first, Google Play's prices with a button each, what renews and how to cancel", async ({ page }) => {
+test("the Play build: “I'm already a Supporter” first, Google Play's prices with a button each, what renews and how to cancel", async ({ page }) => {
   const { supporter } = await openPlay(page);
   await expect(sheet(page, "you")).toHaveCount(0);
   await expect(page.locator(".ph-scrim")).toHaveCount(1);
@@ -721,7 +721,7 @@ test("the Play build, a Google Play plan: cancelled for you; payments failing (D
   await expect(deletion.getByRole("dialog", { name: "Confirm deletion" })).toContainText(/deleted on \w+ \d+, \d{4}/);
   await failOnce(page, "deleteAccount", "network", "Payments could not be stopped", "payments_not_stopped");
   await deletion.getByRole("button", { name: "Delete account" }).click();
-  await expect(deletion.getByRole("dialog", { name: "Could not stop payments" })).toContainText("Nothing was deleted, and your account stays as it was.");
+  await expect(deletion.getByRole("dialog", { name: "Couldn’t stop payments" })).toContainText("Nothing was deleted, and your account stays as it was.");
   // Try again goes back to the red button: one more press.
   await deletion.getByRole("button", { name: "Try again" }).click();
   await deletion.getByRole("button", { name: "Delete account" }).click();
@@ -742,7 +742,7 @@ test("the Play build with a plan paid elsewhere: nothing about cancelling a Goog
   await expect(deletion).not.toContainText("We cancel your Google Play subscription");
 });
 
-test("signed in without a plan: Supporter's sheet shows the account and a quiet «Delete account…»", async ({ page }) => {
+test("signed in without a plan: Supporter's sheet shows the account and a quiet “Delete account…”", async ({ page }) => {
   await openPhone(page, { settings: { ...FREE, "demo.deletionFresh": "on" } });
   await page.evaluate(async () => void (await (await import("/src/services/api.ts")).api.verifySignInCode("free@example.com", "482913")));
   const you = await openYou(page);

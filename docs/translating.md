@@ -91,7 +91,7 @@ Not translated: Koona Pin, Windows, Chrome, Edge, Firefox, Chrome Web Store, Edg
 | fr | vous | « … » with no-break spaces | No-break space before `: ; ? !` |
 | it | tu | «…» | |
 | ja | です/ます | 「…」 | Full-width 、。 and brackets; a space between Japanese and Latin letters or digits. |
-| ko | 합니다체; buttons short (저장, 삭제) | ‘…’ | After a placeholder, write both particle forms: `{{name}}을(를)`, `(으)로`. |
+| ko | 해요체; buttons short (저장, 삭제) | ‘…’ | After a placeholder, write both particle forms: `{{name}}을(를)`, `(으)로`. |
 | pl | ty, imperative (Otwórz) | „…” | |
 | pt-BR | você | “…” | |
 | ru | вы, imperative (Откройте) | «…» | |

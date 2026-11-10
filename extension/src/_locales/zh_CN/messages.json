@@ -13,7 +13,7 @@
   "searchOpenApp": { "message": "打开 Koona Pin" },
   "searchAll": { "message": "全部" },
   "searchInbox": { "message": "收件箱" },
-  "searchFavorites": { "message": "星标" },
+  "searchFavorites": { "message": "收藏" },
   "searchOpen": { "message": "打开" },
   "searchToday": { "message": "今天" },
   "searchRecent": { "message": "最近保存" },

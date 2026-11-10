@@ -1,7 +1,7 @@
 {
   "extensionName": { "message": "Koona Pin — bağlantıyı kaydet" },
   "extensionDescription": {
-    "message": "Sayfaları tek tıkla bilgisayarınızdaki Koona Pin uygulamasına kaydedin, makaleleri okuma listesine gönderin, bağlantılarda arayın."
+    "message": "Sayfaları tek tıkla bilgisayarınızdaki Koona Pin uygulamasına kaydedin, makaleleri Okuma Listesi'ne gönderin, bağlantılarda arayın."
   },
   "menuOptions": { "message": "Ayarlar ve sıra" },
   "menuSearch": { "message": "Bağlantı bul" },
@@ -12,7 +12,7 @@
   "searchKeysMac": { "message": "↑↓ · ↵ aç · ⇧↵ burada · ⌘C kopyala" },
   "searchOpenApp": { "message": "Koona Pin'i aç" },
   "searchAll": { "message": "Tümü" },
-  "searchInbox": { "message": "Gelen kutusu" },
+  "searchInbox": { "message": "Gelen Kutusu" },
   "searchFavorites": { "message": "Favoriler" },
   "searchOpen": { "message": "Aç" },
   "searchToday": { "message": "Bugün" },
@@ -38,7 +38,7 @@
     "message": "$PLACE$ içinde henüz bir şey yok",
     "placeholders": { "place": { "content": "$1", "example": "Favoriler" } }
   },
-  "searchNothingText": { "message": "Başka bir kelime deneyin ya da tüm kitaplıkta arayın — çöp kutusunda asla arama yapılmaz." },
+  "searchNothingText": { "message": "Başka bir kelime deneyin ya da tüm kitaplıkta arayın — Çöp Kutusu'nda asla arama yapılmaz." },
   "searchEverywhere": { "message": "Her yerde ara" },
   "searchStarting": { "message": "Koona Pin başlatılıyor…" },
   "searchMissingText": {
@@ -57,7 +57,7 @@
   "searchCopied": { "message": "Bağlantı kopyalandı" },
   "shortcutHeading": { "message": "Klavye kısayolu" },
   "shortcutText": { "message": "Kitaplığınızda aramayı açar." },
-  "readingShortcutText": { "message": "Açık sayfayı okuma listesine kaydeder." },
+  "readingShortcutText": { "message": "Açık sayfayı Okuma Listesi'ne kaydeder." },
   "shortcutNone": { "message": "Kısayol yok" },
   "shortcutChangeIn": {
     "message": "$BROWSER$ içinde değiştir",
@@ -120,22 +120,22 @@
   "errorSaveFailed": { "message": "Bağlantı kaydedilemedi" },
   "errorUnknownAction": { "message": "Bilinmeyen işlem" },
   "messageSavedTitle": { "message": "Koona Pin'e kaydedildi" },
-  "messageSavedText": { "message": "Gelen kutusuna eklendi" },
+  "messageSavedText": { "message": "Gelen Kutusu'na eklendi" },
   "messageExistingTitle": { "message": "Zaten Koona Pin'de" },
   "messageExistingText": { "message": "Etiketleriniz ve notlarınız değişmedi" },
   "messageQueuedTitle": { "message": "Koona Pin bekleniyor" },
   "messageQueuedText": { "message": "Uygulama açılınca gönderilecek" },
   "messageFailedTitle": { "message": "Bağlantı kaydedilemedi" },
   "messageFailedText": { "message": "Uzantı ayarlarına bakın" },
-  "menuReadingPage": { "message": "Sayfayı okuma listesine kaydet" },
-  "menuReadingLink": { "message": "Bağlantıyı okuma listesine kaydet" },
-  "menuReadingLinkNamed": { "message": "Bağlantıyı Koona Pin okuma listesine kaydet" },
-  "commandReading": { "message": "Sayfayı Koona Pin okuma listesine kaydet" },
-  "badgeReading": { "message": "Koona Pin okuma listesinde" },
-  "messageReadingTitle": { "message": "Okuma listesine kaydedildi" },
-  "messageReadingText": { "message": "Gelen kutusunda da bekliyor" },
-  "messageReadingExistingTitle": { "message": "Okuma listesine eklendi" },
-  "messageReadingQueuedText": { "message": "Uygulama açılınca okuma listesine gidecek" },
+  "menuReadingPage": { "message": "Sayfayı Okuma Listesi'ne kaydet" },
+  "menuReadingLink": { "message": "Bağlantıyı Okuma Listesi'ne kaydet" },
+  "menuReadingLinkNamed": { "message": "Bağlantıyı Koona Pin Okuma Listesi'ne kaydet" },
+  "commandReading": { "message": "Sayfayı Koona Pin Okuma Listesi'ne kaydet" },
+  "badgeReading": { "message": "Koona Pin Okuma Listesi'nde" },
+  "messageReadingTitle": { "message": "Okuma Listesi'ne kaydedildi" },
+  "messageReadingText": { "message": "Gelen Kutusu'nda da bekliyor" },
+  "messageReadingExistingTitle": { "message": "Okuma Listesi'ne eklendi" },
+  "messageReadingQueuedText": { "message": "Uygulama açılınca Okuma Listesi'ne gidecek" },
   "feedbackHeading": { "message": "Kaydettikten sonra" },
   "settingMessage": { "message": "Sayfada bir mesaj göster" },
   "settingMessageText": {

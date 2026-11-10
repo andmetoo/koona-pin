@@ -1,7 +1,7 @@
 {
   "extensionName": { "message": "Koona Pin — сачувај линк" },
   "extensionDescription": {
-    "message": "Сачувајте било коју страницу у апликацију Koona Pin на рачунару једним кликом, шаљите чланке у „За читање” и претражујте линкове."
+    "message": "Сачувајте било коју страницу у апликацију Koona Pin на рачунару једним кликом, шаљите чланке у „За читање“ и претражујте линкове."
   },
   "menuOptions": { "message": "Подешавања и ред" },
   "menuSearch": { "message": "Пронађи линк" },
@@ -38,7 +38,7 @@
     "message": "У $PLACE$ још нема ничега",
     "placeholders": { "place": { "content": "$1", "example": "Омиљено" } }
   },
-  "searchNothingText": { "message": "Пробајте другу реч или претражите целу библиотеку — отпад се никад не претражује." },
+  "searchNothingText": { "message": "Пробајте другу реч или претражите целу библиотеку — Отпад се никад не претражује." },
   "searchEverywhere": { "message": "Претражи свуда" },
   "searchStarting": { "message": "Покреће се Koona Pin…" },
   "searchMissingText": {
@@ -57,7 +57,7 @@
   "searchCopied": { "message": "Линк је копиран" },
   "shortcutHeading": { "message": "Пречица на тастатури" },
   "shortcutText": { "message": "Отвара претрагу ваше библиотеке." },
-  "readingShortcutText": { "message": "Чува отворену страницу у „За читање”." },
+  "readingShortcutText": { "message": "Чува отворену страницу у „За читање“." },
   "shortcutNone": { "message": "Нема пречице" },
   "shortcutChangeIn": {
     "message": "Промени у $BROWSER$",
@@ -120,22 +120,22 @@
   "errorSaveFailed": { "message": "Линк није сачуван" },
   "errorUnknownAction": { "message": "Непозната радња" },
   "messageSavedTitle": { "message": "Сачувано у Koona Pin" },
-  "messageSavedText": { "message": "Додато у пријемно сандуче" },
+  "messageSavedText": { "message": "Додато у Пријемно сандуче" },
   "messageExistingTitle": { "message": "Већ у Koona Pin" },
   "messageExistingText": { "message": "Ваше ознаке и белешке су непромењене" },
   "messageQueuedTitle": { "message": "Чека Koona Pin" },
   "messageQueuedText": { "message": "Биће послато кад се апликација отвори" },
   "messageFailedTitle": { "message": "Линк није сачуван" },
   "messageFailedText": { "message": "Погледајте подешавања проширења" },
-  "menuReadingPage": { "message": "Сачувај страницу у „За читање”" },
-  "menuReadingLink": { "message": "Сачувај везу у „За читање”" },
-  "menuReadingLinkNamed": { "message": "Сачувај везу у „За читање” у Koona Pin" },
-  "commandReading": { "message": "Сачувај страницу у „За читање” у Koona Pin" },
-  "badgeReading": { "message": "У „За читање” у Koona Pin" },
-  "messageReadingTitle": { "message": "Сачувано у „За читање”" },
-  "messageReadingText": { "message": "Чека и у пријемном сандучету" },
-  "messageReadingExistingTitle": { "message": "Додато у „За читање”" },
-  "messageReadingQueuedText": { "message": "Стићи ће у „За читање” кад се апликација отвори" },
+  "menuReadingPage": { "message": "Сачувај страницу у „За читање“" },
+  "menuReadingLink": { "message": "Сачувај линк у „За читање“" },
+  "menuReadingLinkNamed": { "message": "Сачувај линк у „За читање“ у Koona Pin" },
+  "commandReading": { "message": "Сачувај страницу у „За читање“ у Koona Pin" },
+  "badgeReading": { "message": "У „За читање“ у Koona Pin" },
+  "messageReadingTitle": { "message": "Сачувано у „За читање“" },
+  "messageReadingText": { "message": "Чека и у Пријемном сандучету" },
+  "messageReadingExistingTitle": { "message": "Додато у „За читање“" },
+  "messageReadingQueuedText": { "message": "Стићи ће у „За читање“ кад се апликација отвори" },
   "feedbackHeading": { "message": "После чувања" },
   "settingMessage": { "message": "Прикажи поруку на страници" },
   "settingMessageText": {

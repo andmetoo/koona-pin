@@ -38,7 +38,7 @@
     "message": "Aún no hay nada en $PLACE$",
     "placeholders": { "place": { "content": "$1", "example": "Favoritos" } }
   },
-  "searchNothingText": { "message": "Prueba otra palabra o busca en toda la biblioteca; la papelera nunca se busca." },
+  "searchNothingText": { "message": "Prueba otra palabra o busca en toda la biblioteca. La Papelera nunca se incluye en la búsqueda." },
   "searchEverywhere": { "message": "Buscar en todo" },
   "searchStarting": { "message": "Iniciando Koona Pin…" },
   "searchMissingText": {
@@ -120,7 +120,7 @@
   "errorSaveFailed": { "message": "No se pudo guardar el enlace" },
   "errorUnknownAction": { "message": "Acción desconocida" },
   "messageSavedTitle": { "message": "Guardado en Koona Pin" },
-  "messageSavedText": { "message": "Añadido a la bandeja de entrada" },
+  "messageSavedText": { "message": "Añadido a la Bandeja de entrada" },
   "messageExistingTitle": { "message": "Ya está en Koona Pin" },
   "messageExistingText": { "message": "Tus etiquetas y notas no cambian" },
   "messageQueuedTitle": { "message": "Esperando a Koona Pin" },
@@ -133,7 +133,7 @@
   "commandReading": { "message": "Guardar página en Para leer de Koona Pin" },
   "badgeReading": { "message": "En Para leer de Koona Pin" },
   "messageReadingTitle": { "message": "Guardado en Para leer" },
-  "messageReadingText": { "message": "También espera en la bandeja de entrada" },
+  "messageReadingText": { "message": "También espera en la Bandeja de entrada" },
   "messageReadingExistingTitle": { "message": "Añadido a Para leer" },
   "messageReadingQueuedText": { "message": "Irá a Para leer cuando se abra la app" },
   "feedbackHeading": { "message": "Después de guardar" },

@@ -38,7 +38,7 @@
     "message": "У $PLACE$ поки нічого немає",
     "placeholders": { "place": { "content": "$1", "example": "Обране" } }
   },
-  "searchNothingText": { "message": "Спробуйте інше слово або шукайте в усій бібліотеці — у кошику пошук не ведеться." },
+  "searchNothingText": { "message": "Спробуйте інше слово або шукайте в усій бібліотеці. У Кошику пошук не ведеться." },
   "searchEverywhere": { "message": "Шукати всюди" },
   "searchStarting": { "message": "Запускаємо Koona Pin…" },
   "searchMissingText": {
@@ -120,7 +120,7 @@
   "errorSaveFailed": { "message": "Не вдалося зберегти посилання" },
   "errorUnknownAction": { "message": "Невідома дія" },
   "messageSavedTitle": { "message": "Збережено в Koona Pin" },
-  "messageSavedText": { "message": "Додано у вхідні" },
+  "messageSavedText": { "message": "Додано у Вхідні" },
   "messageExistingTitle": { "message": "Уже є в Koona Pin" },
   "messageExistingText": { "message": "Ваші теги й нотатки не змінилися" },
   "messageQueuedTitle": { "message": "Чекає на Koona Pin" },
@@ -133,7 +133,7 @@
   "commandReading": { "message": "Зберегти сторінку в «Почитати» Koona Pin" },
   "badgeReading": { "message": "У «Почитати» Koona Pin" },
   "messageReadingTitle": { "message": "Збережено в «Почитати»" },
-  "messageReadingText": { "message": "І чекає у вхідних" },
+  "messageReadingText": { "message": "Також чекає у Вхідних" },
   "messageReadingExistingTitle": { "message": "Додано в «Почитати»" },
   "messageReadingQueuedText": { "message": "Потрапить у «Почитати», коли застосунок відкриється" },
   "feedbackHeading": { "message": "Після збереження" },

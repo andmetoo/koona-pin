@@ -153,7 +153,7 @@ test("the menu's favourite and Reading change the bookmark; Reading says so with
   const id = (await row.getAttribute("data-bookmark-id"))!;
   const same = topScreen(page).locator(`.lib-row[data-bookmark-id="${id}"]`);
   await longPress(page, row);
-  await menu(page).getByRole("button", { name: "Add to favorites" }).click();
+  await menu(page).getByRole("button", { name: "Add to Favorites" }).click();
   await expect(same.locator(".lib-heart")).toBeVisible();
   // The menu is gone first: while it leaves, its scrim still takes touches (reported to the lead).
   await expect(menu(page)).toHaveCount(0);
@@ -223,7 +223,7 @@ test("an empty library says so and offers New link", async ({ page }) => {
   await openPhone(page);
   await seed(page, []);
   const empty = topScreen(page).locator("[data-empty]");
-  await expect(empty).toContainText("Your bookmarks will live here");
+  await expect(empty).toContainText("Bookmarks you save show up here");
   await empty.getByRole("button", { name: "New link" }).click();
   await expect(page.locator('[data-sheet-kind="newLink"]').getByRole("dialog")).toBeVisible();
 });

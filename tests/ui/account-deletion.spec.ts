@@ -110,7 +110,7 @@ test("refusals: payments not stopped, a payment still processing, a paid period 
   await page.getByRole("dialog", { name: "When should we delete it?" }).getByRole("button", { name: "Continue" }).click();
   await failOnce(page, "deleteAccount", "network", "Payments could not be stopped", "payments_not_stopped");
   await red(page).click();
-  const failed = page.getByRole("dialog", { name: "Could not stop payments" });
+  const failed = page.getByRole("dialog", { name: "Couldn’t stop payments" });
   await expect(failed.getByRole("alert")).toHaveText("Nothing was deleted, and your account stays as it was. Check your connection and try again.");
   // Try again goes back to the red button: one more press to delete.
   await failed.getByRole("button", { name: "Try again" }).click();
@@ -132,7 +132,7 @@ test("refusals: payments not stopped, a payment still processing, a paid period 
   await expect(page.getByRole("dialog", { name: "Your account is deleted" })).toBeVisible();
 });
 
-test("an answer that did not come: unknown, never «nothing was deleted»; Check again finds the account still there, or signs out neutrally", async ({ page }) => {
+test("an answer that did not come: unknown, never “nothing was deleted”; Check again finds the account still there, or signs out neutrally", async ({ page }) => {
   await openDeletion(page, "supporter", true);
   await page.getByRole("dialog", { name: "Delete your account?" }).getByRole("button", { name: "Continue" }).click();
   await page.getByRole("dialog", { name: "When should we delete it?" }).getByRole("radio", { name: /^Delete now/ }).click();
@@ -184,7 +184,7 @@ test("a sign-in too old at the red button sends a new code by itself", async ({ 
   await expect(page.getByRole("dialog", { name: /^Your account will be deleted on/ })).toBeVisible();
 });
 
-test("a stale sign-in keeps «Delete now»: after the code, the red button for now", async ({ page }) => {
+test("a stale sign-in keeps “Delete now”: after the code, the red button for now", async ({ page }) => {
   await openDeletion(page, "supporter", true);
   await page.getByRole("dialog", { name: "Delete your account?" }).getByRole("button", { name: "Continue" }).click();
   const when = page.getByRole("dialog", { name: "When should we delete it?" });
@@ -196,7 +196,7 @@ test("a stale sign-in keeps «Delete now»: after the code, the red button for n
   await expect(page.getByRole("dialog", { name: "Confirm deletion" })).toContainText("Your account will be deleted now. This can't be undone.");
 });
 
-test("a deletion sent before a restart, its answer lost: the dialog opens on «We couldn't confirm the deletion»", async ({ page }) => {
+test("a deletion sent before a restart, its answer lost: the dialog opens on “We couldn't confirm the deletion”", async ({ page }) => {
   await openDeletion(page, "supporter", true);
   // `demo.deletionPending` is set before the page reads its supporter.
   await page.evaluate(() => localStorage.setItem("koonapin.demo.deletionPending", "on"));
@@ -209,7 +209,7 @@ test("a deletion sent before a restart, its answer lost: the dialog opens on «W
   await expect(page.getByRole("dialog", { name: "Confirm deletion" }).getByRole("alert")).toHaveText("Your account is still there. You can try again.");
 });
 
-test("scheduled earlier: Keep needs a code when the sign-in is old; offline says so; «Delete now instead» confirms with the red button", async ({ page }) => {
+test("scheduled earlier: Keep needs a code when the sign-in is old; offline says so; “Delete now instead” confirms with the red button", async ({ page }) => {
   await openDeletion(page, "deleting");
   const scheduled = page.getByRole("dialog", { name: SCHEDULED });
   await failOnce(page, "keepAccount", "network", "No connection", "no_connection");
@@ -225,7 +225,7 @@ test("scheduled earlier: Keep needs a code when the sign-in is old; offline says
   await expect(page.getByRole("dialog", { name: "Your account is deleted" })).toBeVisible();
 });
 
-test("signed in without a plan: the Support dialog shows the account and «Delete account…»; no payments, no choice of when", async ({ page }) => {
+test("signed in without a plan: the Support dialog shows the account and “Delete account…”; no payments, no choice of when", async ({ page }) => {
   await openApp(page, { settings: { "demo.supporter": "free" } });
   await page.locator("[data-plan-row]").click();
   await expect(page.getByRole("dialog", { name: "Support Koona Pin" }).locator("[data-account-line]")).toHaveCount(0);
@@ -249,7 +249,7 @@ test("signed in without a plan: the Support dialog shows the account and «Delet
   await expect(page.getByRole("dialog", { name: "Your account is deleted" })).toBeVisible();
 });
 
-test("signed in while the plan couldn't be checked: «Delete account…» stays in the notice", async ({ page }) => {
+test("signed in while the plan couldn't be checked: “Delete account…” stays in the notice", async ({ page }) => {
   await openApp(page, { settings: { "demo.supporter": "free" } });
   await page.evaluate(async () => void (await (await import("/src/services/api.ts")).api.verifySignInCode("unknown@example.com", "482913")));
   await page.locator("[data-plan-row]").click();

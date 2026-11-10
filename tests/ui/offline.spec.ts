@@ -84,7 +84,7 @@ test("save for offline from a row, the marker, the Offline section, the copy in 
   await expect(offlineNav(page)).toHaveCount(0);
 });
 
-test("reading mode: «Save offline» keeps the article on screen; offline, the copy and its banner (NP-126)", async ({ page, context }) => {
+test("reading mode: “Save offline” keeps the article on screen; offline, the copy and its banner (NP-126)", async ({ page, context }) => {
   await boot(page);
   await page.locator("button[data-read-mode]").click();
   const mode = page.locator("[data-reading-mode]");

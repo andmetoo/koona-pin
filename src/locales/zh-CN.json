@@ -10,7 +10,7 @@
     "keep": "保留",
     "copy": "复制",
     "open": "打开",
-    "retry": "重试",
+    "retry": "再试一次",
     "ok": "知道了",
     "cancel": "取消",
     "done": "完成"
@@ -77,7 +77,7 @@
     "tag": "为 {{count}} 个添加标签“{{tag}}”",
     "trash": "将 {{count}} 个移到回收站",
     "new": "用 {{count}} 个新建合集",
-    "favorites": "将 {{count}} 个加入星标",
+    "favorites": "将 {{count}} 个加入收藏",
     "reading": "将 {{count}} 个加入稍后读",
     "nowhere": "拖到合集、标签或回收站上",
     "keys": "在合集、标签或回收站上松开  ·  Esc — 取消拖动",
@@ -93,7 +93,7 @@
     "inbox": "收件箱",
     "inboxWaiting_other": "收件箱：{{count}} 个待整理",
     "all": "全部书签",
-    "favorites": "星标",
+    "favorites": "收藏",
     "reading": "稍后读",
     "trash": "回收站",
     "duplicates": "重复项",
@@ -178,13 +178,13 @@
     "openInBrowser": "在浏览器中打开",
     "copyLink": "复制链接",
     "edit": "编辑…",
-    "favorite": "加星标",
-    "unfavorite": "取消星标",
+    "favorite": "加入收藏",
+    "unfavorite": "取消收藏",
     "toReading": "加入稍后读",
     "fromReading": "移出稍后读",
     "markRead": "标为已读",
     "markUnread": "标为未读",
-    "isFavorite": "已加星标",
+    "isFavorite": "已收藏",
     "moveTo": "移到合集",
     "noCollection": "无合集",
     "findCollection": "查找合集",
@@ -208,8 +208,8 @@
     "selected_other": "项已选",
     "move": "移到…",
     "tag": "标签",
-    "favorite": "加星标",
-    "unfavoriteName": "取消星标",
+    "favorite": "收藏",
+    "unfavoriteName": "取消收藏",
     "reading": "稍后读",
     "toReading": "加入稍后读",
     "fromReading": "移出稍后读",
@@ -240,8 +240,8 @@
     "saveAgain": "再次保存",
     "saving": "正在保存…",
     "cancel": "取消",
-    "titleRequired": "标题不能为空",
-    "saveFailed": "无法保存 — 你的修改仍在表单中。",
+    "titleRequired": "请添加标题",
+    "saveFailed": "无法保存。你的修改仍在这里。",
     "tagsPlaceholder": "+ 标签",
     "removeTag": "移除标签 {{tag}}"
   },
@@ -440,7 +440,7 @@
       "collection": "合集",
       "tags": "标签",
       "notes": "笔记",
-      "favorite": "星标",
+      "favorite": "收藏",
       "inbox": "在收件箱中",
       "saved": "保存时间"
     }
@@ -511,9 +511,9 @@
     "deleteCollectionChildren": "{{names}} 将连同其中内容上移一层。",
     "delete": "删除",
     "emptyTrash": "清空回收站？",
-    "emptyTrashText_other": "{{count}} 个书签将被永久删除。此操作无法撤销，也无法通过“恢复”找回。",
+    "emptyTrashText_other": "{{count}} 个书签将被删除。此操作无法撤销，“恢复”也无法找回它们。",
     "deleteForever": "永久删除？",
-    "deleteForeverText": "“{{title}}”将被永久删除。此操作无法撤销。",
+    "deleteForeverText": "“{{title}}”将被删除，此操作无法撤销。",
     "deleteForeverButton": "永久删除"
   },
   "assistants": {
@@ -527,7 +527,7 @@
     "read": "只读",
     "readAndAdd": "读取和添加",
     "readHint": "搜索和读取书签、合集和标签；不做任何更改",
-    "addHint": "还可以把链接添加到收件箱、添加标签、移到合集和加星标。{{undo}} 可撤销每项更改；不会删除任何内容",
+    "addHint": "还可以把链接添加到收件箱、添加标签、移到合集和加入收藏。{{undo}} 可撤销每项更改；不会删除任何内容",
     "connect": "连接助手",
     "connectHint": "Claude Desktop、Claude Code、ChatGPT 和其他支持 MCP 的应用",
     "howToConnect": "如何连接…"
@@ -545,13 +545,13 @@
     "installButton": "为 Claude Desktop 保存…",
     "saved": "已保存 {{name}}：在 Claude Desktop 中打开它",
     "askTitle": "询问你的书签",
-    "askText": "例如：«找到我那篇关于 FTS5 的文章»。Claude 第一次使用某个工具前会先询问。",
+    "askText": "例如：“找到我那篇关于 FTS5 的文章”。Claude 第一次使用某个工具前会先询问。",
     "manualTitle": "或者手动添加",
     "manualText": "Settings → Developer → Edit Config，然后添加到 claude_desktop_config.json：",
     "runTitle": "在终端中运行",
     "runText": "为该用户的所有项目添加 Koona Pin：",
     "checkTitle": "检查连接",
-    "checkText": "在 Claude Code 中输入 /mcp：koona-pin 显示 «connected»。",
+    "checkText": "在 Claude Code 中输入 /mcp：koona-pin 显示“connected”。",
     "chatgptTitle": "在 ChatGPT 应用中添加",
     "chatgptText": "Settings → MCP servers → Add server：名称 koona-pin，类型 STDIO，并填入此命令：",
     "codexTitle": "或在终端中添加",
@@ -560,7 +560,7 @@
     "customTitle": "打开你的应用的 MCP 设置",
     "customText": "Cursor、Windsurf、Zed 和大多数支持 MCP 的应用把服务器保存在一个 JSON 文件中。",
     "customAddTitle": "添加 Koona Pin 并保存",
-    "customAddText": "有些应用把顶层键叫作 «servers»。之后应用会列出 koona-pin 及其工具。",
+    "customAddText": "有些应用把顶层键叫作“servers”。之后应用会列出 koona-pin 及其工具。",
     "note": "标题、描述和备注以数据的形式发送给助手。助手无法删除书签，也无法清空回收站。"
   },
   "connect": {
@@ -667,7 +667,7 @@
     "emptyText": "保存了多次的书签会显示在这里。在你做出选择之前不会合并任何内容。",
     "loading": "正在查找重复项…",
     "confirmTitle_other": "合并 {{count}} 组？",
-    "confirmText": "{{from}} 个书签将变成 {{to}} 个。笔记、标签和星标会移到主书签上；其余 {{trashed}} 个移到回收站，保留 30 天。{{undo}} 可撤销。",
+    "confirmText": "{{from}} 个书签将变成 {{to}} 个。笔记、标签和收藏状态会移到主书签上；其余 {{trashed}} 个移到回收站，保留 30 天。{{undo}} 可撤销。",
     "confirm": "全部合并",
     "merged_other": "已将 {{count}} 个书签合并到“{{title}}”",
     "mergedMany_other": "已合并 {{count}} 组，{{trashed}} 个在回收站中",
@@ -749,7 +749,7 @@
     "general": "常规",
     "reading": "阅读",
     "openLinks": "打开链接",
-    "openLinksHint": "点击标题、双击和按 Enter 时的操作。封面上的遮帘始终提供两种方式。",
+    "openLinksHint": "点击标题、双击和按 Enter 时的操作。封面上的按钮始终提供两种方式。",
     "openLinksBrowser": "在浏览器中",
     "openLinksReader": "在阅读模式中",
     "markRead": "读到末尾时标为已读",
@@ -927,13 +927,13 @@
     "toastFiled": "已归入“{{name}}”",
     "toastTrashed": "已移到回收站",
     "toastSaved": "已保存",
-    "toastFavorite": "已加星标",
-    "toastUnfavorite": "已取消星标",
+    "toastFavorite": "已加入收藏",
+    "toastUnfavorite": "已取消收藏",
     "toastTagged": "已添加标签",
     "keyUndo": "撤销",
     "keyOpen": "打开页面",
     "keyEdit": "编辑",
-    "keyFavorite": "星标"
+    "keyFavorite": "收藏"
   },
   "undo": {
     "undone": "已撤销：“{{title}}”",
@@ -954,11 +954,11 @@
     "lastDay": "即将删除",
     "deleteForever": "永久删除…",
     "empty": "清空回收站…",
-    "note": "已删除的书签会在这里保留 30 天，之后将被永久删除。恢复会连同笔记、标签、合集和星标一起找回。"
+    "note": "已删除的书签会在这里保留 30 天，之后将被永久删除。恢复会连同笔记、标签、合集和收藏状态一起找回。"
   },
   "empty": {
     "library": "你的书签将存放在这里",
-    "libraryHint": "从浏览器导入书签、连接扩展，或手动添加链接。",
+    "libraryHint": "从浏览器导入、连接扩展，或添加链接。",
     "importBrowser": "从浏览器导入",
     "connect": "连接浏览器",
     "local": "资料库只保存在这台电脑上。",
@@ -966,10 +966,10 @@
     "noResultsIn": "在“{{section}}”中未找到任何内容",
     "noResultsHint": "试试其他搜索词，或清除筛选。",
     "resetSearch": "清除搜索",
-    "noFavorites": "还没有星标书签",
-    "noFavoritesHint": "给书签加上星标，它就会显示在这里。",
+    "noFavorites": "还没有收藏的书签",
+    "noFavoritesHint": "收藏一个书签，它就会显示在这里。",
     "reading": "还没有要读的内容",
-    "readingHint": "选中书签后按 R，或在书签菜单中选择“加入稍后读”。已读的书签一周后离开这里。",
+    "readingHint": "选中书签后按 R，或在书签菜单中选择“加入稍后读”。已读的书签一周后会移出这里。",
     "emptyCollection": "“{{name}}”是空的",
     "emptyCollectionHint": "在这里添加链接，或从资料库移入书签。",
     "noResultsFor": "没有与“{{query}}”匹配的内容",
@@ -977,15 +977,15 @@
     "searchHint": "搜索范围包括标题、地址、描述、笔记和标签。请检查拼写，或只输入词语的一部分。",
     "searchEverywhere": "搜索整个资料库",
     "resetFilters": "清除筛选",
-    "inbox": "全部整理完毕",
-    "inboxHint": "从浏览器保存和导入的新书签会来到这里，等待你处理。",
+    "inbox": "没有需要整理的内容",
+    "inboxHint": "来自浏览器和导入的新书签会留在这里，直到你决定如何处理。",
     "trash": "回收站是空的",
     "trashHint": "已删除的书签会在这里保留 30 天，之后将被永久删除。",
     "offline": "还没有离线副本",
     "offlineHint": "在书签菜单中选择“保存以便离线阅读”，或在阅读模式中选择“离线保存”。副本保留在这台电脑上。"
   },
   "inbox": {
-    "banner_other": "{{count}} 个新书签正在等待 — 保留、归档或删除，大约只需一分钟",
+    "banner_other": "有 {{count}} 个新书签等待处理。保留、归档或删除只需大约一分钟。",
     "bannerMany_other": "{{count}} 个新书签正在等待",
     "bannerImported_other": "{{count}} 个新书签正在等待 — 其中 {{imported, number}} 个来自导入",
     "bannerShort_other": "{{count}} 个新书签待整理",
@@ -1122,7 +1122,7 @@
     "details": "详细信息",
     "DB_LOCKED": {
       "title": "资料库正被另一个程序使用",
-      "body": "另一个程序打开了资料库文件。Koona Pin 没有向其中写入任何内容 — 你的数据保持原样。请关闭该程序，然后点击“重试”。"
+      "body": "另一个程序打开了资料库文件。Koona Pin 没有向其中写入任何内容 — 你的数据保持原样。请关闭该程序，然后点击“再试一次”。"
     },
     "DB_NEWER_SCHEMA": {
       "title": "较新版本的 Koona Pin 已更新此资料库",
@@ -1179,7 +1179,7 @@
     "copy": "复制文字",
     "copied": "文字已复制",
     "copyFailed": "无法复制",
-    "sentTitle": "已发送。谢谢！",
+    "sentTitle": "已发送。谢谢。",
     "sentBody": "开发者会阅读每一条消息。如果你留了邮箱，回复会发到那里。",
     "done": "完成"
   },
@@ -1213,7 +1213,7 @@
       "bad_signature": "下载的文件没有 Koona 的签名，因此未安装。请稍后重试。",
       "password_cancelled": "没有输入密码，因此未安装更新。",
       "install_failed": "Linux 无法安装此软件包。请从网站下载新版本：",
-      "failed": "更新时出了问题。请稍后重试。"
+      "failed": "无法更新。请稍后重试。"
     }
   },
   "errors": {
@@ -1334,8 +1334,8 @@
     "moved_other": "已将 {{count}} 个书签移到“{{name}}”",
     "movedOut_other": "已将 {{count}} 个书签移出合集",
     "tagged_other": "已为 {{count}} 个书签添加标签“{{tag}}”",
-    "starred_other": "已为 {{count}} 个书签加星标",
-    "unstarred_other": "已为 {{count}} 个书签取消星标",
+    "starred_other": "已收藏 {{count}} 个书签",
+    "unstarred_other": "已取消收藏 {{count}} 个书签",
     "trashed_other": "已将 {{count}} 个书签移到回收站",
     "restored_other": "已恢复 {{count}} 个书签",
     "toReading_other": "已将 {{count}} 个书签加入稍后读",
@@ -1349,8 +1349,8 @@
       "moveOut_other": "无法将 {{count}} 个书签移出合集：{{reason}}。未做任何更改。",
       "newCollection": "无法创建合集“{{name}}”：{{reason}}。未做任何更改。",
       "tag_other": "无法为 {{count}} 个书签添加标签“{{tag}}”：{{reason}}。未做任何更改。",
-      "star_other": "无法为 {{count}} 个书签加星标：{{reason}}。未做任何更改。",
-      "unstar_other": "无法为 {{count}} 个书签取消星标：{{reason}}。未做任何更改。",
+      "star_other": "无法收藏 {{count}} 个书签：{{reason}}。未做任何更改。",
+      "unstar_other": "无法取消收藏 {{count}} 个书签：{{reason}}。未做任何更改。",
       "trash_other": "无法将 {{count}} 个书签移到回收站：{{reason}}。未做任何更改。",
       "toReading_other": "无法将 {{count}} 个书签加入稍后读：{{reason}}。未做任何更改。",
       "fromReading_other": "无法将 {{count}} 个书签移出稍后读：{{reason}}。未做任何更改。",
@@ -1978,17 +1978,17 @@
       "all": "全部",
       "allIn": "{{name}} 中的全部",
       "inside": "{{name}} 内",
-      "favorite": "星标",
+      "favorite": "收藏",
       "newLinks_other": "{{count, number}} 个新链接",
       "refreshing": "正在刷新",
       "pages": "待读和已读",
       "toRead": "待读 {{count, number}}",
       "readPage": "已读 {{count, number}}",
       "empty": {
-        "libraryHint": "点按 + 保存链接：它会带着标题和图片在这里等你。",
-        "favoritesHint": "长按书签并选择“加星标”，它就会显示在这里。",
-        "readingHint": "打开书签并点按书本图标，或长按书签并选择“加入稍后读”。已读的会在一周后移出。",
-        "collectionHint": "长按书签并选择“移到合集”，或在这里保存新链接。",
+        "libraryHint": "轻点 + 保存链接。保存后会显示在这里，带有标题和图片。",
+        "favoritesHint": "按住书签，然后选择“加入收藏”。",
+        "readingHint": "打开书签并轻点书本图标，或按住书签并选择“加入稍后读”。已读的书签一周后会移出。",
+        "collectionHint": "按住书签并选择“移到合集”，或在这里保存新链接。",
         "read": "还没有读完的文章",
         "readHint": "在阅读器里读完一篇文章(把进度向上拉),它就会移到这里。"
       }
@@ -2018,9 +2018,9 @@
       "trashKept": "在那里保留 30 天",
       "newWait": "新链接会在收件箱中等待。",
       "toLibrary": "前往资料库",
-      "allSorted": "全部整理完毕",
-      "emptyShare": "从其他应用保存的链接会来到这里。一分钟就能整理好。",
-      "emptyAdd": "你保存的链接会来到这里。一分钟就能整理好。",
+      "allSorted": "没有需要整理的内容",
+      "emptyShare": "从其他应用保存的链接会留在这里。大约一分钟就能整理好。",
+      "emptyAdd": "你保存的链接会留在这里。大约一分钟就能整理好。",
       "tipShare": "从任意应用保存",
       "tipShareHow": "分享 → Koona Pin",
       "tipAdd": "用 + 添加链接",
@@ -2092,7 +2092,7 @@
       "controlsHint": "导航和主要按钮会移到你握持的一侧",
       "controlsLeft": "操作按钮在左侧",
       "controlsRight": "操作按钮在右侧",
-      "controlsTip": "提示：长按导航栏即可切换左右。",
+      "controlsTip": "提示：按住导航栏即可切换左右。",
       "reading": "阅读",
       "textSize": "文字大小",
       "sizes": {
@@ -2103,7 +2103,7 @@
       },
       "smaller": "缩小文字",
       "larger": "放大文字",
-      "sample": "在这里阅读更安静：文章原本的文字，排在平静的一栏中，大小随你喜欢。",
+      "sample": "文章原本的文字，排成一栏，大小随你喜欢。",
       "readerTheme": "主题",
       "font": "字体",
       "lockedHint": "纸张和棕褐主题随 Supporter 提供。",
@@ -2181,7 +2181,7 @@
       "offTitle": "同步已关闭",
       "offText": "让手机和电脑上的资料库保持一致。",
       "freeTitle": "同步随 Supporter 提供",
-      "freeText": "你的资料库、稍后读和阅读进度出现在每台设备上，离开设备前就已加密。",
+      "freeText": "你的资料库、稍后读和阅读进度会保留在每台设备上，离开设备前就已加密。",
       "manage": "管理同步",
       "online": "在线",
       "away": "离线",
@@ -2191,7 +2191,7 @@
     "supporter": {
       "title": "Koona Pin Supporter",
       "lead": "Supporter 让 Koona Pin 持续前行",
-      "leadText": "并在这部手机上多得到一些功能。",
+      "leadText": "他们还能在这部手机上获得一些额外功能。",
       "perksLabel": "Supporter 权益",
       "perk": {
         "sync": "与电脑同步",
@@ -2286,7 +2286,7 @@
       "savedOn": "保存于 {{date}}",
       "empty": "选择一个链接即可在这里查看。",
       "emptyFeeds": "选择一篇文章即可在这里阅读。",
-      "emptyInbox": "点按卡片即可在这里查看完整链接。"
+      "emptyInbox": "轻点卡片即可在这里查看完整链接。"
     }
   }
 }

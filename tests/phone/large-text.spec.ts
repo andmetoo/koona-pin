@@ -110,7 +110,7 @@ for (const scale of [1.3, 2]) {
       await topScreen(page).locator("[data-account]").click();
       await sheet(page, "you").getByRole("button", { name: "Settings", exact: true }).click();
       await check(page, "S1");
-      for (const row of ["Appearance", "Text size", "Language", "Backups", "About & licences"]) {
+      for (const row of ["Appearance", "Text size", "Language", "Backups", "About & licenses"]) {
         await topScreen(page).getByRole("button", { name: new RegExp(row) }).first().click();
         await check(page, row);
         await topScreen(page).getByRole("button", { name: "Back", exact: true }).click();

@@ -38,7 +38,7 @@
     "message": "W $PLACE$ jeszcze nic nie ma",
     "placeholders": { "place": { "content": "$1", "example": "Ulubione" } }
   },
-  "searchNothingText": { "message": "Spróbuj innego słowa albo przeszukaj całą bibliotekę — kosz nigdy nie jest przeszukiwany." },
+  "searchNothingText": { "message": "Spróbuj innego słowa albo przeszukaj całą bibliotekę. Kosz nigdy nie jest przeszukiwany." },
   "searchEverywhere": { "message": "Szukaj wszędzie" },
   "searchStarting": { "message": "Uruchamianie Koona Pin…" },
   "searchMissingText": {
@@ -120,7 +120,7 @@
   "errorSaveFailed": { "message": "Nie udało się zapisać linku" },
   "errorUnknownAction": { "message": "Nieznane działanie" },
   "messageSavedTitle": { "message": "Zapisano w Koona Pin" },
-  "messageSavedText": { "message": "Dodano do skrzynki odbiorczej" },
+  "messageSavedText": { "message": "Dodano do Skrzynki odbiorczej" },
   "messageExistingTitle": { "message": "Już jest w Koona Pin" },
   "messageExistingText": { "message": "Twoje tagi i notatki się nie zmieniły" },
   "messageQueuedTitle": { "message": "Czeka na Koona Pin" },
@@ -133,7 +133,7 @@
   "commandReading": { "message": "Zapisz stronę w „Do przeczytania” w Koona Pin" },
   "badgeReading": { "message": "W „Do przeczytania” w Koona Pin" },
   "messageReadingTitle": { "message": "Zapisano w „Do przeczytania”" },
-  "messageReadingText": { "message": "Czeka też w skrzynce odbiorczej" },
+  "messageReadingText": { "message": "Czeka też w Skrzynce odbiorczej" },
   "messageReadingExistingTitle": { "message": "Dodano do „Do przeczytania”" },
   "messageReadingQueuedText": { "message": "Trafi do „Do przeczytania”, gdy aplikacja się otworzy" },
   "feedbackHeading": { "message": "Po zapisaniu" },

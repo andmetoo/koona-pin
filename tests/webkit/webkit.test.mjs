@@ -53,7 +53,7 @@ describe(`WebKitGTK: ${app} under ${process.env.WAYLAND_DISPLAY ? "Wayland" : "X
   });
 
   it("starts with its library in KOONAPIN_DATA_DIR", async () => {
-    await page.role("heading", "Your bookmarks will live here");
+    await page.role("heading", "Bookmarks you save show up here");
     assert.ok(existsSync(path.join(data, "koonapin.db")), "koonapin.db in KOONAPIN_DATA_DIR");
     // A new library speaks English: its first collections are named by the interface (NP-085).
     const names = await waitFor(

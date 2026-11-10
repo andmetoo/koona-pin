@@ -395,7 +395,7 @@ test("Space reads the selection in a sheet over the list; ↑/↓ go through it,
   // «Open in browser» and the heart act on the bookmark shown.
   await s.getByRole("button", { name: "Open in browser" }).click();
   expect(await opened(page)).toEqual([await urlOf(card(page, TITLES[0]))]);
-  const heart = s.getByRole("button", { name: /favorites$/ });
+  const heart = s.getByRole("button", { name: /Favorites$/ });
   const pressed = await heart.getAttribute("aria-pressed");
   await heart.click();
   await expect(heart).toHaveAttribute("aria-pressed", pressed === "true" ? "false" : "true");

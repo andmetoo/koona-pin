@@ -62,7 +62,7 @@ test("Settings → Data: the choice with its counts, progress with Stop, the res
   await expect(centre(page).locator('[data-notification="task"]')).toHaveCount(0);
 });
 
-test("a whole run ends with its numbers; a refresh's failures are link-checked, and «Show them» opens the Links page", async ({ page }) => {
+test("a whole run ends with its numbers; a refresh's failures are link-checked, and “Show them” opens the Links page", async ({ page }) => {
   await openApp(page, { settings: { "demo.refreshStep": "20" }, cards: 6 });
   const refresh = () =>
     page.evaluate(async () => {

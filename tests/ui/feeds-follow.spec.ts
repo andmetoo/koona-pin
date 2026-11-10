@@ -48,7 +48,7 @@ const open = async (page: Page, link: string) => {
   await paste(page, link);
 };
 
-test("a page with a feed: its real title, «Follow» off, and saving makes exactly one request", async ({ page }) => {
+test("a page with a feed: its real title, “Follow” off, and saving makes exactly one request", async ({ page }) => {
   await open(page, "fieldnotes.example.com/walking-the-old-railway");
   const preview = sheet(page).locator("[data-add-preview=new]");
   await expect(preview).toContainText("Walking the old railway");
@@ -109,7 +109,7 @@ test("a typed link is looked up on Enter, not saved; Enter again saves it", asyn
   expect(await calls(page, "previewLink")).toHaveLength(1);
 });
 
-test("«Save and follow» saves the bookmark, then follows the feed; its posts are there", async ({ page }) => {
+test("“Save and follow” saves the bookmark, then follows the feed; its posts are there", async ({ page }) => {
   await open(page, "https://fieldnotes.example.com/");
   await sheet(page).getByRole("switch", { name: "Follow Field Notes" }).click();
   await expect(offer(page)).toContainText(/About 4 new posts a day · last one 2 hr\. ago/);
@@ -130,7 +130,7 @@ test("«Save and follow» saves the bookmark, then follows the feed; its posts a
   expect(followed).toMatchObject({ feed_title: "Field Notes", destination: "notify", total: 2, unread: 2 });
 });
 
-test("a bare feed address: «Follow <title>», no bookmark", async ({ page }) => {
+test("a bare feed address: “Follow <title>”, no bookmark", async ({ page }) => {
   const before = await page.locator("[data-bookmark-id]").count();
   await open(page, "https://fieldnotes.example.com/feed.xml");
   await expect(offer(page)).toContainText("Follow Field Notes");
@@ -156,7 +156,7 @@ test("several feeds: the first, and a list to switch", async ({ page }) => {
   await expect.poll(() => calls(page, "subscribeFeed")).toEqual(['subscribeFeed "https://smallbatch.example.com/comments.rss" null "feeds"']);
 });
 
-test("a site already followed says so; a feed that can't be read falls back to «Save link»", async ({ page }) => {
+test("a site already followed says so; a feed that can't be read falls back to “Save link”", async ({ page }) => {
   await open(page, "https://www.theverge.com/2026/10/some-story");
   await expect(offer(page)).toHaveAttribute("data-feed-offer", "followed");
   await expect(offer(page)).toContainText("You follow this site");
@@ -170,7 +170,7 @@ test("a site already followed says so; a feed that can't be read falls back to �
   await expect(sheet(page).getByRole("group", { name: "New posts go to" })).toHaveCount(0);
 });
 
-test("feeds that notify: «N new posts», their names and Read; a feed failing for a week: Show and Unfollow", async ({ page }) => {
+test("feeds that notify: “N new posts”, their names and Read; a feed failing for a week: Show and Unfollow", async ({ page }) => {
   await page.evaluate(() => localStorage.setItem("koonapin.demo.feeds", "failing"));
   await page.reload();
   await expect(page.locator("[data-bookmark-id]").first()).toBeVisible();
@@ -201,7 +201,7 @@ test("feeds that notify: «N new posts», their names and Read; a feed failing f
   ]);
 });
 
-test("More → «Import a file…» takes an OPML file and follows its feeds", async ({ page }) => {
+test("More → “Import a file…” takes an OPML file and follows its feeds", async ({ page }) => {
   await page.getByRole("button", { name: "More", exact: true }).click();
   await page.getByRole("menuitem", { name: /^Import a file…/ }).click();
   const chooser = page.waitForEvent("filechooser");
