@@ -129,11 +129,11 @@ describe("browser status", () => {
     const edge = installSteps("edge");
     expect(edge).toMatchObject({ store: "Edge Add-ons", install: "connect.store_edge", update: "connect.updateStore" });
     expect(edge.url).toMatch(/^https:\/\/microsoftedge\.microsoft\.com\/addons\/detail\//);
-    expect(t(edge.install)).toBe("Open the Koona Pin page in Edge Add-ons and click «Get».");
+    expect(t(edge.install)).toBe("Open the Koona Pin page in Edge Add-ons and click “Get”.");
     // The signed add-on is on the site's downloads page, which updates it too (NP-018).
     const firefox = installSteps("firefox");
     expect(firefox).toMatchObject({ url: "https://koona.app/pin/downloads/#extension", store: "koona.app", install: "connect.site_firefox" });
-    expect(t(firefox.install)).toMatch(/«Add to Firefox»/);
+    expect(t(firefox.install)).toMatch(/“Add to Firefox”/);
     expect(t(firefox.update)).toMatch(/Firefox checks koona\.app/);
     expect(t("connect.openStore", { store: firefox.store })).toBe("Open koona.app");
   });

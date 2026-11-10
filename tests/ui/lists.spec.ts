@@ -45,7 +45,7 @@ const recordImports = (page: Page) =>
   });
 const imports = (page: Page) => page.evaluate(() => (window as unknown as { imports: Record<string, unknown>[] }).imports);
 
-test("a list: the preview (K10), Accept, the report, then «Show collection»", async ({ page }) => {
+test("a list: the preview (K10), Accept, the report, then “Show collection”", async ({ page }) => {
   expect(await push(page, { kind: "kpin", name: "rust-blogs.kpin", text: kpin("valid.kpin") })).toBe(true);
   const d = dialog(page);
   const head = d.locator("[data-list-head]");
@@ -129,7 +129,7 @@ test("a list: the preview (K10), Accept, the report, then «Show collection»", 
   await expect(d).toHaveCount(0);
 });
 
-test("each «Put links into» option reaches import_list; saved links are always left", async ({ page }) => {
+test("each “Put links into” option reaches import_list; saved links are always left", async ({ page }) => {
   await recordImports(page);
   const d = dialog(page);
   const choose = async (label: string | null) => {
@@ -164,7 +164,7 @@ test("each «Put links into» option reaches import_list; saved links are always
   expect((await imports(page)).at(-1)).toMatchObject({ to_inbox: true, sections_as_tags: false });
 });
 
-test("«Follow all» is on, off or mixed; the feeds checked are the feeds followed", async ({ page }) => {
+test("“Follow all” is on, off or mixed; the feeds checked are the feeds followed", async ({ page }) => {
   await recordImports(page);
   const feeds = JSON.stringify({
     format: "koona",
@@ -207,7 +207,7 @@ test("«Follow all» is on, off or mixed; the feeds checked are the feeds follow
   expect((await imports(page)).at(-1)).toMatchObject({ follow_feeds: ["https://fasterthanli.me/index.xml"], existing_links: "leave" });
 });
 
-test("feeds outside any section are a «Feeds» group with «Follow all», alone or after links", async ({ page }) => {
+test("feeds outside any section are a “Feeds” group with “Follow all”, alone or after links", async ({ page }) => {
   await recordImports(page);
   const d = dialog(page);
   const list = (items: unknown[]) => JSON.stringify({ format: "koona", app: "pin", kind: "list", version: "1.0", title: "Loose feeds", items });
@@ -372,7 +372,7 @@ test("a list from a newer format asks for an update; another app's list and a br
   await expect(d).toHaveCount(0);
 });
 
-test("a newer 1.x list says what was skipped; «Import a file…» takes a list to the list dialog", async ({ page }) => {
+test("a newer 1.x list says what was skipped; “Import a file…” takes a list to the list dialog", async ({ page }) => {
   await page.getByRole("button", { name: "More", exact: true }).click();
   await page.getByRole("menuitem", { name: /^Import a file…/ }).click();
   const chooser = page.waitForEvent("filechooser");

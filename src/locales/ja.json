@@ -10,8 +10,8 @@
     "keep": "残す",
     "copy": "コピー",
     "open": "開く",
-    "retry": "再試行",
-    "ok": "OK",
+    "retry": "もう一度試す",
+    "ok": "わかりました",
     "cancel": "キャンセル",
     "done": "完了"
   },
@@ -90,14 +90,14 @@
     "bundleFeeds_other": "{{count, number}} 件のフィードを追加"
   },
   "nav": {
-    "inbox": "インボックス",
-    "inboxWaiting_other": "インボックス：{{count}} 件が待機中",
+    "inbox": "受信トレイ",
+    "inboxWaiting_other": "受信トレイ：{{count}} 件が待機中",
     "all": "すべてのブックマーク",
     "favorites": "お気に入り",
     "reading": "あとで読む",
     "trash": "ゴミ箱",
     "duplicates": "重複",
-    "links": "リンクチェック",
+    "links": "リンクを確認",
     "settings": "設定",
     "offline": "オフライン"
   },
@@ -170,7 +170,7 @@
     "exportCsv": "スプレッドシート用 CSV",
     "cleanUp": "整理",
     "duplicates": "重複",
-    "links": "リンクチェック"
+    "links": "リンクを確認"
   },
   "card": {
     "open": "開く：{{title}}",
@@ -240,8 +240,8 @@
     "saveAgain": "もう一度保存",
     "saving": "保存中…",
     "cancel": "キャンセル",
-    "titleRequired": "タイトルは空にできません",
-    "saveFailed": "保存できませんでした。変更内容はフォームに残っています。",
+    "titleRequired": "タイトルを入力してください",
+    "saveFailed": "保存できませんでした。変更内容はそのまま残っています。",
     "tagsPlaceholder": "+ タグ",
     "removeTag": "タグ {{tag}} を削除"
   },
@@ -268,8 +268,8 @@
     "restoredTo": "ゴミ箱から戻し、{{place}}に保存しました",
     "removed": "リンクを削除しました",
     "dropTitle": "ドロップしてリンクを保存",
-    "dropHint": "{{place}}に入ります。Shiftを押すとインボックスへ",
-    "dropHintInbox": "インボックスに入ります",
+    "dropHint": "{{place}}に入ります。Shiftを押すと受信トレイへ",
+    "dropHintInbox": "受信トレイに入ります",
     "dropAnything": "ここに何でもドロップ",
     "dropAnythingLine": "リスト、フィード、ブックマーク、バックアップ — Koona Pin が種類を判別します",
     "dropConfirm": "確認するまで何もインポートされません",
@@ -295,7 +295,7 @@
     "feedShow": "表示",
     "feedDestination": "新しい投稿の行き先",
     "feedDestFeeds": "フィードのみ",
-    "feedDestInbox": "インボックスのように整理",
+    "feedDestInbox": "受信トレイのように整理",
     "feedDestNotify": "通知もする",
     "feedChoose": "フィードを選ぶ",
     "feedSaveFollow": "保存してフォロー",
@@ -313,8 +313,8 @@
     "empty": "このファイルにはブックマークがありません。ブラウザーから HTML としてエクスポートしてください。Chrome と Edge では ブックマーク マネージャー → ⋯ → ブックマークをエクスポート、Firefox では ブックマーク → ブックマークを管理 → インポートとバックアップ → HTML としてエクスポート です。",
     "destination": "追加先",
     "library": "ライブラリ",
-    "inbox": "インボックス",
-    "destinationHint": "ライブラリ：すぐに整理済みになります。インボックス：ブラウザーから保存したリンクの後ろで整理を待ちます。",
+    "inbox": "受信トレイ",
+    "destinationHint": "ライブラリ：すぐに整理済みになります。受信トレイ：ブラウザーから保存したリンクの後ろで整理を待ちます。",
     "rule": "フォルダーは最大 3 階層までコレクションになり、それより深いフォルダーはタグになります。ブックマーク バー、その他のブックマーク、モバイルのブックマークは独立したフォルダーとして扱わず、そこのリンクはコレクションなしになります。",
     "cancel": "キャンセル",
     "run": "インポート",
@@ -325,7 +325,7 @@
     "finished": "インポートが完了しました",
     "fetching": "画像、アイコン、サイト名をバックグラウンドで取得しています。",
     "addedLibrary_other": "{{count, number}} 件のブックマークをライブラリに追加しました",
-    "addedInbox_other": "{{count, number}} 件のブックマークをインボックスに追加しました",
+    "addedInbox_other": "{{count, number}} 件のブックマークを受信トレイに追加しました",
     "nothingNew": "新しいブックマークはありません",
     "collections_other": "新しいコレクション {{count}} 個：{{names}}",
     "andMore": "{{names}} ほか {{count}} 個",
@@ -340,7 +340,7 @@
     "showSkipped": "スキップしたアドレスを表示",
     "hideSkipped": "スキップしたアドレスを隠す",
     "moreSkipped": "ほか {{count}} 件",
-    "openInbox": "インボックスを開く",
+    "openInbox": "受信トレイを開く",
     "done": "完了",
     "failed": "インポートできませんでした。{{reason}} 何も追加されておらず、ライブラリは元のままです。",
     "titleFeeds": "フィードの読み込み",
@@ -431,7 +431,7 @@
     "show": "表示",
     "diskFull": "{{name}} を保存できませんでした：ディスクがいっぱいです。何も書き込まれていません。",
     "noPermission": "{{folder}} に保存できませんでした：書き込み権限がありません。別のフォルダーを選んでください。",
-    "inUse": "{{name}} を保存できませんでした：別のプログラムが開いています。そのプログラムを閉じてから再試行してください。",
+    "inUse": "{{name}} を保存できませんでした：別のプログラムが開いています。そのプログラムを閉じてからもう一度お試しください。",
     "other": "{{name}} を保存できませんでした：{{detail}}",
     "columns": {
       "title": "タイトル",
@@ -441,7 +441,7 @@
       "tags": "タグ",
       "notes": "メモ",
       "favorite": "お気に入り",
-      "inbox": "インボックス内",
+      "inbox": "受信トレイ内",
       "saved": "保存日時"
     }
   },
@@ -469,7 +469,7 @@
     "restored_other": "{{count, number}} 件のブックマークを復元しました",
     "collections_other": "新しいコレクション {{count, number}} 個",
     "rowRestored": "復元",
-    "inInbox": "うちインボックスで待機中",
+    "inInbox": "うち受信トレイで待機中",
     "inTrash": "うちゴミ箱内",
     "backup": "以前のライブラリのバックアップ：{{name}}",
     "backupFailed": "現在のライブラリのバックアップを保存できませんでした：{{detail}}。何も変更されていません。",
@@ -511,9 +511,9 @@
     "deleteCollectionChildren": "{{names}} は中身ごと 1 階層上に移ります。",
     "delete": "削除",
     "emptyTrash": "ゴミ箱を空にしますか？",
-    "emptyTrashText_other": "{{count}} 件のブックマークが完全に削除されます。この操作は元に戻せず、「復元」でも戻りません。",
+    "emptyTrashText_other": "{{count}} 件のブックマークが削除されます。この操作は元に戻せず、「復元」でも戻せません。",
     "deleteForever": "完全に削除しますか？",
-    "deleteForeverText": "「{{title}}」が完全に削除されます。この操作は元に戻せません。",
+    "deleteForeverText": "「{{title}}」は削除され、元に戻せません。",
     "deleteForeverButton": "完全に削除"
   },
   "assistants": {
@@ -527,7 +527,7 @@
     "read": "読み取りのみ",
     "readAndAdd": "読み取りと追加",
     "readHint": "ブックマーク、コレクション、タグを検索して読み取ります。何も変更しません",
-    "addHint": "リンクをインボックスに追加し、タグを付け、コレクションに移動し、お気に入りにすることもできます。{{undo}} で変更を一つずつ取り消せます。削除はしません",
+    "addHint": "リンクを受信トレイに追加し、タグを付け、コレクションに移動し、お気に入りにすることもできます。{{undo}} で変更を一つずつ取り消せます。削除はしません",
     "connect": "アシスタントを接続",
     "connectHint": "Claude Desktop、Claude Code、ChatGPT など MCP に対応したアプリ",
     "howToConnect": "接続方法…"
@@ -545,13 +545,13 @@
     "installButton": "Claude Desktop 用に保存…",
     "saved": "{{name}} を保存しました。Claude Desktop で開いてください",
     "askTitle": "ブックマークについて尋ねる",
-    "askText": "例: «FTS5 についての記事を探して»。Claude はツールを初めて使う前に確認します。",
+    "askText": "例：「FTS5 についての記事を探して」。Claude はツールを初めて使う前に確認します。",
     "manualTitle": "または手動で追加",
     "manualText": "Settings → Developer → Edit Config を開き、claude_desktop_config.json に追加します:",
     "runTitle": "ターミナルで実行",
     "runText": "このユーザーのすべてのプロジェクトに Koona Pin を追加します:",
     "checkTitle": "接続を確認",
-    "checkText": "Claude Code で /mcp と入力します。koona-pin に «connected» と表示されます。",
+    "checkText": "Claude Code で /mcp と入力します。koona-pin に「connected」と表示されます。",
     "chatgptTitle": "ChatGPT アプリで追加",
     "chatgptText": "Settings → MCP servers → Add server で、名前 koona-pin、種類 STDIO、このコマンドを指定します:",
     "codexTitle": "またはターミナルから",
@@ -560,8 +560,8 @@
     "customTitle": "アプリの MCP 設定を開く",
     "customText": "Cursor、Windsurf、Zed など MCP に対応した多くのアプリは、サーバーを JSON ファイルに保存しています。",
     "customAddTitle": "Koona Pin を追加して保存",
-    "customAddText": "アプリによっては最上位のキーが «servers» です。その後、アプリに koona-pin とそのツールが表示されます。",
-    "note": "タイトル、説明、メモはデータとしてアシスタントに渡ります。アシスタントはブックマークの削除やゴミ箱を空にすることはできません。"
+    "customAddText": "アプリによっては最上位のキーが「servers」です。その後、アプリに koona-pin とそのツールが表示されます。",
+    "note": "タイトル、説明、メモはデータとしてアシスタントに渡ります。アシスタントはブックマークを削除したり、ゴミ箱を空にしたりできません。"
   },
   "connect": {
     "title": "ブラウザーを接続",
@@ -676,7 +676,7 @@
     "changed": "その間にグループが変わりました。現在の状態で表示し直しています。"
   },
   "links": {
-    "title": "リンクチェック",
+    "title": "リンクを確認",
     "loading": "結果を読み込んでいます…",
     "introTitle": "リンクをチェック",
     "introText_other": "Koona Pin は {{count}} 件のブックマークのアドレスにブラウザーと同じように 1 回ずつアクセスしますが、ページは読み込みません。各サイトにはあなたのコンピューターからの通常のリクエストとして見えます。作業を続けても、いつでも停止しても構いません。",
@@ -732,7 +732,7 @@
     "notReplaced": "置き換えていません：新しいアドレスはすでにライブラリにあります",
     "replaceFailed": "置き換えできませんでした：{{reason}}。何も変更されていません。",
     "writeFailed": "チェックが停止しました：{{reason}}。それまでの結果は残っています。",
-    "finished_other": "リンクチェックが完了しました：{{count}} 件のリンクを確認してください"
+    "finished_other": "リンクの確認が完了しました：{{count}} 件は確認が必要です"
   },
   "background": {
     "title": "Koona Pin は動作を続けています",
@@ -749,7 +749,7 @@
     "general": "全般",
     "reading": "読書",
     "openLinks": "リンクを開く",
-    "openLinksHint": "タイトルのクリック、ダブルクリック、Enter の動作です。カバーのシャッターには常に両方があります。",
+    "openLinksHint": "タイトルのクリック、ダブルクリック、Enter の動作です。カバーのボタンには常に両方があります。",
     "openLinksBrowser": "ブラウザで",
     "openLinksReader": "読書モードで",
     "markRead": "最後まで読んだら既読にする",
@@ -876,13 +876,13 @@
     "markedRead": "既読にしました",
     "finished": "読み終わり · {{title}}",
     "markedUnread": "未読にしました",
-    "restoredLink": "ゴミ箱から戻し、インボックスで待機中です",
+    "restoredLink": "ゴミ箱から戻し、受信トレイで待機中です",
     "purged": "完全に削除しました",
     "emptied_other": "ゴミ箱を空にしました：{{count}} 件のブックマークを完全に削除しました"
   },
   "triage": {
     "savedByAssistant": "{{when}}に AI アシスタントが保存",
-    "title": "インボックスを整理",
+    "title": "受信トレイを整理",
     "progress": "{{current}} / {{total}}",
     "fresh_other": "+{{count}} 件の新着",
     "finish": "終了",
@@ -912,12 +912,12 @@
     "failedMove": "「{{name}}」に移動できませんでした：{{reason}}",
     "failedKeep": "残せませんでした：{{reason}}",
     "failedSave": "保存できませんでした：{{reason}}",
-    "done": "インボックスを整理しました",
+    "done": "受信トレイを整理しました",
     "decided_other": "{{count}} 件を処理しました。",
     "nothingDecided": "今回は何も処理しませんでした。",
     "toLibrary": "ライブラリに戻る",
     "undoLast": "最後の操作を元に戻す",
-    "doneHint": "新しいブックマークはインボックスで待機します。Esc で整理を閉じます。",
+    "doneHint": "新しいブックマークは受信トレイで待機します。Esc で整理を閉じます。",
     "starter": "{{when}}に Koona Pin が追加",
     "statKept": "残した",
     "statFiled": "振り分けた",
@@ -958,7 +958,7 @@
   },
   "empty": {
     "library": "ここにブックマークが並びます",
-    "libraryHint": "ブラウザーからブックマークをインポートするか、拡張機能を接続するか、リンクを手動で追加してください。",
+    "libraryHint": "ブラウザーからインポートするか、拡張機能を接続するか、リンクを追加してください。",
     "importBrowser": "ブラウザーからインポート",
     "connect": "ブラウザーを接続",
     "local": "ライブラリはこのコンピューターだけに保存されます。",
@@ -969,7 +969,7 @@
     "noFavorites": "お気に入りはまだありません",
     "noFavoritesHint": "ブックマークに星を付けると、ここに表示されます。",
     "reading": "読むものはまだありません",
-    "readingHint": "ブックマークを選んで R を押すか、ブックマークのメニューで「あとで読む」を選んでください。読み終えたものは1週間後にここから外れます。",
+    "readingHint": "ブックマークを選んで R を押すか、ブックマークのメニューで「あとで読むに追加」を選んでください。読み終えたブックマークは1週間後にここから外れます。",
     "emptyCollection": "「{{name}}」は空です",
     "emptyCollectionHint": "ここにリンクを追加するか、ライブラリからブックマークを移動してください。",
     "noResultsFor": "「{{query}}」に一致するものはありません",
@@ -977,15 +977,15 @@
     "searchHint": "タイトル、アドレス、説明、メモ、タグを検索します。表記を確認するか、語句の一部で試してください。",
     "searchEverywhere": "ライブラリ全体を検索",
     "resetFilters": "絞り込みを解除",
-    "inbox": "すべて整理済み",
-    "inboxHint": "ブラウザーやインポートからの新しいブックマークはここに届き、判断を待ちます。",
+    "inbox": "整理するものはありません",
+    "inboxHint": "ブラウザーやインポートからの新しいブックマークは、決めるまでここで待ちます。",
     "trash": "ゴミ箱は空です",
     "trashHint": "削除したブックマークはここに 30 日間残り、その後完全に削除されます。",
     "offline": "オフラインコピーはまだありません",
     "offlineHint": "ブックマークのメニューで「オフライン用に保存」、または読書モードで「オフライン保存」を選びます。コピーはこのコンピュータに残ります。"
   },
   "inbox": {
-    "banner_other": "{{count}} 件の新しいブックマークが待っています — 残す、振り分ける、捨てるのに 1 分ほどです",
+    "banner_other": "新しいブックマークが {{count}} 件あります。残す、振り分ける、削除するのに 1 分ほどかかります。",
     "bannerMany_other": "{{count}} 件の新しいブックマークが待っています",
     "bannerImported_other": "{{count}} 件の新しいブックマークが待っています — うち {{imported, number}} 件はインポートから",
     "bannerShort_other": "整理待ちの新しいブックマーク {{count}} 件",
@@ -1086,7 +1086,7 @@
     "markRead": "既読にする",
     "remove": "外す",
     "offlineTitle": "接続がありません",
-    "offlineText": "リーディングモードは {{site}} からページを読み込みます。コンピューターがオンラインに戻ると Koona Pin が自動で再試行します。",
+    "offlineText": "リーディングモードは {{site}} からページを読み込みます。コンピューターがオンラインに戻ると Koona Pin が自動でもう一度試します。",
     "empty": "あとで読むは空です",
     "emptyHint": "ブックマークで R を押すか、メニューで「あとで読むに追加」を選んでください。ブラウザ拡張機能からも直接あとで読むに保存できます。",
     "emptySection": "「{{section}}」に読むものはありません",
@@ -1122,7 +1122,7 @@
     "details": "詳細",
     "DB_LOCKED": {
       "title": "ライブラリは別のプログラムが使用中です",
-      "body": "別のプログラムがライブラリのファイルを開いています。Koona Pin は何も書き込んでいないので、データは元のままです。そのプログラムを閉じてから「再試行」をクリックしてください。"
+      "body": "別のプログラムがライブラリのファイルを開いています。Koona Pin は何も書き込んでいないので、データは元のままです。そのプログラムを閉じてから「もう一度試す」をクリックしてください。"
     },
     "DB_NEWER_SCHEMA": {
       "title": "新しいバージョンの Koona Pin がこのライブラリを更新しています",
@@ -1179,7 +1179,7 @@
     "copy": "テキストをコピー",
     "copied": "テキストをコピーしました",
     "copyFailed": "コピーできませんでした",
-    "sentTitle": "送信しました。ありがとうございます！",
+    "sentTitle": "送信しました。ありがとうございます。",
     "sentBody": "開発者はすべてのメッセージを読んでいます。メールアドレスを入力した場合は、そこに返信が届きます。",
     "done": "完了"
   },
@@ -1213,7 +1213,7 @@
       "bad_signature": "ダウンロードしたファイルには Koona の署名がないため、インストールされませんでした。後でもう一度お試しください。",
       "password_cancelled": "パスワードが入力されなかったため、アップデートはインストールされませんでした。",
       "install_failed": "Linux がパッケージをインストールできませんでした。新しいバージョンをサイトからダウンロードしてください：",
-      "failed": "アップデート中に問題が発生しました。後でもう一度お試しください。"
+      "failed": "アップデートできませんでした。後でもう一度お試しください。"
     }
   },
   "errors": {
@@ -1767,10 +1767,10 @@
     "empty": "新着はありません",
     "emptyHint": "新しいブックマークや保存の問題はここに表示されます。",
     "unread": "未読",
-    "inboxTitle_other": "インボックスに新着 {{count}} 件",
-    "inboxText": "残す、振り分ける、捨てるのに 1 分ほどです。",
-    "inboxTextOne": "残す、振り分ける、捨てるのはすぐです。",
-    "inboxMany": "1 件ずつ、残す、振り分ける、捨てるを選べます。",
+    "inboxTitle_other": "受信トレイに新着 {{count}} 件",
+    "inboxText": "残す、振り分ける、削除するのに 1 分ほどです。",
+    "inboxTextOne": "残す、振り分ける、削除するのはすぐです。",
+    "inboxMany": "1 件ずつ、残す、振り分ける、削除するを選べます。",
     "inboxImported_other": "うち {{count}} 件はインポートから。",
     "inboxFromImport": "インポートからです。",
     "feedsTitle_other": "新しい投稿 {{count}} 件",
@@ -1948,7 +1948,7 @@
     "stub": "この画面は準備中です。",
     "nav": {
       "label": "セクション",
-      "inbox": "インボックス",
+      "inbox": "受信トレイ",
       "all": "すべてのブックマーク",
       "reading": "あとで読む",
       "feeds": "フィード",
@@ -1986,15 +1986,15 @@
       "readPage": "既読 {{count, number}}",
       "empty": {
         "libraryHint": "+ をタップしてリンクを保存すると、タイトルと画像付きでここに表示されます。",
-        "favoritesHint": "ブックマークを長押しして「お気に入りに追加」を選ぶと、ここに表示されます。",
-        "readingHint": "ブックマークを開いて本のアイコンをタップするか、長押しして「あとで読むに追加」を選びます。既読のものは 1 週間後に外れます。",
+        "favoritesHint": "ブックマークを長押しして「お気に入りに追加」を選んでください。",
+        "readingHint": "ブックマークを開いて本のアイコンをタップするか、長押しして「あとで読むに追加」を選びます。読み終えたブックマークは 1 週間後に外れます。",
         "collectionHint": "ブックマークを長押しして「コレクションに移動」を選ぶか、ここに新しいリンクを保存します。",
         "read": "読み終えた記事はまだありません",
         "readHint": "リーダーで記事を読み終える(進み具合を上へ引く)と、ここに移ります。"
       }
     },
     "inbox": {
-      "title": "インボックス",
+      "title": "受信トレイ",
       "done": "完了",
       "decide": "判断",
       "trash": "ゴミ箱",
@@ -2016,11 +2016,11 @@
       "statReading": "あとで読むに追加した",
       "statTrashed": "ゴミ箱に移動した",
       "trashKept": "30 日間保管されます",
-      "newWait": "新しいリンクはインボックスで待機します。",
+      "newWait": "新しいリンクは受信トレイで待機します。",
       "toLibrary": "ライブラリへ",
-      "allSorted": "すべて整理済み",
-      "emptyShare": "ほかのアプリから保存したリンクはここに届きます。1 分で整理できます。",
-      "emptyAdd": "保存したリンクはここに届きます。1 分で整理できます。",
+      "allSorted": "整理するものはありません",
+      "emptyShare": "ほかのアプリから保存したリンクはここで待っています。1 分ほどで整理できます。",
+      "emptyAdd": "保存したリンクはここで待っています。1 分ほどで整理できます。",
       "tipShare": "どのアプリからでも保存",
       "tipShareHow": "共有 → Koona Pin",
       "tipAdd": "+ でリンクを追加",
@@ -2029,7 +2029,7 @@
     },
     "share": {
       "saved": "Koona Pin に保存しました",
-      "inInbox": "インボックス内 · {{host}}",
+      "inInbox": "受信トレイ内 · {{host}}",
       "done": "完了",
       "noLink": "保存するリンクがありません",
       "failed": "リンクを保存できませんでした"
@@ -2103,7 +2103,7 @@
       },
       "smaller": "文字を小さく",
       "larger": "文字を大きく",
-      "sample": "ここでは静かに読めます。記事そのものの言葉を、落ち着いた段組みで、好みのサイズで。",
+      "sample": "記事そのままの言葉を、1 段組みで、好みのサイズで。",
       "readerTheme": "テーマ",
       "font": "フォント",
       "lockedHint": "ペーパーとセピアは Supporter 向けです。",
@@ -2181,7 +2181,7 @@
       "offTitle": "同期はオフです",
       "offText": "スマートフォンとコンピューターでライブラリを同じに保ちます。",
       "freeTitle": "同期は Supporter 向けです",
-      "freeText": "ライブラリ、あとで読む、読書の進み具合をすべてのデバイスで。送信前にデバイス上で暗号化されます。",
+      "freeText": "ライブラリ、あとで読む、読書の進み具合はすべてのデバイスにあり、デバイスから出る前に暗号化されます。",
       "manage": "同期を管理",
       "online": "オンライン",
       "away": "オフライン",
@@ -2191,7 +2191,7 @@
     "supporter": {
       "title": "Koona Pin Supporter",
       "lead": "Supporter が Koona Pin を支えています",
-      "leadText": "そして、このスマートフォンでいくつかの特典を受け取れます。",
+      "leadText": "Supporter はこのスマートフォンで、いくつかの特典も受け取れます。",
       "perksLabel": "Supporter の特典",
       "perk": {
         "sync": "コンピューターと同期",
@@ -2202,7 +2202,7 @@
         "badgeHint": "すべての画面の上部に、季節の色で"
       },
       "freeLabel": "Koona Pin は無料のまま",
-      "freeText": "このスマートフォンのライブラリ、インボックス、検索、あとで読む、フィード、バックアップは、誰でも無料で使えます。",
+      "freeText": "このスマートフォンのライブラリ、受信トレイ、検索、あとで読む、フィード、バックアップは、誰でも無料で使えます。",
       "planLabel": "プラン",
       "paddleHint": "支払いはブラウザーで開きます。Paddle が販売代理店として支払いと税金を処理します。いつでも解約できます。",
       "waitingText": "支払いページがブラウザーで開きました。この画面を閉じても、Koona Pin は支払いを自動で確認します。",

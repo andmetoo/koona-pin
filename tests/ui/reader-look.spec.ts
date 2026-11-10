@@ -141,7 +141,7 @@ test("free: a free theme, size, column and font survive a restart; Esc closes th
   await expect(sheet.locator(".reader-body")).toHaveCSS("font-size", "20px");
 });
 
-test("Settings → Reading: «Open links» changes what the title, double-click and Enter do, and nothing else (NP-124, acceptance 2)", async ({ page }) => {
+test("Settings → Reading: “Open links” changes what the title, double-click and Enter do, and nothing else (NP-124, acceptance 2)", async ({ page }) => {
   await boot(page);
   const card = (title: string) => page.locator("article[data-bookmark-id]").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
   const spot = (c: Locator) => c.locator("[data-collection], h2:not(:has(a))").first();
@@ -228,14 +228,14 @@ test("Settings → Reading: «Open links» changes what the title, double-click 
   await expect(mode(page)).toHaveCount(0);
 });
 
-test("Settings → Reading: «Mark as read at the end» off keeps an article read to the end unread; the R row (NP-124, B10)", async ({ page }) => {
+test("Settings → Reading: “Mark as read at the end” off keeps an article read to the end unread; the R row (NP-124, B10)", async ({ page }) => {
   await boot(page);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await settingsGroup(page, "reading");
   const mark = page.getByRole("switch", { name: "Mark as read at the end" });
   await expect(mark).toHaveAttribute("aria-checked", "true");
   await expect(page.getByText("Read links move to the bottom of Reading and leave it after a week.")).toBeVisible();
-  await expect(page.getByText("R on a selected bookmark; the extension’s menu has «Save to Reading».")).toBeVisible();
+  await expect(page.getByText("R on a selected bookmark; the extension’s menu has “Save to Reading”.")).toBeVisible();
   await mark.click();
   await expect(mark).toHaveAttribute("aria-checked", "false");
   const read = await page.evaluate(async () => {

@@ -38,7 +38,7 @@
     "message": "Ancora niente in $PLACE$",
     "placeholders": { "place": { "content": "$1", "example": "Preferiti" } }
   },
-  "searchNothingText": { "message": "Prova un’altra parola o cerca in tutta la libreria: il cestino non viene mai cercato." },
+  "searchNothingText": { "message": "Prova un’altra parola o cerca in tutta la libreria. Il Cestino non viene mai incluso nella ricerca." },
   "searchEverywhere": { "message": "Cerca ovunque" },
   "searchStarting": { "message": "Avvio di Koona Pin…" },
   "searchMissingText": {
@@ -134,7 +134,7 @@
   "badgeReading": { "message": "In Da leggere di Koona Pin" },
   "messageReadingTitle": { "message": "Salvato in Da leggere" },
   "messageReadingText": { "message": "Aspetta anche in In arrivo" },
-  "messageReadingExistingTitle": { "message": "Aggiunto a Da leggere" },
+  "messageReadingExistingTitle": { "message": "Messo in Da leggere" },
   "messageReadingQueuedText": { "message": "Andrà in Da leggere quando l’app si apre" },
   "feedbackHeading": { "message": "Dopo il salvataggio" },
   "settingMessage": { "message": "Mostra un messaggio nella pagina" },

@@ -60,7 +60,7 @@ test("Export → Add to bundle; the capsule sits above the bulk bar and comes do
   await expect.poll(async () => Math.round(await bottom())).toBe(24);
 });
 
-test("«Add {view}» adds a collection, a tag, All bookmarks and a feed, each as its section says", async ({ page }) => {
+test("“Add {view}” adds a collection, a tag, All bookmarks and a feed, each as its section says", async ({ page }) => {
   await sidebar(page).getByRole("treeitem", { name: /^Development/ }).click();
   await openFromMenu(page);
   // The empty bundle: the button of the empty state, focused.
@@ -161,7 +161,7 @@ test("Save writes the built list under the title's name; Copy gives Markdown; Cl
   await expect(rows(page)).toHaveCount(2);
 });
 
-test("without a file manager the Saved notice offers no «Show»", async ({ page }) => {
+test("without a file manager the Saved notice offers no “Show”", async ({ page }) => {
   // A desktop build whose capabilities have no file manager, as a phone's do (platform.ts).
   await page.addInitScript(() => {
     (window as { __KOONA__?: unknown }).__KOONA__ = {

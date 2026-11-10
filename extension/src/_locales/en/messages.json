@@ -38,7 +38,7 @@
     "message": "Nothing in $PLACE$ yet",
     "placeholders": { "place": { "content": "$1", "example": "Favorites" } }
   },
-  "searchNothingText": { "message": "Try another word, or search the whole library — the trash is never searched." },
+  "searchNothingText": { "message": "Try another word, or search the whole library. Trash is never searched." },
   "searchEverywhere": { "message": "Search everywhere" },
   "searchStarting": { "message": "Starting Koona Pin…" },
   "searchMissingText": {

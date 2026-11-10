@@ -37,7 +37,7 @@
     "message": "В «$PLACE$» пока пусто",
     "placeholders": { "place": { "content": "$1", "example": "Избранное" } }
   },
-  "searchNothingText": { "message": "Попробуйте другое слово или ищите по всей библиотеке — корзина не ищется." },
+  "searchNothingText": { "message": "Попробуйте другое слово или ищите по всей библиотеке. Корзина никогда не участвует в поиске." },
   "searchEverywhere": { "message": "Искать везде" },
   "searchStarting": { "message": "Koona Pin запускается…" },
   "searchMissingText": {
@@ -120,7 +120,7 @@
   "errorSaveFailed": { "message": "Не удалось сохранить ссылку" },
   "errorUnknownAction": { "message": "Неизвестное действие" },
   "messageSavedTitle": { "message": "Сохранено в Koona Pin" },
-  "messageSavedText": { "message": "Добавлено во «Входящие»" },
+  "messageSavedText": { "message": "Добавлено во Входящие" },
   "messageExistingTitle": { "message": "Уже есть в Koona Pin" },
   "messageExistingText": { "message": "Теги и заметки не изменились" },
   "messageQueuedTitle": { "message": "Ссылка ждёт отправки" },
@@ -133,7 +133,7 @@
   "commandReading": { "message": "Сохранить страницу в «Почитать» Koona Pin" },
   "badgeReading": { "message": "В «Почитать» Koona Pin" },
   "messageReadingTitle": { "message": "Сохранено в «Почитать»" },
-  "messageReadingText": { "message": "И ждёт во «Входящих»" },
+  "messageReadingText": { "message": "Также ждёт во Входящих" },
   "messageReadingExistingTitle": { "message": "Добавлено в «Почитать»" },
   "messageReadingQueuedText": { "message": "Попадёт в «Почитать», когда приложение откроется" },
   "feedbackHeading": { "message": "После сохранения" },

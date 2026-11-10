@@ -65,7 +65,7 @@ test("a swipe left past the threshold trashes, a short one springs back, one fro
   await expect(card(page)).toHaveAttribute("data-triage-card", first!);
 
   await drag(page, -180);
-  await expect(snackbar(page)).toContainText("Moved to trash · ");
+  await expect(snackbar(page)).toContainText("Moved to Trash · ");
   // The trash, not the check.
   await expect(snackbar(page).locator("svg[class*=trash]")).toHaveCount(1);
   await expect(count(page)).toHaveText(/^2 of/);
@@ -156,7 +156,7 @@ test("dragging toward Trash presses Trash and steps Keep back", async ({ page })
   await page.mouse.move(x - 140, y, { steps: 8 });
   await expect(pill(page).getByRole("button", { name: "Trash" })).toHaveAttribute("data-pressed");
   await expect(pill(page).getByRole("button", { name: "Keep" })).toHaveAttribute("data-recede");
-  await expect(card(page).locator(".inb-swipe-label")).toHaveText("Move to trash");
+  await expect(card(page).locator(".inb-swipe-label")).toHaveText("Move to Trash");
   // Back to the middle: nothing decided.
   await page.mouse.move(x, y, { steps: 8 });
   await page.mouse.up();
@@ -206,7 +206,7 @@ test("the inbox sorted: summary, undo of the last decision, then the library; em
   const sorted = page.locator("[data-inbox-sorted]");
   await expect(sorted.getByRole("heading", { name: "Inbox sorted" })).toBeVisible();
   await expect(sorted).toContainText(`${total} decisions in about 1 minute`);
-  await expect(sorted.locator(".inb-stat", { hasText: "Moved to trash" })).toContainText("1");
+  await expect(sorted.locator(".inb-stat", { hasText: "Moved to Trash" })).toContainText("1");
   await expect(sorted.locator(".inb-stat", { hasText: "Kept in library" })).toContainText(String(total - 2));
   await expect(sorted.locator(".inb-stat", { hasText: "Added to Reading" })).toContainText("1");
 
@@ -222,11 +222,11 @@ test("the inbox sorted: summary, undo of the last decision, then the library; em
   // Back in the Inbox nothing waits: E1, with the cluster again and a tip that fits the phone.
   await navPill(page).getByRole("button", { name: "Inbox" }).click();
   const empty = page.locator("[data-inbox-empty]");
-  await expect(empty.getByRole("heading", { name: "All sorted" })).toBeVisible();
+  await expect(empty.getByRole("heading", { name: "Nothing to sort" })).toBeVisible();
   await expect(topScreen(page).getByRole("heading", { level: 1 })).toHaveText("Inbox");
   await expect(topScreen(page).locator("[data-account]")).toBeVisible();
   // An Android phone takes links shared from other apps: the tip is the share sheet.
-  await expect(empty).toContainText("Links you save from other apps land here.");
+  await expect(empty).toContainText("Links you save from other apps wait here.");
   await expect(empty).toContainText("Share → Koona Pin");
   await empty.getByRole("button", { name: "New link" }).click();
   await expect(page.locator('[data-sheet-kind="newLink"]').getByRole("dialog")).toBeVisible();
@@ -241,8 +241,8 @@ test("an iPhone whose share queue is missing (no App Group) offers New link, not
   await page.locator("[data-inbox-sorted]").getByRole("button", { name: "Go to library" }).click();
   await navPill(page).getByRole("button", { name: "Inbox" }).click();
   const empty = page.locator("[data-inbox-empty]");
-  await expect(empty.getByRole("heading", { name: "All sorted" })).toBeVisible();
-  await expect(empty).toContainText("Links you save land here.");
+  await expect(empty.getByRole("heading", { name: "Nothing to sort" })).toBeVisible();
+  await expect(empty).toContainText("Links you save wait here.");
   await expect(empty).not.toContainText("Share → Koona Pin");
 });
 
