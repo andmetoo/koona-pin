@@ -831,6 +831,12 @@ mod tests {
         }
     }
 
+    /// An hour ago, for a purchase that has not reported its transaction: the paths that read the
+    /// store (`restore`, `resume`) forget such a purchase after `UNREPORTED`, counted from now.
+    fn lately() -> String {
+        (Utc::now() - TimeDelta::hours(1)).to_rfc3339()
+    }
+
     fn anna() -> Session {
         Session { access_token: "a".into(), refresh_token: "r".into(), expires_at: 0, email: "anna@example.com".into() }
     }
@@ -1231,7 +1237,7 @@ mod tests {
     fn restore_verifies_what_was_bought_here_and_points_to_the_account_of_the_rest() {
         // A purchase made here, unbound: restore finds it and shows its step.
         let fake = Fake::new(|_, _| Ok((200, json!({ "status": "email" }))));
-        fake.set(|s| s.appstore.push(checkout("s1", "2026-10-25T10:00:00Z")));
+        fake.set(|s| s.appstore.push(checkout("s1", &lately())));
         let mine = transaction("7001", ANNUAL, Some(&account_token("s1")));
         fake.lists(vec![], vec![mine]);
         assert_eq!(run(restore(&fake, &fake)).ok(), Some(PlayState::Email));
@@ -1330,7 +1336,7 @@ mod tests {
         // Found in the background while the sheet follows another purchase: that one stays shown.
         let busy = Fake::new(|_, _| Ok((403, json!({ "error": "claim" }))));
         busy.set(|s| {
-            s.appstore.push(AppStoreCheckout { state: Some(PlayState::Email), ..checkout("s1", "2026-10-25T10:00:00Z") });
+            s.appstore.push(AppStoreCheckout { state: Some(PlayState::Email), ..checkout("s1", &lately()) });
             s.appstore_followed = Some("s1".into());
         });
         busy.lists(vec![], vec![transaction("9801", LIFETIME_PRODUCT, None)]);
