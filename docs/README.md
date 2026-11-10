@@ -6,6 +6,7 @@
 - [macOS builds and testing](macos-test.md) — the test and release builds on a Mac, signing and notarization, the Safari extension inside the app and what was checked by hand.
 - [Browser extension](extension.md) — how capture works, supported browsers, where people install it, loading the extension unpacked, native host registration, store builds.
 - [Translating](translating.md) — how locales work, adding a string or a language, and the glossary of interface terms.
+- [Translation review](translation-review.md) — how the current copy should be corrected so it reads as a person wrote it, and so it follows Apple’s writing guidelines.
 - [Design basics](design.md) — colour tokens, typography, icons, themes and where they live in code.
 - [The `.kpin` list format](kpin/README.md) — the specification of shareable lists of links and feeds, its JSON Schema and examples (CC0).
 - [Technical decisions](decisions.md) — the key choices and why they were made.
