@@ -189,7 +189,7 @@ Koona Pin is iPhone only (device family iPhone), so only iPhone screenshots are 
 | 3 | `iphone-3-reading.png` | Reading mode: a feed's post with its picture (a saved link's reading mode fetches the page, and the sample's sites are made up) | Read without the clutter |
 | 4 | `iphone-4-search.png` | Search for "home": a title, a tag and an address in the library, a feed's post, the keyboard up | Find it as you type |
 | 5 | `iphone-5-feeds.png` | Feeds, Unread, posts with their pictures | Follow the sites you like |
-| 6 | `iphone-6-share.png` | Safari's share sheet over a page of koona.app, Koona Pin in the row of apps | Save from any app |
+| 6 | `iphone-6-share.png` | The share extension's "Saved to Koona Pin" confirmation over a page of koona.app in Safari (greyed behind it): In Inbox, the page's title, Done. Not the share sheet itself, whose row of apps shows other apps' icons | Save from any app |
 | 7 | `iphone-7-supporter.png` | The Supporter sheet, its three plans with prices | Sync with your computers |
 
 The in-app purchases' review screenshots (not shown on the store), 1320 × 2868: the Supporter sheet with the App Store's purchase sheet of that plan over it, cancelled, from the StoreKit test environment (it says "Xcode" and "For testing purposes only", and the system hides the status bar under it): `review/supporter-monthly.png`, `review/supporter-yearly.png`, `review/supporter-one-time.png`.
