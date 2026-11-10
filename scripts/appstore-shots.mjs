@@ -40,6 +40,14 @@ const MODEL_TYPE = "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max";
 // Not fetched: the pictures are in the cache before the library names them (as doc/play/shots.mjs).
 const BASE = "https://koona.app/pin/shots";
 const work = path.join(root, ".test-data", "appstore-shots");
+// The posts' times read against the status bar's 9:41: published before 9:41 today (yesterday when it
+// is not 9:41 yet), as site-screenshots-macos.mjs anchors its own.
+const ANCHOR = (() => {
+  const at = new Date();
+  at.setHours(9, 41, 0, 0);
+  if (Date.now() < at.getTime()) at.setDate(at.getDate() - 1);
+  return at.getTime();
+})();
 
 const { values: args } = parseArgs({
   strict: true,
@@ -141,7 +149,7 @@ async function fill(data) {
   // the store's pictures.
   const left = sample.feeds.filter((f) => f.uid !== "shots-feed-circuit");
   const feeds = { feeds: left, posts: sample.posts.filter((p) => left.some((f) => f.uid === p.feed)) };
-  const sql = await feedsSql(feeds, { now });
+  const sql = await feedsSql(feeds, { now, anchor: ANCHOR });
   const files = { copy: path.join(work, "library.json"), library: path.join(work, "library.sql"), cache: path.join(work, "feeds.sql") };
   await writeFile(files.copy, JSON.stringify(copyOf(BASE, now)));
   // One collection inside another, for the nested chips, as on Play: Inspiration inside Design.
