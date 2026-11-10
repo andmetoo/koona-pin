@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { platform } from "./platform";
 
 /**
  * What the system says about how a phone's interface should draw (NP-072b), from the koona-mobile
@@ -103,3 +104,10 @@ export const flatGlass = (signals: SystemSignals) => signals.powerSave || signal
  */
 export const LARGE_TEXT = 1.6;
 export const largeText = (signals: SystemSignals) => signals.textScale >= LARGE_TEXT;
+
+/**
+ * Whether the app's text follows the system's text size: Android's WebView takes the font size as
+ * its text zoom (`textScale`); on iOS Dynamic Type does not reach the WebView, the scale stays 1 and
+ * the text keeps its size. Settings › Appearance says that it follows only where it does.
+ */
+export const textFollowsSystem = platform === "android";

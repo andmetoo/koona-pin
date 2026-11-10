@@ -20,6 +20,7 @@ import {
 import { deviceDetail, syncSummary } from "../../../components/commercial/syncText";
 import { languages, resolveLanguage, setLanguage, storedLanguage, systemLanguage } from "../../../i18n";
 import { capabilities } from "../../../platform/capabilities";
+import { textFollowsSystem } from "../../../platform/system";
 import { api } from "../../../services/api";
 import { describeError } from "../../../services/errors";
 import { GITHUB_ISSUES_URL, licensesUrl } from "../../../services/feedback";
@@ -131,12 +132,19 @@ export function SettingsList({ go }: { go: (page: SettingsPage) => void }) {
   );
 }
 
-/** Appearance: the app's theme; text follows the system's size (Dynamic Type), nothing to set. */
+/**
+ * Appearance: the app's theme; nothing to set for the text. The footnote that it follows the
+ * system's size shows only where it does (Android: `textFollowsSystem`), not on iOS.
+ */
 export function AppearancePage() {
   const { app } = usePhone();
   const { t, theme, setTheme } = app;
   return (
-    <SettingsCard title={t("phone.settings.theme")} caption={t("phone.settings.themeHint")} footnote={t("phone.settings.textSizeHint")}>
+    <SettingsCard
+      title={t("phone.settings.theme")}
+      caption={t("phone.settings.themeHint")}
+      footnote={textFollowsSystem ? t("phone.settings.textSizeHint") : undefined}
+    >
       <Segmented<Theme>
         label={t("phone.settings.theme")}
         value={theme}
