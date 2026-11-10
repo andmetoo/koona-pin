@@ -115,7 +115,7 @@ test("sidebar rows fit in every language", { tag: "@languages" }, async ({ page 
   const wide = all
     .map((w, i) => ({ ...w, measured: widths[i] }))
     .filter((w) => w.measured > w.width)
-    .map((w) => `${w.code} ${w.row}: «${w.word}» ${Math.ceil(w.measured)} > ${w.width}`);
+    .map((w) => `${w.code} ${w.row}: “${w.word}” ${Math.ceil(w.measured)} > ${w.width}`);
   expect(wide).toEqual([]);
 });
 
@@ -198,14 +198,14 @@ test("the tag field and commas: a lone one keeps it open, one from an IME ends t
   await field.press(",");
   await expect(field).toHaveValue("");
   await field.pressSequentially("ux,");
-  await expect(page.getByText("Tag «ux» added to 1 bookmark")).toBeVisible();
+  await expect(page.getByText("Tag “ux” added to 1 bookmark")).toBeVisible();
   // The IME's comma, while composed and when committed, in the field opened again.
   await page.getByRole("button", { name: text(catalog("en"), "selection.tag"), exact: true }).click();
   await field.focus();
   await cdp.send("Input.imeSetComposition", { text: "设计，", selectionStart: 3, selectionEnd: 3 });
   await expect(field).toHaveValue("设计，");
   await cdp.send("Input.insertText", { text: "设计，" });
-  await expect(page.getByText("Tag «设计» added to 1 bookmark")).toBeVisible();
+  await expect(page.getByText("Tag “设计” added to 1 bookmark")).toBeVisible();
 });
 
 // Every language is checked for cut labels; German, Serbian, Japanese and Korean also leave

@@ -48,7 +48,7 @@ test("Sync: the perk of the Supporter dialog turns sync on; this computer become
   await expect(plan.getByRole("button", { name: "Manage…" })).toBeVisible();
 });
 
-test("Sync: Settings → Sync and backups has its row with Supporter, «Learn more» without, nothing in a build that sells nothing (frame 10)", async ({ page }) => {
+test("Sync: Settings → Sync and backups has its row with Supporter, “Learn more” without, nothing in a build that sells nothing (frame 10)", async ({ page }) => {
   const settings = async () => {
     await page.getByRole("button", { name: "Settings" }).first().click();
     await settingsGroup(page, "backups");
@@ -218,7 +218,7 @@ for (const [state, id, action] of [
   ["signed_out", "paused:signed_out", "Sign in…"],
   ["syncing", "syncing", null],
 ] as const) {
-  test(`Sync: the state «${state}» has its banner and the action it offers (frame 11)`, async ({ page }) => {
+  test(`Sync: the state “${state}” has its banner and the action it offers (frame 11)`, async ({ page }) => {
     await start(page, state);
     const dialog = await openSync(page);
     const banner = dialog.locator(`[data-sync-banner="${id}"]`);
@@ -235,7 +235,7 @@ test("Sync: the newer version is named by the computer that has it (frame 11)", 
   await expect(dialog.locator('[data-sync-device="Office laptop"]')).toContainText("Windows · Koona Pin 0.12.0");
 });
 
-test("Sync: «Review» marks the computer added and the notice goes (frame 11)", async ({ page }) => {
+test("Sync: “Review” marks the computer added and the notice goes (frame 11)", async ({ page }) => {
   await start(page, "added");
   const dialog = await openSync(page);
   await dialog.locator('[data-sync-banner="notice:device_added"]').getByRole("button", { name: "Review" }).click();
@@ -243,14 +243,14 @@ test("Sync: «Review» marks the computer added and the notice goes (frame 11)",
   await expect(dialog.locator('[data-sync-device="Studio PC"]')).toHaveAttribute("data-highlight", "true");
 });
 
-test("Sync: «Join…» pairs this computer with the new main one (frame 11)", async ({ page }) => {
+test("Sync: “Join…” pairs this computer with the new main one (frame 11)", async ({ page }) => {
   await start(page, "started_over");
   const dialog = await openSync(page);
   await dialog.getByRole("button", { name: "Join…" }).click();
   await expect(page.getByRole("dialog", { name: "Waiting for Studio PC" }).locator("[data-sync-code]")).toHaveText("305 118");
 });
 
-test("Sync: a plan that ends within a month says «Sync stops on…» (frame 11)", async ({ page }) => {
+test("Sync: a plan that ends within a month says “Sync stops on…” (frame 11)", async ({ page }) => {
   await start(page, "on", "canceling");
   const dialog = await openSync(page);
   await expect(dialog.locator('[data-sync-banner="plan_ends"]')).toContainText("Sync stops on");

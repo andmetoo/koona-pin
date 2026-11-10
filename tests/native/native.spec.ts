@@ -35,7 +35,7 @@ async function emptyLibrary(page: import("@playwright/test").Page) {
     for (const id of ids) await invoke("trash_bookmark", { id });
     if (ids.length > 0) await invoke("empty_trash");
   });
-  await expect(page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole("heading", { name: "Bookmarks you save show up here" })).toBeVisible({ timeout: 15000 });
 }
 
 /** The Inbox pill (#339) shows only inside the Inbox section: go there, then into triage. */
@@ -1104,7 +1104,7 @@ test("bulk actions on 1 000 bookmarks: one transaction in SQLite, the window kee
       requestAnimationFrame(frames);
       const started = performance.now();
       [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((e) => e.textContent?.includes("Batch"))!.click();
-      while (!document.body.textContent?.includes("moved to «Batch»")) await new Promise((resolve) => requestAnimationFrame(resolve));
+      while (!document.body.textContent?.includes("moved to “Batch”")) await new Promise((resolve) => requestAnimationFrame(resolve));
       running = false;
       return { ms: Math.round(performance.now() - started), longestFrame: Math.round(longest) };
     });
@@ -1116,7 +1116,7 @@ test("bulk actions on 1 000 bookmarks: one transaction in SQLite, the window kee
     await bar.getByRole("button", { name: "Tag" }).click();
     await page.getByRole("combobox", { name: "Tag for the selected bookmarks" }).fill("urgent");
     await page.keyboard.press("Enter");
-    await expect(page.getByText("Tag «urgent» added to 1000 bookmarks")).toBeVisible();
+    await expect(page.getByText("Tag “urgent” added to 1000 bookmarks")).toBeVisible();
     expect((await counts()).tagged).toBe(1000);
     await page.keyboard.press("Control+z");
     await expect(page.getByText("Undone for 1000 bookmarks")).toBeVisible();
@@ -1336,7 +1336,7 @@ test("trash survives a restart, empties itself at start, deletes for good on req
     await expect(card).toHaveCount(1);
     // No confirmation: to the trash with an undo notice.
     await card.click({ button: "right" });
-    await page.getByRole("menuitem", { name: "Move to trash" }).click();
+    await page.getByRole("menuitem", { name: "Move to Trash" }).click();
     await expect(page.locator(".fixed[role=status]")).toContainText("Moved to Trash");
     await expect(page.getByRole("button", { name: "Trash 3", exact: true })).toBeVisible();
 
@@ -1497,19 +1497,19 @@ test("undo: Ctrl Z puts a decision back in SQLite, a later save wins, a restart 
 
     // The star is a decision; Ctrl Z takes it back, into the inbox again.
     await card.hover();
-    await card.getByRole("button", { name: "Add to favorites" }).click();
+    await card.getByRole("button", { name: "Add to Favorites" }).click();
     await expect.poll(row).toEqual({ is_favorite: 1, inbox: 0, live: 1 });
     await page.keyboard.press("Control+z");
-    await expect(page.locator(".fixed[role=status]")).toContainText("Undone: «Decision»");
+    await expect(page.locator(".fixed[role=status]")).toContainText("Undone: “Decision”");
     await expect.poll(row).toEqual({ is_favorite: 0, inbox: 1, live: 1 });
     await expect(page.getByRole("button", { name: "Inbox 1", exact: true })).toBeVisible();
 
     // To the trash and back with Ctrl Z.
     await card.click({ button: "right" });
-    await page.getByRole("menuitem", { name: "Move to trash" }).click();
+    await page.getByRole("menuitem", { name: "Move to Trash" }).click();
     await expect.poll(row).toEqual({ is_favorite: 0, inbox: 1, live: 0 });
     await page.keyboard.press("Control+z");
-    await expect(page.locator(".fixed[role=status]")).toContainText("Back from Trash: «Decision»");
+    await expect(page.locator(".fixed[role=status]")).toContainText("Back from Trash: “Decision”");
     await expect.poll(row).toEqual({ is_favorite: 0, inbox: 1, live: 1 });
 
     // Saved again from the trash after «to the trash»: the undo is refused, nothing is written.
@@ -1525,7 +1525,7 @@ test("undo: Ctrl Z puts a decision back in SQLite, a later save wins, a restart 
 
     // The journal belongs to this run: after a restart there is nothing to undo.
     await card.hover();
-    await card.getByRole("button", { name: "Add to favorites" }).click();
+    await card.getByRole("button", { name: "Add to Favorites" }).click();
     await expect.poll(row).toEqual({ is_favorite: 1, inbox: 0, live: 1 });
     db.close();
     void page.evaluate(() => window.__TAURI_INTERNALS__.invoke("quit_app")).catch(() => {});
@@ -1650,7 +1650,7 @@ test("security boundaries: CSP, narrow permissions, no HTTP port", async ({ requ
       if (/Content Security Policy|Refused to/i.test(message.text())) refused.push(message.text());
     });
     // The first load finishes before the reload: a reload during it can leave the page without its interface.
-    const empty = app.page.getByRole("heading", { name: "Your bookmarks will live here" });
+    const empty = app.page.getByRole("heading", { name: "Bookmarks you save show up here" });
     await emptyLibrary(app.page);
     await app.page.reload();
     await expect(empty).toBeVisible({ timeout: 15000 });

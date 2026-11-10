@@ -10,9 +10,9 @@ const t = i18n.getFixedT("ru");
 describe("bulk action words (frame 27)", () => {
   it("count the bookmarks in Russian plural forms", () => {
     expect(bulkNotice(t, { action: "move", collection_id: 1 }, 4, "Работа")).toBe("4 закладки перемещены в «Работа»");
-    expect(bulkNotice(t, { action: "trash" }, 12)).toBe("12 закладок в корзине");
+    expect(bulkNotice(t, { action: "trash" }, 12)).toBe("12 закладок в Корзине");
     expect(bulkNotice(t, { action: "tag", name: "crypto" }, 1)).toBe("Тег «crypto» добавлен к 1 закладке");
-    expect(bulkNotice(t, { action: "favorite", favorite: false }, 3)).toBe("3 закладки убраны из избранного");
+    expect(bulkNotice(t, { action: "favorite", favorite: false }, 3)).toBe("3 закладки убраны из Избранного");
     expect(bulkNotice(t, { action: "new_collection", name: "trezor.io" }, 5)).toBe("5 закладок перемещено в «trezor.io»");
   });
   it("say that nothing changed and why", () => {
@@ -27,7 +27,7 @@ describe("bulk action words (frame 27)", () => {
   });
   it("an undo of many counts instead of naming one", () => {
     const b = { title: "Один" } as Bookmark;
-    expect(undoNotice(t, { outcome: "undone", action: "trash", bookmarks: [b, b, b] }).text).toBe("Возвращены из корзины 3 закладки");
+    expect(undoNotice(t, { outcome: "undone", action: "trash", bookmarks: [b, b, b] }).text).toBe("Возвращены из Корзины 3 закладки");
     expect(undoNotice(t, { outcome: "undone", action: "move", bookmarks: [b, b] }).text).toBe("Отменено для 2 закладок");
     expect(undoNotice(t, { outcome: "undone", action: "move", bookmarks: [b] }).text).toBe("Отменено: «Один»");
   });
@@ -39,7 +39,7 @@ describe("finished (the phone's reader): its own words", () => {
     expect(readingNotice(en, { action: "finish" }, { title: "Local-first software", url: "https://inkandswitch.com" })).toBe("Finished · Local-first software");
     expect(bulkNotice(t, { action: "finish" }, 3)).toBe("3 закладки отмечены дочитанными");
     const b = { title: "Один" } as Bookmark;
-    expect(undoNotice(en, { outcome: "undone", action: "finished", bookmarks: [b] }).text).toBe("Back in Reading: «Один»");
+    expect(undoNotice(en, { outcome: "undone", action: "finished", bookmarks: [b] }).text).toBe("Back in Reading: “Один”");
   });
 });
 

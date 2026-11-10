@@ -49,7 +49,7 @@ export function labelProblems(page: Page) {
 
     for (const el of texts) {
       const style = getComputedStyle(el);
-      if (style.textOverflow === "ellipsis" && el.scrollWidth > el.clientWidth + 1 && !el.closest(HINT)) problems.push(`ends in an ellipsis: «${name(el)}»`);
+      if (style.textOverflow === "ellipsis" && el.scrollWidth > el.clientWidth + 1 && !el.closest(HINT)) problems.push(`ends in an ellipsis: “${name(el)}”`);
       const own = rects(el);
       const boxes: { box: DOMRect; what: string }[] = [];
       // Past a box that scrolls (a row of chips sideways, a screen down) the text is a swipe away:
@@ -79,7 +79,7 @@ export function labelProblems(page: Page) {
       for (const r of own)
         for (const { box, what } of boxes)
           if (r.left < box.left - 0.5 || r.right > box.right + 0.5 || r.top < box.top - 0.5 || r.bottom > box.bottom + 0.5) {
-            problems.push(`cut by ${what}: «${name(el)}»`);
+            problems.push(`cut by ${what}: “${name(el)}”`);
             break;
           }
     }
@@ -98,7 +98,7 @@ export function labelProblems(page: Page) {
           const [a, b] = [inside[i], inside[j]];
           if (a.contains(b) || b.contains(a)) continue;
           const hit = rects(a).some((p) => rects(b).some((q) => p.left < q.right && q.left < p.right && p.top < q.bottom && q.top < p.bottom));
-          const key = `«${name(a)}» and «${name(b)}»`;
+          const key = `“${name(a)}” and “${name(b)}”`;
           if (hit && !seen.has(key)) {
             seen.add(key);
             problems.push(`overlap: ${key}`);

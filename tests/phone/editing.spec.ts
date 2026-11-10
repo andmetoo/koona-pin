@@ -43,7 +43,7 @@ test("Edit link: the title has the focus, an empty one is marked, Save keeps the
 
   await title.fill("");
   await sheet.getByRole("button", { name: "Save" }).click();
-  await expect(sheet.getByText("Title can’t be empty")).toBeVisible();
+  await expect(sheet.getByText("Add a title")).toBeVisible();
   await expect(title).toHaveAttribute("aria-invalid", "true");
   await expect(title).toBeFocused();
 

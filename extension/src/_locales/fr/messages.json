@@ -1,7 +1,7 @@
 {
   "extensionName": { "message": "Koona Pin — enregistrer le lien" },
   "extensionDescription": {
-    "message": "Enregistrez toute page dans l’app Koona Pin de votre ordinateur en un clic, mettez les articles dans « À lire », cherchez vos liens."
+    "message": "Enregistrez toute page dans l’app Koona Pin de votre ordinateur en un clic, mettez les articles dans « À lire », cherchez vos liens."
   },
   "menuOptions": { "message": "Paramètres et file d’attente" },
   "menuSearch": { "message": "Trouver un lien" },
@@ -57,7 +57,7 @@
   "searchCopied": { "message": "Lien copié" },
   "shortcutHeading": { "message": "Raccourci clavier" },
   "shortcutText": { "message": "Ouvre la recherche dans votre bibliothèque." },
-  "readingShortcutText": { "message": "Enregistre la page ouverte dans « À lire »." },
+  "readingShortcutText": { "message": "Enregistre la page ouverte dans « À lire »." },
   "shortcutNone": { "message": "Aucun raccourci" },
   "shortcutChangeIn": {
     "message": "Modifier dans $BROWSER$",
@@ -127,15 +127,15 @@
   "messageQueuedText": { "message": "Sera envoyé à l’ouverture de l’application" },
   "messageFailedTitle": { "message": "Impossible d’enregistrer le lien" },
   "messageFailedText": { "message": "Voir les paramètres de l’extension" },
-  "menuReadingPage": { "message": "Enregistrer la page dans « À lire »" },
-  "menuReadingLink": { "message": "Enregistrer le lien dans « À lire »" },
-  "menuReadingLinkNamed": { "message": "Enregistrer le lien dans « À lire » de Koona Pin" },
-  "commandReading": { "message": "Enregistrer la page dans « À lire » de Koona Pin" },
-  "badgeReading": { "message": "Dans « À lire » de Koona Pin" },
-  "messageReadingTitle": { "message": "Enregistré dans « À lire »" },
+  "menuReadingPage": { "message": "Enregistrer la page dans « À lire »" },
+  "menuReadingLink": { "message": "Enregistrer le lien dans « À lire »" },
+  "menuReadingLinkNamed": { "message": "Enregistrer le lien dans « À lire » de Koona Pin" },
+  "commandReading": { "message": "Enregistrer la page dans « À lire » de Koona Pin" },
+  "badgeReading": { "message": "Dans « À lire » de Koona Pin" },
+  "messageReadingTitle": { "message": "Enregistré dans « À lire »" },
   "messageReadingText": { "message": "Attend aussi dans la boîte de réception" },
-  "messageReadingExistingTitle": { "message": "Ajouté à « À lire »" },
-  "messageReadingQueuedText": { "message": "Ira dans « À lire » à l’ouverture de l’app" },
+  "messageReadingExistingTitle": { "message": "Mis dans « À lire »" },
+  "messageReadingQueuedText": { "message": "Ira dans « À lire » à l’ouverture de l’app" },
   "feedbackHeading": { "message": "Après l’enregistrement" },
   "settingMessage": { "message": "Afficher un message sur la page" },
   "settingMessageText": {

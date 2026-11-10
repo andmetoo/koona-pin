@@ -140,7 +140,7 @@ test("Settings lists what a phone has, and its pages work", async ({ page }) => 
   await topScreen(page).getByRole("button", { name: /Backups/ }).click();
   await expect(topScreen(page).getByRole("button", { name: "Back up now" })).toBeVisible();
   await topScreen(page).getByRole("button", { name: "Back", exact: true }).click();
-  await topScreen(page).getByRole("button", { name: /About & licences/ }).click();
+  await topScreen(page).getByRole("button", { name: /About & licenses/ }).click();
   await expect(topScreen(page)).toContainText("Updates come from your app store.");
 });
 

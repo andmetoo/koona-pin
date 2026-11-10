@@ -30,7 +30,7 @@ const paste = (page: Page, text: string) =>
     document.body.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
   }, text);
 
-test("«New link» and ⌘N open the sheet; the toolbar has no Add", async ({ page }) => {
+test("“New link” and ⌘N open the sheet; the toolbar has no Add", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Add", exact: true })).toHaveCount(0);
   await nav(page, "New link").click();
   await expect(sheet(page)).toBeVisible();
@@ -108,7 +108,7 @@ test("the sheet saves to Library, Inbox and Reading, with a preview and the sugg
   await expect(card(page, "A long read")).toBeVisible();
 });
 
-test("the sheet: a link that is not one, a link already saved and «Show it»", async ({ page }) => {
+test("the sheet: a link that is not one, a link already saved and “Show it”", async ({ page }) => {
   await nav(page, "New link").click();
   const field = sheet(page).getByRole("textbox", { name: "Link" });
   await field.fill("not a link");
@@ -575,7 +575,7 @@ test("a dropped file goes by what it holds: a list, OPML, bookmarks and a backup
   await expect(alert("This file is over 2 MB, too big to import")).toBeVisible();
 });
 
-test("⋯ → «Import a file…» routes a picked file as a drop; a dropped file leaves with its dialog", async ({ page }) => {
+test("⋯ → “Import a file…” routes a picked file as a drop; a dropped file leaves with its dialog", async ({ page }) => {
   const more = page.getByRole("button", { name: "More", exact: true });
   await more.click();
   // One Import item (K5).
@@ -626,7 +626,7 @@ test("⋯ → «Import a file…» routes a picked file as a drop; a dropped fil
   await expect(feeds).not.toContainText("feeds.opml");
 });
 
-test("Collections and Tags fold, show their count, are remembered, and «+» opens the folded section", async ({ page }) => {
+test("Collections and Tags fold, show their count, are remembered, and “+” opens the folded section", async ({ page }) => {
   const collections = sidebar(page).getByRole("button", { name: /^Collections/ });
   const tags = sidebar(page).getByRole("button", { name: /^Tags/ });
   await expect(collections).toHaveAttribute("aria-expanded", "true");

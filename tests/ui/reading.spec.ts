@@ -55,7 +55,7 @@ const stubPages = (page: Page, how: "hang" | "403" | "offline", match: string) =
     { how, match },
   );
 
-test("«Read» drops the mode at the first unread of Reading; Esc twice returns to the same place (NP-122)", async ({ page }) => {
+test("“Read” drops the mode at the first unread of Reading; Esc twice returns to the same place (NP-122)", async ({ page }) => {
   await boot(page, { width: 1200, height: 520 });
   const list = await readingList(page);
   // The library as the person left it: a selection, scrolled down.
@@ -335,7 +335,7 @@ async function oneRow(page: Page) {
   return boxes.length;
 }
 
-test("«Remove» on the card and ⌫ anywhere take the article out of Reading and go on; Ctrl Z brings it back (#319)", async ({ page }) => {
+test("“Remove” on the card and ⌫ anywhere take the article out of Reading and go on; Ctrl Z brings it back (#319)", async ({ page }) => {
   await boot(page);
   const list = await readingList(page);
   const mac = await page.evaluate(() => /Mac/.test(navigator.platform));
@@ -385,7 +385,7 @@ test("the card's actions stay on one row in a narrow window and a long language 
   await expect(card.getByRole("button", { name: text(catalog("de"), "card.fromReading") })).toBeVisible();
 });
 
-test("a narrow window: the queue behind «Queue», Tab never reaches it hidden and leaves it open for the article; reduced motion fades (NP-122, #319)", async ({ page }) => {
+test("a narrow window: the queue behind “Queue”, Tab never reaches it hidden and leaves it open for the article; reduced motion fades (NP-122, #319)", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await boot(page, { width: 800, height: 550 });
   const list = await readingList(page);

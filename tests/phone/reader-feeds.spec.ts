@@ -33,7 +33,7 @@ test.describe("the reader", () => {
   test("the heart favours the bookmark; open original goes to the page", async ({ page }) => {
     await openPhone(page);
     const reader = await openFirstBookmark(page);
-    const heart = reader.getByRole("button", { name: /favorites/ });
+    const heart = reader.getByRole("button", { name: /Favorites/ });
     const before = await heart.getAttribute("aria-pressed");
     await heart.click();
     await expect(heart).toHaveAttribute("aria-pressed", before === "true" ? "false" : "true");

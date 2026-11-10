@@ -352,7 +352,7 @@ test("a post's own scripts, frames and handlers never reach the sheet", async ({
   expect(await page.evaluate(() => (window as unknown as { owned?: number }).owned)).toBeUndefined();
 });
 
-test("a post is never read from its site until «Load the full article» (NP-120)", async ({ page }) => {
+test("a post is never read from its site until “Load the full article” (NP-120)", async ({ page }) => {
   await open(page);
   await openFeeds(page);
   await page.evaluate(async () => {

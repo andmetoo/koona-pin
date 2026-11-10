@@ -235,7 +235,7 @@ async function recordLanding(page: Page) {
 test.describe("with reduced motion", () => {
   test.use({ reducedMotion: "reduce" });
 
-  test("nothing moves; a 2 px accent border shows for 300 ms and «+N» holds still", async ({ page }) => {
+  test("nothing moves; a 2 px accent border shows for 300 ms and “+N” holds still", async ({ page }) => {
     // Dropped on the open panel, so the ring on the capsule is the landing's and not the hover's.
     await page.getByRole("button", { name: "More", exact: true }).click();
     await page.getByRole("menuitem", { name: /^Share as list…/ }).click();
