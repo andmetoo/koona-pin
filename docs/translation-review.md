@@ -33,7 +33,7 @@ Rules that the current copy breaks:
 
 Spelling in English should be American, matching Apple’s own English and the rest of this catalog: color, licenses, favorites. Today the desktop says “Licenses” and the phone says “Licences”, and the icon dialog says “colour”.
 
-Quotation marks in English are “…” . The source currently uses «…», which is French and Russian punctuation, and translators copied it.
+Quotation marks in English are “…”. The source currently uses «…», which is French and Russian punctuation, and translators copied it.
 
 ## Fix the English first
 
@@ -98,7 +98,7 @@ The tables are the lines to change. The note under each language is the habit to
 
 ### German
 
-Address is Sie in most of the app and du in feeds, import, Supporter and one phone sentence (`phone.reader.finishText`, “Du kannst es…”). The glossary says Sie. Change the du lines. There are about seventeen of them, against Sie everywhere else.
+Address is Sie in most of the app and du in feeds, import, Supporter and one phone sentence (`phone.reader.finishText`, “Du kannst es…”). The glossary says Sie. Change the du lines. There are about twenty of them (`import.leadFeeds`, `lists.askNote`, `supporter.alsoRenewsAppStore` among them), against Sie everywhere else.
 
 | Now | Corrected |
 | --- | --- |
@@ -216,9 +216,8 @@ Düzenle is already the word for Edit. Ayır is the inbox decision, and Sıralam
 | `common.retry` 再試行 | もう一度試す |
 | `nav.inbox` インボックス | 受信トレイ |
 | `nav.links` リンクチェック | リンクを確認 |
-| 長押し | タッチして押さえたまま |
 
-受信トレイ is the system name for an inbox. インボックス and リンクチェック are the English words written in katakana. 再試行 is the system word for Retry.
+Keep 長押し for touch and hold: it is the word Apple’s own Japanese uses. 受信トレイ is the system name for an inbox. インボックス and リンクチェック are the English words written in katakana. 再試行 is the system word for Retry.
 
 ### Korean
 
