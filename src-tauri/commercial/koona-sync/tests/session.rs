@@ -1741,3 +1741,109 @@ fn starting_over_makes_this_device_the_hub_with_a_new_key_and_holds_the_others()
     assert_eq!(load_meta(w.lib(a)).unwrap().key, load_meta(w.lib(c)).unwrap().key);
     assert_eq!(load_meta(w.lib(c)).unwrap().roster.unwrap().devices.len(), 3);
 }
+
+/// The case that left a laptop stuck: another device started over, this one pressed Join and
+/// waits for a new hub that is offline. It starts over itself, from pending: it becomes the hub
+/// at the next epoch with a new key, keeps its library, and the other one joins it.
+#[test]
+fn a_device_waiting_on_an_offline_new_hub_starts_over_from_pending() {
+    let (mut w, a, b, c) = three();
+    fill(w.lib(b), 3, "b");
+    w.act(b, Action::LocalChange);
+    w.run();
+    w.assert_converged(&[a, b, c]);
+    let (epoch, _) = load_meta(w.lib(b)).unwrap().key.unwrap();
+
+    // `c` starts over and becomes the hub at epoch + 1, then goes offline; `a` stays away.
+    w.act(c, Action::StartOver { token: FRESH_SIGN_IN.into() });
+    w.run();
+    w.connect(c);
+    w.run();
+    assert!(w.devices[c].session.is_hub());
+    let c_key = load_meta(w.lib(c)).unwrap().key.unwrap();
+    assert_eq!(c_key.0, epoch + 1);
+    w.drop_link(c);
+    w.run();
+
+    // `b` comes back held, joins, and its offer finds no hub.
+    w.connect(b);
+    w.run();
+    assert_eq!(w.phase(b), Phase::Paused { reason: PauseReason::StartedOver });
+    w.act(b, Action::JoinAgain);
+    w.run();
+    assert_eq!(w.phase(b), Phase::Pending);
+    assert_eq!(failures(&w, b).last(), Some(&PairingFailure::Unavailable));
+    assert_eq!(load_meta(w.lib(b)).unwrap().key.unwrap().0, epoch, "still the key of the era it left");
+
+    // Starting over from pending: the hub at the next epoch, a new key, the library kept.
+    w.act(b, Action::StartOver { token: FRESH_SIGN_IN.into() });
+    w.run();
+    w.connect(b);
+    w.run();
+    assert_eq!(w.phase(b), Phase::Online);
+    assert!(w.devices[b].session.is_hub());
+    assert_eq!(w.devices[b].session.epochs(), (epoch + 2, Some(epoch + 2)));
+    let meta = load_meta(w.lib(b)).unwrap();
+    let b_key = meta.key.unwrap();
+    assert_ne!(b_key.1, c_key.1);
+    assert_eq!(meta.roster.unwrap().devices.len(), 1, "the roster names the new hub alone");
+    assert_eq!(count(w.lib(b)), 13, "nothing of the library is lost");
+
+    // The former hub comes back held, joins the new one, and the libraries merge.
+    fill(w.lib(c), 2, "c2");
+    w.connect(c);
+    w.run();
+    assert_eq!(w.phase(c), Phase::Paused { reason: PauseReason::StartedOver });
+    w.act(c, Action::JoinAgain);
+    w.run();
+    let (asking, hosting) = (w.codes(c), w.codes(b));
+    assert_eq!(asking.last().unwrap().1, hosting.last().unwrap().1);
+    let device = w.devices[c].id;
+    w.act(b, Action::ApprovePairing { device });
+    w.run();
+    assert_eq!(w.phase(c), Phase::Online);
+    w.act(b, Action::SyncNow);
+    w.run();
+    w.assert_converged(&[b, c]);
+    assert_eq!(count(w.lib(b)), 15);
+    assert_eq!(load_meta(w.lib(c)).unwrap().key, Some(b_key));
+    assert_eq!(load_meta(w.lib(b)).unwrap().roster.unwrap().devices.len(), 2);
+}
+
+/// A device that never held a key, pending while the hub is offline, starts over and becomes
+/// the hub of its own library; the old hub comes back held.
+#[test]
+fn a_new_pending_device_without_a_key_starts_over() {
+    let mut w = World::new();
+    let a = w.add("Studio Mac", 1, 64 << 10);
+    let d = w.add("Laptop", 2, 64 << 10);
+    fill(w.lib(a), 4, "a");
+    w.connect(a);
+    w.run();
+    w.drop_link(a);
+    w.run();
+    fill(w.lib(d), 3, "d");
+    w.connect(d);
+    w.run();
+    assert_eq!(w.phase(d), Phase::Pending);
+    assert!(load_meta(w.lib(d)).unwrap().key.is_none());
+    w.act(d, Action::StartPairing);
+    w.run();
+    assert_eq!(failures(&w, d), vec![PairingFailure::Unavailable]);
+
+    w.act(d, Action::StartOver { token: FRESH_SIGN_IN.into() });
+    w.run();
+    w.connect(d);
+    w.run();
+    assert_eq!(w.phase(d), Phase::Online);
+    assert!(w.devices[d].session.is_hub());
+    assert_eq!(w.devices[d].session.epochs(), (1, Some(1)));
+    let meta = load_meta(w.lib(d)).unwrap();
+    assert_eq!(meta.key.map(|k| k.0), Some(1));
+    assert_eq!(meta.roster.unwrap().devices.len(), 1);
+    assert_eq!(count(w.lib(d)), 3);
+
+    w.connect(a);
+    w.run();
+    assert_eq!(w.phase(a), Phase::Paused { reason: PauseReason::StartedOver });
+}

@@ -415,13 +415,16 @@ export function syncView(status: SyncStatus): SyncView {
  * The wait of a computer not yet approved (frame 06): whether the main computer is away, the
  * problem to show, and whether the footer offers «Start over…». Away, starting over by email is
  * the way out (it disconnects the others, as its dialog says): offered once, by the problem's
- * banner when it has the button, else beside Cancel.
+ * banner when it has the button, else beside Cancel. A main computer that never answered may be
+ * away too: the relay can keep a connection that died silently online for hours, so a timeout
+ * offers it as well. A refusal or a bad signature does not: someone is there.
  */
 export function waitingScreen(status: SyncStatus, t: TFunction): { away: boolean; problem: SyncBanner | null; startOver: boolean } {
   const hub = hubDevice(status);
   const away = status.error === "hub_offline" || (hub ? !hub.online : false);
   const problem = status.error ? problemBanner(status.error, status, t) : null;
-  return { away, problem, startOver: away && !status.is_hub && problem?.action?.kind !== "startOver" };
+  const silent = status.error === "pairing_timeout";
+  return { away, problem, startOver: (away || silent) && !status.is_hub && problem?.action?.kind !== "startOver" };
 }
 
 /** A prompt that opens the dialog by itself on the main computer: a computer to approve, a request to hand over. */

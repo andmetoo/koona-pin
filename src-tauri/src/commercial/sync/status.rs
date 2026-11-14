@@ -579,6 +579,14 @@ impl Model {
                 self.devices = devices;
                 self.online = online;
                 self.hub = hub;
+                // «Join…» ended by starting over from here: this device is the hub of its own
+                // library, so the new key that follows is not the library arriving (frame 07) and
+                // the last sync stays. Told before the epoch, which the welcome sends after.
+                if self.rejoining && hub.is_some() && hub == self.me {
+                    self.note(now, "started over while joining: no library to receive".into());
+                    self.rejoining = false;
+                    out.push(Reaction::Synced);
+                }
                 // Waiting with no offer open and the hub online (back, or found again after an
                 // `undeliverable`): ask, unless the last offer was refused or ran out of time,
                 // which only «Try again» repeats. A second ask while one is open is answered
@@ -1111,6 +1119,47 @@ mod tests {
         assert!(model.on_event(devices(DeviceStatus::Active), at(7)).is_empty(), "active: nothing to ask");
         model.on_event(Event::Session(Effect::Status(Phase::Online)), at(8));
         assert_eq!(model.status(&ctx(&me)).error, None);
+    }
+
+    /// The laptop's case: dropped by a start over elsewhere, «Join…» pressed, the new hub offline,
+    /// and it starts over itself. It ends as the hub of its own library: nothing left of the
+    /// wait, and its last sync kept, as nothing arrives.
+    #[test]
+    fn a_start_over_while_joining_ends_clean() {
+        let me = Identity::new("Laptop");
+        let hub = uid(9);
+        let synced = at(1);
+        let mut model = Model { me: Some(me.device), last_sync_at: Some(synced), epoch: Some(7), rejoining: true, ..Model::default() };
+        let directory = |mine: DeviceStatus, main: Uuid, online: Vec<Uuid>| {
+            Event::Session(Effect::Devices {
+                devices: vec![info(hub, "Studio Mac", DeviceStatus::Active), info(me.device, "Laptop", mine)],
+                online,
+                hub: Some(main),
+            })
+        };
+        model.on_event(directory(DeviceStatus::Pending, hub, vec![me.device, hub]), at(2));
+        model.on_event(Event::Session(Effect::Status(Phase::Pending)), at(2));
+        model.on_event(Event::Session(Effect::Pairing(PairingEvent::Waiting { hub, hub_name: "Studio Mac".into() })), at(3));
+        // The hub went away; the offer to it ends, and the person starts over (the command
+        // clears the problem, `start_over` in mod.rs).
+        model.on_event(directory(DeviceStatus::Pending, hub, vec![me.device]), at(4));
+        model.on_event(Event::Session(Effect::Pairing(PairingEvent::Failed { peer: hub, reason: PairingFailure::Unavailable })), at(4));
+        assert_eq!(model.status(&ctx(&me)).error, Some(SyncProblem::HubOffline));
+        model.error = None;
+        // The relay closes every connection (4005); this one comes back as the hub at epoch 9.
+        model.on_event(Event::Closed { code: Some(4005), reason: None }, at(5));
+        model.on_event(Event::Session(Effect::Status(Phase::Paused { reason: PauseReason::Offline })), at(5));
+        let welcomed = model.on_event(directory(DeviceStatus::Active, me.device, vec![me.device]), at(6));
+        assert!(welcomed.contains(&Reaction::Synced), "the flag is written to sync.json");
+        assert!(!welcomed.contains(&Reaction::StartPairing));
+        model.on_event(Event::Session(Effect::Status(Phase::Online)), at(6));
+        model.on_event(Event::Session(Effect::KeyEpoch(Some(9))), at(6));
+        assert!(!model.rejoining);
+        assert!(!model.paired);
+        assert_eq!(model.last_sync_at, Some(synced), "nothing arrived: the last sync stays");
+        let shown = model.status(&ctx(&me));
+        assert_eq!((shown.phase, shown.is_hub, shown.pairing, shown.error), (SyncPhase::Online, true, None, None));
+        assert_eq!(shown.epoch, Some(9));
     }
 
     #[test]

@@ -175,11 +175,23 @@ describe("sync texts (sheet 46)", () => {
     expect(offline.problem).toMatchObject({ id: "problem:hub_offline", action: { kind: "startOver" } });
     expect(offline.startOver).toBe(false);
     // Timed out or refused: «Try again» on the banner, and Start over still there if it's away.
-    for (const error of ["pairing_timeout", "pairing_rejected"] as const) {
-      expect(waitingScreen({ ...pending, error }, t)).toMatchObject({ problem: { action: { kind: "retry", label: "Try again" } }, startOver: false });
+    for (const error of ["pairing_timeout", "pairing_rejected", "pairing_bad_signature"] as const) {
+      expect(waitingScreen({ ...pending, error }, t).problem).toMatchObject({ action: { kind: "retry", label: "Try again" } });
       expect(waitingScreen({ ...away, error }, t).startOver).toBe(true);
     }
+    // No answer from a main computer that reads online (a connection the relay still counts):
+    // it may be gone, so Start over too. Declined or tampered with: someone is there, so not.
+    expect(waitingScreen({ ...pending, error: "pairing_timeout" }, t)).toMatchObject({ away: false, startOver: true });
+    expect(waitingScreen({ ...pending, error: "pairing_rejected" }, t).startOver).toBe(false);
+    expect(waitingScreen({ ...pending, error: "pairing_bad_signature" }, t).startOver).toBe(false);
     expect(waitingScreen({ ...away, error: "stale_sign_in" }, t)).toMatchObject({ problem: { action: { kind: "startOver" } }, startOver: false });
+  });
+
+  it("shows the overview once a computer that waited started over and is the main one", () => {
+    const hubNow = { ...laptop, is_hub: true };
+    const startedOver: SyncStatus = { ...base, is_hub: true, hub: laptop.id, device: hubNow, devices: [{ ...hub, is_hub: false, online: false }, hubNow] };
+    expect(syncView(startedOver)).toBe("overview");
+    expect(syncView({ ...startedOver, phase: { state: "syncing", done: 1, total: 9 }, last_sync_at: null })).toBe("overview");
   });
 
   it("shows the screen sync asks for", () => {
