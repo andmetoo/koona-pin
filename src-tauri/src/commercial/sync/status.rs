@@ -65,7 +65,20 @@ pub struct SyncStatus {
 }
 
 /// The last `seq` given, for the whole process: statuses are made by commands and by the worker.
+/// Counted on from the clock's milliseconds at the first status, so an interface that outlived a
+/// restart of the backend (a dev reload) doesn't take the new process's statuses for old ones.
 static SEQ: AtomicU64 = AtomicU64::new(0);
+
+fn next_seq() -> u64 {
+    let start = || {
+        let ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64);
+        // Thousands of statuses per millisecond of runtime stay ahead of a later process, and the
+        // number stays exact in JavaScript (below 2^53).
+        ms.saturating_mul(1000)
+    };
+    let _ = SEQ.compare_exchange(0, start(), Ordering::Relaxed, Ordering::Relaxed);
+    SEQ.fetch_add(1, Ordering::Relaxed) + 1
+}
 
 /// Answer of `get_sync_account`: what the relay knows of the account before this computer turns
 /// sync on, so the first screen can say whether it becomes the main computer or joins one.
@@ -879,7 +892,7 @@ impl Model {
             epoch: self.epoch,
             // Taken while the model is borrowed (under its lock in the app), so a later seq never
             // shows an older model.
-            seq: SEQ.fetch_add(1, Ordering::Relaxed) + 1,
+            seq: next_seq(),
         }
     }
 }
