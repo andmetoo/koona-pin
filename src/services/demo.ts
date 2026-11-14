@@ -322,6 +322,8 @@ function setDemoFolder(folder: BackupFolder) {
 export const DEMO_SYNC_KEY = "koonapin.demo.sync";
 const syncListeners = new Set<(status: SyncStatus) => void>();
 let demoSync: SyncStatus | null = null;
+/** As the app's: every status set is newer than the one before, so the interface keeps the order. */
+let demoSyncSeq = 0;
 const THIS_DEVICE = "0f8e2c1a-5b7d-4e39-9a61-3c2d4b5e6f70";
 const HUB_DEVICE = "6a1b9c2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d";
 const LAPTOP_DEVICE = "c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f";
@@ -360,6 +362,7 @@ function demoSyncState(kind: string | null): SyncStatus {
     clock_offset_ms: 400,
     update_from: null,
     epoch: 2,
+    seq: 0,
   };
   // On Office laptop, another computer; Home iMac is the main one, away `hubAway` minutes.
   const other = (hubAway: number | null): SyncStatus => {
@@ -481,12 +484,13 @@ function demoSyncAccount(): SyncAccount {
   return { main_name: hub?.name ?? null };
 }
 function currentDemoSync(): SyncStatus {
-  demoSync ??= demoSyncState(demoSwitch(DEMO_SYNC_KEY));
+  demoSync ??= { ...demoSyncState(demoSwitch(DEMO_SYNC_KEY)), seq: ++demoSyncSeq };
   return demoSync;
 }
 function setDemoSync(status: SyncStatus) {
-  demoSync = status;
-  syncListeners.forEach((fn) => fn(status));
+  const next = { ...status, seq: ++demoSyncSeq };
+  demoSync = next;
+  syncListeners.forEach((fn) => fn(next));
 }
 const syncPause = () => new Promise((resolve) => setTimeout(resolve, 300));
 function needSyncRunning() {

@@ -64,4 +64,9 @@ update_from: string | null,
 /**
  * Generation of the library key this device holds.
  */
-epoch: number | null, };
+epoch: number | null, 
+/**
+ * Larger for every status made: a command's answer can reach the interface after a newer
+ * `sync-status` event, and the interface keeps the newer one.
+ */
+seq: number, };

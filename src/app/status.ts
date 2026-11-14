@@ -1,14 +1,17 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, isTauri } from "../services/api";
 import { describeError } from "../services/errors";
 import { preference } from "../services/preferences";
 import type { AppSettings, BackupCopy, LibraryStatus, SupporterStatus, SyncStatus } from "../types";
+import { newerSync } from "./syncOrder";
 
 /** Supporter (NP-066, sheet 45) and sync between a Supporter's devices (commercial/sync, sheet 46). */
 export function useSupporter() {
   /** The plan as kept; no request behind it. */
   const [supporter, setSupporter] = useState<SupporterStatus | null>(null);
-  const [sync, setSync] = useState<SyncStatus | null>(null);
+  const [sync, setSyncState] = useState<SyncStatus | null>(null);
+  /** Every status goes through here, events and command answers: an older one doesn't replace a newer. */
+  const setSync = useCallback((status: SyncStatus) => setSyncState((shown) => newerSync(shown, status)), []);
   /** The Supporter badge's heart in the colour of the season; a perk the dialog turns off. */
   const [badge, setBadge] = useState(() => preference("supporterBadge", ["on", "off"], "on") === "on");
   useEffect(() => {
@@ -16,18 +19,13 @@ export function useSupporter() {
     return api.onSupporterStatus(setSupporter);
   }, []);
   useEffect(() => {
-    // An event newer than the first answer wins: the answer, late, would put an older state back.
-    let heard = false;
-    const stop = api.onSyncStatus((status) => {
-      heard = true;
-      setSync(status);
-    });
+    const stop = api.onSyncStatus(setSync);
     void api
       .getSyncStatus()
-      .then((status) => heard || setSync(status))
+      .then(setSync)
       .catch(() => {});
     return stop;
-  }, []);
+  }, [setSync]);
   return { supporter, sync, setSync, badge, setBadge };
 }
 

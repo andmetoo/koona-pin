@@ -71,6 +71,7 @@ const base: SyncStatus = {
   clock_offset_ms: null,
   update_from: null,
   epoch: null,
+  seq: 1,
 };
 /** Words, not a key that i18next gave back for want of them. */
 const worded = (text: string | undefined) => {

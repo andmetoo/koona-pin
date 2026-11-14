@@ -15,6 +15,7 @@ use koona_sync::session::{
 use koona_sync::Applied;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::sync::atomic::{AtomicU64, Ordering};
 use ts_rs::TS;
 use uuid::Uuid;
 
@@ -57,7 +58,14 @@ pub struct SyncStatus {
     pub update_from: Option<String>,
     /// Generation of the library key this device holds.
     pub epoch: Option<u32>,
+    /// Larger for every status made: a command's answer can reach the interface after a newer
+    /// `sync-status` event, and the interface keeps the newer one.
+    #[ts(type = "number")]
+    pub seq: u64,
 }
+
+/// The last `seq` given, for the whole process: statuses are made by commands and by the worker.
+static SEQ: AtomicU64 = AtomicU64::new(0);
 
 /// Answer of `get_sync_account`: what the relay knows of the account before this computer turns
 /// sync on, so the first screen can say whether it becomes the main computer or joins one.
@@ -869,6 +877,9 @@ impl Model {
             clock_offset_ms: self.clock_offset_ms,
             update_from,
             epoch: self.epoch,
+            // Taken while the model is borrowed (under its lock in the app), so a later seq never
+            // shows an older model.
+            seq: SEQ.fetch_add(1, Ordering::Relaxed) + 1,
         }
     }
 }
@@ -912,6 +923,15 @@ mod tests {
         let shown = model.status(&ctx(&me));
         assert_eq!(shown.device.status, SyncDeviceStatus::Unregistered);
         assert_eq!(shown.device.name, "Studio Mac");
+    }
+
+    #[test]
+    fn every_status_comes_with_a_larger_seq() {
+        let me = Identity::new("Studio Mac");
+        let model = Model::default();
+        let first = model.status(&ctx(&me)).seq;
+        let second = model.status(&ctx(&me)).seq;
+        assert!(second > first, "{second} after {first}");
     }
 
     #[test]
