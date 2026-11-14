@@ -1872,7 +1872,7 @@
       "nothingYet": "henüz bir şey yok",
       "offline": "{{detail}} · çevrimdışı",
       "yesterday": "dün {{time}}",
-      "note": "Raporda durumlar, kimlikler ve bilgisayarlarınızın adları var — yer imi yok, e-posta adresi yok.",
+      "note": "Raporda yalnızca durumlar ve kimlikler var — yer imi yok, ad yok.",
       "copy": "Raporu kopyala",
       "reveal": "Günlüğü göster"
     }

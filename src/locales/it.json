@@ -1977,7 +1977,7 @@
       "nothingYet": "ancora niente",
       "offline": "{{detail}} · offline",
       "yesterday": "ieri {{time}}",
-      "note": "Il rapporto contiene stati, identificativi e i nomi dei tuoi computer — niente segnalibri, nessun indirizzo email.",
+      "note": "Il rapporto contiene solo stati e identificativi — niente segnalibri, niente nomi.",
       "copy": "Copia rapporto",
       "reveal": "Mostra registro"
     }

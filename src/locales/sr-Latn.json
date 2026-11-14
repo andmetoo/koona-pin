@@ -1977,7 +1977,7 @@
       "nothingYet": "još ništa",
       "offline": "{{detail}} · van mreže",
       "yesterday": "juče {{time}}",
-      "note": "Izveštaj sadrži stanja, identifikatore i nazive vaših računara — bez obeleživača i adrese e-pošte.",
+      "note": "Izveštaj sadrži samo stanja i identifikatore — bez obeleživača i naziva.",
       "copy": "Kopiraj izveštaj",
       "reveal": "Prikaži dnevnik"
     }

@@ -981,13 +981,21 @@ pub fn sync_now(app: AppHandle) -> Result<SyncStatus, CommandError> {
 
 /// What support needs to see why sync does what it does: states, ids, every device the relay
 /// lists (removed ones too: an earlier identity of this computer is one), the key's generation
-/// and whose its file is, and the tail of `sync.log`. Device names are the person's own and stay,
-/// as they help tell the computers apart; no email, no account id, no bookmark, collection or tag,
-/// and no key.
+/// and whose its file is, and the tail of `sync.log`. No device name (one can be a person's name
+/// or an address: Details promises none), no email, no account id, no bookmark, collection or
+/// tag, and no key: a device is told apart by its short id, system and version.
+///
+/// On the blocking pool, not the main thread a plain command runs on: it waits for the log to be
+/// written (half a second at most) and reads both files. No lock is held meanwhile; the model's is
+/// taken last, for the lines made from it.
 #[tauri::command]
-pub fn copy_sync_report(app: AppHandle) -> String {
+pub async fn copy_sync_report(app: AppHandle) -> Result<String, CommandError> {
+    tauri::async_runtime::spawn_blocking(move || sync_report(&app)).await.map_err(CommandError::internal)
+}
+
+fn sync_report(app: &AppHandle) -> String {
     let state = app.state::<SyncState>();
-    let status = state.status(&app);
+    let status = state.status(app);
     let account = lock(&state.run).as_ref().map(|r| r.sub.clone());
     let facts = ReportFacts {
         version: app.package_info().version.to_string(),
@@ -1005,10 +1013,16 @@ pub fn copy_sync_report(app: AppHandle) -> String {
 /// Lines of `sync.log` the report ends with.
 const REPORT_LOG_LINES: usize = 200;
 
-/// `sync.log` in the file manager, from Details. A log not written yet shows its folder.
+/// `sync.log` in the file manager, from Details. A log not written yet shows its folder. On the
+/// blocking pool, as it waits for the log to be written.
 #[cfg(desktop)]
 #[tauri::command]
-pub fn reveal_sync_log(app: AppHandle) -> Result<(), CommandError> {
+pub async fn reveal_sync_log(app: AppHandle) -> Result<(), CommandError> {
+    tauri::async_runtime::spawn_blocking(move || reveal_log(&app)).await.map_err(CommandError::internal)?
+}
+
+#[cfg(desktop)]
+fn reveal_log(app: &AppHandle) -> Result<(), CommandError> {
     use tauri_plugin_opener::OpenerExt;
     let state = app.state::<SyncState>();
     state.log.flush(Duration::from_millis(500));
@@ -1058,6 +1072,16 @@ fn set_aside_files(state: &SyncState) -> Vec<(String, Option<DateTime<Utc>>)> {
             (name, at)
         })
         .collect()
+}
+
+/// A version as a peer said it, if it looks like one (`2.22.3`, `2.23.0-beta.1`); else `other`.
+fn version_word(text: &str) -> &str {
+    let ok = !text.is_empty() && text.len() <= 32 && text.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-');
+    if ok {
+        text
+    } else {
+        "other"
+    }
 }
 
 fn report(status: &SyncStatus, model: &Model, facts: &ReportFacts) -> String {
@@ -1121,7 +1145,15 @@ fn report(status: &SyncStatus, model: &Model, facts: &ReportFacts) -> String {
             marks.push("hub".into());
         }
         marks.push(if device.online { "online".into() } else { "offline".into() });
-        lines.push(format!("  {} {} - {}, last seen {}", short(&device.id), device.name, marks.join(", "), ms(device.last_seen)));
+        // What it said in its last sync `hello` (this device: what it runs), as far as that looks
+        // like a system and a version: the words are the peer's.
+        let own = device.id == status.device.id;
+        let (platform, app) = if own { (&status.device.platform, &status.device.app) } else { (&device.platform, &device.app) };
+        let runs = match (platform.as_deref().map(log::word), app.as_deref().map(version_word)) {
+            (None, None) => "runs: not known yet".to_string(),
+            (platform, app) => format!("runs {} {}", platform.unwrap_or("?"), app.unwrap_or("?")),
+        };
+        lines.push(format!("  {} - {}, {runs}, last seen {}", short(&device.id), marks.join(", "), ms(device.last_seen)));
     }
     lines.push(format!("log (last {} lines):", facts.log.len()));
     lines.extend(facts.log.iter().map(|line| format!("  {line}")));
@@ -1290,31 +1322,48 @@ mod tests {
         let _ = fs::remove_dir_all(folder);
     }
 
+    /// Names and addresses go in everywhere a status can carry them; none comes out.
     #[test]
-    fn the_report_lists_every_device_and_keeps_secrets_out() {
+    fn the_report_lists_every_device_and_keeps_names_and_secrets_out() {
         use koona_sync::protocol::{DeviceInfo, DeviceStatus, B64};
-        let me = Identity::new("Office laptop");
+        use koona_sync::session::{Effect, HubChangeEvent, PairingEvent, Role};
+        let me = Identity::new("alice@example.com Mac");
         let (hub, earlier) = (Uuid::from_u128(0x7c1e_9b20_0000_4000_8000_0000_0000_0001), Uuid::from_u128(0x5a2b_3c4d_0000_4000_8000_0000_0000_0002));
         let mut model = Model::default();
         model.me = Some(me.device);
         let info = |id, name: &str, status, last_seen| DeviceInfo { id, name: name.into(), key: B64([1; 32]), status, last_seen };
-        model.on_event(
-            Event::Session(koona_sync::session::Effect::Devices {
+        let events = [
+            Event::Session(Effect::Devices {
                 devices: vec![
-                    info(hub, "Home iMac", DeviceStatus::Active, 1_794_000_000_000),
-                    info(me.device, "Office laptop", DeviceStatus::Pending, 1_794_700_000_000),
-                    info(earlier, "Office laptop", DeviceStatus::Revoked, 1_793_000_000_000),
+                    info(hub, "Bob's iMac", DeviceStatus::Active, 1_794_000_000_000),
+                    info(me.device, "alice@example.com Mac", DeviceStatus::Pending, 1_794_700_000_000),
+                    info(earlier, "Alice Smith's laptop", DeviceStatus::Revoked, 1_793_000_000_000),
                 ],
                 online: vec![me.device],
                 hub: Some(hub),
             }),
-            Utc::now(),
-        );
-        model.on_event(Event::Closed { code: Some(1012), reason: Some("silent".into()) }, Utc::now());
+            Event::Session(Effect::PeerHello { device: hub, platform: "macos".into(), app: "2.22.2".into() }),
+            Event::Session(Effect::Pairing(PairingEvent::Code { role: Role::Asking, peer: hub, peer_name: "Bob's iMac".into(), code: "482913".into() })),
+            Event::Session(Effect::HubChange(HubChangeEvent::Waiting { hub, hub_name: "bob@example.com".into() })),
+            Event::Session(Effect::StartedOver { by: hub, by_name: Some("Bob Jones".into()), at: 5, epoch: 4 }),
+            Event::Closed { code: Some(1012), reason: Some("silent".into()) },
+        ];
+        for event in events {
+            model.on_event(event, Utc::now());
+        }
+        model.notices.list.push(status::SyncNotice::DeviceAdded {
+            id: "device-added-x".into(),
+            device: earlier.to_string(),
+            name: "Carol <carol@example.com>".into(),
+            by_name: Some("Bob's iMac".into()),
+            at: Utc::now(),
+        });
         model.rejoining = true;
-        let context = Context { enabled: true, service: true, plan: true, library_ready: true, identity: &me, app: "2.23.0".into(), bookmarks: None };
+        let context = Context { enabled: true, service: true, plan: true, library_ready: true, identity: &me, app: "2.22.3".into(), bookmarks: None };
+        let status = model.status(&context);
+        assert!(status.pairing.is_some() && status.hub_change.is_some() && !status.notices.is_empty(), "every place is filled");
         let facts = ReportFacts {
-            version: "2.23.0".into(),
+            version: "2.22.3".into(),
             platform: "macos".into(),
             relay: relay_host("wss://sync.example.com/v1/sync?lease=abc"),
             enabled: true,
@@ -1322,20 +1371,25 @@ mod tests {
             set_aside: vec![("sync-device.json.damaged".into(), DateTime::from_timestamp(1_793_500_000, 0))],
             log: vec!["2026-11-14T10:00:00Z phase Pending".into()],
         };
-        let text = report(&model.status(&context), &model, &facts);
+        let text = report(&status, &model, &facts);
         let short = |id: &Uuid| log::short(id);
-        assert!(text.contains(&format!("  {} Office laptop - revoked, offline, last seen", short(&earlier))), "the earlier identity:\n{text}");
-        assert!(text.contains(&format!("  {} Home iMac - active, hub, offline", short(&hub))), "{text}");
-        assert!(text.contains(&format!("  {} Office laptop - pending, this device, online", short(&me.device))), "{text}");
+        assert!(text.contains(&format!("  {} - revoked, offline, runs: not known yet, last seen", short(&earlier))), "the earlier identity:\n{text}");
+        assert!(text.contains(&format!("  {} - active, hub, offline, runs macos 2.22.2, last seen", short(&hub))), "{text}");
+        let own = format!("  {} - pending, this device, online, runs {} 2.22.3", short(&me.device), koona_sync::protocol::platform());
+        assert!(text.contains(&own), "{own:?} in\n{text}");
         assert!(text.contains("devices: 3 (removed ones too)"));
+        assert!(text.contains("pairing: Some(Asking)") && text.contains("hub change: Some(Asking)") && text.contains("notices: 2"), "{text}");
         assert!(text.contains("relay: sync.example.com\n"), "the host alone:\n{text}");
         assert!(text.contains("key: epoch none, file of epoch 3, of the signed-in account"));
         assert!(text.contains("  sync-device.json.damaged 2026-11-01T02:26:40Z"), "{text}");
         assert!(text.contains("last close: 1012 silent"));
         assert!(text.contains("rejoining: true"));
-        assert!(text.contains("app: 2.23.0 on macos"));
+        assert!(text.contains("app: 2.22.3 on macos"));
         assert!(text.contains("  2026-11-14T10:00:00Z phase Pending"));
-        for secret in ["lease", "abc", "wss://", &me.device.to_string(), &hub.to_string(), "AQEBAQ"] {
+        for secret in [
+            "@", "alice", "Alice", "Bob", "Carol", "Smith", "Jones", "iMac", "laptop", "482913", "lease", "abc", "wss://",
+            &me.device.to_string(), &hub.to_string(), "AQEBAQ",
+        ] {
             assert!(!text.contains(secret), "{secret:?} in the report:\n{text}");
         }
     }

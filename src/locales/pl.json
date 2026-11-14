@@ -2082,7 +2082,7 @@
       "nothingYet": "jeszcze nic",
       "offline": "{{detail}} · offline",
       "yesterday": "wczoraj {{time}}",
-      "note": "Raport zawiera stany, identyfikatory i nazwy twoich komputerów — bez zakładek i adresu e-mail.",
+      "note": "Raport zawiera tylko stany i identyfikatory — bez zakładek i nazw.",
       "copy": "Kopiuj raport",
       "reveal": "Pokaż dziennik"
     }

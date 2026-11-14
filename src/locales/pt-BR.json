@@ -1977,7 +1977,7 @@
       "nothingYet": "nada ainda",
       "offline": "{{detail}} · offline",
       "yesterday": "ontem {{time}}",
-      "note": "O relatório tem estados, IDs e os nomes dos seus computadores — nenhum marcador, nenhum endereço de e-mail.",
+      "note": "O relatório tem só estados e IDs — nenhum marcador, nenhum nome.",
       "copy": "Copiar relatório",
       "reveal": "Mostrar registro"
     }

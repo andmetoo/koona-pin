@@ -1872,7 +1872,7 @@
       "nothingYet": "nothing yet",
       "offline": "{{detail}} · offline",
       "yesterday": "yesterday {{time}}",
-      "note": "The report has states, ids and your computers' names — no bookmarks, no email address.",
+      "note": "The report has states and ids only — no bookmarks, no names.",
       "copy": "Copy report",
       "reveal": "Show log"
     }

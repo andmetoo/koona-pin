@@ -1977,7 +1977,7 @@
       "nothingYet": "rien pour l’instant",
       "offline": "{{detail}} · hors ligne",
       "yesterday": "hier {{time}}",
-      "note": "Le rapport contient des états, des identifiants et les noms de vos ordinateurs — aucun signet, aucune adresse e-mail.",
+      "note": "Le rapport ne contient que des états et des identifiants — aucun signet, aucun nom.",
       "copy": "Copier le rapport",
       "reveal": "Afficher le journal"
     }

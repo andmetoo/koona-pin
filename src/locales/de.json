@@ -1872,7 +1872,7 @@
       "nothingYet": "noch nichts",
       "offline": "{{detail}} · offline",
       "yesterday": "gestern {{time}}",
-      "note": "Der Bericht enthält Status, IDs und die Namen Ihrer Computer — keine Lesezeichen, keine E-Mail-Adresse.",
+      "note": "Der Bericht enthält nur Status und IDs — keine Lesezeichen, keine Namen.",
       "copy": "Bericht kopieren",
       "reveal": "Protokoll zeigen"
     }

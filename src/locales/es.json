@@ -1977,7 +1977,7 @@
       "nothingYet": "nada aún",
       "offline": "{{detail}} · desconectado",
       "yesterday": "ayer {{time}}",
-      "note": "El informe contiene estados, identificadores y los nombres de tus ordenadores — ni marcadores ni dirección de correo.",
+      "note": "El informe solo contiene estados e identificadores — ni marcadores ni nombres.",
       "copy": "Copiar informe",
       "reveal": "Mostrar registro"
     }

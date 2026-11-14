@@ -116,7 +116,7 @@ test("Sync: on the main computer — rename this one, remove another after a con
   // Beside it, the log file in the file manager (a desktop has one).
   await details.getByRole("button", { name: "Show log" }).click();
   await expect(details.getByRole("alert")).toHaveCount(0);
-  await expect(details).toContainText("your computers' names — no bookmarks, no email address");
+  await expect(details).toContainText("The report has states and ids only — no bookmarks, no names.");
   await details.getByRole("button", { name: "Done" }).click();
   await expect(page.getByRole("dialog", { name: "Sync" }).locator("[data-sync-view]")).toHaveAttribute("data-sync-view", "overview");
 });
