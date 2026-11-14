@@ -1106,6 +1106,9 @@ impl Session {
             let hub_online = self.hub.is_some_and(|h| self.online.contains(&h));
             if self.asking.is_none() && self.link == Link::Ready && self.status == Some(DeviceStatus::Pending) && hub_online {
                 self.start_pairing();
+            } else {
+                // Nothing went: the busy run is over, and the next offer starts its own time.
+                self.busy_since = None;
             }
         }
         if let Some(h) = &self.hosting {
@@ -1395,6 +1398,12 @@ impl Session {
             self.give_back(&asking);
             self.offer_again(asking.started);
         }
+        if !online && Some(device) == self.hub {
+            // The hub went away: a busy run ends with it, and an offer once it is back is a new
+            // one with its own time (it was never asked meanwhile).
+            self.offer_again_at = None;
+            self.busy_since = None;
+        }
         if self.asking.as_ref().is_some_and(|a| a.hub == device) && !online {
             // The hub forgot the offer with its connection: a new one goes when it is back.
             self.asking = None;
@@ -1461,6 +1470,11 @@ impl Session {
         // before. Handled as if presence said so (the others sync without it, an offer or a
         // request to it ends), and its next `presence{online:true}` is news to ask again on.
         let hub = if to.is_nil() { self.hub } else { Some(to).filter(|d| Some(*d) == self.hub) };
+        if hub.is_some() {
+            // Found away, even if presence still showed it online: as `on_presence` offline.
+            self.offer_again_at = None;
+            self.busy_since = None;
+        }
         if self.asking.as_ref().is_some_and(|a| a.hub == to || to.is_nil()) {
             let asking = self.asking.take().expect("checked above");
             // The offer never reached the hub: it doesn't count toward the cap.
@@ -2340,7 +2354,9 @@ impl Session {
                     // The failure says what went wrong; a peer error after it would replace it on
                     // the screen.
                     return self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: from, reason }));
-                } else if matches!(code, ErrorCode::Expired | ErrorCode::Busy) {
+                } else if matches!(code, ErrorCode::Expired | ErrorCode::Busy | ErrorCode::Outdated) {
+                    // Answers to an offer this device no longer has open (or never sent): not a
+                    // rekey's failure, nor a peer error to show.
                     // For an offer this device already gave up on.
                     return self.dropped(from, DropReason::Unexpected);
                 } else if self.rekey.as_ref().is_some_and(|r| r.hub == from) {

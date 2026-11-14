@@ -1219,10 +1219,11 @@ fn a_v1_offer_is_told_to_update_and_the_hub_does_not_pause() {
     w.run();
     assert!(w.codes(a).is_empty());
     assert_ne!(w.phase(a), Phase::Paused { reason: PauseReason::UpdateNeeded });
-    assert!(w.devices[b].events.iter().any(|e| matches!(
-        e,
-        Effect::Error(koona_sync::session::SessionError::Peer { device, code: protocol::ErrorCode::Outdated }) if *device == ida
-    )));
+    assert!(!w.devices[b].events.iter().any(|e| matches!(e, Effect::Error(koona_sync::session::SessionError::Peer { .. }))));
+    // The hub said `outdated` (the asking device is the old one); a device with no offer open, as
+    // this one, drops it rather than reading it as a rekey failure or a peer error.
+    assert!(w.devices[a].sent.iter().any(|(_, f)| matches!(sent_pairing(f), Some(PairMessage::Error { code: protocol::ErrorCode::Outdated }))));
+    assert_eq!(w.dropped(b, DropReason::Unexpected), 1);
 }
 
 #[test]
@@ -2197,4 +2198,43 @@ fn on_an_active_device_a_wrong_clock_is_told_before_a_newer_peer() {
     let body = sealer.seal(Address::Device(idb), &payload);
     w.feed(b, Input::Binary(&protocol::encode_delivered(ida, w.relay.now - 10 * 60 * 1000, &body).unwrap()));
     assert_eq!(w.phase(b), Phase::Paused { reason: PauseReason::ClockSkew });
+}
+
+#[test]
+fn a_busy_run_ends_when_the_hub_goes_away_and_a_later_offer_has_its_own_time() {
+    use koona_sync::session::{BUSY_RETRY_MS, PAIRING_TIMEOUT_MS};
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    let c = w.add("Phone", 3, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.connect(c);
+    w.run();
+    // The hub shows the phone's code: the laptop is told it is busy.
+    w.act(c, Action::StartPairing);
+    w.run();
+    w.act(b, Action::StartPairing);
+    w.run();
+    assert_eq!(failures(&w, b), vec![PairingFailure::Busy]);
+    // The hub goes away for longer than a pairing may take, and comes back.
+    w.drop_link(a);
+    w.run();
+    w.tick(BUSY_RETRY_MS);
+    w.tick(PAIRING_TIMEOUT_MS);
+    w.feed(a, Input::Closed { code: None, reason: None });
+    w.connect(a);
+    w.run();
+    let before = offers(&w, b);
+    w.act(b, Action::StartPairing);
+    w.run();
+    assert_eq!(offers(&w, b), before + 1, "a new offer went");
+    assert!(!failures(&w, b).contains(&PairingFailure::Timeout), "not timed out for a hub never asked");
+    let (on_laptop, on_hub) = (w.codes(b), w.codes(a));
+    assert_eq!(on_laptop.last().unwrap().1, on_hub.last().unwrap().1);
+    let device = w.devices[b].id;
+    w.act(a, Action::ApprovePairing { device });
+    w.run();
+    assert_eq!(w.phase(b), Phase::Online);
 }
