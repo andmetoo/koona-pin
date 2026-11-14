@@ -348,11 +348,21 @@ test("Sync: a waiting computer is told when the main computer is busy, which sid
   await expect(busy.getByRole("button")).toHaveCount(0);
   await expect(waiting).not.toContainText("didn't approve");
 
+  // Paused to update, as the app builds it: still the waiting screen of a computer never
+  // approved, with one banner that names the newer main computer, and Cancel.
   await start(page, "pending_update");
   waiting = await openSync(page);
+  await expect(waiting.locator('[data-sync-view="waiting"]')).toBeVisible();
+  await expect(waiting.locator("[data-sync-banner]")).toHaveCount(1);
   const update = waiting.locator('[data-sync-banner="problem:pairing_update_needed"]');
   await expect(update).toContainText("Update Koona Pin on this computer");
+  await expect(update).toContainText("Home iMac has a newer version.");
   await expect(update.getByRole("button", { name: "Update" })).toBeVisible();
+  await expect(waiting).not.toContainText("Asking Home iMac");
+  await expect(waiting.getByRole("button", { name: "Make this the main computer" })).toHaveCount(0);
+  await expect(waiting.getByRole("button", { name: "Sync now" })).toHaveCount(0);
+  await expect(waiting.getByRole("button", { name: "Start over…" })).toHaveCount(0);
+  await expect(waiting.getByRole("button", { name: "Cancel" })).toBeVisible();
 
   await start(page, "pending_hub_update");
   waiting = await openSync(page);

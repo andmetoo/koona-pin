@@ -310,7 +310,8 @@ function setDemoFolder(folder: BackupFolder) {
  * - `pending`: this new computer waits for Home iMac, the code shown (frame 06); `rejected`: the
  *   main computer declined it; `pending_offline`: Home iMac has been offline for three weeks, so
  *   nobody can approve this one, and starting over is the way out; `pending_busy`: Home iMac is
- *   adding another computer; `pending_update`: Home iMac has a newer version, update here;
+ *   adding another computer; `pending_update`: Home iMac has a newer version, so this one is
+ *   paused to update before it can pair;
  *   `pending_hub_update`: Home iMac has an older one; `pending_tries`: asked too many times.
  * - `no_key`: Office laptop lost its sync key: «Make this the main computer» opens Start over.
  * - `receiving`: the first sync brings the library here (frame 07).
@@ -400,9 +401,13 @@ function demoSyncState(kind: string | null): SyncStatus {
       const me = demoDevice(THIS_DEVICE, "Office laptop", { ...LAPTOP, online: true, status: "pending", last_seen: minutesAgo(0) });
       const away = kind === "pending_offline";
       const main = demoDevice(HUB_DEVICE, "Home iMac", { online: !away, is_hub: true, last_seen: minutesAgo(away ? 21 * 24 * 60 : 0) });
+      // As the model builds it: a computer that must update to pair is paused for it, naming
+      // the main computer as the newer one; the other failures leave it pending, no offer open.
+      const updating = kind === "pending_update";
       return {
         ...on,
-        phase: { state: "pending" },
+        phase: updating ? { state: "paused", reason: "update_needed" } : { state: "pending" },
+        update_from: updating ? HUB_DEVICE : null,
         is_hub: false,
         hub: HUB_DEVICE,
         device: me,

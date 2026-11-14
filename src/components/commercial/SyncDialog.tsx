@@ -241,20 +241,23 @@ export function SyncDialog({
   if (view === "waiting") {
     const name = hubName(status, t);
     const code = status.pairing?.role === "asking" ? status.pairing.code : null;
-    const { away, problem, startOver } = waitingScreen(status, t);
+    const { away, problem, startOver, updating } = waitingScreen(status, t, i18n.language);
     return (
       <Dialog key="waiting" title={t("sync.pair.waitTitle", { name })} onClose={onClose} width={480}>
         <div className="flex flex-col" data-sync-view="waiting">
-          <p className="text-sm leading-[18px]">{t("sync.pair.waitLead", { name })}</p>
+          {/* Paused to update: nothing is asked of the main computer until then, so no «Asking…». */}
+          {!updating && <p className="text-sm leading-[18px]">{t("sync.pair.waitLead", { name })}</p>}
           {code ? (
             <CodeBox code={code} label={t("sync.pair.code")} />
           ) : (
-            <div className="mt-4 flex h-[76px] items-center justify-center gap-2.5 rounded-[10px] border border-border bg-panel text-sm text-muted">
-              <Spinner />
-              {t("sync.pair.waitNoCode", { name })}
-            </div>
+            !updating && (
+              <div className="mt-4 flex h-[76px] items-center justify-center gap-2.5 rounded-[10px] border border-border bg-panel text-sm text-muted">
+                <Spinner />
+                {t("sync.pair.waitNoCode", { name })}
+              </div>
+            )
           )}
-          <p className="mt-3 flex gap-2 text-xs leading-4 text-muted">
+          <p className={`${updating ? "" : "mt-3 "}flex gap-2 text-xs leading-4 text-muted`}>
             <Icon icon={RefreshCw} className="mt-px shrink-0 text-update" />
             {/* The offline banner says it already: then what happens once it's approved. */}
             {away && problem?.id !== "problem:hub_offline" ? t("sync.pair.waitOffline", { name }) : t("sync.pair.waitHint")}
