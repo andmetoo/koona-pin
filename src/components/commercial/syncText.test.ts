@@ -10,6 +10,9 @@ import {
   detailTime,
   deviceDetail,
   deviceKind,
+  joinLead,
+  MAIN_AWAY_LONG_MS,
+  MAIN_HEARD_WITHIN_MS,
   noticeBanner,
   overviewBanners,
   planEndsBanner,
@@ -158,6 +161,38 @@ describe("sync texts (sheet 46)", () => {
     expect(syncSummary(stale, t, "en", "supporter")?.tone).toBe("warn");
     // The main computer starts nothing over.
     expect(statusBanner({ ...stale, is_hub: true }, t, "en").action).toBeUndefined();
+  });
+
+  it("tells a start over the server couldn't check, on the overview and the waiting screen", () => {
+    const unchecked = { ...base, error: "start_over_unavailable" as const };
+    const banner = statusBanner(unchecked, t, "en");
+    expect(banner).toMatchObject({ id: "problem:start_over_unavailable", title: "Couldn't check the code just now", action: { kind: "startOver", label: "Start over…" } });
+    expect(banner.body).toMatch(/new code/);
+    expect(syncSummary(unchecked, t, "en", "settings")?.tone).toBe("warn");
+    expect(statusBanner({ ...unchecked, is_hub: true }, t, "en").action).toBeUndefined();
+    // Waiting for a main computer away: the banner has Start over, the footer doesn't repeat it.
+    const waiting: SyncStatus = { ...unchecked, phase: { state: "pending" }, device: { ...laptop, status: "pending" }, devices: [{ ...hub, online: false }, { ...laptop, status: "pending" }], last_sync_at: null };
+    expect(waitingScreen(waiting, t)).toMatchObject({ away: true, problem: { id: "problem:start_over_unavailable", action: { kind: "startOver" } }, startOver: false });
+  });
+
+  it("says on the first screen when the main computer was last seen, and from a day away what to do", () => {
+    const now = Date.parse("2026-11-14T12:00:00Z");
+    const account = (main_online: boolean | null, ago: number | null) => ({ main_name: "Home iMac", main_online, main_last_seen: ago === null ? null : now - ago });
+    // A relay that says neither, and a main computer online: as before.
+    expect(joinLead(account(null, null), t, "en", now)).toEqual({ key: "join", text: t("sync.setup.leadJoin", { name: "Home iMac" }) });
+    expect(joinLead(account(true, 2 * 60_000), t, "en", now).key).toBe("join");
+    // Online but not heard from for longer than a connection the relay still counts: away.
+    expect(joinLead(account(true, MAIN_HEARD_WITHIN_MS + 60_000), t, "en", now).key).toBe("joinOffline");
+    const offline = joinLead(account(false, 40 * 60_000), t, "en", now);
+    expect(offline.key).toBe("joinOffline");
+    expect(offline.text).toContain("last seen 40 minutes ago");
+    const away = joinLead(account(false, 21 * MAIN_AWAY_LONG_MS), t, "en", now);
+    expect(away.key).toBe("joinAway");
+    expect(away.text).toContain("last seen 21 days ago");
+    expect(away.text).toMatch(/must be on to approve/);
+    expect(away.text).toMatch(/Start over/);
+    expect(joinLead(account(false, MAIN_AWAY_LONG_MS - 60_000), t, "en", now).key).toBe("joinOffline");
+    for (const language of ["de", "ja", "ru", "zh-CN"]) worded(joinLead(account(false, 3 * MAIN_AWAY_LONG_MS), i18n.getFixedT(language), language, now).text);
   });
 
   it("offers a waiting computer a way out when the main one is away", () => {

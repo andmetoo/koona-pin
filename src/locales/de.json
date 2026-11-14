@@ -1672,6 +1672,8 @@
     "setup": {
       "lead": "Dieser Computer wird der Hauptcomputer: Nur er fügt Ihre anderen Computer hinzu und entfernt sie. Änderungen werden zwischen allen synchronisiert, ob Hauptcomputer oder nicht.",
       "leadJoin": "{{name}} ist Ihr Hauptcomputer. Schalten Sie die Synchronisierung hier ein und bestätigen Sie dann den Code auf {{name}}. Die Lesezeichen dieses Computers bleiben und werden zusammengeführt.",
+      "leadJoinOffline": "{{name}} ist Ihr Hauptcomputer. Er ist gerade offline, zuletzt online {{when}}. Schalten Sie die Synchronisierung hier ein und bestätigen Sie den Code auf {{name}}, sobald er wieder da ist. Die Lesezeichen dieses Computers bleiben und werden zusammengeführt.",
+      "leadJoinAway": "{{name}} ist Ihr Hauptcomputer, zuletzt online {{when}}. Er muss eingeschaltet sein, um diesen Computer zu bestätigen. Kommt er nicht bald zurück, schalten Sie die Synchronisierung hier ein und wählen Sie „Neu beginnen“, während dieser Computer wartet: Er wird zum Hauptcomputer, und Ihre anderen Computer verbinden sich erneut mit ihm.",
       "leadNeutral": "Ist die Synchronisierung noch nirgends an, wird dieser Computer der Hauptcomputer und fügt die anderen hinzu. Schon woanders an? Dann bestätigt der Hauptcomputer diesen mit einem Code.",
       "name": "Name dieses Computers",
       "privacyTitle": "Verschlüsselt, bevor es Ihre Computer verlässt.",
@@ -1796,6 +1798,8 @@
       "hub_change_timeoutBody": "Innerhalb von fünf Minuten kam keine Antwort. Versuchen Sie es erneut, während {{name}} eingeschaltet ist.",
       "stale_sign_in": "Der Code ist abgelaufen",
       "stale_sign_inBody": "Fordern Sie einen neuen Code an und geben Sie ihn innerhalb von zehn Minuten ein.",
+      "start_over_unavailable": "Der Code konnte gerade nicht geprüft werden",
+      "start_over_unavailableBody": "Nichts wurde geändert. Warten Sie einen Moment und beginnen Sie dann mit einem neuen Code neu.",
       "key_lost": "Dieser Computer hat seinen Synchronisierungsschlüssel verloren",
       "key_lostBody": "Die Schlüsseldatei war beschädigt. Neues kommt erst an, wenn {{name}} online ist und den Schlüssel erneut sendet."
     },
@@ -1868,8 +1872,9 @@
       "nothingYet": "noch nichts",
       "offline": "{{detail}} · offline",
       "yesterday": "gestern {{time}}",
-      "note": "Der Bericht enthält nur Status und IDs — keine Lesezeichen, keine Namen.",
-      "copy": "Bericht kopieren"
+      "note": "Der Bericht enthält Status, IDs und die Namen Ihrer Computer — keine Lesezeichen, keine E-Mail-Adresse.",
+      "copy": "Bericht kopieren",
+      "reveal": "Protokoll zeigen"
     }
   },
   "notifications": {

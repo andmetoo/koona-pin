@@ -1776,6 +1776,8 @@
     "setup": {
       "lead": "Este ordenador pasa a ser el principal: solo él añade y quita tus otros ordenadores. Los cambios se sincronizan entre todos, sean principales o no.",
       "leadJoin": "{{name}} es tu ordenador principal. Activa la sincronización aquí y confirma el código en {{name}}. Los marcadores de este ordenador se quedan y se combinan.",
+      "leadJoinOffline": "{{name}} es tu ordenador principal. Ahora está desconectado; conectado por última vez {{when}}. Activa la sincronización aquí y confirma el código en {{name}} cuando vuelva. Los marcadores de este ordenador se quedan y se combinan.",
+      "leadJoinAway": "{{name}} es tu ordenador principal; conectado por última vez {{when}}. Tiene que estar encendido para aprobar este ordenador. Si no va a volver pronto, activa la sincronización aquí y elige Empezar de nuevo mientras este ordenador espera: pasará a ser el principal y tus otros ordenadores se unirán a él otra vez.",
       "leadNeutral": "Si la sincronización no está activa en ningún sitio, este ordenador pasa a ser el principal y añade los demás. ¿Ya está activa en otro? El principal aprueba este con un código.",
       "name": "Nombre de este ordenador",
       "privacyTitle": "Cifrada en tus ordenadores antes de salir de ellos.",
@@ -1900,6 +1902,8 @@
       "hub_change_timeoutBody": "Nadie respondió en cinco minutos. Vuelve a intentarlo mientras {{name}} esté encendido.",
       "stale_sign_in": "El código ha caducado",
       "stale_sign_inBody": "Pide un código nuevo y escríbelo en menos de diez minutos.",
+      "start_over_unavailable": "No se pudo comprobar el código ahora",
+      "start_over_unavailableBody": "No ha cambiado nada. Espera un momento y vuelve a empezar de nuevo con un código nuevo.",
       "key_lost": "Este ordenador ha perdido su clave de sincronización",
       "key_lostBody": "El archivo de la clave estaba dañado. No llegará nada nuevo hasta que {{name}} esté en línea y la envíe de nuevo."
     },
@@ -1973,8 +1977,9 @@
       "nothingYet": "nada aún",
       "offline": "{{detail}} · desconectado",
       "yesterday": "ayer {{time}}",
-      "note": "El informe solo contiene estados e identificadores — ni marcadores ni nombres.",
-      "copy": "Copiar informe"
+      "note": "El informe contiene estados, identificadores y los nombres de tus ordenadores — ni marcadores ni dirección de correo.",
+      "copy": "Copiar informe",
+      "reveal": "Mostrar registro"
     }
   },
   "notifications": {

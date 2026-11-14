@@ -1776,6 +1776,8 @@
     "setup": {
       "lead": "Cet ordinateur devient l’ordinateur principal : lui seul ajoute et retire vos autres ordinateurs. Les changements se synchronisent entre tous, principal ou non.",
       "leadJoin": "{{name}} est votre ordinateur principal. Activez la synchronisation ici, puis confirmez le code sur {{name}}. Les favoris de cet ordinateur restent et sont fusionnés.",
+      "leadJoinOffline": "{{name}} est votre ordinateur principal. Il est hors ligne, vu en ligne {{when}}. Activez la synchronisation ici, puis confirmez le code sur {{name}} quand il sera de retour. Les favoris de cet ordinateur restent et sont fusionnés.",
+      "leadJoinAway": "{{name}} est votre ordinateur principal, vu en ligne {{when}}. Il doit être allumé pour approuver cet ordinateur. S’il ne revient pas bientôt, activez la synchronisation ici et choisissez Réinitialiser pendant que cet ordinateur attend : il devient l’ordinateur principal, et vos autres ordinateurs le rejoignent.",
       "leadNeutral": "Si la synchronisation n’est active nulle part, cet ordinateur devient le principal et ajoute les autres. Déjà active ailleurs ? L’ordinateur principal approuve celui-ci avec un code.",
       "name": "Nom de cet ordinateur",
       "privacyTitle": "Chiffrée sur vos ordinateurs avant de les quitter.",
@@ -1900,6 +1902,8 @@
       "hub_change_timeoutBody": "Personne n’a répondu en cinq minutes. Réessayez pendant que {{name}} est allumé.",
       "stale_sign_in": "Le code a expiré",
       "stale_sign_inBody": "Envoyez un nouveau code et saisissez-le dans les dix minutes.",
+      "start_over_unavailable": "Impossible de vérifier le code pour l’instant",
+      "start_over_unavailableBody": "Rien n’a changé. Attendez un instant, puis réinitialisez avec un nouveau code.",
       "key_lost": "Cet ordinateur a perdu sa clé de synchronisation",
       "key_lostBody": "Son fichier de clé était endommagé. Rien de nouveau n’arrive tant que {{name}} n’est pas en ligne pour renvoyer la clé."
     },
@@ -1973,8 +1977,9 @@
       "nothingYet": "rien pour l’instant",
       "offline": "{{detail}} · hors ligne",
       "yesterday": "hier {{time}}",
-      "note": "Le rapport ne contient que des états et des identifiants — aucun signet, aucun nom.",
-      "copy": "Copier le rapport"
+      "note": "Le rapport contient des états, des identifiants et les noms de vos ordinateurs — aucun signet, aucune adresse e-mail.",
+      "copy": "Copier le rapport",
+      "reveal": "Afficher le journal"
     }
   },
   "notifications": {

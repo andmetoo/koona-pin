@@ -1672,6 +1672,8 @@
     "setup": {
       "lead": "This computer becomes the main one: only it adds and removes your other computers. Changes sync between all of them, main or not.",
       "leadJoin": "{{name}} is your main computer. Turn on sync here, then confirm the code on {{name}}. Bookmarks on this computer stay and merge in.",
+      "leadJoinOffline": "{{name}} is your main computer. It's offline now, last seen {{when}}. Turn on sync here, then confirm the code on {{name}} once it's back. Bookmarks on this computer stay and merge in.",
+      "leadJoinAway": "{{name}} is your main computer, last seen {{when}}. It must be on to approve this computer. If it won't be back soon, turn on sync here and choose Start over while this computer waits: it becomes the main one, and your other computers join it again.",
       "leadNeutral": "With sync on nowhere yet, this computer becomes the main one and adds your others. Already on elsewhere? The main computer approves this one with a code.",
       "name": "This computer's name",
       "privacyTitle": "Encrypted on your computers before it leaves them.",
@@ -1796,6 +1798,8 @@
       "hub_change_timeoutBody": "Nobody answered within five minutes. Try again while {{name}} is on.",
       "stale_sign_in": "The code has expired",
       "stale_sign_inBody": "Send a new code and enter it within ten minutes.",
+      "start_over_unavailable": "Couldn't check the code just now",
+      "start_over_unavailableBody": "Nothing changed. Wait a moment, then start over again with a new code.",
       "key_lost": "This computer lost its sync key",
       "key_lostBody": "Its key file was damaged. Nothing new arrives until {{name}} is online and sends the key again."
     },
@@ -1868,8 +1872,9 @@
       "nothingYet": "nothing yet",
       "offline": "{{detail}} · offline",
       "yesterday": "yesterday {{time}}",
-      "note": "The report has states and ids only — no bookmarks, no names.",
-      "copy": "Copy report"
+      "note": "The report has states, ids and your computers' names — no bookmarks, no email address.",
+      "copy": "Copy report",
+      "reveal": "Show log"
     }
   },
   "notifications": {

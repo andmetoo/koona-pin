@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { Check, Monitor, RefreshCw, Smartphone, Tablet, TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Plan, SyncAccount, SyncDevice, SyncStatus } from "../../types";
-import { api } from "../../services/api";
+import { api, desktopApi } from "../../services/api";
 import { describeError, toCommandError } from "../../services/errors";
 import { Icon } from "../icons";
 import { ConfirmDialog } from "../library/Dialogs";
@@ -15,6 +15,7 @@ import {
   deviceKind,
   hubDevice,
   hubName,
+  joinLead,
   otherDevices,
   overviewBanners,
   spacedCode,
@@ -583,7 +584,7 @@ function SetupDialog({
   onOpen: (url: string) => void;
   onTurnOn: (name: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [name, setName] = useState(status.device.name);
   // undefined while asking; null when the account could not be asked.
   const [account, setAccount] = useState<SyncAccount | null | undefined>(status.available ? undefined : null);
@@ -609,12 +610,18 @@ function SetupDialog({
   // Every lead the answer may bring takes the same cell, the shown one visible: the tallest sets the
   // height, so the answer moves nothing (the dialog is centred). Until a name comes, this computer's
   // stands in for the main one's.
+  // Joining: «confirm the code on it», or, the main computer offline, when it was last seen; away
+  // for a day or more, that it must be on and that starting over is the other way (`joinLead`).
+  const join = account && main ? joinLead(account, t, i18n.language) : null;
+  const standIn = { main_name: main ?? status.device.name, main_online: false, main_last_seen: Date.now() - 3 * 86_400_000 };
   const leads = [
     { key: "main", text: t("sync.setup.lead") },
     { key: "join", text: t("sync.setup.leadJoin", { name: main ?? status.device.name }) },
+    { key: "joinOffline", text: join?.key === "joinOffline" ? join.text : t("sync.setup.leadJoinOffline", { name: main ?? status.device.name, when: t("sync.justNow") }) },
+    { key: "joinAway", text: join?.key === "joinAway" ? join.text : joinLead(standIn, t, i18n.language).text },
     { key: "unknown", text: t("sync.setup.leadNeutral") },
   ];
-  const shownLead = known === "loading" ? "unknown" : known;
+  const shownLead = known === "loading" ? "unknown" : known === "join" ? (join?.key ?? "join") : known;
   return (
     <Dialog title={t("sync.title")} onClose={onClose} width={480}>
       <form
@@ -631,6 +638,7 @@ function SetupDialog({
               <p
                 key={lead.key}
                 data-sync-account={known}
+                data-sync-lead={lead.key}
                 aria-busy={known === "loading" || undefined}
                 className={`[grid-area:1/1] transition-opacity duration-150 ${known === "loading" ? "opacity-50" : ""}`}
               >
@@ -715,6 +723,11 @@ function DetailsDialog({ status, onCopy, onClose }: { status: SyncStatus; onCopy
           >
             {t("sync.detailsDialog.copy")}
           </Button>
+          {desktopApi && (
+            <Button variant="outline" size="lg" onClick={() => void desktopApi?.revealSyncLog().catch((err) => setError(describeError(err)))}>
+              {t("sync.detailsDialog.reveal")}
+            </Button>
+          )}
           <Button variant="outline" size="lg" autoFocus onClick={onClose}>
             {t("sync.done")}
           </Button>
@@ -770,12 +783,13 @@ function StartOverDialog({ status, onStatus, onClose }: { status: SyncStatus; on
   const [waiting, setWaiting] = useState(false);
   useEffect(() => {
     if (!waiting) return;
-    if (status.error === "stale_sign_in") {
+    // Refused as too old, or not checked at all (the relay couldn't just now): either way the code
+    // is spent, and a new one is needed.
+    if (status.error === "stale_sign_in" || status.error === "start_over_unavailable") {
       setWaiting(false);
       setBusy(false);
-      // The code is spent: a new one is needed.
       setCode("");
-      setError(`${t("sync.problem.stale_sign_in")}. ${t("sync.problem.stale_sign_inBody")}`);
+      setError(`${t(`sync.problem.${status.error}`)}. ${t(`sync.problem.${status.error}Body`)}`);
     } else if (status.is_hub) onClose();
   }, [waiting, status.error, status.is_hub, onClose, t]);
   // No answer in time (offline): the dialog gives way; the overview tells what sync is doing. The
