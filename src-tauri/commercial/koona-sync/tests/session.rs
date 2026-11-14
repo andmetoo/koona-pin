@@ -27,6 +27,8 @@ const SUB: &str = "account-1";
 const START: u64 = 1_760_400_000_000;
 /// The token of a sign-in by email code just now; any other is stale to the fake relay.
 const FRESH_SIGN_IN: &str = "fresh-sign-in";
+/// A token the fake relay cannot check now (its identity provider's keys unreadable).
+const KEYS_UNREADABLE: &str = "keys-unreadable";
 
 enum Msg {
     Text(String),
@@ -159,6 +161,9 @@ impl Relay {
             relay.send(conn, &Control::Error { code: code.into() })
         };
         if let Control::StartOver { token } = &message {
+            if token == KEYS_UNREADABLE {
+                return refuse(self, "unavailable");
+            }
             if token != FRESH_SIGN_IN {
                 return refuse(self, "stale_sign_in");
             }
@@ -1746,6 +1751,24 @@ fn starting_over_makes_this_device_the_hub_with_a_new_key_and_holds_the_others()
     assert_eq!(count(w.lib(c)), 16);
     assert_eq!(load_meta(w.lib(a)).unwrap().key, load_meta(w.lib(c)).unwrap().key);
     assert_eq!(load_meta(w.lib(c)).unwrap().roster.unwrap().devices.len(), 3);
+}
+
+/// A start over the relay could not check (`unavailable`) changes nothing, and leaves nothing
+/// behind: when another device then starts over, its 4005 is not taken for this one's own, and
+/// this device holds like the others.
+#[test]
+fn a_start_over_the_relay_could_not_check_is_not_taken_for_a_later_one() {
+    let (mut w, a, b, c) = three();
+    w.act(c, Action::StartOver { token: KEYS_UNREADABLE.into() });
+    w.run();
+    assert!(w.devices[c].events.iter().any(|e| matches!(e, Effect::Error(SessionError::Relay(code)) if code == "unavailable")));
+    assert_eq!(w.phase(c), Phase::Online, "nothing changed");
+    assert!(!w.devices[c].session.is_hub());
+
+    w.act(b, Action::StartOver { token: FRESH_SIGN_IN.into() });
+    w.run();
+    assert_eq!(w.phase(a), Phase::Paused { reason: PauseReason::StartedOver });
+    assert_eq!(w.phase(c), Phase::Paused { reason: PauseReason::StartedOver }, "another device's start over holds this one");
 }
 
 /// The case that left a laptop stuck: another device started over, this one pressed Join and

@@ -65,8 +65,12 @@ pub mod relay_error {
     pub const UNKNOWN_DEVICE: &str = "unknown_device";
     /// `epoch{epoch}` not greater than the current one.
     pub const BAD_EPOCH: &str = "bad_epoch";
-    /// `start_over` without a sign-in by email code in the last ten minutes.
+    /// `start_over` without a sign-in by email code in the last ten minutes, or with one already
+    /// used for a start over.
     pub const STALE_SIGN_IN: &str = "stale_sign_in";
+    /// The relay could not check a `start_over` token now (the identity provider's keys
+    /// unreadable): nothing changed, and the request may be sent again.
+    pub const UNAVAILABLE: &str = "unavailable";
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
