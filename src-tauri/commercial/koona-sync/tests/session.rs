@@ -892,10 +892,13 @@ fn each_side_shows_its_code_only_after_the_reveal() {
     assert_eq!(w.codes(b).len(), 1);
     assert!(w.codes(a).is_empty(), "no code on the hub before the reveal");
 
-    // The silent offer holds the hub for a while, then no longer.
+    // The silent offer holds the hub for a while, then no longer. The phone is told the hub is
+    // busy, not that it was declined; it goes away for now.
     w.act(c, Action::StartPairing);
     w.run();
-    assert!(w.devices[c].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Failed { reason: PairingFailure::Rejected, .. }))));
+    assert_eq!(failures(&w, c), vec![PairingFailure::Busy]);
+    w.drop_link(c);
+    w.run();
     // The hub gives up waiting and says so (`expired`): nobody declined, so the laptop asks
     // again by itself, without a failure or an error on its screen.
     w.tick(koona_sync::session::REVEAL_TIMEOUT_MS);
@@ -907,6 +910,8 @@ fn each_side_shows_its_code_only_after_the_reveal() {
     w.tick(koona_sync::session::REVEAL_TIMEOUT_MS);
     assert_eq!(failures(&w, b), vec![PairingFailure::Timeout]);
     assert_eq!(errors(&w, b), 0, "a late `expired` doesn't show as a peer error");
+    w.connect(c);
+    w.run();
     w.act(c, Action::StartPairing);
     w.run();
     let (on_phone, on_hub) = (w.codes(c), w.codes(a));
@@ -941,10 +946,10 @@ fn an_offer_taking_over_an_unrevealed_one_tells_the_first_device() {
     w.relay.now += koona_sync::session::REVEAL_TIMEOUT_MS;
     w.act(c, Action::StartPairing);
     w.run();
-    // The laptop is told (`expired`) and asks again, but the hub is now the phone's: that answer
-    // is final, and it says so with nothing replacing it on the screen.
+    // The laptop is told (`expired`) and asks again, but the hub is now the phone's: it is busy,
+    // which says so with nothing replacing it on the screen, and nobody declined.
     assert_eq!(offers(&w, b), 2);
-    assert_eq!(failures(&w, b), vec![PairingFailure::Rejected]);
+    assert_eq!(failures(&w, b), vec![PairingFailure::Busy]);
     assert_eq!(errors(&w, b), 0);
     assert!(failures(&w, c).is_empty());
     let (on_phone, on_hub) = (w.codes(c), w.codes(a));
@@ -1173,7 +1178,7 @@ fn a_device_asks_only_a_few_times_however_often_it_is_told_to() {
         w.run();
     }
     assert_eq!(offers(&w, b), MAX_PAIRING_ATTEMPTS);
-    assert_eq!(failures(&w, b), vec![PairingFailure::BadSignature], "it stops and warns");
+    assert_eq!(failures(&w, b), vec![PairingFailure::TooManyAttempts], "it stops and says why");
     assert_eq!(errors(&w, b), 0);
     // The hub saw the same device offer again before revealing, which an honest one never does.
     assert!(failures(&w, a).iter().all(|f| *f == PairingFailure::BadSignature) && !failures(&w, a).is_empty());
@@ -1846,4 +1851,243 @@ fn a_new_pending_device_without_a_key_starts_over() {
     w.connect(a);
     w.run();
     assert_eq!(w.phase(a), Phase::Paused { reason: PauseReason::StartedOver });
+}
+
+/// What `presence{online: true}` of `device` looks like to a device.
+fn presence_online(device: Uuid) -> String {
+    protocol::encode_control(&Control::Presence { device, online: true })
+}
+
+/// A pairing message from `from` as the relay delivers it.
+fn pairing_from(w: &World, from: Uuid, seq: u64, message: &PairMessage) -> Vec<u8> {
+    let header = Header { kind: Kind::Pairing, epoch: 0, session: [0xEE; 16], seq };
+    let mut body = header.encode().to_vec();
+    body.extend(message.encode().unwrap());
+    protocol::encode_delivered(from, w.relay.now, &body).unwrap()
+}
+
+#[test]
+fn a_hub_that_says_update_tells_which_side_is_old() {
+    // `update_needed` from the hub to an offer: this device is the old one (4.2). `outdated`:
+    // the hub is. Either way the offer ends with that, not as declined.
+    for (code, hub_is_old) in [(protocol::ErrorCode::UpdateNeeded, false), (protocol::ErrorCode::Outdated, true)] {
+        let mut w = World::new();
+        let a = w.add("Hub", 1, 64 << 10);
+        let b = w.add("Laptop", 2, 64 << 10);
+        w.connect(a);
+        w.run();
+        w.connect(b);
+        w.run();
+        // The hub's own answers don't reach the laptop: the relay stands in with the error.
+        let ida = w.devices[a].id;
+        w.relay.tamper = Some(Box::new(move |from, _, _| usize::from(from != ida)));
+        w.act(b, Action::StartPairing);
+        w.run();
+        let frame = pairing_from(&w, ida, 0, &PairMessage::Error { code });
+        w.feed(b, Input::Binary(&frame));
+        assert_eq!(failures(&w, b), vec![PairingFailure::UpdateNeeded { hub: hub_is_old }]);
+        assert_eq!(errors(&w, b), 0, "nothing replaces the failure on the screen");
+    }
+}
+
+#[test]
+fn a_pending_device_that_cant_read_its_hub_pauses_for_an_update() {
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.run();
+    // A newer hub answers with a body version this build doesn't know.
+    let ida = w.devices[a].id;
+    w.relay.tamper = Some(Box::new(move |from, _, body: &mut Vec<u8>| {
+        if from == ida {
+            body[0] = 9;
+        }
+        1
+    }));
+    w.act(b, Action::StartPairing);
+    w.run();
+    assert_eq!(failures(&w, b), vec![PairingFailure::UpdateNeeded { hub: false }], "not a timeout five minutes later");
+    assert_eq!(w.phase(b), Phase::Paused { reason: PauseReason::UpdateNeeded });
+    assert_eq!(w.devices[b].session.update_from(), Some(ida));
+    // Asked again, it doesn't offer: it waits for the update.
+    w.tick(koona_sync::session::PAIRING_TIMEOUT_MS);
+    assert_eq!(failures(&w, b).len(), 1);
+}
+
+#[test]
+fn a_hub_that_cant_read_an_offer_says_it_is_the_old_one() {
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.run();
+    // A newer device's offer, with a field this hub doesn't know.
+    let idb = w.devices[b].id;
+    w.relay.tamper = Some(Box::new(move |from, _, body: &mut Vec<u8>| {
+        if from == idb {
+            if let Ok(message @ PairMessage::PairOffer { .. }) = PairMessage::decode(&body[protocol::HEADER_LEN..]) {
+                let mut json = serde_json::to_value(&message).unwrap();
+                json["later"] = serde_json::json!(true);
+                body.truncate(protocol::HEADER_LEN);
+                body.extend(protocol::encode_payload(&json).unwrap());
+            }
+        }
+        1
+    }));
+    w.act(b, Action::StartPairing);
+    w.run();
+    assert_eq!(failures(&w, b), vec![PairingFailure::UpdateNeeded { hub: true }]);
+    assert_eq!(w.phase(a), Phase::Paused { reason: PauseReason::UpdateNeeded }, "the hub waits for its update");
+    assert_eq!(w.phase(b), Phase::Pending);
+}
+
+#[test]
+fn a_busy_hub_is_asked_again_later_and_that_costs_no_attempts() {
+    use koona_sync::session::{BUSY_RETRY_MS, MAX_PAIRING_ATTEMPTS};
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    let c = w.add("Phone", 3, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.connect(c);
+    w.run();
+    // The hub shows the laptop's code; the person hasn't answered yet.
+    w.act(b, Action::StartPairing);
+    w.run();
+    assert_eq!(w.codes(a).len(), 1);
+    w.act(c, Action::StartPairing);
+    w.run();
+    assert_eq!(failures(&w, c), vec![PairingFailure::Busy]);
+    // More busy answers than the cap, each asked again by itself, none counted.
+    for _ in 0..=MAX_PAIRING_ATTEMPTS {
+        w.tick(BUSY_RETRY_MS);
+    }
+    assert_eq!(offers(&w, c), MAX_PAIRING_ATTEMPTS + 2);
+    assert!(failures(&w, c).iter().all(|f| *f == PairingFailure::Busy));
+    // The laptop is approved: the phone's next offer is answered.
+    let laptop = w.devices[b].id;
+    w.act(a, Action::ApprovePairing { device: laptop });
+    w.run();
+    w.tick(BUSY_RETRY_MS);
+    let (on_phone, on_hub) = (w.codes(c), w.codes(a));
+    assert_eq!(on_phone.last().unwrap().1, on_hub.last().unwrap().1);
+    let phone = w.devices[c].id;
+    w.act(a, Action::ApprovePairing { device: phone });
+    w.run();
+    assert!(load_meta(w.lib(c)).unwrap().key.is_some());
+}
+
+#[test]
+fn offers_that_never_reached_the_hub_dont_count() {
+    use koona_sync::session::MAX_PAIRING_ATTEMPTS;
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.run();
+    let hub = w.devices[a].id;
+    // This device's link breaks right after each offer, which is lost with it.
+    let idb = w.devices[b].id;
+    w.relay.tamper = Some(Box::new(move |from, _, _| usize::from(from != idb)));
+    for _ in 0..=MAX_PAIRING_ATTEMPTS {
+        w.act(b, Action::StartPairing);
+        w.drop_link(b);
+        w.run();
+        w.connect(b);
+        w.run();
+    }
+    w.relay.tamper = None;
+    // The hub's socket dies unseen: the relay can't deliver, and presence brings it back.
+    w.relay.conns.remove(&a);
+    w.devices[a].connected = false;
+    for _ in 0..=MAX_PAIRING_ATTEMPTS {
+        w.feed(b, Input::Text(&presence_online(hub)));
+        w.act(b, Action::StartPairing);
+        w.run();
+    }
+    assert_eq!(offers(&w, b), 2 * (MAX_PAIRING_ATTEMPTS + 1));
+    assert!(!failures(&w, b).contains(&PairingFailure::TooManyAttempts));
+    w.feed(a, Input::Closed { code: None, reason: None });
+    w.connect(a);
+    w.run();
+    w.act(b, Action::StartPairing);
+    w.run();
+    let device = w.devices[b].id;
+    w.act(a, Action::ApprovePairing { device });
+    w.run();
+    assert_eq!(w.phase(b), Phase::Online, "the offer that reached the hub paired");
+}
+
+#[test]
+fn a_new_hub_mid_pairing_is_asked_instead() {
+    let (mut w, a, _, c) = three();
+    let d = w.add("Tablet", 9, 64 << 10);
+    w.connect(d);
+    w.run();
+    // The hub holds the tablet's offer unanswered while it hands over to the third device.
+    let ida = w.devices[a].id;
+    w.relay.tamper = Some(Box::new(move |from, _, body: &mut Vec<u8>| {
+        let accept = from == ida && matches!(PairMessage::decode(&body[protocol::HEADER_LEN..]), Ok(PairMessage::PairAccept { .. }));
+        usize::from(!accept)
+    }));
+    w.act(d, Action::StartPairing);
+    w.run();
+    assert_eq!(offers(&w, d), 1);
+    w.relay.tamper = None;
+    w.hand_over(c, a, true);
+    let idc = w.devices[c].id;
+    assert_eq!(w.devices[d].session.hub(), Some(idc));
+    assert_eq!(offers(&w, d), 2, "the offer went to the new hub");
+    let waiting: Vec<Uuid> = w.devices[d]
+        .events
+        .iter()
+        .filter_map(|e| match e {
+            Effect::Pairing(PairingEvent::Waiting { hub, .. }) => Some(*hub),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(waiting.last(), Some(&idc));
+    let (on_tablet, on_hub) = (w.codes(d), w.codes(c));
+    assert_eq!(on_tablet.last().unwrap().1, on_hub.last().unwrap().1);
+    let tablet = w.devices[d].id;
+    w.act(c, Action::ApprovePairing { device: tablet });
+    w.run();
+    assert!(load_meta(w.lib(d)).unwrap().key.is_some());
+}
+
+#[test]
+fn a_hub_that_replaced_its_socket_is_asked_again() {
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.run();
+    // The offer reaches the hub, whose answer is lost with its old socket.
+    let ida = w.devices[a].id;
+    w.relay.tamper = Some(Box::new(move |from, _, _| usize::from(from != ida)));
+    w.act(b, Action::StartPairing);
+    w.run();
+    w.relay.tamper = None;
+    // A new socket replaces the old one: the relay says only `presence{online: true}`.
+    w.connect(a);
+    w.run();
+    assert_eq!(offers(&w, b), 2, "asked again at once, not after five minutes");
+    assert!(failures(&w, b).is_empty());
+    let (on_laptop, on_hub) = (w.codes(b), w.codes(a));
+    assert_eq!(on_laptop.last().unwrap().1, on_hub.last().unwrap().1);
+    let device = w.devices[b].id;
+    w.act(a, Action::ApprovePairing { device });
+    w.run();
+    assert_eq!(w.phase(b), Phase::Online);
 }
