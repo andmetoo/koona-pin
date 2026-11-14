@@ -1386,11 +1386,12 @@ mod tests {
         assert!(text.contains("rejoining: true"));
         assert!(text.contains("app: 2.22.3 on macos"));
         assert!(text.contains("  2026-11-14T10:00:00Z phase Pending"));
-        for secret in [
+        // Made-up names, addresses and a code fed in above: none may come out.
+        for kept_out in [
             "@", "alice", "Alice", "Bob", "Carol", "Smith", "Jones", "iMac", "laptop", "482913", "lease", "abc", "wss://",
             &me.device.to_string(), &hub.to_string(), "AQEBAQ",
         ] {
-            assert!(!text.contains(secret), "{secret:?} in the report:\n{text}");
+            assert!(!text.contains(kept_out), "{kept_out:?} in the report:\n{text}");
         }
     }
 
