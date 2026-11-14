@@ -167,7 +167,7 @@ function startedOverBy(status: SyncStatus): string | null {
  */
 export function syncSummary(status: SyncStatus, t: TFunction, language: string, place: "supporter" | "settings"): { tone: SyncTone; text: string } | null {
   if (!status.enabled) return null;
-  if (status.error && status.error !== "stale_sign_in") return { tone: "warn", text: t("sync.short.problem") };
+  if (status.error) return { tone: "warn", text: t("sync.short.problem") };
   const phase = status.phase;
   switch (phase.state) {
     case "off":
@@ -227,6 +227,8 @@ const PROBLEM_ACTIONS: Partial<Record<SyncProblem, SyncAction>> = {
   pairing_bad_signature: "retry",
   hub_offline: "startOver",
   untrusted_hub: "startOver",
+  // The relay refused a start over: a new code, from the same dialog.
+  stale_sign_in: "startOver",
   relay_refused: "retry",
   peer_error: "retry",
   library_failed: "retry",
@@ -285,7 +287,7 @@ type BannerKey =
 
 /** The banner of the state of sync at the top of the overview (frames 03, 04, 11). */
 export function statusBanner(status: SyncStatus, t: TFunction, language: string): SyncBanner {
-  if (status.error && status.error !== "stale_sign_in") return problemBanner(status.error, status, t);
+  if (status.error) return problemBanner(status.error, status, t);
   const phase = status.phase;
   const b = (id: string, tone: SyncTone, key: BannerKey, kind?: SyncAction, values: { name?: string } = {}) =>
     banner(id, tone, t(`sync.banner.${key}`, values), t(`sync.banner.${key}Body`, values), kind, t);
@@ -407,6 +409,22 @@ export function syncView(status: SyncStatus): SyncView {
   // The first transfer on a computer that joined: the library arrives.
   if (status.phase.state === "syncing" && !status.is_hub && !status.last_sync_at) return "receiving";
   return "overview";
+}
+
+/**
+ * The wait of a computer not yet approved (frame 06): whether the main computer is away, the
+ * problem to show, and whether the footer offers «Start over…». Away, starting over by email is
+ * the way out (it disconnects the others, as its dialog says): offered once, by the problem's
+ * banner when it has the button, else beside Cancel. A main computer that never answered may be
+ * away too: the relay can keep a connection that died silently online for hours, so a timeout
+ * offers it as well. A refusal or a bad signature does not: someone is there.
+ */
+export function waitingScreen(status: SyncStatus, t: TFunction): { away: boolean; problem: SyncBanner | null; startOver: boolean } {
+  const hub = hubDevice(status);
+  const away = status.error === "hub_offline" || (hub ? !hub.online : false);
+  const problem = status.error ? problemBanner(status.error, status, t) : null;
+  const silent = status.error === "pairing_timeout";
+  return { away, problem, startOver: (away || silent) && !status.is_hub && problem?.action?.kind !== "startOver" };
 }
 
 /** A prompt that opens the dialog by itself on the main computer: a computer to approve, a request to hand over. */

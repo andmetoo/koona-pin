@@ -147,6 +147,40 @@ test("Sync: another computer, the main one away for days — make this the main 
   await expect(overview.locator('[data-sync-device="Office laptop"]')).toContainText("Main");
 });
 
+test("Sync: a computer waiting for a main computer that is away starts over from the wait, and the dialog stays (frames 06, 13)", async ({ page }) => {
+  await start(page, "pending_offline");
+  const waiting = await openSync(page);
+  await expect(waiting).toHaveAccessibleName("Waiting for Home iMac");
+  // Said once, by the banner: the line under the code tells what happens once it's approved.
+  await expect(waiting).not.toContainText("It's asked again when it's back.");
+  await expect(waiting).toContainText("Your bookmarks on this computer are kept and merged.");
+  const banner = waiting.locator('[data-sync-banner="problem:hub_offline"]');
+  await expect(banner).toContainText("Home iMac, the main computer, is offline");
+  // One way to start over: the banner's, not a second one beside Cancel.
+  await expect(waiting.getByRole("button", { name: "Start over…" })).toHaveCount(1);
+  await expect(waiting.getByRole("button", { name: "Cancel" })).toBeVisible();
+  await banner.getByRole("button", { name: "Start over…" }).click();
+  const startOver = page.getByRole("dialog", { name: "Start over from this computer?" });
+  await expect(startOver).toContainText("Home iMac, the main computer, hasn't been online for 21 days.");
+  const code = startOver.getByLabel("Code from the email to anna@example.com");
+  await expect(code).toBeVisible();
+  // It stays open over the wait (it used to close as it opened), and what is typed stays.
+  await code.fill("48");
+  await startOver.getByRole("button", { name: "Send the code again" }).click();
+  await expect(startOver.getByLabel("Code from the email to anna@example.com")).toBeVisible();
+  await expect(code).toHaveValue("48");
+  // A refusal that comes after the command is told in the dialog.
+  await code.fill("111111");
+  await startOver.getByRole("button", { name: "Start over" }).click();
+  await expect(startOver.getByRole("alert")).toBeVisible();
+  await expect(code).toHaveValue("");
+  await code.fill("482913");
+  await startOver.getByRole("button", { name: "Start over" }).click();
+  const overview = page.getByRole("dialog", { name: "Sync" });
+  await expect(overview.locator("[data-sync-hub]")).toBeVisible();
+  await expect(overview.locator('[data-sync-device="Office laptop"]')).toContainText("Main");
+});
+
 test("Sync: the main computer approves a new one by its code; the new one waits, is rejected and tries again, receives the library (frames 05, 06, 07)", async ({ page }) => {
   // The dialog opens by itself on the main computer.
   await start(page, "pairing");
