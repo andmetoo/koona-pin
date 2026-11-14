@@ -957,7 +957,11 @@ impl Session {
         self.peers.clear();
         self.online.clear();
         self.skewed = false;
-        self.asking = None;
+        // The hub forgets an offer with either connection: the interface is told, so it asks
+        // again once this one is back instead of waiting for an answer that can't come.
+        if let Some(asking) = self.asking.take() {
+            self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: asking.hub, reason: PairingFailure::Unavailable }));
+        }
         self.hosting = None;
         self.rekey = None;
         self.roster_for = None;
@@ -1385,6 +1389,14 @@ impl Session {
     }
 
     fn on_undeliverable(&mut self, to: Uuid) {
+        // The hub alias or the hub itself: the relay found it offline, whatever presence said
+        // before. Its next `presence{online:true}` is then news, and a pending device asks again.
+        let hub = if to.is_nil() { self.hub } else { Some(to).filter(|d| Some(*d) == self.hub) };
+        if let Some(hub) = hub.filter(|h| *h != self.cfg.device) {
+            if self.online.remove(&hub) {
+                self.emit_devices();
+            }
+        }
         if let Some(peer) = self.peers.get_mut(&to) {
             peer.outgoing = None;
             peer.incoming = None;

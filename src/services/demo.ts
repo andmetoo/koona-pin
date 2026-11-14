@@ -308,7 +308,8 @@ function setDemoFolder(folder: BackupFolder) {
  *   has been offline for 12 days (frame 13 from «Make this the main computer»).
  * - `pairing`: Office laptop wants to join, the code on the main computer (frame 05).
  * - `pending`: this new computer waits for Home iMac, the code shown (frame 06); `rejected`: the
- *   main computer declined it.
+ *   main computer declined it; `pending_offline`: Home iMac has been offline for three weeks, so
+ *   nobody can approve this one, and starting over is the way out.
  * - `receiving`: the first sync brings the library here (frame 07).
  * - `main_asked`: on Home iMac, Office laptop asks to become the main computer (frame 12);
  *   `asking_main`: Office laptop waits for that answer.
@@ -382,9 +383,11 @@ function demoSyncState(kind: string | null): SyncStatus {
       return { ...on, devices: [hub, studio, fresh], pairing: { role: "hub", peer: LAPTOP_DEVICE, peer_name: "Office laptop", code: "482913" } };
     }
     case "pending":
-    case "rejected": {
+    case "rejected":
+    case "pending_offline": {
       const me = demoDevice(THIS_DEVICE, "Office laptop", { ...LAPTOP, online: true, status: "pending", last_seen: minutesAgo(0) });
-      const main = demoDevice(HUB_DEVICE, "Home iMac", { online: true, is_hub: true, last_seen: minutesAgo(0) });
+      const away = kind === "pending_offline";
+      const main = demoDevice(HUB_DEVICE, "Home iMac", { online: !away, is_hub: true, last_seen: minutesAgo(away ? 21 * 24 * 60 : 0) });
       return {
         ...on,
         phase: { state: "pending" },
@@ -394,7 +397,7 @@ function demoSyncState(kind: string | null): SyncStatus {
         devices: [main, me],
         pairing: kind === "pending" ? { role: "asking", peer: HUB_DEVICE, peer_name: "Home iMac", code: "482913" } : null,
         last_sync_at: null,
-        error: kind === "rejected" ? "pairing_rejected" : null,
+        error: kind === "rejected" ? "pairing_rejected" : away ? "hub_offline" : null,
         epoch: null,
       };
     }
@@ -480,7 +483,9 @@ function changeDemoDevices(change: (devices: SyncDevice[]) => SyncDevice[]): Syn
 }
 /** This computer becomes the main one; `others` is what happens to the rest. */
 function demoBecomeHub(status: SyncStatus, others: (d: SyncDevice) => SyncDevice = (d) => d): SyncStatus {
-  const devices = status.devices.map((d) => (d.id === status.device.id ? { ...d, is_hub: true, online: true } : others({ ...d, is_hub: false })));
+  const devices = status.devices.map((d) =>
+    d.id === status.device.id ? { ...d, is_hub: true, online: true, status: "active" as const } : others({ ...d, is_hub: false }),
+  );
   const device = devices.find((d) => d.id === status.device.id)!;
   return {
     ...status,
@@ -491,6 +496,7 @@ function demoBecomeHub(status: SyncStatus, others: (d: SyncDevice) => SyncDevice
     phase: { state: "online" },
     error: null,
     hub_change: null,
+    pairing: null,
     last_sync_at: new Date().toISOString(),
   };
 }
@@ -3011,7 +3017,10 @@ export const demo = {
     needSyncRunning();
     const status = currentDemoSync();
     if (status.phase.state === "pending") {
-      setDemoSync({ ...status, error: null });
+      // Asked again: a wait for the main computer, or it is still offline.
+      const hub = status.devices.find((d) => d.is_hub);
+      if (hub?.online) setDemoSync({ ...status, error: null, pairing: { role: "asking", peer: hub.id, peer_name: hub.name, code: null } });
+      else setDemoSync({ ...status, error: "hub_offline", pairing: null });
       return currentDemoSync();
     }
     setDemoSync({ ...status, phase: { state: "syncing", done: 0, total: 12 }, error: null });

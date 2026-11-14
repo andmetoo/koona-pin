@@ -17,17 +17,17 @@ import {
   hubName,
   otherDevices,
   overviewBanners,
-  problemBanner,
   spacedCode,
   syncDetails,
   syncView,
+  waitingScreen,
   type SyncAction,
   type SyncBanner,
   type SyncTone,
 } from "./syncText";
 import { HelpLink } from "../ui/HelpLink";
 
-/** A screen the person opened from the overview, over what the status asks for. */
+/** A screen the person opened from the overview or the wait, over what the status asks for. */
 type Opened = { kind: "details" } | { kind: "remove"; device: SyncDevice } | { kind: "startOver" };
 
 const TONE_COLOR: Record<SyncTone, string> = { ok: "var(--np-accent)", warn: "var(--np-amber)", sync: "var(--np-update)" };
@@ -152,7 +152,10 @@ export function SyncDialog({
 
   const view = syncView(status);
   // A screen opened from the overview gives way to one sync asks for: a code to compare comes first.
-  const shown = opened && (view === "overview" || (opened.kind === "details" && view !== "pairHub" && view !== "mainAsked")) ? opened : null;
+  // Details and Start over stay over the rest, so a code typed in Start over survives the wait
+  // turning into the overview and back.
+  const prompted = view === "pairHub" || view === "mainAsked";
+  const shown = opened && (view === "overview" || (opened.kind !== "remove" && !prompted)) ? opened : null;
   // Leaving the screen the person opened when sync takes over.
   useEffect(() => {
     if (opened && !shown) setOpened(null);
@@ -237,8 +240,7 @@ export function SyncDialog({
   if (view === "waiting") {
     const name = hubName(status, t);
     const code = status.pairing?.role === "asking" ? status.pairing.code : null;
-    const away = status.error === "hub_offline" || (hub ? !hub.online : false);
-    const problem = status.error && status.error !== "hub_offline" ? problemBanner(status.error, status, t) : null;
+    const { away, problem, startOver } = waitingScreen(status, t);
     return (
       <Dialog key="waiting" title={t("sync.pair.waitTitle", { name })} onClose={onClose} width={480}>
         <div className="flex flex-col" data-sync-view="waiting">
@@ -262,6 +264,11 @@ export function SyncDialog({
           )}
           <ErrorNote text={error} />
           <Footer>
+            {startOver && (
+              <Button variant="outline" size="lg" disabled={busy} onClick={() => setOpened({ kind: "startOver" })}>
+                {t("sync.banner.startOver")}
+              </Button>
+            )}
             <Button
               variant="outline"
               size="lg"

@@ -556,7 +556,6 @@ impl Model {
                 }
             }
             Effect::Devices { devices, online, hub } => {
-                let hub_was_online = self.hub_online();
                 if self.notice_added(&devices, hub, now) {
                     out.push(Reaction::Notices);
                 }
@@ -566,8 +565,12 @@ impl Model {
                 self.devices = devices;
                 self.online = online;
                 self.hub = hub;
+                // Waiting with no offer open and the hub online (back, or found again after an
+                // `undeliverable`): ask, unless the last offer was refused or ran out of time,
+                // which only «Try again» repeats. A second ask while one is open is answered
+                // with the same wait by the session, so a directory that comes twice is harmless.
                 let retry = self.last_failure.is_none_or(|f| f == PairingFailure::Unavailable);
-                if self.phase == Some(Phase::Pending) && self.pairing.is_none() && !hub_was_online && self.hub_online() && retry {
+                if self.phase == Some(Phase::Pending) && self.pairing.is_none() && self.hub_online() && retry {
                     out.push(Reaction::StartPairing);
                 }
             }
@@ -575,6 +578,9 @@ impl Model {
                 PairingEvent::Waiting { hub, hub_name } => {
                     self.note(now, "pairing: waiting for the hub".into());
                     self.error = None;
+                    // A new offer is under way («Try again» after a refusal): what ended the last
+                    // one no longer decides whether to ask again.
+                    self.last_failure = None;
                     self.pairing = Some(PairingPrompt { role: PairingRole::Asking, peer: hub.to_string(), peer_name: hub_name, code: None });
                 }
                 PairingEvent::Code { role, peer, peer_name, code } => {
@@ -1024,6 +1030,37 @@ mod tests {
         assert!(model.on_event(devices(vec![me.device, hub]), at(7)).is_empty());
         assert_eq!(model.status(&ctx(&me)).error, Some(SyncProblem::PairingRejected));
         assert_eq!(model.status(&ctx(&me)).pairing, None);
+    }
+
+    #[test]
+    fn a_pending_device_asks_again_whenever_the_hub_is_online_and_no_offer_is_open() {
+        let me = Identity::new("Laptop");
+        let hub = uid(9);
+        let mut model = Model::default();
+        let devices = |online: Vec<Uuid>| {
+            Event::Session(Effect::Devices {
+                devices: vec![info(hub, "Studio Mac", DeviceStatus::Active), info(me.device, "Laptop", DeviceStatus::Pending)],
+                online,
+                hub: Some(hub),
+            })
+        };
+        let waiting = || Event::Session(Effect::Pairing(PairingEvent::Waiting { hub, hub_name: "Studio Mac".into() }));
+        let lost = || Event::Session(Effect::Pairing(PairingEvent::Failed { peer: hub, reason: PairingFailure::Unavailable }));
+        model.on_event(devices(vec![me.device, hub]), at(0));
+        assert_eq!(model.on_event(Event::Session(Effect::Status(Phase::Pending)), at(0)), vec![Reaction::StartPairing]);
+        model.on_event(waiting(), at(1));
+        assert!(model.on_event(devices(vec![me.device, hub]), at(2)).is_empty(), "an offer is open");
+        // The link broke and the offer with it; the hub never looked offline here.
+        model.on_event(lost(), at(3));
+        assert_eq!(model.status(&ctx(&me)).pairing, None, "the wait is not frozen");
+        assert_eq!(model.on_event(devices(vec![me.device, hub]), at(4)), vec![Reaction::StartPairing]);
+        // «Try again» after a timeout: a new offer, and its loss is tried again by itself.
+        model.on_event(waiting(), at(5));
+        model.on_event(Event::Session(Effect::Pairing(PairingEvent::Failed { peer: hub, reason: PairingFailure::Timeout })), at(6));
+        assert!(model.on_event(devices(vec![me.device, hub]), at(7)).is_empty(), "a timeout waits for «Try again»");
+        model.on_event(waiting(), at(8));
+        model.on_event(lost(), at(9));
+        assert_eq!(model.on_event(devices(vec![me.device, hub]), at(10)), vec![Reaction::StartPairing]);
     }
 
     #[test]

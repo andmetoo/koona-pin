@@ -662,6 +662,91 @@ fn asking_twice_sends_one_offer() {
     assert_eq!(w.phase(b), Phase::Online);
 }
 
+/// The online devices of the last directory device `i` was shown.
+fn last_online(w: &World, i: usize) -> Vec<Uuid> {
+    w.devices[i]
+        .events
+        .iter()
+        .rev()
+        .find_map(|e| match e {
+            Effect::Devices { online, .. } => Some(online.clone()),
+            _ => None,
+        })
+        .unwrap_or_default()
+}
+
+/// The link of a waiting device breaks: the hub forgets the offer with it, so the interface is
+/// told and asks again once the device is back, and the pairing completes.
+#[test]
+fn a_broken_link_ends_the_offer_and_the_device_asks_again() {
+    let mut w = World::new();
+    let a = w.add("Studio Mac", 1, 4 << 10);
+    let b = w.add("Laptop", 2, 4 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.run();
+    w.act(b, Action::StartPairing);
+    w.run();
+    assert_eq!(offers(&w, b), 1);
+    let hub = w.devices[a].id;
+    w.drop_link(b);
+    assert!(
+        w.devices[b].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Failed { peer, reason: PairingFailure::Unavailable }) if *peer == hub)),
+        "the open offer is given up with the link"
+    );
+    assert_eq!(errors(&w, b), 0);
+    w.run();
+
+    w.connect(b);
+    w.run();
+    assert_eq!(w.phase(b), Phase::Pending);
+    w.act(b, Action::StartPairing);
+    w.run();
+    assert_eq!(offers(&w, b), 2, "a new offer went, not a wait on the old one");
+    let (asking, hosting) = (w.codes(b), w.codes(a));
+    assert_eq!(asking.last().map(|c| &c.1), hosting.last().map(|c| &c.1));
+    let device = w.devices[b].id;
+    w.act(a, Action::ApprovePairing { device });
+    w.run();
+    assert_eq!(w.phase(b), Phase::Online);
+}
+
+/// The relay can't deliver an offer to a hub that presence still showed online: the hub is
+/// shown offline, so its next `presence{online:true}` is news and the device asks again.
+#[test]
+fn an_undeliverable_offer_shows_the_hub_offline_until_it_is_back() {
+    let mut w = World::new();
+    let a = w.add("Studio Mac", 1, 4 << 10);
+    let b = w.add("Laptop", 2, 4 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.run();
+    let hub = w.devices[a].id;
+    assert!(last_online(&w, b).contains(&hub));
+
+    // The hub's socket died without a close: the relay finds out only when it routes to it.
+    w.relay.conns.remove(&a);
+    w.devices[a].connected = false;
+    w.act(b, Action::StartPairing);
+    w.run();
+    assert_eq!(failures(&w, b), vec![PairingFailure::Unavailable]);
+    assert!(!last_online(&w, b).contains(&hub), "the hub is shown offline after the undeliverable");
+
+    // The hub comes back: its presence shows it online again, and the offer that follows pairs.
+    w.feed(a, Input::Closed { code: None, reason: None });
+    w.connect(a);
+    w.run();
+    assert!(last_online(&w, b).contains(&hub), "the hub is shown online once it is back");
+    w.act(b, Action::StartPairing);
+    w.run();
+    let device = w.devices[b].id;
+    w.act(a, Action::ApprovePairing { device });
+    w.run();
+    assert_eq!(w.phase(b), Phase::Online);
+}
+
 #[test]
 fn a_rejected_or_tampered_pairing_gets_no_key() {
     let mut w = World::new();

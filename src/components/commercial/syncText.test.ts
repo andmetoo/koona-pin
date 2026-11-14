@@ -21,6 +21,7 @@ import {
   syncPrompt,
   syncSummary,
   syncView,
+  waitingScreen,
 } from "./syncText";
 
 const t = i18n.getFixedT("en");
@@ -90,7 +91,6 @@ describe("sync texts (sheet 46)", () => {
     expect(Object.keys(PROBLEM_SET)).toHaveLength(PROBLEMS.length);
     for (const problem of PROBLEMS) {
       const banner = statusBanner({ ...base, error: problem }, t, "en");
-      if (problem === "stale_sign_in") continue; // said in the start-over dialog
       expect(banner.id).toBe(`problem:${problem}`);
       worded(banner.title);
       worded(banner.body);
@@ -149,6 +149,37 @@ describe("sync texts (sheet 46)", () => {
     } finally {
       capabilities.purchase = "paddle";
     }
+  });
+
+  it("tells a refused start over, with a way to try again", () => {
+    const stale = { ...base, error: "stale_sign_in" as const };
+    expect(statusBanner(stale, t, "en")).toMatchObject({ id: "problem:stale_sign_in", action: { kind: "startOver", label: "Start over…" } });
+    expect(syncSummary(stale, t, "en", "supporter")?.tone).toBe("warn");
+    // The main computer starts nothing over.
+    expect(statusBanner({ ...stale, is_hub: true }, t, "en").action).toBeUndefined();
+  });
+
+  it("offers a waiting computer a way out when the main one is away", () => {
+    const pending: SyncStatus = { ...base, phase: { state: "pending" }, device: { ...laptop, status: "pending" }, last_sync_at: null };
+    expect(waitingScreen({ ...pending, pairing: { role: "asking", peer: "hub", peer_name: "Home iMac", code: null } }, t)).toEqual({
+      away: false,
+      problem: null,
+      startOver: false,
+    });
+    // Offline by presence, no problem yet: «Start over…» beside Cancel.
+    const away = { ...pending, devices: [{ ...hub, online: false }, pending.device] };
+    expect(waitingScreen(away, t)).toMatchObject({ away: true, problem: null, startOver: true });
+    // Found offline by the relay: its banner has the button, so the footer doesn't repeat it.
+    const offline = waitingScreen({ ...pending, error: "hub_offline" }, t);
+    expect(offline.away).toBe(true);
+    expect(offline.problem).toMatchObject({ id: "problem:hub_offline", action: { kind: "startOver" } });
+    expect(offline.startOver).toBe(false);
+    // Timed out or refused: «Try again» on the banner, and Start over still there if it's away.
+    for (const error of ["pairing_timeout", "pairing_rejected"] as const) {
+      expect(waitingScreen({ ...pending, error }, t)).toMatchObject({ problem: { action: { kind: "retry", label: "Try again" } }, startOver: false });
+      expect(waitingScreen({ ...away, error }, t).startOver).toBe(true);
+    }
+    expect(waitingScreen({ ...away, error: "stale_sign_in" }, t)).toMatchObject({ problem: { action: { kind: "startOver" } }, startOver: false });
   });
 
   it("shows the screen sync asks for", () => {
