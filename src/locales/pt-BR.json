@@ -1776,6 +1776,8 @@
     "setup": {
       "lead": "Este computador passa a ser o principal: só ele adiciona e remove seus outros computadores. As alterações são sincronizadas entre todos, principal ou não.",
       "leadJoin": "{{name}} é o seu computador principal. Ative a sincronização aqui e confirme o código em {{name}}. Os marcadores deste computador ficam e são mesclados.",
+      "leadJoinOffline": "{{name}} é o seu computador principal. Ele está offline agora, visto pela última vez {{when}}. Ative a sincronização aqui e confirme o código em {{name}} quando ele voltar. Os marcadores deste computador ficam e são mesclados.",
+      "leadJoinAway": "{{name}} é o seu computador principal, visto pela última vez {{when}}. Ele precisa estar ligado para aprovar este computador. Se ele não voltar logo, ative a sincronização aqui e escolha Recomeçar enquanto este computador espera: ele vira o principal, e seus outros computadores entram nele de novo.",
       "leadNeutral": "Se a sincronização ainda não estiver ativa em nenhum lugar, este computador passa a ser o principal e adiciona os outros. Já ativa em outro? O principal aprova este com um código.",
       "name": "Nome deste computador",
       "privacyTitle": "Criptografada nos seus computadores antes de sair deles.",
@@ -1900,6 +1902,8 @@
       "hub_change_timeoutBody": "Ninguém respondeu em cinco minutos. Tente de novo enquanto {{name}} estiver ligado.",
       "stale_sign_in": "O código expirou",
       "stale_sign_inBody": "Envie um novo código e digite-o em até dez minutos.",
+      "start_over_unavailable": "Não foi possível verificar o código agora",
+      "start_over_unavailableBody": "Nada mudou. Espere um pouco e recomece com um novo código.",
       "key_lost": "Este computador perdeu a chave de sincronização",
       "key_lostBody": "O arquivo da chave estava danificado. Nada novo chega até que {{name}} esteja online e envie a chave de novo."
     },
@@ -1974,7 +1978,8 @@
       "offline": "{{detail}} · offline",
       "yesterday": "ontem {{time}}",
       "note": "O relatório tem só estados e IDs — nenhum marcador, nenhum nome.",
-      "copy": "Copiar relatório"
+      "copy": "Copiar relatório",
+      "reveal": "Mostrar registro"
     }
   },
   "notifications": {

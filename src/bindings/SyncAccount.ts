@@ -8,4 +8,13 @@ export type SyncAccount = {
 /**
  * The main computer's name; none when no computer of the account syncs yet.
  */
-main_name: string | null, };
+main_name: string | null, 
+/**
+ * Whether the main computer has a connection open now; none from a relay that doesn't say.
+ */
+main_online: boolean | null, 
+/**
+ * When the relay last heard from the main computer, ms since the Unix epoch; none from a
+ * relay that doesn't say.
+ */
+main_last_seen: number | null, };

@@ -113,6 +113,10 @@ test("Sync: on the main computer — rename this one, remove another after a con
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await details.getByRole("button", { name: "Copy report" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Copied" })).toBeVisible();
+  // Beside it, the log file in the file manager (a desktop has one).
+  await details.getByRole("button", { name: "Show log" }).click();
+  await expect(details.getByRole("alert")).toHaveCount(0);
+  await expect(details).toContainText("The report has states and ids only — no bookmarks, no names.");
   await details.getByRole("button", { name: "Done" }).click();
   await expect(page.getByRole("dialog", { name: "Sync" }).locator("[data-sync-view]")).toHaveAttribute("data-sync-view", "overview");
 });
@@ -179,6 +183,27 @@ test("Sync: a computer waiting for a main computer that is away starts over from
   const overview = page.getByRole("dialog", { name: "Sync" });
   await expect(overview.locator("[data-sync-hub]")).toBeVisible();
   await expect(overview.locator('[data-sync-device="Office laptop"]')).toContainText("Main");
+});
+
+test("Sync: a start over the server couldn't check asks for a new code, on the wait and in its dialog", async ({ page }) => {
+  await start(page, "pending_unavailable");
+  const waiting = await openSync(page);
+  const banner = waiting.locator('[data-sync-banner="problem:start_over_unavailable"]');
+  await expect(banner).toContainText("Couldn't check the code just now");
+  await expect(banner).toContainText("start over again with a new code");
+  await expect(waiting.getByRole("button", { name: "Start over…" })).toHaveCount(1);
+  await banner.getByRole("button", { name: "Start over…" }).click();
+  const startOver = page.getByRole("dialog", { name: "Start over from this computer?" });
+  const code = startOver.getByLabel("Code from the email to anna@example.com");
+  // The server answers after the command that it couldn't check the sign-in: the dialog says so
+  // instead of closing after a while, and the spent code goes.
+  await code.fill("222222");
+  await startOver.getByRole("button", { name: "Start over" }).click();
+  await expect(startOver.getByRole("alert")).toContainText("Couldn't check the code just now.");
+  await expect(code).toHaveValue("");
+  await code.fill("482913");
+  await startOver.getByRole("button", { name: "Start over" }).click();
+  await expect(page.getByRole("dialog", { name: "Sync" }).locator("[data-sync-hub]")).toBeVisible();
 });
 
 test("Sync: the main computer approves a new one by its code; the new one waits, is rejected and tries again, receives the library (frames 05, 06, 07)", async ({ page }) => {
@@ -308,6 +333,25 @@ test("Sync: on a second computer the first screen names the main one; turning on
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const again = await openSync(page);
   await expect(again.locator("[data-sync-account]")).toHaveAttribute("data-sync-account", "join");
+});
+
+test("Sync: the first screen says when an offline main computer was last seen, and from a day away that it must be on (frame 14)", async ({ page }) => {
+  await start(page, "off_join_offline");
+  const offline = (await openSync(page)).locator("[data-sync-account]");
+  await expect(offline).toHaveAttribute("data-sync-lead", "joinOffline");
+  await expect(offline).toContainText("It's offline now, last seen 40 minutes ago.");
+
+  await start(page, "off_join_away");
+  const setup = await openSync(page);
+  const lead = setup.locator("[data-sync-account]");
+  await expect(lead).toHaveAttribute("data-sync-account", "join");
+  await expect(lead).toHaveAttribute("data-sync-lead", "joinAway");
+  await expect(lead).toHaveText(
+    "Home iMac is your main computer, last seen 21 days ago. It must be on to approve this computer. If it won't be back soon, turn on sync here and choose Start over while this computer waits: it becomes the main one, and your other computers join it again.",
+  );
+  // No second way to start over here: that needs sync on and this computer registered.
+  await expect(setup.getByRole("button", { name: /Start over/ })).toHaveCount(0);
+  await expect(setup.getByRole("button", { name: "Turn on sync" })).toBeEnabled();
 });
 
 test("Sync: the first screen keeps both possibilities while asking, and when the account can't be asked (frame 02)", async ({ page }) => {

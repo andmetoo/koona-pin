@@ -1776,6 +1776,8 @@
     "setup": {
       "lead": "Ovaj računar postaje glavni: samo on dodaje i uklanja vaše ostale računare. Izmene se sinhronizuju između svih — i glavnog i ostalih.",
       "leadJoin": "{{name}} je vaš glavni računar. Uključite sinhronizaciju ovde, pa potvrdite kod na {{name}}. Obeleživači sa ovog računara ostaju i spajaju se.",
+      "leadJoinOffline": "{{name}} je vaš glavni računar. Trenutno nije na mreži, poslednji put na mreži {{when}}. Uključite sinhronizaciju ovde, pa potvrdite kod na {{name}} kada se vrati. Obeleživači sa ovog računara ostaju i spajaju se.",
+      "leadJoinAway": "{{name}} je vaš glavni računar, poslednji put na mreži {{when}}. Mora da bude uključen da bi odobrio ovaj računar. Ako se uskoro ne vrati, uključite sinhronizaciju ovde i izaberite Počni iznova dok ovaj računar čeka: on postaje glavni, a vaši ostali računari mu se ponovo pridružuju.",
       "leadNeutral": "Ako sinhronizacija još nigde nije uključena, ovaj računar postaje glavni i dodaje ostale. Već je uključena? Glavni računar odobrava ovaj kodom.",
       "name": "Naziv ovog računara",
       "privacyTitle": "Šifruje se na vašim računarima pre nego što ih napusti.",
@@ -1900,6 +1902,8 @@
       "hub_change_timeoutBody": "Niko nije odgovorio za pet minuta. Pokušajte ponovo dok je {{name}} na mreži.",
       "stale_sign_in": "Kod je istekao",
       "stale_sign_inBody": "Zatražite novi kod i unesite ga u roku od deset minuta.",
+      "start_over_unavailable": "Kod trenutno nije mogao da se proveri",
+      "start_over_unavailableBody": "Ništa se nije promenilo. Sačekajte malo, pa počnite iznova sa novim kodom.",
       "key_lost": "Ovaj računar je izgubio ključ za sinhronizaciju",
       "key_lostBody": "Datoteka ključa je oštećena. Ništa novo neće stići dok {{name}} ne bude na mreži i ponovo pošalje ključ."
     },
@@ -1974,7 +1978,8 @@
       "offline": "{{detail}} · van mreže",
       "yesterday": "juče {{time}}",
       "note": "Izveštaj sadrži samo stanja i identifikatore — bez obeleživača i naziva.",
-      "copy": "Kopiraj izveštaj"
+      "copy": "Kopiraj izveštaj",
+      "reveal": "Prikaži dnevnik"
     }
   },
   "notifications": {

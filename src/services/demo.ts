@@ -302,7 +302,9 @@ function setDemoFolder(folder: BackupFolder) {
  * - `off` (the default): sync never turned on here and the account has no main computer; «Set up…»
  *   makes this the main computer of one (frame 02).
  * - `off_join`: sync off here, the account's main computer is Home iMac (frame 14); «Turn on sync»
- *   waits for it with the code (frame 06).
+ *   waits for it with the code (frame 06). `off_join_offline`: Home iMac has been offline for 40
+ *   minutes; `off_join_away`: for three weeks, so the first screen says it must be on to approve
+ *   this one and that starting over from the waiting screen is the other way.
  * - `on`: this is Home iMac, the main computer of three (frame 03).
  * - `other`: this is Office laptop; Home iMac, the main one, is offline (frame 04). `start_over`: it
  *   has been offline for 12 days (frame 13 from «Make this the main computer»).
@@ -312,7 +314,9 @@ function setDemoFolder(folder: BackupFolder) {
  *   nobody can approve this one, and starting over is the way out; `pending_busy`: Home iMac is
  *   adding another computer; `pending_update`: Home iMac has a newer version, so this one is
  *   paused to update before it can pair;
- *   `pending_hub_update`: Home iMac has an older one; `pending_tries`: asked too many times.
+ *   `pending_hub_update`: Home iMac has an older one; `pending_tries`: asked too many times;
+ *   `pending_unavailable`: Home iMac away for three weeks and a start over the server couldn't
+ *   check just now (a new code is needed).
  * - `no_key`: Office laptop lost its sync key: «Make this the main computer» opens Start over.
  * - `receiving`: the first sync brings the library here (frame 07).
  * - `main_asked`: on Home iMac, Office laptop asks to become the main computer (frame 12);
@@ -397,9 +401,10 @@ function demoSyncState(kind: string | null): SyncStatus {
     case "pending_update":
     case "pending_hub_update":
     case "pending_tries":
-    case "pending_offline": {
+    case "pending_offline":
+    case "pending_unavailable": {
       const me = demoDevice(THIS_DEVICE, "Office laptop", { ...LAPTOP, online: true, status: "pending", last_seen: minutesAgo(0) });
-      const away = kind === "pending_offline";
+      const away = kind === "pending_offline" || kind === "pending_unavailable";
       const main = demoDevice(HUB_DEVICE, "Home iMac", { online: !away, is_hub: true, last_seen: minutesAgo(away ? 21 * 24 * 60 : 0) });
       // As the model builds it: a computer that must update to pair is paused for it, naming
       // the main computer as the newer one; the other failures leave it pending, no offer open.
@@ -423,6 +428,7 @@ function demoSyncState(kind: string | null): SyncStatus {
               pending_hub_update: "pairing_hub_update_needed",
               pending_tries: "pairing_too_many_attempts",
               pending_offline: "hub_offline",
+              pending_unavailable: "start_over_unavailable",
             } as const
           )[kind as string] ?? null,
         epoch: null,
@@ -475,7 +481,7 @@ function demoSyncState(kind: string | null): SyncStatus {
       };
     }
   }
-  const alone = demoDevice(THIS_DEVICE, kind === "off_join" ? "Office laptop" : "Home iMac", { status: "unregistered", last_seen: null });
+  const alone = demoDevice(THIS_DEVICE, kind?.startsWith("off_join") ? "Office laptop" : "Home iMac", { status: "unregistered", last_seen: null });
   return { ...on, enabled: false, phase: { state: "off" }, is_hub: false, hub: null, device: alone, devices: [], last_sync_at: null, clock_offset_ms: null, epoch: null };
 }
 /**
@@ -484,9 +490,14 @@ function demoSyncState(kind: string | null): SyncStatus {
  */
 function demoSyncAccount(): SyncAccount {
   const status = currentDemoSync();
-  if (status.devices.length === 0) return { main_name: demoSwitch(DEMO_SYNC_KEY) === "off_join" ? "Home iMac" : null };
+  if (status.devices.length === 0) {
+    const kind = demoSwitch(DEMO_SYNC_KEY);
+    if (!kind?.startsWith("off_join")) return { main_name: null, main_online: null, main_last_seen: null };
+    const away = { off_join_offline: 40, off_join_away: 21 * 24 * 60 }[kind as string];
+    return { main_name: "Home iMac", main_online: away === undefined, main_last_seen: minutesAgo(away ?? 0) };
+  }
   const hub = status.devices.find((d) => d.is_hub && d.id !== status.device.id);
-  return { main_name: hub?.name ?? null };
+  return { main_name: hub?.name ?? null, main_online: hub ? hub.online : null, main_last_seen: hub?.last_seen ?? null };
 }
 function currentDemoSync(): SyncStatus {
   demoSync ??= { ...demoSyncState(demoSwitch(DEMO_SYNC_KEY)), seq: ++demoSyncSeq };
@@ -2506,6 +2517,9 @@ export const demo = {
   async revealBackup(_fileName: string) {
     /* No folders in the browser preview. */
   },
+  async revealSyncLog() {
+    /* No folders in the browser preview. */
+  },
   async getLinkCheck(): Promise<LinkCheckReport> {
     return linkReport();
   },
@@ -3003,7 +3017,8 @@ export const demo = {
   },
   /**
    * Any code but 000000 works, as for signing in; 111111 stands for a sign-in the relay finds too
-   * old. As in the app, the relay's answer comes after the command, in the status.
+   * old, 222222 for one it can't check just now. As in the app, the relay's answer comes after the
+   * command, in the status.
    */
   async startOver(code: string): Promise<SyncStatus> {
     await syncPause();
@@ -3011,6 +3026,7 @@ export const demo = {
     if (digits === "000000") throw new CommandError("invalid_request", "The code did not work", "wrong_code");
     setTimeout(() => {
       if (digits === "111111") setDemoSync({ ...currentDemoSync(), error: "stale_sign_in" });
+      else if (digits === "222222") setDemoSync({ ...currentDemoSync(), error: "start_over_unavailable" });
       // Every other computer is disconnected: they join again with «Join…».
       else setDemoSync(demoBecomeHub(currentDemoSync(), (d) => ({ ...d, online: false })));
     }, 600);

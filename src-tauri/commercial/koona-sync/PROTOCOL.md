@@ -124,8 +124,9 @@ doesn't know; the relay answers one with `error{code: "bad_message"}`.
    ```
 
    `status` is this device's own. `devices` is the whole directory, revoked devices included.
-   `last_seen` is when that device last connected or disconnected. `online` lists devices with an
-   open connection, this one included. `started_over` is present once the account has been
+   `last_seen` is when the relay last heard from that device: its connection opened or closed, or,
+   while it is connected, within the last few minutes (the relay moves it forward periodically).
+   `online` lists devices with an open connection, this one included. `started_over` is present once the account has been
    started over (section 2.6) and describes the latest time.
 
 A device sends nothing else before `welcome`.
@@ -160,7 +161,8 @@ A request that succeeds is answered only by the notice it causes. A refused one 
 | `forbidden` | The sender may not do this (not the hub; still pending) |
 | `unknown_device` | The device is not on the account or is in the wrong state (e.g. approving an active device, revoking the hub, making a pending device the hub) |
 | `bad_epoch` | `epoch` not greater than the current one |
-| `stale_sign_in` | `start_over` without a sign-in by email code in the last 10 minutes |
+| `stale_sign_in` | `start_over` without a sign-in by email code in the last 10 minutes, or with one already used for a start over |
+| `unavailable` | The relay could not check a `start_over` token now (the identity provider's keys unreadable); nothing changed and the same request may be sent again |
 
 Pending devices may send no requests. The hub cannot revoke itself; it hands over with `set_hub`
 first.
@@ -235,6 +237,12 @@ byte on the wire.
   closes any connection after about 24 hours (spread over up to 30 more minutes) with **1012** and
   reason `reconnect`. The client reconnects as after any 1012, presenting its current token and
   lease.
+- **Liveness**: a device pings at least every 30 s. The relay closes a connection from which it
+  heard neither a ping nor any message for 95 s with **1012** and reason `silent`, and treats the
+  device as offline from then on (`presence{online: false}`, `undeliverable`); its `last_seen` is
+  the time it was last heard. A device that is in fact alive reconnects as after any 1012.
+- **Pending devices expire**: a pending device not seen for 30 days is removed from the
+  directory (no notice is sent). If it connects again it registers as pending.
 - **Signing keys**: while the relay can't fetch Supabase's keys it answers 1013, never 4001 for a
   key it has not seen; 4001 for an unknown key comes only after a successful fetch without it.
 - **Epoch bounds**: an `epoch` request may raise the epoch by at most 1000; a start over when the
@@ -246,7 +254,9 @@ byte on the wire.
 - **Routing**: only the hub's kind-2 frames reach a pending device; any other frame to a pending
   device (from another device, or kind 1) is `undeliverable`. Pairing therefore needs the hub
   online. A frame a device addresses to itself is echoed back to it. The hub alias while there is
-  no hub is `undeliverable`. A text frame over 64 KiB is answered with `bad_message`.
+  no hub is `undeliverable`. A text frame over 64 KiB is answered with `bad_message`. A pending
+  device's kind-2 frame to a device id that is not the hub is `undeliverable` (with that id), as if
+  the hub were offline.
 
 ### 2.6 Starting over
 
@@ -256,9 +266,13 @@ pending device may then start the account over, proving it holds the account's e
 1. The device has the person sign in again with a code from the email (Supabase `verify`, type
    `email`) and sends `{"t": "start_over", "token": "<the new access token>"}`.
 2. The relay verifies `token` as in section 2.1, checks that its `sub` is the connection's, and
-   that its `amr` claim lists a method `otp` (or `email`, `magiclink`) whose `timestamp` is at most
-   600 s old. Otherwise: `error{code: "stale_sign_in"}` and nothing changes. A revoked device can't
-   send it (it never gets past `hello`).
+   that its `amr` claim lists a method `otp` (or `email`, `magiclink`, `email/signup`) whose
+   `timestamp` is at most 600 s old. Supabase records `otp` for every code checked by `verifyOtp`,
+   a sign-up confirmation code included. One sign-in starts over once: the relay refuses a second
+   `start_over` with a token of the same sign-in (its `session_id`, or `sub` and `amr` time).
+   Refused: `error{code: "stale_sign_in"}`; if the relay cannot check the token at all (keys
+   unreadable): `error{code: "unavailable"}`, and the device may send it again. Either way nothing
+   changes. A revoked device can't send it (it never gets past `hello`).
 3. The relay removes every other `active` and `pending` device from the directory (revoked ones
    stay revoked), makes the sender `active` and the hub, sets the epoch to the current one + 1, and
    stores `started_over = {by: sender, at: now, epoch}`.
@@ -292,10 +306,13 @@ request gets 429 with code 4008, and a failure on the relay's side 500 or 503 (c
 with
 
 ```json
-{"hub": {"id": "<uuid>", "name": "Home iMac"}}
+{"hub": {"id": "<uuid>", "name": "Home iMac", "online": false, "last_seen": 1760399000000}}
 ```
 
-or `{"hub": null}` when the account has no active device. Nothing is stored, and the request counts
+or `{"hub": null}` when the account has no active device. `online` says whether the hub has a
+connection open now; `last_seen` is as in `welcome`: while it is online, the last time the relay
+heard from it. A relay before these two fields sends `id` and `name` alone; a client takes their
+absence as "not known". Nothing is stored, and the request counts
 against the account's message bucket like a control message.
 
 ## 3. Device and device

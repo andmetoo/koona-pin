@@ -471,6 +471,8 @@ const nativeDesktop = {
   setAutostart: (enabled: boolean) => call<void>("set_autostart", { enabled }),
   /** A copy in the backups folder, selected in Explorer. */
   revealBackup: (fileName: string) => call<void>("reveal_backup", { fileName }),
+  /** Sync's log file (`sync.log`), selected in Finder or Explorer; its folder before it is written. */
+  revealSyncLog: () => call<void>("reveal_sync_log"),
   /** The app's own update (NP-038, sheet 42): checked by Rust at the start and once a day. */
   getUpdateStatus: () => call<UpdateStatus>("get_update_status"),
   onUpdateStatus: (callback: (status: UpdateStatus) => void) => subscription("update-status", callback),

@@ -1776,6 +1776,8 @@
     "setup": {
       "lead": "Questo computer diventa il principale: solo lui aggiunge e rimuove gli altri computer. Le modifiche si sincronizzano tra tutti, principale o no.",
       "leadJoin": "{{name}} è il tuo computer principale. Attiva la sincronizzazione qui, poi conferma il codice su {{name}}. I segnalibri di questo computer restano e vengono uniti.",
+      "leadJoinOffline": "{{name}} è il tuo computer principale. Ora è offline, visto l’ultima volta {{when}}. Attiva la sincronizzazione qui, poi conferma il codice su {{name}} quando torna. I segnalibri di questo computer restano e vengono uniti.",
+      "leadJoinAway": "{{name}} è il tuo computer principale, visto l’ultima volta {{when}}. Deve essere acceso per approvare questo computer. Se non tornerà presto, attiva la sincronizzazione qui e scegli Ricomincia mentre questo computer aspetta: diventa il principale e gli altri computer si uniscono di nuovo a lui.",
       "leadNeutral": "Se la sincronizzazione non è attiva da nessuna parte, questo computer diventa il principale e aggiunge gli altri. Già attiva altrove? Il principale approva questo con un codice.",
       "name": "Nome di questo computer",
       "privacyTitle": "Cifrata sui tuoi computer prima di uscirne.",
@@ -1900,6 +1902,8 @@
       "hub_change_timeoutBody": "Nessuno ha risposto entro cinque minuti. Riprova mentre {{name}} è acceso.",
       "stale_sign_in": "Il codice è scaduto",
       "stale_sign_inBody": "Invia un nuovo codice e inseriscilo entro dieci minuti.",
+      "start_over_unavailable": "Impossibile verificare il codice in questo momento",
+      "start_over_unavailableBody": "Non è cambiato nulla. Attendi un momento, poi ricomincia con un nuovo codice.",
       "key_lost": "Questo computer ha perso la chiave di sincronizzazione",
       "key_lostBody": "Il file della chiave era danneggiato. Non arriva nulla di nuovo finché {{name}} non è online e la invia di nuovo."
     },
@@ -1974,7 +1978,8 @@
       "offline": "{{detail}} · offline",
       "yesterday": "ieri {{time}}",
       "note": "Il rapporto contiene solo stati e identificativi — niente segnalibri, niente nomi.",
-      "copy": "Copia rapporto"
+      "copy": "Copia rapporto",
+      "reveal": "Mostra registro"
     }
   },
   "notifications": {

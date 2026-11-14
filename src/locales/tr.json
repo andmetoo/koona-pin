@@ -1672,6 +1672,8 @@
     "setup": {
       "lead": "Bu bilgisayar ana bilgisayar olur: diğer bilgisayarlarınızı yalnızca o ekler ve kaldırır. Değişiklikler, ana olsun olmasın hepsi arasında eşitlenir.",
       "leadJoin": "Ana bilgisayarınız {{name}}. Eşitlemeyi burada açın, sonra kodu {{name}} üzerinde onaylayın. Bu bilgisayardaki yer imleri kalır ve birleştirilir.",
+      "leadJoinOffline": "Ana bilgisayarınız {{name}}. Şu anda çevrimdışı; son görülme: {{when}}. Eşitlemeyi burada açın, {{name}} geri geldiğinde kodu orada onaylayın. Bu bilgisayardaki yer imleri kalır ve birleştirilir.",
+      "leadJoinAway": "Ana bilgisayarınız {{name}}; son görülme: {{when}}. Bu bilgisayarı onaylaması için açık olması gerekir. Yakında geri gelmeyecekse eşitlemeyi burada açın ve bu bilgisayar beklerken Baştan başlat'ı seçin: bu bilgisayar ana bilgisayar olur, diğer bilgisayarlarınız ona yeniden katılır.",
       "leadNeutral": "Eşitleme henüz hiçbir yerde açık değilse bu bilgisayar ana bilgisayar olur ve diğerlerini ekler. Başka yerde açık mı? Ana bilgisayar bunu bir kodla onaylar.",
       "name": "Bu bilgisayarın adı",
       "privacyTitle": "Bilgisayarlarınızdan çıkmadan önce şifrelenir.",
@@ -1796,6 +1798,8 @@
       "hub_change_timeoutBody": "Beş dakika içinde kimse yanıt vermedi. {{name}} açıkken yeniden deneyin.",
       "stale_sign_in": "Kodun süresi doldu",
       "stale_sign_inBody": "Yeni bir kod gönderin ve on dakika içinde girin.",
+      "start_over_unavailable": "Kod şu anda denetlenemedi",
+      "start_over_unavailableBody": "Hiçbir şey değişmedi. Biraz bekleyin, sonra yeni bir kodla yeniden baştan başlatın.",
       "key_lost": "Bu bilgisayar eşitleme anahtarını kaybetti",
       "key_lostBody": "Anahtar dosyası bozuktu. {{name}} çevrimiçi olup anahtarı yeniden gönderene kadar yeni bir şey gelmez."
     },
@@ -1869,7 +1873,8 @@
       "offline": "{{detail}} · çevrimdışı",
       "yesterday": "dün {{time}}",
       "note": "Raporda yalnızca durumlar ve kimlikler var — yer imi yok, ad yok.",
-      "copy": "Raporu kopyala"
+      "copy": "Raporu kopyala",
+      "reveal": "Günlüğü göster"
     }
   },
   "notifications": {

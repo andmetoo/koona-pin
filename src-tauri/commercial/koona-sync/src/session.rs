@@ -1216,8 +1216,10 @@ impl Session {
             Control::Device { device } => self.on_device(lib, device),
             Control::Account { hub, epoch } => self.set_account(lib, hub, epoch, false),
             Control::Error { code } => {
-                if code == relay_error::STALE_SIGN_IN {
-                    // Nothing changed on the relay: no 4005 follows.
+                // A start over refused, or not checked at all: nothing changed on the relay and no
+                // 4005 follows. Left set, a 4005 from another device's start over would pass for
+                // this one's, and this device would not hold.
+                if code == relay_error::STALE_SIGN_IN || code == relay_error::UNAVAILABLE {
                     self.starting_over = false;
                 }
                 self.error(SessionError::Relay(code))

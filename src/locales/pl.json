@@ -1880,6 +1880,8 @@
     "setup": {
       "lead": "Ten komputer zostanie głównym: tylko on dodaje i usuwa pozostałe komputery. Zmiany synchronizują się między wszystkimi, głównym czy nie.",
       "leadJoin": "{{name}} to twój główny komputer. Włącz synchronizację tutaj, a potem potwierdź kod na {{name}}. Zakładki z tego komputera zostaną i połączą się.",
+      "leadJoinOffline": "{{name}} to twój główny komputer. Jest teraz offline, ostatnio online {{when}}. Włącz synchronizację tutaj, a potem potwierdź kod na {{name}}, gdy wróci. Zakładki z tego komputera zostaną i połączą się.",
+      "leadJoinAway": "{{name}} to twój główny komputer, ostatnio online {{when}}. Musi być włączony, żeby zatwierdzić ten komputer. Jeśli szybko nie wróci, włącz synchronizację tutaj i wybierz Zacznij od nowa, gdy ten komputer czeka: stanie się głównym, a twoje pozostałe komputery dołączą do niego ponownie.",
       "leadNeutral": "Jeśli synchronizacja nie jest jeszcze nigdzie włączona, ten komputer zostanie głównym i doda pozostałe. Już włączona gdzie indziej? Główny komputer zatwierdzi ten kodem.",
       "name": "Nazwa tego komputera",
       "privacyTitle": "Szyfrowana na twoich komputerach, zanim je opuści.",
@@ -2004,6 +2006,8 @@
       "hub_change_timeoutBody": "Nikt nie odpowiedział w ciągu pięciu minut. Spróbuj ponownie, gdy {{name}} będzie włączony.",
       "stale_sign_in": "Kod wygasł",
       "stale_sign_inBody": "Wyślij nowy kod i wpisz go w ciągu dziesięciu minut.",
+      "start_over_unavailable": "Nie udało się teraz sprawdzić kodu",
+      "start_over_unavailableBody": "Nic się nie zmieniło. Poczekaj chwilę, a potem zacznij od nowa z nowym kodem.",
       "key_lost": "Ten komputer utracił klucz synchronizacji",
       "key_lostBody": "Plik klucza był uszkodzony. Nic nowego nie dotrze, dopóki {{name}} nie będzie online i nie wyśle klucza ponownie."
     },
@@ -2079,7 +2083,8 @@
       "offline": "{{detail}} · offline",
       "yesterday": "wczoraj {{time}}",
       "note": "Raport zawiera tylko stany i identyfikatory — bez zakładek i nazw.",
-      "copy": "Kopiuj raport"
+      "copy": "Kopiuj raport",
+      "reveal": "Pokaż dziennik"
     }
   },
   "notifications": {

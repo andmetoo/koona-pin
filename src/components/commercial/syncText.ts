@@ -4,7 +4,7 @@
 // one line of the Supporter dialog and of Settings. Rust has no words for people: every phase,
 // pause, problem and notice of `SyncStatus` gets its text here.
 import type { TFunction } from "i18next";
-import type { Plan, SyncDevice, SyncNotice, SyncProblem, SyncStatus } from "../../types";
+import type { Plan, SyncAccount, SyncDevice, SyncNotice, SyncProblem, SyncStatus } from "../../types";
 import { capabilities } from "../../platform/capabilities";
 
 /** Green of collections — synced; ochre — waiting or needs the person; blue of the update row — under way. */
@@ -224,6 +224,7 @@ export const PROBLEMS: readonly SyncProblem[] = [
   "hub_change_denied",
   "hub_change_timeout",
   "stale_sign_in",
+  "start_over_unavailable",
   "key_lost",
 ];
 /** What the person can do about a problem, from the banner. */
@@ -240,6 +241,8 @@ const PROBLEM_ACTIONS: Partial<Record<SyncProblem, SyncAction>> = {
   untrusted_hub: "startOver",
   // The relay refused a start over: a new code, from the same dialog.
   stale_sign_in: "startOver",
+  // The relay couldn't check the sign-in: the code is spent all the same, so a new one.
+  start_over_unavailable: "startOver",
   relay_refused: "retry",
   peer_error: "retry",
   library_failed: "retry",
@@ -451,6 +454,35 @@ export function waitingScreen(
   const problem = status.error ? problemBanner(status.error, status, t) : updating ? statusBanner(status, t, language) : null;
   const silent = status.error === "pairing_timeout";
   return { away, problem, startOver: (away || silent) && !updating && !status.is_hub && problem?.action?.kind !== "startOver", updating };
+}
+
+/**
+ * The relay holds a connection that died without a word as online for a few minutes at most (it
+ * moves `last_seen` while it hears pings): one online but not heard from for longer is taken as
+ * away. Relays before that said nothing of either, and the lead stays as it was.
+ */
+export const MAIN_HEARD_WITHIN_MS = 15 * 60_000;
+/**
+ * From a day on, the main computer away is worth more than a «confirm it there»: a computer off
+ * overnight is usual, one off for longer may not be back soon, and starting over (which disconnects
+ * the others until they join again) is the other way in. The start-over dialog counts days alike.
+ */
+export const MAIN_AWAY_LONG_MS = 24 * 3600_000;
+
+/**
+ * The first screen's line when the account has a main computer elsewhere: «confirm the code on it»,
+ * with when it was last seen if it is offline, and from a day away, that it must be on to approve
+ * this one and that starting over from the waiting screen is the other way.
+ */
+export function joinLead(account: SyncAccount, t: TFunction, language: string, now = Date.now()): { key: "join" | "joinOffline" | "joinAway"; text: string } {
+  const name = account.main_name ?? "";
+  const seen = account.main_last_seen;
+  const silent = account.main_online === true && seen !== null && now - seen > MAIN_HEARD_WITHIN_MS;
+  const away = (account.main_online === false || silent) && seen !== null;
+  if (!away) return { key: "join", text: t("sync.setup.leadJoin", { name }) };
+  const when = ago(seen, t, language, now);
+  if (now - seen >= MAIN_AWAY_LONG_MS) return { key: "joinAway", text: t("sync.setup.leadJoinAway", { name, when }) };
+  return { key: "joinOffline", text: t("sync.setup.leadJoinOffline", { name, when }) };
 }
 
 /** A prompt that opens the dialog by itself on the main computer: a computer to approve, a request to hand over. */

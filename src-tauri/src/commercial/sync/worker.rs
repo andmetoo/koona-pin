@@ -366,7 +366,20 @@ pub fn spawn(app: &AppHandle, start: Start) -> Running {
         Arc::new(move |refresh| {
             let (app, sub) = (app.clone(), sub.clone());
             Box::pin(async move {
-                match billing::sync_credentials(&app, refresh).await {
+                let answer = billing::sync_credentials(&app, refresh).await;
+                // The outcome only, never the token: a refresh always, a plain read when it failed.
+                let outcome = match &answer {
+                    Ok(Some((token, _))) if jwt_sub(token).as_deref() == Some(sub.as_str()) => "ok",
+                    Ok(Some(_)) => "another account signed in",
+                    Ok(None) => "none (signed out)",
+                    Err(_) => "failed (the account service)",
+                };
+                if refresh || outcome != "ok" {
+                    if let Some(state) = app.try_state::<SyncState>() {
+                        state.note(&format!("credentials{}: {outcome}", if refresh { " refreshed" } else { "" }));
+                    }
+                }
+                match answer {
                     Ok(Some((token, lease))) if jwt_sub(&token).as_deref() == Some(sub.as_str()) => Ok(Credentials { token, lease }),
                     Ok(Some(_)) => {
                         // Another account signed in: a client for it replaces this one.
@@ -413,11 +426,13 @@ async fn pump(
                 Reaction::Notices => {
                     if let Err(error) = state.keep_notices() {
                         eprintln!("Sync cannot keep its notices: {}", error.message);
+                        state.note("notices could not be written");
                     }
                 }
                 Reaction::Peers => {
                     if let Err(error) = state.keep_peers() {
                         eprintln!("Sync cannot keep what it knows of the other devices: {}", error.message);
+                        state.note("device facts could not be written");
                     }
                 }
             }
