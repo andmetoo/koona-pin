@@ -1221,7 +1221,7 @@ fn a_v1_offer_is_told_to_update_and_the_hub_does_not_pause() {
     assert_ne!(w.phase(a), Phase::Paused { reason: PauseReason::UpdateNeeded });
     assert!(w.devices[b].events.iter().any(|e| matches!(
         e,
-        Effect::Error(koona_sync::session::SessionError::Peer { device, code: protocol::ErrorCode::UpdateNeeded }) if *device == ida
+        Effect::Error(koona_sync::session::SessionError::Peer { device, code: protocol::ErrorCode::Outdated }) if *device == ida
     )));
 }
 
@@ -1868,9 +1868,11 @@ fn pairing_from(w: &World, from: Uuid, seq: u64, message: &PairMessage) -> Vec<u
 
 #[test]
 fn a_hub_that_says_update_tells_which_side_is_old() {
-    // `update_needed` from the hub to an offer: this device is the old one (4.2). `outdated`:
-    // the hub is. Either way the offer ends with that, not as declined.
-    for (code, hub_is_old) in [(protocol::ErrorCode::UpdateNeeded, false), (protocol::ErrorCode::Outdated, true)] {
+    // `update_needed` from the hub: it can't read this device and is the old one (3.3; what a
+    // hub of any version sends then). `outdated`: this device is (a hub of 2.22.2 or later that
+    // found the offer too old), and it pauses for its update. Either way the offer ends with
+    // that, not as declined.
+    for (code, hub_is_old) in [(protocol::ErrorCode::UpdateNeeded, true), (protocol::ErrorCode::Outdated, false)] {
         let mut w = World::new();
         let a = w.add("Hub", 1, 64 << 10);
         let b = w.add("Laptop", 2, 64 << 10);
@@ -1887,6 +1889,13 @@ fn a_hub_that_says_update_tells_which_side_is_old() {
         w.feed(b, Input::Binary(&frame));
         assert_eq!(failures(&w, b), vec![PairingFailure::UpdateNeeded { hub: hub_is_old }]);
         assert_eq!(errors(&w, b), 0, "nothing replaces the failure on the screen");
+        if hub_is_old {
+            assert_eq!(w.phase(b), Phase::Pending, "nothing to update here");
+            assert_eq!(w.devices[b].session.update_from(), None);
+        } else {
+            assert_eq!(w.phase(b), Phase::Paused { reason: PauseReason::UpdateNeeded });
+            assert_eq!(w.devices[b].session.update_from(), Some(ida), "the hub has the newer version");
+        }
     }
 }
 
@@ -2090,4 +2099,102 @@ fn a_hub_that_replaced_its_socket_is_asked_again() {
     w.act(a, Action::ApprovePairing { device });
     w.run();
     assert_eq!(w.phase(b), Phase::Online);
+}
+
+#[test]
+fn a_busy_hub_is_asked_again_only_by_the_timer_and_not_for_ever() {
+    use koona_sync::session::{BUSY_RETRY_MS, PAIRING_TIMEOUT_MS};
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.run();
+    // A hub that says `busy` to every offer (one without the library key does): the relay stands
+    // in for it.
+    let ida = w.devices[a].id;
+    w.relay.tamper = Some(Box::new(move |from, _, _| usize::from(from != ida)));
+    let mut seq = 0;
+    let mut busy = |w: &mut World| {
+        let frame = pairing_from(w, ida, seq, &PairMessage::Error { code: protocol::ErrorCode::Busy });
+        seq += 1;
+        w.feed(b, Input::Binary(&frame));
+    };
+    w.act(b, Action::StartPairing);
+    w.run();
+    busy(&mut w);
+    // The interface asking again, as often as it likes, sends nothing before the timer.
+    for _ in 0..5 {
+        w.act(b, Action::StartPairing);
+        w.run();
+    }
+    assert_eq!(offers(&w, b), 1);
+    assert_eq!(failures(&w, b), vec![PairingFailure::Busy]);
+    // The timer asks; busy every time, until the time one pairing may take is up.
+    let mut rounds = 0;
+    while !failures(&w, b).contains(&PairingFailure::Timeout) {
+        w.tick(BUSY_RETRY_MS);
+        if offers(&w, b) > rounds + 1 {
+            busy(&mut w);
+        }
+        rounds += 1;
+        assert!(rounds <= (PAIRING_TIMEOUT_MS / BUSY_RETRY_MS) as usize + 1, "it ends");
+    }
+    let sent = offers(&w, b);
+    assert!(sent as u64 <= PAIRING_TIMEOUT_MS / BUSY_RETRY_MS + 1);
+    assert_eq!(failures(&w, b).iter().filter(|f| **f == PairingFailure::Timeout).count(), 1);
+    assert!(!failures(&w, b).contains(&PairingFailure::TooManyAttempts));
+    // Nothing more by itself after it timed out; «Try again» starts afresh.
+    w.tick(BUSY_RETRY_MS);
+    assert_eq!(offers(&w, b), sent);
+    w.act(b, Action::StartPairing);
+    w.run();
+    assert_eq!(offers(&w, b), sent + 1);
+}
+
+#[test]
+fn a_hub_that_replaces_its_socket_often_costs_no_attempts() {
+    use koona_sync::session::MAX_PAIRING_ATTEMPTS;
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.run();
+    let ida = w.devices[a].id;
+    w.relay.tamper = Some(Box::new(move |from, _, _| usize::from(from != ida)));
+    w.act(b, Action::StartPairing);
+    w.run();
+    // More new sockets than the cap, each before the hub's answer came through.
+    for _ in 0..=MAX_PAIRING_ATTEMPTS {
+        w.connect(a);
+        w.run();
+    }
+    assert_eq!(offers(&w, b), MAX_PAIRING_ATTEMPTS + 2);
+    // (The hub's own cap counts them, as it should: they reached it.)
+    assert!(failures(&w, b).is_empty(), "no attempt was spent here: no code was computed");
+}
+
+#[test]
+fn on_an_active_device_a_wrong_clock_is_told_before_a_newer_peer() {
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.pair(b, a);
+    let (epoch, key) = load_meta(w.lib(a)).unwrap().key.unwrap();
+    let (ida, idb) = (w.devices[a].id, w.devices[b].id);
+    let mut sealer = Sealer::new(key, epoch, ida, &SystemRandom::new()).unwrap();
+    let payload = protocol::encode_payload(&serde_json::json!({"t": "merge", "vector": {}})).unwrap();
+    let body = sealer.seal(Address::Device(idb), &payload);
+    w.feed(b, Input::Binary(&protocol::encode_delivered(ida, w.relay.now, &body).unwrap()));
+    assert_eq!(w.phase(b), Phase::Paused { reason: PauseReason::UpdateNeeded });
+    // A frame the relay stamped ten minutes from this device's clock: the clock pause comes first,
+    // as it always did for a device in sync (only a pending one tells the update first).
+    let body = sealer.seal(Address::Device(idb), &payload);
+    w.feed(b, Input::Binary(&protocol::encode_delivered(ida, w.relay.now - 10 * 60 * 1000, &body).unwrap()));
+    assert_eq!(w.phase(b), Phase::Paused { reason: PauseReason::ClockSkew });
 }

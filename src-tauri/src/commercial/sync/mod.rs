@@ -333,9 +333,17 @@ impl SyncState {
 
     /// Gives a kept start-over sign-in to the running client, if both are there. Taken under one
     /// lock, so `start_over` and the supervisor never both send it.
-    fn hand_over_start_over(&self) {
+    /// A kept one grown too old for the relay is dropped, and the person is told as the relay would
+    /// tell them (`StaleSignIn`, whose banner offers to start over again): the command already
+    /// answered that it was under way.
+    fn hand_over_start_over(&self, app: &AppHandle) {
+        let expired = expire_kept(&mut lock(&self.start_over), &mut lock(&self.model), Instant::now());
+        if expired {
+            self.emit(app);
+            return;
+        }
         let Some(handle) = self.handle() else { return };
-        let Some(token) = lock(&self.start_over).take(Instant::now()) else { return };
+        let Some(token) = lock(&self.start_over).take() else { return };
         // The session holds it until the relay's `welcome`.
         if !handle.act(Action::StartOver { token }) {
             eprintln!("Sync's client stopped before it got the start-over sign-in");
@@ -482,7 +490,7 @@ async fn supervise(app: &AppHandle) -> Duration {
             *run = Some(worker::spawn(app, worker::Start { url, key_file: state.key_path.clone(), db, replica, identity, sub, generation, counter }));
         }
     }
-    state.hand_over_start_over();
+    state.hand_over_start_over(app);
     state.emit(app);
     RECHECK
 }
@@ -500,15 +508,34 @@ impl KeptToken {
         self.kept = Some((token, now));
     }
 
-    /// The token, if one is kept and still young enough to send.
-    fn take(&mut self, now: Instant) -> Option<String> {
-        let (token, at) = self.kept.take()?;
-        (now.saturating_duration_since(at) <= START_OVER_KEPT).then_some(token)
+    /// The token, if one is kept; [`KeptToken::expire`] first drops one too old.
+    fn take(&mut self) -> Option<String> {
+        self.kept.take().map(|(token, _)| token)
+    }
+
+    /// Drops a token too old to send. Whether one went.
+    fn expire(&mut self, now: Instant) -> bool {
+        let old = self.kept.as_ref().is_some_and(|(_, at)| now.saturating_duration_since(*at) > START_OVER_KEPT);
+        if old {
+            self.kept = None;
+        }
+        old
     }
 
     fn clear(&mut self) {
         self.kept = None;
     }
+}
+
+/// Drops a kept start-over sign-in that grew too old and shows it as the relay's refusal would.
+/// Whether it did.
+fn expire_kept(kept: &mut KeptToken, model: &mut Model, now: Instant) -> bool {
+    if !kept.expire(now) {
+        return false;
+    }
+    model.note(Utc::now(), "start over: the sign-in grew too old before sync connected".into());
+    model.error = Some(SyncProblem::StaleSignIn);
+    true
 }
 
 /// The guards of turning sync on: a relay in this build, then Supporter.
@@ -699,7 +726,13 @@ pub async fn start_over(app: AppHandle, code: String) -> Result<SyncStatus, Comm
             state.clear_stop();
             lock(&state.model).error = None;
             wake(&app);
-            state.hand_over_start_over();
+            state.hand_over_start_over(&app);
+            // No client may come in time (no token, the library not open): it is told then.
+            let later = app.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(START_OVER_KEPT + Duration::from_secs(1)).await;
+                later.state::<SyncState>().hand_over_start_over(&later);
+            });
         }
     }
     Ok(state.emit(&app))
@@ -920,15 +953,28 @@ mod tests {
     fn a_kept_start_over_sign_in_is_given_once_while_young() {
         let now = Instant::now();
         let mut kept = KeptToken::default();
-        assert_eq!(kept.take(now), None);
+        assert_eq!(kept.take(), None);
         kept.keep("fresh".into(), now);
-        assert_eq!(kept.take(now + Duration::from_secs(30)), Some("fresh".into()));
-        assert_eq!(kept.take(now + Duration::from_secs(31)), None, "given once");
-        kept.keep("old".into(), now);
-        assert_eq!(kept.take(now + START_OVER_KEPT + Duration::from_secs(1)), None, "too old for the relay");
+        assert!(!kept.expire(now + Duration::from_secs(30)));
+        assert_eq!(kept.take(), Some("fresh".into()));
+        assert_eq!(kept.take(), None, "given once");
         kept.keep("off".into(), now);
         kept.clear();
-        assert_eq!(kept.take(now), None, "sync turned off");
+        assert_eq!(kept.take(), None, "sync turned off");
+    }
+
+    #[test]
+    fn a_kept_sign_in_too_old_is_told_as_a_stale_one() {
+        let now = Instant::now();
+        let mut kept = KeptToken::default();
+        let mut model = Model::default();
+        kept.keep("young".into(), now);
+        assert!(!expire_kept(&mut kept, &mut model, now + START_OVER_KEPT));
+        assert_eq!(model.error, None);
+        assert!(expire_kept(&mut kept, &mut model, now + START_OVER_KEPT + Duration::from_secs(1)));
+        assert_eq!(model.error, Some(SyncProblem::StaleSignIn), "the banner offers to start over again");
+        assert_eq!(kept.take(), None, "never sent");
+        assert!(!expire_kept(&mut kept, &mut model, now + START_OVER_KEPT * 2), "told once");
     }
 
     #[test]

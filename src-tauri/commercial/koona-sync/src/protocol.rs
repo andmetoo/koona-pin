@@ -467,8 +467,9 @@ pub enum ErrorCode {
     /// device, has answered too many offers for now, or is no longer the hub: the device offers
     /// again later. A build before that reads it in pairing as `rejected`.
     Busy,
-    /// Pairing: the hub can't read the offer and is the one to update (`update_needed` there
-    /// says the asking device is). A build that doesn't know it reads it as a generic failure.
+    /// Pairing: the receiver is the one to update (the hub found the offer too old), unlike
+    /// `update_needed`, which says the sender is. A build that doesn't know it reads it as a
+    /// generic failure.
     Outdated,
     /// A code from a newer build.
     #[serde(other)]

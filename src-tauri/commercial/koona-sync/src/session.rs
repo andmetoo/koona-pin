@@ -467,8 +467,12 @@ pub struct Session {
     attempts: VecDeque<(u64, Option<Uuid>)>,
     /// On the hub: until when the person was already warned about too many attempts.
     attempts_warned_until: u64,
-    /// The hub answered `busy`: offer again from then on, by itself.
+    /// The hub answered `busy`: offer again from then on, by itself; nothing goes before.
     offer_again_at: Option<u64>,
+    /// When the first offer of a run the hub answered `busy` started: the run ends as a timeout
+    /// after [`PAIRING_TIMEOUT_MS`], as one offer would (a hub without the library key, or over its
+    /// own cap, says `busy` every time).
+    busy_since: Option<u64>,
     now: u64,
 }
 
@@ -531,6 +535,7 @@ impl Session {
             attempts: VecDeque::new(),
             attempts_warned_until: 0,
             offer_again_at: None,
+            busy_since: None,
             start_over_token: None,
             starting_over: false,
             held: false,
@@ -616,15 +621,16 @@ impl Session {
             Link::Dialing | Link::Open => return Phase::Connecting,
             Link::Ready => {}
         }
-        // A pending device that can't read its hub waits for an update, not for the hub.
-        if self.peers.values().any(|p| p.pause == Some(PeerPause::UpdateNeeded)) {
-            return Phase::Paused { reason: PauseReason::UpdateNeeded };
-        }
+        let update_needed = self.peers.values().any(|p| p.pause == Some(PeerPause::UpdateNeeded));
         if self.status == Some(DeviceStatus::Pending) {
-            return Phase::Pending;
+            // A pending device that can't pair with its hub waits for an update, not for the hub.
+            return if update_needed { Phase::Paused { reason: PauseReason::UpdateNeeded } } else { Phase::Pending };
         }
         if self.skewed {
             return Phase::Paused { reason: PauseReason::ClockSkew };
+        }
+        if update_needed {
+            return Phase::Paused { reason: PauseReason::UpdateNeeded };
         }
         let (mut done, mut total, mut busy) = (0, 0, false);
         for peer in self.peers.values() {
@@ -994,6 +1000,7 @@ impl Session {
             self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: asking.hub, reason: PairingFailure::Disconnected }));
         }
         self.offer_again_at = None;
+        self.busy_since = None;
         self.hosting = None;
         self.rekey = None;
         self.roster_for = None;
@@ -1089,6 +1096,8 @@ impl Session {
             if now >= a.started + PAIRING_TIMEOUT_MS {
                 let hub = a.hub;
                 self.asking = None;
+                self.offer_again_at = None;
+                self.busy_since = None;
                 self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: hub, reason: PairingFailure::Timeout }));
             }
         }
@@ -1273,10 +1282,12 @@ impl Session {
                     self.hub_change(HubChangeEvent::Settled { peer: device });
                 }
             }
+            // A busy answer was the old hub's: the new one is asked now, afresh.
+            self.offer_again_at = None;
+            self.busy_since = None;
             // An offer to the old hub can't be approved any more: ask the new one.
             if let Some(asking) = self.asking.take_if(|a| a.hub != hub) {
                 self.give_back(&asking);
-                self.offer_again_at = None;
                 if self.online.contains(&hub) {
                     self.start_pairing();
                 } else {
@@ -1378,9 +1389,11 @@ impl Session {
         }
         if online && self.asking.as_ref().is_some_and(|a| a.hub == device && a.unanswered()) {
             // The hub was online already: it replaced its socket and forgot the offer with the
-            // old one. Nothing was shown yet; a new offer goes, counted as any other.
-            let started = self.asking.take().map_or(self.now, |a| a.started);
-            self.offer_again(started);
+            // old one. Nothing was shown yet; a new offer goes.
+            let asking = self.asking.take().expect("checked above");
+            // Unanswered, so not counted: no code was computed on either side.
+            self.give_back(&asking);
+            self.offer_again(asking.started);
         }
         if self.asking.as_ref().is_some_and(|a| a.hub == device) && !online {
             // The hub forgot the offer with its connection: a new one goes when it is back.
@@ -1630,11 +1643,23 @@ impl Session {
             self.fx.push(Effect::Pairing(PairingEvent::Waiting { hub, hub_name: info.name }));
             return;
         }
+        if self.offer_again_at.is_some_and(|at| self.now < at) {
+            // The hub said it is busy: the timer asks again ([`BUSY_RETRY_MS`]), and nothing goes
+            // before, however often the interface asks.
+            return;
+        }
         if !self.online.contains(&hub) {
             self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: hub, reason: PairingFailure::Unavailable }));
             return;
         }
         self.offer_again_at = None;
+        let started = self.busy_since.unwrap_or(self.now);
+        if self.now >= started + PAIRING_TIMEOUT_MS {
+            // Busy all along: as long as one pairing may take, then it ends as one would.
+            self.busy_since = None;
+            self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: hub, reason: PairingFailure::Timeout }));
+            return;
+        }
         if !self.attempt(None) {
             // Offers that keep ending before a code is approved: something may keep cutting them
             // short, and each new one would give it another chance at matching codes.
@@ -1656,7 +1681,7 @@ impl Session {
             commit,
             eph: Some(eph),
             exchange_key: None,
-            started: self.now,
+            started,
             counted: self.now,
         });
         self.fx.push(Effect::Pairing(PairingEvent::Waiting { hub, hub_name: info.name }));
@@ -1933,11 +1958,9 @@ impl Session {
         if tell {
             if self.sealer_epoch.is_some() && self.is_active() && peer_active {
                 self.send_sync(Address::Device(from), &SyncMessage::Error { code: ErrorCode::UpdateNeeded });
-            } else if self.is_hub() && !peer_active {
-                // A pending device gets no sealed frames: it is told in pairing, with the code
-                // that says the hub is the one to update (`update_needed` there says it is).
-                self.send_pair(from, &PairMessage::Error { code: ErrorCode::Outdated });
             } else {
+                // A pending device gets no sealed frames: it is told in pairing (3.3: the sender
+                // of `update_needed` is the one to update).
                 self.send_pair(from, &PairMessage::Error { code: ErrorCode::UpdateNeeded });
             }
         }
@@ -2165,9 +2188,10 @@ impl Session {
             Ok(m) => m,
             Err(e) if e.update_needed() => return self.peer_is_newer(from, true),
             Err(protocol::Error::Outdated(_)) => {
-                // The sender is the one to update; nothing pauses here.
+                // The sender is the one to update; nothing pauses here. `outdated` says so to a
+                // device that knows it; before 2.22.2 this was `update_needed` (4.2).
                 self.dropped(from, DropReason::Malformed);
-                return self.send_pair(from, &PairMessage::Error { code: ErrorCode::UpdateNeeded });
+                return self.send_pair(from, &PairMessage::Error { code: ErrorCode::Outdated });
             }
             Err(_) => return self.dropped(from, DropReason::Malformed),
         };
@@ -2191,6 +2215,8 @@ impl Session {
                 if !self.fresh(from, &header) {
                     return;
                 }
+                // The hub answered: a busy run before this is over.
+                self.busy_since = None;
                 // 4.2 step 4: reveal only now, and show the code only after revealing.
                 let reveal = self.asking.as_ref().expect("checked above").party.eph;
                 self.send_pair(from, &PairMessage::PairReveal { eph: B64(reveal) });
@@ -2280,10 +2306,17 @@ impl Session {
                 if !self.fresh(from, &header) {
                     return;
                 }
+                // 3.3: the sender of `update_needed` can't read us and is the old one; `outdated`
+                // says the receiver is (4.2): this device then pauses for an update.
                 if code == ErrorCode::UpdateNeeded {
                     if let Some(peer) = self.peers.get_mut(&from) {
                         peer.pause = Some(PeerPause::Outdated);
                     }
+                }
+                if code == ErrorCode::Outdated && self.asking.as_ref().is_some_and(|a| a.hub == from) {
+                    let peer = self.peers.entry(from).or_default();
+                    peer.pause = Some(PeerPause::UpdateNeeded);
+                    peer.paused_at = self.now;
                 }
                 if let Some(asking) = self.asking.take_if(|a| a.hub == from) {
                     if code == ErrorCode::Expired {
@@ -2291,22 +2324,23 @@ impl Session {
                         // within the time this device gives the whole pairing.
                         return self.offer_again(asking.started);
                     }
+                    if code == ErrorCode::Busy {
+                        self.give_back(&asking);
+                        self.offer_again_at = Some(self.now + BUSY_RETRY_MS);
+                        self.busy_since = Some(asking.started);
+                        return self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: from, reason: PairingFailure::Busy }));
+                    }
+                    self.busy_since = None;
                     let reason = match code {
                         ErrorCode::BadSignature => PairingFailure::BadSignature,
-                        ErrorCode::Busy => {
-                            self.give_back(&asking);
-                            self.offer_again_at = Some(self.now + BUSY_RETRY_MS);
-                            PairingFailure::Busy
-                        }
-                        // 4.2: a hub's `update_needed` to an offer says the asking device is old.
-                        ErrorCode::UpdateNeeded => PairingFailure::UpdateNeeded { hub: false },
-                        ErrorCode::Outdated => PairingFailure::UpdateNeeded { hub: true },
+                        ErrorCode::UpdateNeeded => PairingFailure::UpdateNeeded { hub: true },
+                        ErrorCode::Outdated => PairingFailure::UpdateNeeded { hub: false },
                         _ => PairingFailure::Rejected,
                     };
                     // The failure says what went wrong; a peer error after it would replace it on
                     // the screen.
                     return self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: from, reason }));
-                } else if matches!(code, ErrorCode::Expired | ErrorCode::Busy | ErrorCode::Outdated) {
+                } else if matches!(code, ErrorCode::Expired | ErrorCode::Busy) {
                     // For an offer this device already gave up on.
                     return self.dropped(from, DropReason::Unexpected);
                 } else if self.rekey.as_ref().is_some_and(|r| r.hub == from) {
