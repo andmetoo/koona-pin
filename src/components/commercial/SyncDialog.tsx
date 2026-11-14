@@ -255,7 +255,8 @@ export function SyncDialog({
           )}
           <p className="mt-3 flex gap-2 text-xs leading-4 text-muted">
             <Icon icon={RefreshCw} className="mt-px shrink-0 text-update" />
-            {away ? t("sync.pair.waitOffline", { name }) : t("sync.pair.waitHint")}
+            {/* The offline banner says it already: then what happens once it's approved. */}
+            {away && problem?.id !== "problem:hub_offline" ? t("sync.pair.waitOffline", { name }) : t("sync.pair.waitHint")}
           </p>
           {problem && (
             <div className="mt-3">

@@ -692,7 +692,7 @@ fn a_broken_link_ends_the_offer_and_the_device_asks_again() {
     let hub = w.devices[a].id;
     w.drop_link(b);
     assert!(
-        w.devices[b].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Failed { peer, reason: PairingFailure::Unavailable }) if *peer == hub)),
+        w.devices[b].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Failed { peer, reason: PairingFailure::Disconnected }) if *peer == hub)),
         "the open offer is given up with the link"
     );
     assert_eq!(errors(&w, b), 0);

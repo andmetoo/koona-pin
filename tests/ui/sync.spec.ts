@@ -151,7 +151,9 @@ test("Sync: a computer waiting for a main computer that is away starts over from
   await start(page, "pending_offline");
   const waiting = await openSync(page);
   await expect(waiting).toHaveAccessibleName("Waiting for Home iMac");
-  await expect(waiting).toContainText("Home iMac is offline. It's asked again when it's back.");
+  // Said once, by the banner: the line under the code tells what happens once it's approved.
+  await expect(waiting).not.toContainText("It's asked again when it's back.");
+  await expect(waiting).toContainText("Your bookmarks on this computer are kept and merged.");
   const banner = waiting.locator('[data-sync-banner="problem:hub_offline"]');
   await expect(banner).toContainText("Home iMac, the main computer, is offline");
   // One way to start over: the banner's, not a second one beside Cancel.
@@ -162,10 +164,10 @@ test("Sync: a computer waiting for a main computer that is away starts over from
   await expect(startOver).toContainText("Home iMac, the main computer, hasn't been online for 21 days.");
   const code = startOver.getByLabel("Code from the email to anna@example.com");
   await expect(code).toBeVisible();
-  // It stays open over the wait, and what is typed stays.
+  // It stays open over the wait (it used to close as it opened), and what is typed stays.
   await code.fill("48");
-  await page.waitForTimeout(500);
-  await expect(startOver).toBeVisible();
+  await startOver.getByRole("button", { name: "Send the code again" }).click();
+  await expect(startOver.getByLabel("Code from the email to anna@example.com")).toBeVisible();
   await expect(code).toHaveValue("48");
   // A refusal that comes after the command is told in the dialog.
   await code.fill("111111");

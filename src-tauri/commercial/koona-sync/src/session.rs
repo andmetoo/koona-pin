@@ -140,6 +140,9 @@ pub enum PairingFailure {
     Timeout,
     /// The hub is not online.
     Unavailable,
+    /// This device's own connection broke, and the offer with it: nothing to tell the person;
+    /// it is asked again once the connection is back.
+    Disconnected,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -960,7 +963,7 @@ impl Session {
         // The hub forgets an offer with either connection: the interface is told, so it asks
         // again once this one is back instead of waiting for an answer that can't come.
         if let Some(asking) = self.asking.take() {
-            self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: asking.hub, reason: PairingFailure::Unavailable }));
+            self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: asking.hub, reason: PairingFailure::Disconnected }));
         }
         self.hosting = None;
         self.rekey = None;
@@ -1171,7 +1174,7 @@ impl Session {
                 }
                 self.error(SessionError::Relay(code))
             }
-            Control::Undeliverable { to } => self.on_undeliverable(to),
+            Control::Undeliverable { to } => self.on_undeliverable(lib, to),
             // Requests go the other way.
             _ => {}
         }
@@ -1388,14 +1391,13 @@ impl Session {
         }
     }
 
-    fn on_undeliverable(&mut self, to: Uuid) {
+    fn on_undeliverable(&mut self, lib: &mut dyn Library, to: Uuid) {
         // The hub alias or the hub itself: the relay found it offline, whatever presence said
-        // before. Its next `presence{online:true}` is then news, and a pending device asks again.
+        // before. Handled as if presence said so (the others sync without it, an offer or a
+        // request to it ends), and its next `presence{online:true}` is news to ask again on.
         let hub = if to.is_nil() { self.hub } else { Some(to).filter(|d| Some(*d) == self.hub) };
-        if let Some(hub) = hub.filter(|h| *h != self.cfg.device) {
-            if self.online.remove(&hub) {
-                self.emit_devices();
-            }
+        if let Some(hub) = hub.filter(|h| *h != self.cfg.device && self.online.contains(h)) {
+            self.on_presence(lib, hub, false);
         }
         if let Some(peer) = self.peers.get_mut(&to) {
             peer.outgoing = None;

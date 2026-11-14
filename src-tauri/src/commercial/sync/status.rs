@@ -394,6 +394,8 @@ pub struct Model {
     /// Why the last pairing failed: only one that failed for want of the hub is tried again
     /// by itself when the hub comes online; a rejection or a timeout waits for the person.
     last_failure: Option<PairingFailure>,
+    /// The library key came and the phase is still pending: nothing to ask the hub for.
+    paired: bool,
     pub hub_change: Option<HubChangePrompt>,
     pub notices: Notices,
     /// This device, left out of the devices added.
@@ -414,13 +416,21 @@ pub struct Model {
     log: VecDeque<String>,
 }
 
-fn pairing_problem(reason: PairingFailure) -> SyncProblem {
-    match reason {
+/// What a failed pairing says; none when this device's own connection broke, which is no news
+/// about the main computer and is tried again on its own.
+fn pairing_problem(reason: PairingFailure) -> Option<SyncProblem> {
+    Some(match reason {
         PairingFailure::Rejected => SyncProblem::PairingRejected,
         PairingFailure::BadSignature => SyncProblem::PairingBadSignature,
         PairingFailure::Timeout => SyncProblem::PairingTimeout,
         PairingFailure::Unavailable => SyncProblem::HubOffline,
-    }
+        PairingFailure::Disconnected => return None,
+    })
+}
+
+/// A failure that is tried again by itself once the main computer is online: it never answered.
+fn asked_again(reason: PairingFailure) -> bool {
+    matches!(reason, PairingFailure::Unavailable | PairingFailure::Disconnected)
 }
 
 fn hub_change_problem(reason: HubChangeFailure) -> SyncProblem {
@@ -507,6 +517,7 @@ impl Model {
         self.phase = None;
         self.stop = None;
         self.pairing = None;
+        self.paired = false;
         self.hub_change = None;
         self.online.clear();
         self.update_from = None;
@@ -542,6 +553,9 @@ impl Model {
             Effect::Status(phase) => {
                 self.note(now, format!("phase {phase:?}"));
                 let was = self.phase.replace(phase);
+                if phase != Phase::Pending {
+                    self.paired = false;
+                }
                 if phase == Phase::Pending && was != Some(Phase::Pending) && self.pairing.is_none() {
                     out.push(Reaction::StartPairing);
                 }
@@ -569,8 +583,11 @@ impl Model {
                 // `undeliverable`): ask, unless the last offer was refused or ran out of time,
                 // which only «Try again» repeats. A second ask while one is open is answered
                 // with the same wait by the session, so a directory that comes twice is harmless.
-                let retry = self.last_failure.is_none_or(|f| f == PairingFailure::Unavailable);
-                if self.phase == Some(Phase::Pending) && self.pairing.is_none() && self.hub_online() && retry {
+                let retry = self.last_failure.is_none_or(asked_again);
+                // This device must still be listed as pending: after the key came, the directory
+                // that makes it active arrives before the phase does, and nothing is to be asked.
+                let pending = self.me.is_none_or(|me| self.devices.iter().any(|d| d.id == me && d.status == DeviceStatus::Pending));
+                if self.phase == Some(Phase::Pending) && !self.paired && pending && self.pairing.is_none() && self.hub_online() && retry {
                     out.push(Reaction::StartPairing);
                 }
             }
@@ -597,6 +614,8 @@ impl Model {
                     self.pairing = None;
                     self.error = None;
                     self.last_failure = None;
+                    // The key is here: no more asking while the phase catches up.
+                    self.paired = true;
                 }
                 PairingEvent::Withdrawn { peer } => {
                     self.note(now, format!("pairing: {peer} asked again"));
@@ -608,10 +627,12 @@ impl Model {
                     self.note(now, format!("pairing: failed with {peer}: {reason:?}"));
                     self.pairing = None;
                     self.last_failure = Some(reason);
-                    self.error = Some(pairing_problem(reason));
+                    if let Some(problem) = pairing_problem(reason) {
+                        self.error = Some(problem);
+                    }
                     // «Join…» refused (not just the main computer away, which is tried again): no new
                     // key is coming, and a later rotation must not count as one.
-                    if self.rejoining && reason != PairingFailure::Unavailable {
+                    if self.rejoining && !asked_again(reason) {
                         self.rejoining = false;
                         out.push(Reaction::Synced);
                     }
@@ -999,7 +1020,7 @@ mod tests {
     }
 
     #[test]
-    fn a_pending_device_offers_once_and_again_only_when_the_hub_comes_back() {
+    fn a_pending_device_offers_and_asks_again_when_the_hub_comes_back_unless_declined() {
         let me = Identity::new("Laptop");
         let hub = uid(9);
         let mut model = Model::default();
@@ -1061,6 +1082,35 @@ mod tests {
         model.on_event(waiting(), at(8));
         model.on_event(lost(), at(9));
         assert_eq!(model.on_event(devices(vec![me.device, hub]), at(10)), vec![Reaction::StartPairing]);
+    }
+
+    #[test]
+    fn a_broken_link_says_nothing_and_a_paired_device_asks_no_more() {
+        let me = Identity::new("Laptop");
+        let hub = uid(9);
+        let mut model = Model { me: Some(me.device), ..Model::default() };
+        let devices = |mine: DeviceStatus| {
+            Event::Session(Effect::Devices {
+                devices: vec![info(hub, "Studio Mac", DeviceStatus::Active), info(me.device, "Laptop", mine)],
+                online: vec![me.device, hub],
+                hub: Some(hub),
+            })
+        };
+        model.on_event(devices(DeviceStatus::Pending), at(0));
+        model.on_event(Event::Session(Effect::Status(Phase::Pending)), at(0));
+        model.on_event(Event::Session(Effect::Pairing(PairingEvent::Waiting { hub, hub_name: "Studio Mac".into() })), at(1));
+        // This computer's own link broke: no word about the main computer, and asked again.
+        model.on_event(Event::Session(Effect::Pairing(PairingEvent::Failed { peer: hub, reason: PairingFailure::Disconnected })), at(2));
+        assert_eq!(model.status(&ctx(&me)).error, None);
+        assert_eq!(model.status(&ctx(&me)).pairing, None);
+        assert_eq!(model.on_event(devices(DeviceStatus::Pending), at(3)), vec![Reaction::StartPairing]);
+        model.on_event(Event::Session(Effect::Pairing(PairingEvent::Waiting { hub, hub_name: "Studio Mac".into() })), at(4));
+        // The key came before the relay lists this computer as active, and the phase after that.
+        model.on_event(Event::Session(Effect::Pairing(PairingEvent::Paired { peer: hub })), at(5));
+        assert!(model.on_event(devices(DeviceStatus::Pending), at(6)).is_empty(), "paired: nothing to ask");
+        assert!(model.on_event(devices(DeviceStatus::Active), at(7)).is_empty(), "active: nothing to ask");
+        model.on_event(Event::Session(Effect::Status(Phase::Online)), at(8));
+        assert_eq!(model.status(&ctx(&me)).error, None);
     }
 
     #[test]
