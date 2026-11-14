@@ -49,6 +49,7 @@ const sync = (more: Partial<SyncStatus> = {}): SyncStatus => ({
   clock_offset_ms: null,
   update_from: null,
   epoch: 1,
+  seq: 1,
   ...more,
 });
 

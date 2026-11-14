@@ -309,7 +309,11 @@ function setDemoFolder(folder: BackupFolder) {
  * - `pairing`: Office laptop wants to join, the code on the main computer (frame 05).
  * - `pending`: this new computer waits for Home iMac, the code shown (frame 06); `rejected`: the
  *   main computer declined it; `pending_offline`: Home iMac has been offline for three weeks, so
- *   nobody can approve this one, and starting over is the way out.
+ *   nobody can approve this one, and starting over is the way out; `pending_busy`: Home iMac is
+ *   adding another computer; `pending_update`: Home iMac has a newer version, so this one is
+ *   paused to update before it can pair;
+ *   `pending_hub_update`: Home iMac has an older one; `pending_tries`: asked too many times.
+ * - `no_key`: Office laptop lost its sync key: «Make this the main computer» opens Start over.
  * - `receiving`: the first sync brings the library here (frame 07).
  * - `main_asked`: on Home iMac, Office laptop asks to become the main computer (frame 12);
  *   `asking_main`: Office laptop waits for that answer.
@@ -319,6 +323,8 @@ function setDemoFolder(folder: BackupFolder) {
 export const DEMO_SYNC_KEY = "koonapin.demo.sync";
 const syncListeners = new Set<(status: SyncStatus) => void>();
 let demoSync: SyncStatus | null = null;
+/** As the app's: every status set is newer than the one before, so the interface keeps the order. */
+let demoSyncSeq = 0;
 const THIS_DEVICE = "0f8e2c1a-5b7d-4e39-9a61-3c2d4b5e6f70";
 const HUB_DEVICE = "6a1b9c2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d";
 const LAPTOP_DEVICE = "c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f";
@@ -357,6 +363,7 @@ function demoSyncState(kind: string | null): SyncStatus {
     clock_offset_ms: 400,
     update_from: null,
     epoch: 2,
+    seq: 0,
   };
   // On Office laptop, another computer; Home iMac is the main one, away `hubAway` minutes.
   const other = (hubAway: number | null): SyncStatus => {
@@ -378,26 +385,46 @@ function demoSyncState(kind: string | null): SyncStatus {
       return other(2 * 24 * 60);
     case "start_over":
       return other(12 * 24 * 60);
+    case "no_key":
+      return { ...other(null), epoch: null };
     case "pairing": {
       const fresh = demoDevice(LAPTOP_DEVICE, "Office laptop", { ...LAPTOP, online: true, status: "pending", last_seen: minutesAgo(0) });
       return { ...on, devices: [hub, studio, fresh], pairing: { role: "hub", peer: LAPTOP_DEVICE, peer_name: "Office laptop", code: "482913" } };
     }
     case "pending":
     case "rejected":
+    case "pending_busy":
+    case "pending_update":
+    case "pending_hub_update":
+    case "pending_tries":
     case "pending_offline": {
       const me = demoDevice(THIS_DEVICE, "Office laptop", { ...LAPTOP, online: true, status: "pending", last_seen: minutesAgo(0) });
       const away = kind === "pending_offline";
       const main = demoDevice(HUB_DEVICE, "Home iMac", { online: !away, is_hub: true, last_seen: minutesAgo(away ? 21 * 24 * 60 : 0) });
+      // As the model builds it: a computer that must update to pair is paused for it, naming
+      // the main computer as the newer one; the other failures leave it pending, no offer open.
+      const updating = kind === "pending_update";
       return {
         ...on,
-        phase: { state: "pending" },
+        phase: updating ? { state: "paused", reason: "update_needed" } : { state: "pending" },
+        update_from: updating ? HUB_DEVICE : null,
         is_hub: false,
         hub: HUB_DEVICE,
         device: me,
         devices: [main, me],
         pairing: kind === "pending" ? { role: "asking", peer: HUB_DEVICE, peer_name: "Home iMac", code: "482913" } : null,
         last_sync_at: null,
-        error: kind === "rejected" ? "pairing_rejected" : away ? "hub_offline" : null,
+        error:
+          (
+            {
+              rejected: "pairing_rejected",
+              pending_busy: "pairing_busy",
+              pending_update: "pairing_update_needed",
+              pending_hub_update: "pairing_hub_update_needed",
+              pending_tries: "pairing_too_many_attempts",
+              pending_offline: "hub_offline",
+            } as const
+          )[kind as string] ?? null,
         epoch: null,
       };
     }
@@ -462,12 +489,13 @@ function demoSyncAccount(): SyncAccount {
   return { main_name: hub?.name ?? null };
 }
 function currentDemoSync(): SyncStatus {
-  demoSync ??= demoSyncState(demoSwitch(DEMO_SYNC_KEY));
+  demoSync ??= { ...demoSyncState(demoSwitch(DEMO_SYNC_KEY)), seq: ++demoSyncSeq };
   return demoSync;
 }
 function setDemoSync(status: SyncStatus) {
-  demoSync = status;
-  syncListeners.forEach((fn) => fn(status));
+  const next = { ...status, seq: ++demoSyncSeq };
+  demoSync = next;
+  syncListeners.forEach((fn) => fn(next));
 }
 const syncPause = () => new Promise((resolve) => setTimeout(resolve, 300));
 function needSyncRunning() {

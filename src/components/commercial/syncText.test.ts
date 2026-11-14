@@ -71,6 +71,7 @@ const base: SyncStatus = {
   clock_offset_ms: null,
   update_from: null,
   epoch: null,
+  seq: 1,
 };
 /** Words, not a key that i18next gave back for want of them. */
 const worded = (text: string | undefined) => {
@@ -165,6 +166,7 @@ describe("sync texts (sheet 46)", () => {
       away: false,
       problem: null,
       startOver: false,
+      updating: false,
     });
     // Offline by presence, no problem yet: «Start over…» beside Cancel.
     const away = { ...pending, devices: [{ ...hub, online: false }, pending.device] };
@@ -185,6 +187,40 @@ describe("sync texts (sheet 46)", () => {
     expect(waitingScreen({ ...pending, error: "pairing_rejected" }, t).startOver).toBe(false);
     expect(waitingScreen({ ...pending, error: "pairing_bad_signature" }, t).startOver).toBe(false);
     expect(waitingScreen({ ...away, error: "stale_sign_in" }, t)).toMatchObject({ problem: { action: { kind: "startOver" } }, startOver: false });
+  });
+
+  it("tells a waiting computer a busy main computer, which side to update, and too many tries", () => {
+    const pending: SyncStatus = { ...base, phase: { state: "pending" }, device: { ...laptop, status: "pending" }, last_sync_at: null };
+    const busy = waitingScreen({ ...pending, error: "pairing_busy" }, t);
+    // Asked again by itself: no button, no Start over, and nobody declined.
+    expect(busy.problem).toMatchObject({ title: "Home iMac is adding another computer", body: "This computer asks again in a moment.", action: undefined });
+    expect(busy.startOver).toBe(false);
+    // As the model builds it: paused to update, the main computer named as the newer one, still
+    // on the waiting screen (never approved), one banner, no Start over, and the summary says update.
+    const mustUpdate: SyncStatus = {
+      ...pending,
+      phase: { state: "paused", reason: "update_needed" },
+      error: "pairing_update_needed",
+      update_from: hub.id,
+      epoch: null,
+    };
+    expect(syncView(mustUpdate)).toBe("waiting");
+    expect(waitingScreen(mustUpdate, t)).toMatchObject({
+      updating: true,
+      startOver: false,
+      problem: { title: "Update Koona Pin on this computer", body: "Home iMac has a newer version. Update here, and this computer asks again.", action: { kind: "update", label: "Update" } },
+    });
+    expect(syncSummary(mustUpdate, t, "en", "settings")?.text).toBe("Paused · update Koona Pin");
+    // Without the problem (it was cleared), the update pause's own banner, naming who is newer.
+    expect(waitingScreen({ ...mustUpdate, error: null }, t).problem).toMatchObject({ id: "paused:update_needed", body: "Home iMac has a newer version." });
+    // A computer in sync that pauses to update keeps its overview.
+    expect(syncView({ ...base, phase: { state: "paused", reason: "update_needed" } })).toBe("overview");
+    expect(waitingScreen({ ...pending, error: "pairing_hub_update_needed" }, t).problem).toMatchObject({
+      title: "Update Koona Pin on Home iMac",
+      action: { kind: "retry" },
+    });
+    const tries = waitingScreen({ ...pending, error: "pairing_too_many_attempts" }, t).problem;
+    expect(tries).toMatchObject({ title: "This computer asked too many times", body: "Wait five minutes, then try again.", action: { kind: "retry" } });
   });
 
   it("shows the overview once a computer that waited started over and is the main one", () => {

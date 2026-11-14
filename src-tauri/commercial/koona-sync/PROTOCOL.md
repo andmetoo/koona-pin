@@ -407,10 +407,14 @@ the unknown part would let `covers` mark a change as held that was never stored.
 missing field is a broken peer, not a newer one: the body is dropped.
 
 `error` codes: `update_needed`; `clock_skew` (section 3.6); `rejected` (pairing: the person
-declined on the hub, or the hub is pairing another device; final for that attempt),
-`bad_signature` (pairing or rekeying) and `expired` (pairing: the hub stopped waiting for the
-reveal; nobody declined and the device may ask again), all section 4; `busy` (the hub is already
-answering another `hub_request`).
+declined on the hub; final for that attempt), `bad_signature` (pairing or rekeying), `expired`
+(pairing: the hub stopped waiting for the reveal; nobody declined and the device may ask again)
+and `outdated` (pairing: the receiver is the one to update, where `update_needed` says the
+sender is; see the table in 4.2), all section 4;
+`busy` (the hub is already answering another `hub_request`; in pairing, the hub is pairing another
+device, has answered too many offers for now, or is no longer the hub, and the device asks again
+later). Hubs before 2.22.2 answer a busy pairing with `rejected`; devices before 2.22.2 read `busy` and
+`outdated` in pairing as `rejected`, which is what they were told before.
 A pairing `error` ends the device's attempt and says why (`expired` aside, see 4.2); the reference
 client shows that reason and no separate peer error. A receiver MUST accept an `error` with a code
 it doesn't know (treat it as a generic failure), so
@@ -539,26 +543,51 @@ unseen until it matches; posing as the hub, it can forge `expired` (pairing erro
 signed) to make A offer again with a new code. So:
 
 - A hub answers at most 3 `pair_offer`s, from all devices together, in any 5 minutes, an offer it
-  approved not counted. Past that it answers `error{code: "rejected"}` and warns its person that
+  approved not counted. Past that it answers `error{code: "busy"}` and warns its person that
   someone may be in between. It also warns when a device offers again before revealing, which an
   honest device never does.
 - A device sends at most 3 `pair_offer`s in any 5 minutes, re-offers after `expired` and after
-  the hub came back online included. Past that it stops and warns its person.
+  the hub came back online included. An offer that ended before a `pair_accept` came is not
+  counted, whether the relay answered `undeliverable`, the device's own connection closed, the
+  hub answered `busy` or the hub announced a new socket: no code was computed on either side, so
+  nothing was learned from it. Past the limit the device stops and tells its person to try again
+  later.
+
+A device answered `busy` offers again by itself after 30 seconds, and sends nothing to the hub
+before then. Answered `busy` again and again (a hub without the library key or over its own limit
+always is), it gives up as a single offer would, 5 minutes after the first one, with a timeout.
+If the relay announces a new hub
+(`account`) while an offer is open, the device drops it and offers to the new hub. If the relay
+announces `presence{online: true}` of the hub while an offer to it is unanswered, the hub replaced
+its socket and forgot the offer: the device offers again.
 
 A relay in between therefore gets at most 3 chances in 10^6 per 5 minutes, and each failed attempt
 is visible: the digits differ, the hub shows no code, or a warning. The person MUST be told to
 compare the digits, not just press Approve.
 
-A v2 hub answers a v1 `pair_offer` (one with `eph` and no `commit`) with
-`{"t": "error", "code": "update_needed"}`: the asking device is the one to update, so the hub does
-not pause. A v1 hub sees `commit` as an unknown field and pauses for an update itself, but its
+Who is told to update, in pairing. `update_needed` keeps its meaning of 3.3 (the sender can't read
+what it got and is the one to update); `outdated` says the receiver is:
+
+| Case | Who sends | What | The asking device (2.22.2+) reads |
+|------|-----------|------|-----------------------------------|
+| The hub can't read the asking device's message, hub before 2.22.2 with the library key | hub | `update_needed`, sealed (kind 1): not delivered to a pending device | nothing; pairing times out |
+| The same, hub before 2.22.2 without the key, or hub 2.22.2+ | hub | `update_needed` in pairing; the hub pauses for its update | the hub is old: «update it there»; no pause here |
+| The hub finds the offer too old (a v1 offer; a later protocol) | hub 2.22.2+ (before: `update_needed`, sent only to v1 offers) | `outdated` in pairing; the hub doesn't pause | this device is old: it pauses for an update, naming the hub |
+| The asking device can't read the hub's message | asking device | `update_needed` in pairing; it pauses for an update and ends its offer | — (the hub records the device as outdated) |
+
+A 2.22.2 device never sends a v1 offer, so the only `update_needed` it can get in pairing from any
+hub means the hub is old. Devices before 2.22.2 read `outdated` as a generic failure.
+
+A v2 hub before 2.22.2 answers a v1 `pair_offer` (one with `eph` and no `commit`) with
+`{"t": "error", "code": "update_needed"}`, 2.22.2 and later with `outdated`: the asking device is
+the one to update, so the hub does not pause. A v1 hub sees `commit` as an unknown field and pauses for an update itself, but its
 `error` goes out sealed (kind 1), which the relay doesn't deliver to a pending device: a v2 device
 asking a v1 hub hears nothing and gives up after the pairing timeout. Pairing therefore needs both
 devices on v2, the hub updated first; there is no fallback to the v1 exchange. The reference
 relay serves only v2 and up (2.5), so with it a v1 device doesn't connect at all.
 
 A pending device sends at most one offer at a time; the hub handles one pairing at a time and
-answers others with `error{code: "rejected"}`. A pairing that isn't approved within 5 minutes is
+answers others with `error{code: "busy"}`. A pairing that isn't approved within 5 minutes is
 abandoned by both sides.
 
 ### 4.3 Rotating the library key

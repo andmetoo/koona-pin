@@ -15,6 +15,7 @@ use koona_sync::session::{
 use koona_sync::Applied;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::sync::atomic::{AtomicU64, Ordering};
 use ts_rs::TS;
 use uuid::Uuid;
 
@@ -57,6 +58,26 @@ pub struct SyncStatus {
     pub update_from: Option<String>,
     /// Generation of the library key this device holds.
     pub epoch: Option<u32>,
+    /// Larger for every status made: a command's answer can reach the interface after a newer
+    /// `sync-status` event, and the interface keeps the newer one.
+    #[ts(type = "number")]
+    pub seq: u64,
+}
+
+/// The last `seq` given, for the whole process: statuses are made by commands and by the worker.
+/// Counted on from the clock's milliseconds at the first status, so an interface that outlived a
+/// restart of the backend (a dev reload) doesn't take the new process's statuses for old ones.
+static SEQ: AtomicU64 = AtomicU64::new(0);
+
+fn next_seq() -> u64 {
+    let start = || {
+        let ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64);
+        // Thousands of statuses per millisecond of runtime stay ahead of a later process, and the
+        // number stays exact in JavaScript (below 2^53).
+        ms.saturating_mul(1000)
+    };
+    let _ = SEQ.compare_exchange(0, start(), Ordering::Relaxed, Ordering::Relaxed);
+    SEQ.fetch_add(1, Ordering::Relaxed) + 1
 }
 
 /// Answer of `get_sync_account`: what the relay knows of the account before this computer turns
@@ -320,13 +341,21 @@ pub enum PairingRole {
 #[serde(rename_all = "snake_case")]
 #[ts(export)]
 pub enum SyncProblem {
-    /// Declined on the hub, or the hub was busy with another device.
+    /// Declined on the hub (or an older hub was busy with another device).
     PairingRejected,
     PairingTimeout,
     /// A pairing signature did not verify: someone may be in between.
     PairingBadSignature,
     /// Pairing needs the hub online.
     HubOffline,
+    /// The main computer is adding another computer: this one asks again by itself.
+    PairingBusy,
+    /// This computer can't pair with the main one until Koona Pin is updated here.
+    PairingUpdateNeeded,
+    /// The main computer runs an older Koona Pin: it is updated there first.
+    PairingHubUpdateNeeded,
+    /// This computer asked too many times in five minutes: try again later.
+    PairingTooManyAttempts,
     /// The relay names a hub this device has no key for.
     UntrustedHub,
     /// The action needs a role this device doesn't have (only the hub removes devices…).
@@ -424,13 +453,18 @@ fn pairing_problem(reason: PairingFailure) -> Option<SyncProblem> {
         PairingFailure::BadSignature => SyncProblem::PairingBadSignature,
         PairingFailure::Timeout => SyncProblem::PairingTimeout,
         PairingFailure::Unavailable => SyncProblem::HubOffline,
+        PairingFailure::Busy => SyncProblem::PairingBusy,
+        PairingFailure::UpdateNeeded { hub: false } => SyncProblem::PairingUpdateNeeded,
+        PairingFailure::UpdateNeeded { hub: true } => SyncProblem::PairingHubUpdateNeeded,
+        PairingFailure::TooManyAttempts => SyncProblem::PairingTooManyAttempts,
         PairingFailure::Disconnected => return None,
     })
 }
 
-/// A failure that is tried again by itself once the main computer is online: it never answered.
+/// A failure that is tried again by itself once the main computer is online: it never answered,
+/// or it was busy (the session also asks again after a while).
 fn asked_again(reason: PairingFailure) -> bool {
-    matches!(reason, PairingFailure::Unavailable | PairingFailure::Disconnected)
+    matches!(reason, PairingFailure::Unavailable | PairingFailure::Disconnected | PairingFailure::Busy)
 }
 
 fn hub_change_problem(reason: HubChangeFailure) -> SyncProblem {
@@ -856,6 +890,9 @@ impl Model {
             clock_offset_ms: self.clock_offset_ms,
             update_from,
             epoch: self.epoch,
+            // Taken while the model is borrowed (under its lock in the app), so a later seq never
+            // shows an older model.
+            seq: next_seq(),
         }
     }
 }
@@ -899,6 +936,15 @@ mod tests {
         let shown = model.status(&ctx(&me));
         assert_eq!(shown.device.status, SyncDeviceStatus::Unregistered);
         assert_eq!(shown.device.name, "Studio Mac");
+    }
+
+    #[test]
+    fn every_status_comes_with_a_larger_seq() {
+        let me = Identity::new("Studio Mac");
+        let model = Model::default();
+        let first = model.status(&ctx(&me)).seq;
+        let second = model.status(&ctx(&me)).seq;
+        assert!(second > first, "{second} after {first}");
     }
 
     #[test]
@@ -1059,6 +1105,36 @@ mod tests {
         assert!(model.on_event(devices(vec![me.device, hub]), at(7)).is_empty());
         assert_eq!(model.status(&ctx(&me)).error, Some(SyncProblem::PairingRejected));
         assert_eq!(model.status(&ctx(&me)).pairing, None);
+    }
+
+    #[test]
+    fn a_busy_hub_is_asked_again_and_update_or_too_many_tries_wait_for_the_person() {
+        let me = Identity::new("Laptop");
+        let hub = uid(9);
+        let devices = || {
+            Event::Session(Effect::Devices {
+                devices: vec![info(hub, "Studio Mac", DeviceStatus::Active), info(me.device, "Laptop", DeviceStatus::Pending)],
+                online: vec![me.device, hub],
+                hub: Some(hub),
+            })
+        };
+        let failed = |reason| Event::Session(Effect::Pairing(PairingEvent::Failed { peer: hub, reason }));
+        for (reason, problem, again) in [
+            (PairingFailure::Busy, SyncProblem::PairingBusy, true),
+            (PairingFailure::UpdateNeeded { hub: false }, SyncProblem::PairingUpdateNeeded, false),
+            (PairingFailure::UpdateNeeded { hub: true }, SyncProblem::PairingHubUpdateNeeded, false),
+            (PairingFailure::TooManyAttempts, SyncProblem::PairingTooManyAttempts, false),
+        ] {
+            let mut model = Model::default();
+            model.on_event(devices(), at(0));
+            model.on_event(Event::Session(Effect::Status(Phase::Pending)), at(0));
+            model.on_event(Event::Session(Effect::Pairing(PairingEvent::Waiting { hub, hub_name: "Studio Mac".into() })), at(1));
+            model.on_event(failed(reason), at(2));
+            let shown = model.status(&ctx(&me));
+            assert_eq!((shown.error, shown.pairing), (Some(problem), None), "{reason:?}");
+            let asks = model.on_event(devices(), at(3)) == vec![Reaction::StartPairing];
+            assert_eq!(asks, again, "{reason:?}: asked again by itself");
+        }
     }
 
     #[test]

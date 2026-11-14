@@ -167,6 +167,8 @@ function startedOverBy(status: SyncStatus): string | null {
  */
 export function syncSummary(status: SyncStatus, t: TFunction, language: string, place: "supporter" | "settings"): { tone: SyncTone; text: string } | null {
   if (!status.enabled) return null;
+  // A computer waiting to join that must update first: the same words as the update pause.
+  if (status.error === "pairing_update_needed") return { tone: "warn", text: t("sync.short.update") };
   if (status.error) return { tone: "warn", text: t("sync.short.problem") };
   const phase = status.phase;
   switch (phase.state) {
@@ -209,6 +211,10 @@ export const PROBLEMS: readonly SyncProblem[] = [
   "pairing_timeout",
   "pairing_bad_signature",
   "hub_offline",
+  "pairing_busy",
+  "pairing_update_needed",
+  "pairing_hub_update_needed",
+  "pairing_too_many_attempts",
   "untrusted_hub",
   "not_allowed",
   "relay_refused",
@@ -225,6 +231,11 @@ const PROBLEM_ACTIONS: Partial<Record<SyncProblem, SyncAction>> = {
   pairing_rejected: "retry",
   pairing_timeout: "retry",
   pairing_bad_signature: "retry",
+  // Asked again by itself in a moment: nothing for the person to do. Updating the main computer
+  // happens there.
+  pairing_update_needed: "update",
+  pairing_hub_update_needed: "retry",
+  pairing_too_many_attempts: "retry",
   hub_offline: "startOver",
   untrusted_hub: "startOver",
   // The relay refused a start over: a new code, from the same dialog.
@@ -399,13 +410,21 @@ export function overviewBanners(status: SyncStatus, plan: Plan | null | undefine
   return [...list, ...notices, ...(ends ? [ends] : [])];
 }
 
+/**
+ * A computer never approved that paused because it must update before it can pair (the main
+ * computer is newer): it stays on the waiting screen, with Cancel, not the overview of a computer
+ * in sync, whose Rename, «Make this the main computer» and «Sync now» don't apply to it.
+ */
+export const mustUpdateToJoin = (status: SyncStatus) =>
+  status.device.status === "pending" && status.phase.state === "paused" && status.phase.reason === "update_needed";
+
 /** Which screen of the dialog the status asks for (frames 02, 03/04, 05, 06, 07, 12). */
 export type SyncView = "setup" | "pairHub" | "mainAsked" | "waiting" | "receiving" | "overview";
 export function syncView(status: SyncStatus): SyncView {
   if (!status.enabled || status.phase.state === "off") return "setup";
   if (status.pairing?.role === "hub" && status.pairing.code) return "pairHub";
   if (status.hub_change?.role === "hub") return "mainAsked";
-  if (status.pairing?.role === "asking" || status.phase.state === "pending") return "waiting";
+  if (status.pairing?.role === "asking" || status.phase.state === "pending" || mustUpdateToJoin(status)) return "waiting";
   // The first transfer on a computer that joined: the library arrives.
   if (status.phase.state === "syncing" && !status.is_hub && !status.last_sync_at) return "receiving";
   return "overview";
@@ -419,12 +438,19 @@ export function syncView(status: SyncStatus): SyncView {
  * away too: the relay can keep a connection that died silently online for hours, so a timeout
  * offers it as well. A refusal or a bad signature does not: someone is there.
  */
-export function waitingScreen(status: SyncStatus, t: TFunction): { away: boolean; problem: SyncBanner | null; startOver: boolean } {
+export function waitingScreen(
+  status: SyncStatus,
+  t: TFunction,
+  language = "en",
+): { away: boolean; problem: SyncBanner | null; startOver: boolean; updating: boolean } {
   const hub = hubDevice(status);
   const away = status.error === "hub_offline" || (hub ? !hub.online : false);
-  const problem = status.error ? problemBanner(status.error, status, t) : null;
+  // Paused to update: nothing is asked meanwhile. One banner says so, the problem's (it names the
+  // main computer) or, without one, the update pause's.
+  const updating = mustUpdateToJoin(status);
+  const problem = status.error ? problemBanner(status.error, status, t) : updating ? statusBanner(status, t, language) : null;
   const silent = status.error === "pairing_timeout";
-  return { away, problem, startOver: (away || silent) && !status.is_hub && problem?.action?.kind !== "startOver" };
+  return { away, problem, startOver: (away || silent) && !updating && !status.is_hub && problem?.action?.kind !== "startOver", updating };
 }
 
 /** A prompt that opens the dialog by itself on the main computer: a computer to approve, a request to hand over. */

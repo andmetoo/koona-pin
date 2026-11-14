@@ -338,3 +338,49 @@ test("Sync: the first screen keeps both possibilities while asking, and when the
   const after = await open.getByLabel("This computer's name").boundingBox();
   expect(after?.y).toBe(before?.y);
 });
+
+test("Sync: a waiting computer is told when the main computer is busy, which side to update, or that it asked too often", async ({ page }) => {
+  await start(page, "pending_busy");
+  let waiting = await openSync(page);
+  const busy = waiting.locator('[data-sync-banner="problem:pairing_busy"]');
+  await expect(busy).toContainText("Home iMac is adding another computer");
+  // Nobody declined: it asks again by itself, so the banner has no button.
+  await expect(busy.getByRole("button")).toHaveCount(0);
+  await expect(waiting).not.toContainText("didn't approve");
+
+  // Paused to update, as the app builds it: still the waiting screen of a computer never
+  // approved, with one banner that names the newer main computer, and Cancel.
+  await start(page, "pending_update");
+  waiting = await openSync(page);
+  await expect(waiting.locator('[data-sync-view="waiting"]')).toBeVisible();
+  await expect(waiting.locator("[data-sync-banner]")).toHaveCount(1);
+  const update = waiting.locator('[data-sync-banner="problem:pairing_update_needed"]');
+  await expect(update).toContainText("Update Koona Pin on this computer");
+  await expect(update).toContainText("Home iMac has a newer version.");
+  await expect(update.getByRole("button", { name: "Update" })).toBeVisible();
+  await expect(waiting).not.toContainText("Asking Home iMac");
+  await expect(waiting.getByRole("button", { name: "Make this the main computer" })).toHaveCount(0);
+  await expect(waiting.getByRole("button", { name: "Sync now" })).toHaveCount(0);
+  await expect(waiting.getByRole("button", { name: "Start over…" })).toHaveCount(0);
+  await expect(waiting.getByRole("button", { name: "Cancel" })).toBeVisible();
+
+  await start(page, "pending_hub_update");
+  waiting = await openSync(page);
+  const hubUpdate = waiting.locator('[data-sync-banner="problem:pairing_hub_update_needed"]');
+  await expect(hubUpdate).toContainText("Update Koona Pin on Home iMac");
+  await expect(hubUpdate.getByRole("button", { name: "Try again" })).toBeVisible();
+
+  await start(page, "pending_tries");
+  waiting = await openSync(page);
+  const tries = waiting.locator('[data-sync-banner="problem:pairing_too_many_attempts"]');
+  await expect(tries).toContainText("This computer asked too many times");
+  await expect(tries).not.toContainText("in between");
+  await expect(tries.getByRole("button", { name: "Try again" })).toBeVisible();
+});
+
+test("Sync: «Make this the main computer» on a computer without its key opens Start over", async ({ page }) => {
+  await start(page, "no_key");
+  const overview = await openSync(page);
+  await overview.getByRole("button", { name: "Make this the main computer" }).click();
+  await expect(page.getByRole("dialog", { name: "Start over from this computer?" })).toBeVisible();
+});

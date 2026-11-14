@@ -154,14 +154,26 @@ pub fn load_key(path: &Path, account: &str) -> io::Result<LoadedKey> {
 }
 
 /// Keeps `account`'s `key` in `path`, or removes the file when there is none (a removed device
-/// forgets it).
+/// forgets it). Only `account`'s own file goes: another account signed in here doesn't delete the
+/// key of the one that was.
 pub fn save_key(path: &Path, account: &str, key: Option<&(u32, koona_sync::crypto::LibraryKey)>) -> io::Result<()> {
     match key {
         Some((epoch, key)) => {
             let stored = StoredKey { v: 1, account: Some(account.to_string()), epoch: *epoch, key: STANDARD.encode(key) };
             secrets::write(path, &serde_json::to_string_pretty(&stored).map_err(io::Error::other)?)
         }
-        None => secrets::delete(path),
+        None => {
+            let Some(text) = secrets::read(path)? else { return Ok(()) };
+            match serde_json::from_str::<StoredKey>(&text) {
+                // A file from before the account was written down counts as the signed-in
+                // account's, as `load_key` takes it.
+                Ok(stored) if stored.account.as_deref().is_none_or(|owner| owner == account) => secrets::delete(path),
+                Ok(_) => Ok(()),
+                // A file that doesn't read isn't provably this account's: it stays, and `load_key`
+                // sets it aside when it next reads it.
+                Err(_) => Ok(()),
+            }
+        }
     }
 }
 
@@ -238,6 +250,18 @@ mod tests {
         assert!(Identity::load_or_create(&path).is_err());
         assert!(!damaged_path(&path).exists(), "nothing set aside");
         assert!(path.is_dir(), "nothing replaced");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_key_is_removed_only_by_its_own_account() {
+        let dir = folder("key-owner");
+        let path = dir.join(KEY_FILE);
+        save_key(&path, "A", Some(&(3, [7u8; 32]))).unwrap();
+        save_key(&path, "B", None).unwrap();
+        assert_eq!(load_key(&path, "A").unwrap().key, Some((3, [7u8; 32])), "B leaves A's key");
+        save_key(&path, "A", None).unwrap();
+        assert!(!path.exists(), "A's own removal goes through");
         let _ = fs::remove_dir_all(dir);
     }
 

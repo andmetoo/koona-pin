@@ -29,7 +29,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Listener, Manager};
 use uuid::Uuid;
 use worker::Running;
@@ -41,8 +41,9 @@ const FILE: &str = "sync.json";
 const NOTICES_FILE: &str = "sync-notices.json";
 /// What is known of the other devices from syncing with them (`status::Peers`).
 const PEERS_FILE: &str = "sync-devices.json";
-/// How long `start_over` waits for a client it had to start.
-const START_WAIT: Duration = Duration::from_secs(10);
+/// How long a start-over sign-in is kept for a client yet to start: the relay takes one at most
+/// 10 minutes old, and the client still has to connect and be welcomed.
+const START_OVER_KEPT: Duration = Duration::from_secs(9 * 60);
 /// The supervisor looks again this often without being woken: a plan that ran out offline, a
 /// start that found no token.
 const RECHECK: Duration = Duration::from_secs(5 * 60);
@@ -96,6 +97,8 @@ pub struct SyncState {
     generation: AtomicU64,
     /// The last supervisor pass found the library open and a replica.
     library_ready: AtomicBool,
+    /// A start-over sign-in waiting for the client the supervisor starts (`start_over`).
+    start_over: Mutex<KeptToken>,
     wake: tokio::sync::Notify,
 }
 
@@ -129,6 +132,7 @@ impl SyncState {
             run: Mutex::new(None),
             generation: AtomicU64::new(0),
             library_ready: AtomicBool::new(false),
+            start_over: Mutex::new(KeptToken::default()),
             wake: tokio::sync::Notify::new(),
         }
     }
@@ -327,6 +331,25 @@ impl SyncState {
         lock(&self.run).as_ref().filter(|r| !r.finished()).map(|r| r.handle.clone())
     }
 
+    /// Gives a kept start-over sign-in to the running client, if both are there. Taken under one
+    /// lock, so `start_over` and the supervisor never both send it.
+    /// A kept one grown too old for the relay is dropped, and the person is told as the relay would
+    /// tell them (`StaleSignIn`, whose banner offers to start over again): the command already
+    /// answered that it was under way.
+    fn hand_over_start_over(&self, app: &AppHandle) {
+        let expired = expire_kept(&mut lock(&self.start_over), &mut lock(&self.model), Instant::now());
+        if expired {
+            self.emit(app);
+            return;
+        }
+        let Some(handle) = self.handle() else { return };
+        let Some(token) = lock(&self.start_over).take() else { return };
+        // The session holds it until the relay's `welcome`.
+        if !handle.act(Action::StartOver { token }) {
+            eprintln!("Sync's client stopped before it got the start-over sign-in");
+        }
+    }
+
     /// Whether a supervisor pass may still start a client, asked under the `run` lock right before
     /// it does: what it decided on at its start (sync on, the plan, no stop) may have changed while
     /// it waited for the library and the token. `disable_sync` turns `enabled` off before it takes
@@ -467,8 +490,52 @@ async fn supervise(app: &AppHandle) -> Duration {
             *run = Some(worker::spawn(app, worker::Start { url, key_file: state.key_path.clone(), db, replica, identity, sub, generation, counter }));
         }
     }
+    state.hand_over_start_over(app);
     state.emit(app);
     RECHECK
+}
+
+/// A start-over sign-in kept for a client that isn't up yet: the email code is spent once it
+/// signed in, so the token waits for the client instead of being thrown away. Dropped once too
+/// old for the relay.
+#[derive(Default)]
+struct KeptToken {
+    kept: Option<(String, Instant)>,
+}
+
+impl KeptToken {
+    fn keep(&mut self, token: String, now: Instant) {
+        self.kept = Some((token, now));
+    }
+
+    /// The token, if one is kept; [`KeptToken::expire`] first drops one too old.
+    fn take(&mut self) -> Option<String> {
+        self.kept.take().map(|(token, _)| token)
+    }
+
+    /// Drops a token too old to send. Whether one went.
+    fn expire(&mut self, now: Instant) -> bool {
+        let old = self.kept.as_ref().is_some_and(|(_, at)| now.saturating_duration_since(*at) > START_OVER_KEPT);
+        if old {
+            self.kept = None;
+        }
+        old
+    }
+
+    fn clear(&mut self) {
+        self.kept = None;
+    }
+}
+
+/// Drops a kept start-over sign-in that grew too old and shows it as the relay's refusal would.
+/// Whether it did.
+fn expire_kept(kept: &mut KeptToken, model: &mut Model, now: Instant) -> bool {
+    if !kept.expire(now) {
+        return false;
+    }
+    model.note(Utc::now(), "start over: the sign-in grew too old before sync connected".into());
+    model.error = Some(SyncProblem::StaleSignIn);
+    true
 }
 
 /// The guards of turning sync on: a relay in this build, then Supporter.
@@ -573,6 +640,8 @@ pub fn disable_sync(app: AppHandle) -> Result<SyncStatus, CommandError> {
         s.rejoining = false;
     })?;
     lock(&state.run).take();
+    // A start over asked for while the client was down isn't wanted with sync off.
+    lock(&state.start_over).clear();
     {
         let mut model = lock(&state.model);
         model.restart();
@@ -622,16 +691,24 @@ pub async fn send_start_over_code(app: AppHandle) -> Result<String, CommandError
 
 /// Step two: the code signs in afresh and the relay starts the account over from this device:
 /// every other device is disconnected, this one becomes the main computer with a new key. A
-/// sign-in too old for the relay comes back as `StaleSignIn` in the status.
+/// sign-in too old for the relay comes back as `StaleSignIn` in the status. With the client
+/// stopped, the sign-in is kept for the client the supervisor starts (`KeptToken`).
 #[tauri::command]
 pub async fn start_over(app: AppHandle, code: String) -> Result<SyncStatus, CommandError> {
     let state = app.state::<SyncState>();
     if !state.stored().enabled {
         return Err(CommandError::invalid("Sync is off"));
     }
-    let (handle, token) = match state.handle() {
+    match state.handle() {
         // Running: the code is checked only now, so it isn't spent on a client that can't send it.
-        Some(handle) => (handle, billing::sign_in_again(&app, &code).await?),
+        Some(handle) => {
+            let token = billing::sign_in_again(&app, &code).await?;
+            lock(&state.model).error = None;
+            // The session sends it once the relay welcomed it, now if it already did.
+            if !handle.act(Action::StartOver { token }) {
+                return Err(CommandError::invalid("Sync is not running"));
+            }
+        }
         None => {
             // Stopped. Starting over can't cure another process on this device, the plan or an
             // old app: those stops stay, and no code is spent.
@@ -643,32 +720,22 @@ pub async fn start_over(app: AppHandle, code: String) -> Result<SyncStatus, Comm
             let token = billing::sign_in_again(&app, &code).await?;
             // A removed device comes back as a new one (its old id stays refused), started to send it.
             forget_revoked(&state)?;
+            // Kept before the supervisor is woken, so the client it starts finds it; one started
+            // meanwhile gets it here.
+            lock(&state.start_over).keep(token, Instant::now());
             state.clear_stop();
+            lock(&state.model).error = None;
             wake(&app);
-            let handle = running(&state).await.ok_or_else(|| CommandError::invalid("Sync is not running"))?;
-            (handle, token)
+            state.hand_over_start_over(&app);
+            // No client may come in time (no token, the library not open): it is told then.
+            let later = app.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(START_OVER_KEPT + Duration::from_secs(1)).await;
+                later.state::<SyncState>().hand_over_start_over(&later);
+            });
         }
-    };
-    lock(&state.model).error = None;
-    // The session sends it once the relay welcomed it, now if it already did.
-    if !handle.act(Action::StartOver { token }) {
-        return Err(CommandError::invalid("Sync is not running"));
     }
     Ok(state.emit(&app))
-}
-
-/// The client once the supervisor started one, within `START_WAIT`.
-async fn running(state: &SyncState) -> Option<koona_sync::net::Handle> {
-    let until = std::time::Instant::now() + START_WAIT;
-    loop {
-        if let Some(handle) = state.handle() {
-            return Some(handle);
-        }
-        if std::time::Instant::now() >= until {
-            return None;
-        }
-        tokio::time::sleep(Duration::from_millis(100)).await;
-    }
 }
 
 /// «Join…» after sync was started over elsewhere: pairs this device with the new main computer;
@@ -880,6 +947,34 @@ mod tests {
         let no_plan = need_sync(true, false).unwrap_err();
         assert_eq!(no_plan.detail, Some(ErrorDetail::NotSupporter));
         assert!(need_sync(true, true).is_ok());
+    }
+
+    #[test]
+    fn a_kept_start_over_sign_in_is_given_once_while_young() {
+        let now = Instant::now();
+        let mut kept = KeptToken::default();
+        assert_eq!(kept.take(), None);
+        kept.keep("fresh".into(), now);
+        assert!(!kept.expire(now + Duration::from_secs(30)));
+        assert_eq!(kept.take(), Some("fresh".into()));
+        assert_eq!(kept.take(), None, "given once");
+        kept.keep("off".into(), now);
+        kept.clear();
+        assert_eq!(kept.take(), None, "sync turned off");
+    }
+
+    #[test]
+    fn a_kept_sign_in_too_old_is_told_as_a_stale_one() {
+        let now = Instant::now();
+        let mut kept = KeptToken::default();
+        let mut model = Model::default();
+        kept.keep("young".into(), now);
+        assert!(!expire_kept(&mut kept, &mut model, now + START_OVER_KEPT));
+        assert_eq!(model.error, None);
+        assert!(expire_kept(&mut kept, &mut model, now + START_OVER_KEPT + Duration::from_secs(1)));
+        assert_eq!(model.error, Some(SyncProblem::StaleSignIn), "the banner offers to start over again");
+        assert_eq!(kept.take(), None, "never sent");
+        assert!(!expire_kept(&mut kept, &mut model, now + START_OVER_KEPT * 2), "told once");
     }
 
     #[test]
