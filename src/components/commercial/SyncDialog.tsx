@@ -110,9 +110,10 @@ export function SyncDialog({
 
   const hub = hubDevice(status);
   // «Make this the main computer»: asked of the main one while it is online; away, starting over by
-  // email is the way, and so is a request that finds it offline.
+  // email is the way, and so is a request that finds it offline. Without the library key (it was
+  // lost here) the main computer can't be asked either: starting over is the way out.
   const makeMain = async () => {
-    if (!hub?.online) {
+    if (!hub?.online || status.epoch === null) {
       setOpened({ kind: "startOver" });
       return;
     }

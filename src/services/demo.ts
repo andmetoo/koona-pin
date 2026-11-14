@@ -309,7 +309,10 @@ function setDemoFolder(folder: BackupFolder) {
  * - `pairing`: Office laptop wants to join, the code on the main computer (frame 05).
  * - `pending`: this new computer waits for Home iMac, the code shown (frame 06); `rejected`: the
  *   main computer declined it; `pending_offline`: Home iMac has been offline for three weeks, so
- *   nobody can approve this one, and starting over is the way out.
+ *   nobody can approve this one, and starting over is the way out; `pending_busy`: Home iMac is
+ *   adding another computer; `pending_update`: Home iMac has a newer version, update here;
+ *   `pending_hub_update`: Home iMac has an older one; `pending_tries`: asked too many times.
+ * - `no_key`: Office laptop lost its sync key: «Make this the main computer» opens Start over.
  * - `receiving`: the first sync brings the library here (frame 07).
  * - `main_asked`: on Home iMac, Office laptop asks to become the main computer (frame 12);
  *   `asking_main`: Office laptop waits for that answer.
@@ -378,12 +381,18 @@ function demoSyncState(kind: string | null): SyncStatus {
       return other(2 * 24 * 60);
     case "start_over":
       return other(12 * 24 * 60);
+    case "no_key":
+      return { ...other(null), epoch: null };
     case "pairing": {
       const fresh = demoDevice(LAPTOP_DEVICE, "Office laptop", { ...LAPTOP, online: true, status: "pending", last_seen: minutesAgo(0) });
       return { ...on, devices: [hub, studio, fresh], pairing: { role: "hub", peer: LAPTOP_DEVICE, peer_name: "Office laptop", code: "482913" } };
     }
     case "pending":
     case "rejected":
+    case "pending_busy":
+    case "pending_update":
+    case "pending_hub_update":
+    case "pending_tries":
     case "pending_offline": {
       const me = demoDevice(THIS_DEVICE, "Office laptop", { ...LAPTOP, online: true, status: "pending", last_seen: minutesAgo(0) });
       const away = kind === "pending_offline";
@@ -397,7 +406,17 @@ function demoSyncState(kind: string | null): SyncStatus {
         devices: [main, me],
         pairing: kind === "pending" ? { role: "asking", peer: HUB_DEVICE, peer_name: "Home iMac", code: "482913" } : null,
         last_sync_at: null,
-        error: kind === "rejected" ? "pairing_rejected" : away ? "hub_offline" : null,
+        error:
+          (
+            {
+              rejected: "pairing_rejected",
+              pending_busy: "pairing_busy",
+              pending_update: "pairing_update_needed",
+              pending_hub_update: "pairing_hub_update_needed",
+              pending_tries: "pairing_too_many_attempts",
+              pending_offline: "hub_offline",
+            } as const
+          )[kind as string] ?? null,
         epoch: null,
       };
     }

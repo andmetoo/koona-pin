@@ -209,6 +209,10 @@ export const PROBLEMS: readonly SyncProblem[] = [
   "pairing_timeout",
   "pairing_bad_signature",
   "hub_offline",
+  "pairing_busy",
+  "pairing_update_needed",
+  "pairing_hub_update_needed",
+  "pairing_too_many_attempts",
   "untrusted_hub",
   "not_allowed",
   "relay_refused",
@@ -225,6 +229,11 @@ const PROBLEM_ACTIONS: Partial<Record<SyncProblem, SyncAction>> = {
   pairing_rejected: "retry",
   pairing_timeout: "retry",
   pairing_bad_signature: "retry",
+  // Asked again by itself in a moment: nothing for the person to do. Updating the main computer
+  // happens there.
+  pairing_update_needed: "update",
+  pairing_hub_update_needed: "retry",
+  pairing_too_many_attempts: "retry",
   hub_offline: "startOver",
   untrusted_hub: "startOver",
   // The relay refused a start over: a new code, from the same dialog.

@@ -187,6 +187,24 @@ describe("sync texts (sheet 46)", () => {
     expect(waitingScreen({ ...away, error: "stale_sign_in" }, t)).toMatchObject({ problem: { action: { kind: "startOver" } }, startOver: false });
   });
 
+  it("tells a waiting computer a busy main computer, which side to update, and too many tries", () => {
+    const pending: SyncStatus = { ...base, phase: { state: "pending" }, device: { ...laptop, status: "pending" }, last_sync_at: null };
+    const busy = waitingScreen({ ...pending, error: "pairing_busy" }, t);
+    // Asked again by itself: no button, no Start over, and nobody declined.
+    expect(busy.problem).toMatchObject({ title: "Home iMac is adding another computer", body: "This computer asks again in a moment.", action: undefined });
+    expect(busy.startOver).toBe(false);
+    expect(waitingScreen({ ...pending, error: "pairing_update_needed" }, t).problem).toMatchObject({
+      title: "Update Koona Pin on this computer",
+      action: { kind: "update", label: "Update" },
+    });
+    expect(waitingScreen({ ...pending, error: "pairing_hub_update_needed" }, t).problem).toMatchObject({
+      title: "Update Koona Pin on Home iMac",
+      action: { kind: "retry" },
+    });
+    const tries = waitingScreen({ ...pending, error: "pairing_too_many_attempts" }, t).problem;
+    expect(tries).toMatchObject({ title: "This computer asked too many times", body: "Wait five minutes, then try again.", action: { kind: "retry" } });
+  });
+
   it("shows the overview once a computer that waited started over and is the main one", () => {
     const hubNow = { ...laptop, is_hub: true };
     const startedOver: SyncStatus = { ...base, is_hub: true, hub: laptop.id, device: hubNow, devices: [{ ...hub, is_hub: false, online: false }, hubNow] };
