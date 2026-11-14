@@ -6,6 +6,7 @@
 //! interface has words for every code.
 
 use super::identity::Identity;
+use super::log::{short, word, SyncLog};
 use chrono::{DateTime, Utc};
 use koona_sync::net::{Event, Stop};
 use koona_sync::protocol::{DeviceInfo, DeviceStatus, ErrorCode};
@@ -87,6 +88,12 @@ fn next_seq() -> u64 {
 pub struct SyncAccount {
     /// The main computer's name; none when no computer of the account syncs yet.
     pub main_name: Option<String>,
+    /// Whether the main computer has a connection open now; none from a relay that doesn't say.
+    pub main_online: Option<bool>,
+    /// When the relay last heard from the main computer, ms since the Unix epoch; none from a
+    /// relay that doesn't say.
+    #[ts(type = "number | null")]
+    pub main_last_seen: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
@@ -374,6 +381,9 @@ pub enum SyncProblem {
     HubChangeTimeout,
     /// Starting over needs a sign-in by email code within the last ten minutes.
     StaleSignIn,
+    /// The relay could not check the start-over sign-in just now: nothing changed, and the code
+    /// is spent, so a new one is asked for.
+    StartOverUnavailable,
     /// This computer's key file didn't read and was set aside: it waits for the main computer to
     /// send the key again, and reads nothing new until then.
     KeyLost,
@@ -407,7 +417,7 @@ pub struct Context<'a> {
     pub bookmarks: Option<u64>,
 }
 
-/// Lines kept for `copy_sync_report`.
+/// Lines kept in memory, for tests; the report reads the log file (`log.rs`).
 const LOG_LINES: usize = 40;
 
 #[derive(Debug, Default)]
@@ -443,6 +453,12 @@ pub struct Model {
     /// Of the newest library key the session holds.
     epoch: Option<u32>,
     log: VecDeque<String>,
+    /// Where the notes also go: `sync.log`. None in tests that don't look at it.
+    pub sink: Option<SyncLog>,
+    /// The directory's summary last noted, so an unchanged one (a presence) isn't noted again.
+    directory_noted: Option<String>,
+    /// The relay's last close code and reason (a word, or `other`), for the report.
+    pub last_close: Option<(Option<u16>, String)>,
 }
 
 /// What a failed pairing says; none when this device's own connection broke, which is no news
@@ -488,8 +504,11 @@ fn relay_refused(code: &str) -> bool {
 }
 
 fn problem_of(error: &SessionError) -> Option<SyncProblem> {
+    use koona_sync::protocol::relay_error::{STALE_SIGN_IN, UNAVAILABLE};
     Some(match error {
-        SessionError::Relay(code) if code == koona_sync::protocol::relay_error::STALE_SIGN_IN => SyncProblem::StaleSignIn,
+        SessionError::Relay(code) if code == STALE_SIGN_IN => SyncProblem::StaleSignIn,
+        // Only a start over gets it (`PROTOCOL.md` 2.6): relays before it never send it.
+        SessionError::Relay(code) if code == UNAVAILABLE => SyncProblem::StartOverUnavailable,
         SessionError::Relay(code) if relay_refused(code) => SyncProblem::RelayRefused,
         SessionError::Relay(_) => return None,
         SessionError::Library(_) => SyncProblem::LibraryFailed,
@@ -500,6 +519,53 @@ fn problem_of(error: &SessionError) -> Option<SyncProblem> {
         SessionError::UntrustedHub(_) => SyncProblem::UntrustedHub,
         SessionError::NotAllowed(_) => SyncProblem::NotAllowed,
     })
+}
+
+/// An error as the log says it: codes and short ids, none of the text that came with it, which
+/// may be a peer's or a connection's own words.
+fn error_line(error: &SessionError) -> String {
+    use koona_sync::protocol::relay_error::{STALE_SIGN_IN, UNAVAILABLE};
+    match error {
+        SessionError::Relay(code) if relay_refused(code) || code == STALE_SIGN_IN || code == UNAVAILABLE => format!("relay {code}"),
+        SessionError::Relay(text) => format!("connect: {}", connect_failure(text)),
+        SessionError::Library(_) => "library failed".to_string(),
+        SessionError::Peer { device, code } => format!("peer {} {code:?}", short(device)),
+        SessionError::UntrustedHub(hub) => format!("untrusted hub {}", short(hub)),
+        SessionError::NotAllowed(what) => format!("not allowed: {what}"),
+    }
+}
+
+/// What kind of failure a connection's own error text is, without the text.
+pub fn connect_failure(text: &str) -> String {
+    let text = text.to_ascii_lowercase();
+    let has = |words: &[&str]| words.iter().any(|w| text.contains(w));
+    if has(&["account changed"]) {
+        return "account changed".into();
+    }
+    if has(&["no account credentials"]) {
+        return "no credentials".into();
+    }
+    if text.starts_with("the account service") {
+        return "account service failed".into();
+    }
+    if let Some(rest) = text.split("http error: ").nth(1) {
+        let code: String = rest.chars().take_while(char::is_ascii_digit).take(3).collect();
+        if code.len() == 3 {
+            return format!("http {code}");
+        }
+    }
+    for (words, kind) in [
+        (&["tls", "certificate"][..], "tls"),
+        (&["dns", "lookup", "resolve", "nodename"][..], "dns"),
+        (&["refused"][..], "refused"),
+        (&["timed out", "timeout"][..], "timeout"),
+        (&["reset", "broken pipe", "unexpected eof"][..], "reset"),
+    ] {
+        if has(words) {
+            return kind.into();
+        }
+    }
+    "other".into()
 }
 
 fn device_status(status: DeviceStatus) -> SyncDeviceStatus {
@@ -536,10 +602,31 @@ fn stopped(stop: &Stop) -> Option<PausedReason> {
 
 impl Model {
     pub fn note(&mut self, now: DateTime<Utc>, line: String) {
+        if let Some(sink) = &self.sink {
+            sink.line(now, &line);
+        }
         if self.log.len() == LOG_LINES {
             self.log.pop_front();
         }
-        self.log.push_back(format!("{} {line}", now.format("%Y-%m-%dT%H:%M:%SZ")));
+        self.log.push_back(format!("{} {line}", super::log::stamp(now)));
+    }
+
+    /// The directory in counts and states, noted when it changed.
+    fn note_directory(&mut self, now: DateTime<Utc>) {
+        let count = |status| self.devices.iter().filter(|d| d.status == status).count();
+        let me = self.me.and_then(|me| self.devices.iter().find(|d| d.id == me)).map_or("unlisted".to_string(), |d| format!("{:?}", d.status).to_lowercase());
+        let line = format!(
+            "directory: {} active, {} pending, {} removed, {} online, hub {}, this device {me}",
+            count(DeviceStatus::Active),
+            count(DeviceStatus::Pending),
+            count(DeviceStatus::Revoked),
+            self.online.len(),
+            self.hub.as_ref().map_or("none".to_string(), short),
+        );
+        if self.directory_noted.as_deref() != Some(line.as_str()) {
+            self.directory_noted = Some(line.clone());
+            self.note(now, line);
+        }
     }
 
     pub fn log(&self) -> impl Iterator<Item = &String> {
@@ -565,12 +652,17 @@ impl Model {
         let mut out = Vec::new();
         match event {
             Event::Closed { code, reason } => {
-                let code = code.map_or("none".to_string(), |c| c.to_string());
-                self.note(now, format!("closed: {code} {}", reason.as_deref().unwrap_or("")));
+                let reason = reason.as_deref().filter(|r| !r.is_empty()).map_or("", word).to_string();
+                self.note(now, format!("closed: {} {reason}", code.map_or("none".to_string(), |c| c.to_string())).trim_end().to_string());
+                self.last_close = Some((code, reason));
             }
             Event::Retrying(delay) => self.note(now, format!("retrying in {} s", delay.as_secs())),
             Event::Stopped(stop) => {
-                self.note(now, format!("stopped: {stop:?}"));
+                let what = match &stop {
+                    Stop::Plan(reason) => format!("Plan {}", reason.as_deref().map_or("", word)).trim_end().to_string(),
+                    other => format!("{other:?}"),
+                };
+                self.note(now, format!("stopped: {what}"));
                 self.phase = None;
                 self.pairing = None;
                 self.hub_change = None;
@@ -585,7 +677,12 @@ impl Model {
     fn on_effect(&mut self, effect: Effect, now: DateTime<Utc>, out: &mut Vec<Reaction>) {
         match effect {
             Effect::Status(phase) => {
-                self.note(now, format!("phase {phase:?}"));
+                // A transfer's progress is noted once, as it starts: a first sync reports it often.
+                match (self.phase, phase) {
+                    (Some(Phase::Syncing { .. }), Phase::Syncing { .. }) => {}
+                    (_, Phase::Syncing { total, .. }) => self.note(now, format!("phase Syncing (about {total} changes)")),
+                    _ => self.note(now, format!("phase {phase:?}")),
+                }
                 let was = self.phase.replace(phase);
                 if phase != Phase::Pending {
                     self.paired = false;
@@ -613,6 +710,7 @@ impl Model {
                 self.devices = devices;
                 self.online = online;
                 self.hub = hub;
+                self.note_directory(now);
                 // «Join…» ended by starting over from here: this device is the hub of its own
                 // library, so the new key that follows is not the library arriving (frame 07) and
                 // the last sync stays. Told before the epoch, which the welcome sends after.
@@ -652,7 +750,7 @@ impl Model {
                     self.pairing = Some(PairingPrompt { role, peer: peer.to_string(), peer_name, code: Some(code) });
                 }
                 PairingEvent::Paired { peer } => {
-                    self.note(now, format!("pairing: paired {peer}"));
+                    self.note(now, format!("pairing: paired {}", short(&peer)));
                     self.pairing = None;
                     self.error = None;
                     self.last_failure = None;
@@ -660,13 +758,13 @@ impl Model {
                     self.paired = true;
                 }
                 PairingEvent::Withdrawn { peer } => {
-                    self.note(now, format!("pairing: {peer} asked again"));
+                    self.note(now, format!("pairing: {} asked again", short(&peer)));
                     if self.pairing.as_ref().is_some_and(|p| p.peer == peer.to_string()) {
                         self.pairing = None;
                     }
                 }
                 PairingEvent::Failed { peer, reason } => {
-                    self.note(now, format!("pairing: failed with {peer}: {reason:?}"));
+                    self.note(now, format!("pairing: failed with {}: {reason:?}", short(&peer)));
                     self.pairing = None;
                     self.last_failure = Some(reason);
                     if let Some(problem) = pairing_problem(reason) {
@@ -687,21 +785,21 @@ impl Model {
                     self.hub_change = Some(HubChangePrompt { role: HubChangeRole::Asking, peer: hub.to_string(), peer_name: hub_name });
                 }
                 HubChangeEvent::Asked { device, name } => {
-                    self.note(now, format!("hub change: asked by {device}"));
+                    self.note(now, format!("hub change: asked by {}", short(&device)));
                     self.hub_change = Some(HubChangePrompt { role: HubChangeRole::Hub, peer: device.to_string(), peer_name: name });
                 }
                 HubChangeEvent::Settled { peer } => {
-                    self.note(now, format!("hub change: settled with {peer}"));
+                    self.note(now, format!("hub change: settled with {}", short(&peer)));
                     self.hub_change = None;
                 }
                 HubChangeEvent::Failed { peer, reason } => {
-                    self.note(now, format!("hub change: failed with {peer}: {reason:?}"));
+                    self.note(now, format!("hub change: failed with {}: {reason:?}", short(&peer)));
                     self.hub_change = None;
                     self.error = Some(hub_change_problem(reason));
                 }
             },
             Effect::StartedOver { by, by_name, at, epoch } => {
-                self.note(now, format!("started over by {by} to epoch {epoch}"));
+                self.note(now, format!("started over by {} to epoch {epoch}", short(&by)));
                 if self.notices.started_over_epoch.is_none_or(|e| epoch > e) {
                     self.notices.started_over_epoch = Some(epoch);
                     let at = time_of(at, now);
@@ -714,14 +812,17 @@ impl Model {
                 out.push(Reaction::Applied(applied));
             }
             Effect::Error(error) => {
-                self.note(now, format!("error: {error:?}"));
+                self.note(now, format!("error: {}", error_line(&error)));
                 if let Some(problem) = problem_of(&error) {
                     self.error = Some(problem);
                 }
             }
-            Effect::Dropped { from, reason } => self.note(now, format!("dropped a frame from {from}: {reason:?}")),
+            Effect::Dropped { from, reason } => self.note(now, format!("dropped a frame from {}: {reason:?}", short(&from))),
             Effect::PeerHello { device, platform, app } => {
-                if Some(device) != self.me && self.peers.hello(device, platform, app) {
+                if Some(device) != self.me && self.peers.hello(device, platform.clone(), app.clone()) {
+                    // Words the peer chose, so only as far as they look like a system and a version.
+                    let version = if app.len() <= 32 && app.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-') { app.as_str() } else { "other" };
+                    self.note(now, format!("hello from {}: {} {version}", short(&device), word(&platform)));
                     out.push(Reaction::Peers);
                 }
             }
@@ -755,7 +856,7 @@ impl Model {
             }
             Effect::UpdateFrom(device) => {
                 if let Some(device) = device {
-                    self.note(now, format!("update needed for {device}"));
+                    self.note(now, format!("update needed for {}", short(&device)));
                 }
                 self.update_from = device;
             }
@@ -831,6 +932,16 @@ impl Model {
             app: facts.app,
             last_sync_at: facts.last_sync_at,
         }
+    }
+
+    /// Every device of the directory, the removed ones too, for the report: an earlier identity of
+    /// this computer is one of them.
+    pub fn every_device(&self) -> Vec<SyncDevice> {
+        self.devices.iter().map(|d| SyncDevice { online: self.online.contains(&d.id), ..self.device(d) }).collect()
+    }
+
+    pub fn epoch(&self) -> Option<u32> {
+        self.epoch
     }
 
     pub fn status(&self, ctx: &Context<'_>) -> SyncStatus {
@@ -1471,5 +1582,95 @@ mod tests {
         assert!(model.notices.joined());
         assert!(model.status(&ctx(&me)).notices.is_empty());
         assert_eq!(model.on_event(started(5), at(3)), vec![Reaction::Notices], "a later start over is told again");
+    }
+
+    #[test]
+    fn a_start_over_the_relay_could_not_check_asks_for_a_new_code() {
+        let me = Identity::new("Laptop");
+        let mut model = Model::default();
+        model.on_event(Event::Session(Effect::Status(Phase::Pending)), at(0));
+        model.on_event(Event::Session(Effect::Error(SessionError::Relay("unavailable".into()))), at(1));
+        assert_eq!(model.status(&ctx(&me)).error, Some(SyncProblem::StartOverUnavailable));
+        assert_eq!(model.status(&ctx(&me)).phase, SyncPhase::Pending, "nothing changed");
+        // A connection's own failure is still no problem of its own.
+        let mut other = Model::default();
+        other.on_event(Event::Session(Effect::Error(SessionError::Relay("IO error: unavailable host".into()))), at(1));
+        assert_eq!(other.status(&ctx(&me)).error, None);
+    }
+
+    /// The log gets ids cut short, states and codes; the names, the email addresses and the
+    /// texts that came with the events stay out, however they came.
+    #[test]
+    fn the_log_holds_ids_and_states_only() {
+        let dir = std::env::temp_dir().join(format!("koonapin-sync-model-log-{}", Uuid::new_v4().simple()));
+        let me = Identity::new("alice@example.com Mac");
+        let (hub, laptop) = (uid(0x0192_f3a4_b5c6_7d8e_9f01_2345_6789_abcd), uid(0x7c1e_9b20_0000_4000_8000_0000_0000_0002));
+        let mut model = Model { me: Some(me.device), sink: Some(SyncLog::new(&dir)), ..Model::default() };
+        let named = |id, name: &str, status| DeviceInfo { id, name: name.into(), key: B64([7; 32]), status, last_seen: 1 };
+        let events = vec![
+            Event::Session(Effect::Status(Phase::Connecting)),
+            Event::Session(Effect::Devices {
+                devices: vec![
+                    named(hub, "Bob's iMac", DeviceStatus::Active),
+                    named(me.device, "alice@example.com Mac", DeviceStatus::Pending),
+                    named(laptop, "Old laptop of bob@example.com", DeviceStatus::Revoked),
+                ],
+                online: vec![me.device],
+                hub: Some(hub),
+            }),
+            Event::Session(Effect::Status(Phase::Pending)),
+            Event::Session(Effect::Pairing(PairingEvent::Waiting { hub, hub_name: "Bob's iMac".into() })),
+            Event::Session(Effect::Pairing(PairingEvent::Code { role: Role::Asking, peer: hub, peer_name: "Bob's iMac".into(), code: "482913".into() })),
+            Event::Session(Effect::Pairing(PairingEvent::Failed { peer: hub, reason: PairingFailure::Timeout })),
+            Event::Session(Effect::HubChange(HubChangeEvent::Asked { device: laptop, name: "bob@example.com".into() })),
+            Event::Session(Effect::StartedOver { by: hub, by_name: Some("Bob's iMac".into()), at: 5, epoch: 4 }),
+            Event::Session(Effect::Error(SessionError::Relay("IO error: https://sync.example.com/v1/sync?lease=secret refused".into()))),
+            Event::Session(Effect::Error(SessionError::Library("UNIQUE failed: https://bookmark.example/secret-page".into()))),
+            Event::Session(Effect::Error(SessionError::Peer { device: hub, code: ErrorCode::ClockSkew })),
+            Event::Session(Effect::Error(SessionError::Relay("unavailable".into()))),
+            Event::Session(Effect::PeerHello { device: hub, platform: "bob@example.com".into(), app: "2.22.2 secret words".into() }),
+            Event::Session(Effect::Dropped { from: hub, reason: koona_sync::session::DropReason::Replayed }),
+            Event::Session(Effect::KeyEpoch(Some(4))),
+            Event::Closed { code: Some(1012), reason: Some("silent".into()) },
+            Event::Closed { code: Some(4002), reason: Some("bob@example.com".into()) },
+            Event::Retrying(Duration::from_secs(5)),
+            Event::Stopped(Stop::Plan(Some("see https://example.com".into()))),
+        ];
+        for (n, event) in events.into_iter().enumerate() {
+            model.on_event(event, at(n as u64));
+        }
+        model.sink.as_ref().unwrap().flush(Duration::from_secs(5));
+        let text = std::fs::read_to_string(dir.join(super::super::log::FILE)).unwrap();
+        for word in ["@", "example", "Bob", "alice", "secret", "http", "482913", "lease", "UNIQUE", &hub.to_string(), &me.device.to_string()] {
+            assert!(!text.contains(word), "{word:?} in the log:\n{text}");
+        }
+        for line in [
+            "directory: 1 active, 1 pending, 1 removed, 1 online, hub 0192f3a4, this device pending",
+            "pairing: failed with 0192f3a4: Timeout",
+            "hub change: asked by 7c1e9b20",
+            "error: connect: refused",
+            "error: library failed",
+            "error: peer 0192f3a4 ClockSkew",
+            "error: relay unavailable",
+            "hello from 0192f3a4: other other",
+            "closed: 1012 silent",
+            "closed: 4002 other",
+            "stopped: Plan other",
+        ] {
+            assert!(text.contains(line), "{line:?} not in the log:\n{text}");
+        }
+        assert_eq!(model.last_close, Some((Some(4002), "other".to_string())));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn connection_failures_are_told_by_kind() {
+        assert_eq!(connect_failure("HTTP error: 502 Bad Gateway"), "http 502");
+        assert_eq!(connect_failure("IO error: failed to lookup address information: nodename nor servname provided"), "dns");
+        assert_eq!(connect_failure("IO error: Connection refused (os error 61)"), "refused");
+        assert_eq!(connect_failure("TLS error: invalid peer certificate"), "tls");
+        assert_eq!(connect_failure("the account service: Couldn't reach koona.app"), "account service failed");
+        assert_eq!(connect_failure("no account credentials"), "no credentials");
+        assert_eq!(connect_failure("something new"), "other");
     }
 }

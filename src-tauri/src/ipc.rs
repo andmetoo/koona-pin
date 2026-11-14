@@ -180,6 +180,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         #[cfg(desktop)]
         desktop::commands::reveal_backup,
         #[cfg(desktop)]
+        commercial::sync::reveal_sync_log,
+        #[cfg(desktop)]
         desktop::commands::hide_to_background,
         #[cfg(desktop)]
         desktop::commands::get_mcp_status,

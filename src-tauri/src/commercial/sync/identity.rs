@@ -177,6 +177,35 @@ pub fn save_key(path: &Path, account: &str, key: Option<&(u32, koona_sync::crypt
     }
 }
 
+/// What the report says of the key file: whether it is there, its epoch and whether it is the
+/// signed-in account's (`account`, when known). Never the key.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum KeyFileState {
+    Missing,
+    /// There, but the store can't be read now (the iPhone's Keychain before the first unlock).
+    Unreadable,
+    /// There, but it doesn't read: `load_key` sets it aside when the client next reads it.
+    Damaged,
+    /// `owner`: of the signed-in account or not; none when the account is not known here. A file
+    /// from before the account was written down counts as the signed-in one's, as `load_key` takes it.
+    Present { epoch: u32, owner: Option<bool> },
+}
+
+pub fn key_file_state(path: &Path, account: Option<&str>) -> KeyFileState {
+    let text = match secrets::read(path) {
+        Ok(Some(text)) => text,
+        Ok(None) => return KeyFileState::Missing,
+        Err(_) => return KeyFileState::Unreadable,
+    };
+    match serde_json::from_str::<StoredKey>(&text) {
+        Ok(stored) if STANDARD.decode(&stored.key).is_ok_and(|key| key.len() == 32) => KeyFileState::Present {
+            epoch: stored.epoch,
+            owner: account.map(|account| stored.account.as_deref().is_none_or(|owner| owner == account)),
+        },
+        _ => KeyFileState::Damaged,
+    }
+}
+
 fn damaged_path(path: &Path) -> PathBuf {
     path.with_extension("json.damaged")
 }
@@ -262,6 +291,20 @@ mod tests {
         assert_eq!(load_key(&path, "A").unwrap().key, Some((3, [7u8; 32])), "B leaves A's key");
         save_key(&path, "A", None).unwrap();
         assert!(!path.exists(), "A's own removal goes through");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_key_file_is_described_without_its_key() {
+        let dir = folder("key-state");
+        let path = dir.join(KEY_FILE);
+        assert_eq!(key_file_state(&path, Some("A")), KeyFileState::Missing);
+        save_key(&path, "A", Some(&(4, [9u8; 32]))).unwrap();
+        assert_eq!(key_file_state(&path, Some("A")), KeyFileState::Present { epoch: 4, owner: Some(true) });
+        assert_eq!(key_file_state(&path, Some("B")), KeyFileState::Present { epoch: 4, owner: Some(false) });
+        assert_eq!(key_file_state(&path, None), KeyFileState::Present { epoch: 4, owner: None });
+        fs::write(&path, "{\"v\": 1, \"epoch\": 4, \"key\": \"short\"}").unwrap();
+        assert_eq!(key_file_state(&path, Some("A")), KeyFileState::Damaged);
         let _ = fs::remove_dir_all(dir);
     }
 

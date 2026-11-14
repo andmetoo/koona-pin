@@ -10,9 +10,11 @@
 //!
 //! `sync.json` next to the library keeps whether sync is on and when it last synced. Turning sync
 //! off keeps the library a replica and the device registered: turning it on again goes on where
-//! it stopped. `sync-notices.json` keeps the notices until the person dismisses them.
+//! it stopped. `sync-notices.json` keeps the notices until the person dismisses them. `sync.log`
+//! keeps what sync did, in ids and states (`log.rs`), for the report; turning sync off keeps it.
 
 pub mod identity;
+pub mod log;
 pub mod status;
 pub mod worker;
 
@@ -100,6 +102,10 @@ pub struct SyncState {
     /// A start-over sign-in waiting for the client the supervisor starts (`start_over`).
     start_over: Mutex<KeptToken>,
     wake: tokio::sync::Notify,
+    /// `sync.log`, which the model writes to as well.
+    log: log::SyncLog,
+    /// What the supervisor last decided, noted only when it changes (it looks every few minutes).
+    decided: Mutex<Option<String>>,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -117,6 +123,8 @@ impl SyncState {
         model.notices = fs::read_to_string(&notices_path).ok().and_then(|t| serde_json::from_str::<Notices>(&t).ok()).unwrap_or_default();
         let peers_path = folder.join(PEERS_FILE);
         model.peers = fs::read_to_string(&peers_path).ok().and_then(|t| serde_json::from_str::<Peers>(&t).ok()).unwrap_or_default();
+        let log = log::SyncLog::new(&folder);
+        model.sink = Some(log.clone());
         SyncState {
             path,
             identity_path: folder.join(identity::FILE),
@@ -134,6 +142,24 @@ impl SyncState {
             library_ready: AtomicBool::new(false),
             start_over: Mutex::new(KeptToken::default()),
             wake: tokio::sync::Notify::new(),
+            log,
+            decided: Mutex::new(None),
+        }
+    }
+
+    /// A line of the log from outside the model: the supervisor, the commands, the client's
+    /// credentials. Ids and states only (`log.rs`).
+    pub(crate) fn note(&self, line: &str) {
+        self.log.line(Utc::now(), line);
+    }
+
+    /// What a supervisor pass decided, noted when it differs from the last.
+    fn decide(&self, line: &str) {
+        let mut decided = lock(&self.decided);
+        if decided.as_deref() != Some(line) {
+            *decided = Some(line.to_string());
+            drop(decided);
+            self.note(&format!("supervisor: {line}"));
         }
     }
 
@@ -288,6 +314,7 @@ impl SyncState {
         let mut run = lock(&self.run);
         if run.as_ref().is_some_and(|r| r.generation == generation) {
             *run = None;
+            self.note(&format!("client {generation} stopped: the library was replaced"));
             let mut model = lock(&self.model);
             model.restart();
             model.error = Some(SyncProblem::LibraryReplaced);
@@ -300,6 +327,7 @@ impl SyncState {
         let mut run = lock(&self.run);
         if run.as_ref().is_some_and(|r| r.generation == generation) {
             *run = None;
+            self.note(&format!("client {generation} finished"));
         }
     }
 
@@ -345,8 +373,10 @@ impl SyncState {
         let Some(handle) = self.handle() else { return };
         let Some(token) = lock(&self.start_over).take() else { return };
         // The session holds it until the relay's `welcome`.
-        if !handle.act(Action::StartOver { token }) {
-            eprintln!("Sync's client stopped before it got the start-over sign-in");
+        if handle.act(Action::StartOver { token }) {
+            self.note("start over: the sign-in went to the client");
+        } else {
+            self.note("start over: the client stopped before it got the sign-in");
         }
     }
 
@@ -377,6 +407,11 @@ pub(crate) fn wake(app: &AppHandle) {
 /// person's commands.
 pub fn start(app: &AppHandle) {
     app.manage(SyncState::load(app.state::<std::sync::Arc<crate::library_state::Library>>().paths.folder()));
+    {
+        let state = app.state::<SyncState>();
+        let on = if state.stored().enabled { "on" } else { "off" };
+        state.note(&format!("app {} on {} started, sync {on}", app.package_info().version, koona_sync::protocol::platform()));
+    }
     for event in [billing::EVENT, "library-status", "library-invalidated"] {
         let handle = app.clone();
         app.listen_any(event, move |_| {
@@ -420,12 +455,16 @@ pub fn start(app: &AppHandle) {
 async fn replica(app: &AppHandle) -> Option<(Arc<DbState>, Uuid, Option<i64>)> {
     let db = app.try_state::<Arc<DbState>>()?.inner().clone();
     let state = db.clone();
+    let app_for_log = app.clone();
     let (replica, counter) = tauri::async_runtime::spawn_blocking(move || {
         let conn = state.conn.lock().ok()?;
         match worker::prepare_library(&conn) {
             Ok(replica) => Some((replica, worker::start_counter(&conn))),
             Err(error) => {
                 eprintln!("Sync cannot use the library: {error}");
+                if let Some(state) = app_for_log.try_state::<SyncState>() {
+                    state.note(if matches!(error, koona_sync::Error::NoSyncSchema) { "library has no sync tables" } else { "library could not be prepared" });
+                }
                 None
             }
         }
@@ -445,10 +484,27 @@ async fn supervise(app: &AppHandle) -> Duration {
     let library = if enabled && url.is_some() && plan { replica(app).await } else { None };
     state.library_ready.store(library.is_some() || !enabled, Ordering::SeqCst);
     let stopped = lock(&state.model).stop.is_some();
+    let why = if !enabled {
+        "sync off"
+    } else if url.is_none() {
+        "no relay in this build"
+    } else if !plan {
+        "no plan"
+    } else if library.is_none() {
+        "no library ready"
+    } else if stopped {
+        "stopped until the person acts"
+    } else {
+        ""
+    };
     let (Some(url), Some((db, replica, counter)), false) = (url, library, stopped) else {
+        state.decide(why);
         // A stop stays shown (and keeps the client from starting again) until the person acts.
-        if lock(&state.run).take().is_some() && !stopped {
-            lock(&state.model).restart();
+        if let Some(old) = lock(&state.run).take() {
+            state.note(&format!("client {} stopped: {why}", old.generation));
+            if !stopped {
+                lock(&state.model).restart();
+            }
         }
         state.emit(app);
         return RECHECK;
@@ -458,6 +514,7 @@ async fn supervise(app: &AppHandle) -> Duration {
     let Some(sub) = sub else {
         // Signed out (the plan check stops the client then), or the token wants a refresh and the
         // account service is away: a running client goes on with what it has, and a start waits.
+        state.decide("no account token");
         state.emit(app);
         return RETRY_START;
     };
@@ -468,20 +525,37 @@ async fn supervise(app: &AppHandle) -> Duration {
             // Turned off, the plan gone or a stop while this pass waited for the library and the
             // token: nothing starts, and the next pass, at once, settles the rest.
             drop(run);
+            state.decide("not started: changed while waiting");
             state.emit(app);
             return Duration::ZERO;
         }
-        if !keep {
+        if keep {
+            state.decide("running");
+        } else {
             let identity = match state.saved_identity() {
                 Ok(identity) => identity,
                 Err(error) => {
                     eprintln!("Sync cannot keep this device's identity: {}", error.message);
+                    state.decide("this device's identity can't be kept");
                     return RETRY_START;
                 }
             };
             // The old client stops as it is dropped.
-            *run = None;
+            if let Some(old) = run.take() {
+                let why = if old.sub != sub {
+                    "another account"
+                } else if old.replica != replica {
+                    "another library"
+                } else if old.abandoned() {
+                    "library replaced"
+                } else {
+                    "it had finished"
+                };
+                state.note(&format!("client {} stopped: {why}", old.generation));
+            }
             let generation = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
+            state.decide("running");
+            state.note(&format!("client {generation} started for device {}", log::short(&identity.device)));
             {
                 let mut model = lock(&state.model);
                 model.restart();
@@ -622,6 +696,7 @@ pub async fn enable_sync(app: AppHandle, name: Option<String>) -> Result<SyncSta
         s.enabled = true;
         s.rejoining = false;
     })?;
+    state.note("sync turned on");
     lock(&state.model).rejoining = false;
     // The first directory after turning sync on tells of no device added.
     state.change_notices(|n| n.known.take().is_some())?;
@@ -639,6 +714,7 @@ pub fn disable_sync(app: AppHandle) -> Result<SyncStatus, CommandError> {
         s.enabled = false;
         s.rejoining = false;
     })?;
+    state.note("sync turned off");
     lock(&state.run).take();
     // A start over asked for while the client was down isn't wanted with sync off.
     lock(&state.start_over).clear();
@@ -708,6 +784,7 @@ pub async fn start_over(app: AppHandle, code: String) -> Result<SyncStatus, Comm
             if !handle.act(Action::StartOver { token }) {
                 return Err(CommandError::invalid("Sync is not running"));
             }
+            state.note("start over: signed in again, sent to the running client");
         }
         None => {
             // Stopped. Starting over can't cure another process on this device, the plan or an
@@ -723,6 +800,7 @@ pub async fn start_over(app: AppHandle, code: String) -> Result<SyncStatus, Comm
             // Kept before the supervisor is woken, so the client it starts finds it; one started
             // meanwhile gets it here.
             lock(&state.start_over).keep(token, Instant::now());
+            state.note(&format!("start over: signed in again, kept for the next client (stop {})", stop.as_ref().map_or("none".to_string(), |s| format!("{s:?}"))));
             state.clear_stop();
             lock(&state.model).error = None;
             wake(&app);
@@ -747,6 +825,7 @@ pub fn join_sync_again(app: AppHandle) -> Result<SyncStatus, CommandError> {
     // Its last sync is forgotten once the new key is in (the model, on the epoch), not now: a
     // pairing rejected leaves it as it was.
     lock(&state.model).rejoining = true;
+    state.note("join again: asked to pair with the main computer");
     state.keep_last_sync();
     state.change_notices(|n| n.joined())?;
     Ok(state.emit(&app))
@@ -814,6 +893,11 @@ struct AccountAnswer {
 struct AccountHub {
     id: Uuid,
     name: String,
+    /// Relays before stage 3 of the sync fixes send neither.
+    #[serde(default)]
+    online: Option<bool>,
+    #[serde(default)]
+    last_seen: Option<u64>,
 }
 
 /// The relay's answer to `GET /v1/account` as the command's: its refusals as the connection's
@@ -829,7 +913,10 @@ pub fn account_answer(status: u16, body: &str, me: Uuid) -> Result<SyncAccount, 
     };
     match status {
         200 => serde_json::from_str::<AccountAnswer>(body)
-            .map(|answer| SyncAccount { main_name: answer.hub.filter(|hub| hub.id != me).map(|hub| hub.name) })
+            .map(|answer| match answer.hub.filter(|hub| hub.id != me) {
+                Some(hub) => SyncAccount { main_name: Some(hub.name), main_online: hub.online, main_last_seen: hub.last_seen },
+                None => SyncAccount { main_name: None, main_online: None, main_last_seen: None },
+            })
             .map_err(|e| CommandError::detailed(ErrorCode::Network, ErrorDetail::ServiceFailed, format!("The sync service answered {e}"))),
         401 => Err(CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::SignedOut, "The sync service refused the sign-in")),
         403 => Err(CommandError::detailed(
@@ -892,46 +979,152 @@ pub fn sync_now(app: AppHandle) -> Result<SyncStatus, CommandError> {
     }
 }
 
-/// What support needs to see why sync does what it does: states, ids, the recent story. No
-/// bookmark, collection or tag of the library, and no key.
+/// What support needs to see why sync does what it does: states, ids, every device the relay
+/// lists (removed ones too: an earlier identity of this computer is one), the key's generation
+/// and whose its file is, and the tail of `sync.log`. Device names are the person's own and stay,
+/// as they help tell the computers apart; no email, no account id, no bookmark, collection or tag,
+/// and no key.
 #[tauri::command]
 pub fn copy_sync_report(app: AppHandle) -> String {
     let state = app.state::<SyncState>();
     let status = state.status(&app);
+    let account = lock(&state.run).as_ref().map(|r| r.sub.clone());
+    let facts = ReportFacts {
+        version: app.package_info().version.to_string(),
+        platform: koona_sync::protocol::platform().to_string(),
+        relay: sync_url().as_deref().and_then(relay_host),
+        enabled: state.stored().enabled,
+        key: identity::key_file_state(&state.key_path, account.as_deref()),
+        set_aside: set_aside_files(&state),
+        log: state.log.tail(REPORT_LOG_LINES),
+    };
     let model = lock(&state.model);
-    let text = report(&status, &app.package_info().version.to_string(), state.stored().enabled, &model);
-    text
+    report(&status, &model, &facts)
 }
 
-fn report(status: &SyncStatus, version: &str, enabled: bool, model: &Model) -> String {
+/// Lines of `sync.log` the report ends with.
+const REPORT_LOG_LINES: usize = 200;
+
+/// `sync.log` in the file manager, from Details. A log not written yet shows its folder.
+#[cfg(desktop)]
+#[tauri::command]
+pub fn reveal_sync_log(app: AppHandle) -> Result<(), CommandError> {
+    use tauri_plugin_opener::OpenerExt;
+    let state = app.state::<SyncState>();
+    state.log.flush(Duration::from_millis(500));
+    let path = state.log.path().to_path_buf();
+    if path.exists() {
+        return app.opener().reveal_item_in_dir(path).map_err(CommandError::internal);
+    }
+    let folder = path.parent().map(std::path::Path::to_path_buf).ok_or_else(|| CommandError::internal("the sync log has no folder"))?;
+    fs::create_dir_all(&folder).map_err(CommandError::internal)?;
+    app.opener().open_path(folder.to_string_lossy(), None::<&str>).map_err(CommandError::internal)
+}
+
+/// What the report says besides the status and the model.
+struct ReportFacts {
+    version: String,
+    platform: String,
+    /// The relay's host (and port), never the whole address.
+    relay: Option<String>,
+    enabled: bool,
+    key: identity::KeyFileState,
+    /// Files set aside because they didn't read, with when, newest last.
+    set_aside: Vec<(String, Option<DateTime<Utc>>)>,
+    log: Vec<String>,
+}
+
+/// `sync.example.com` of `wss://sync.example.com/v1/sync?x=1`, with its port if it has one.
+fn relay_host(url: &str) -> Option<String> {
+    let url = url::Url::parse(url.trim()).ok()?;
+    let host = url.host_str()?;
+    Some(match url.port() {
+        Some(port) => format!("{host}:{port}"),
+        None => host.to_string(),
+    })
+}
+
+/// The sync secrets set aside as damaged: an identity there means this computer had another id
+/// before, which the relay lists as another device.
+fn set_aside_files(state: &SyncState) -> Vec<(String, Option<DateTime<Utc>>)> {
+    [&state.identity_path, &state.key_path]
+        .into_iter()
+        .map(|path| path.with_extension("json.damaged"))
+        .filter(|path| crate::secrets::exists(path))
+        .map(|path| {
+            let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            // On an iPhone it is a Keychain item, which has no time here.
+            let at = fs::metadata(&path).and_then(|m| m.modified()).ok().map(DateTime::<Utc>::from);
+            (name, at)
+        })
+        .collect()
+}
+
+fn report(status: &SyncStatus, model: &Model, facts: &ReportFacts) -> String {
+    let time = |at: Option<DateTime<Utc>>| at.map_or("never".to_string(), |t| log::stamp(t));
+    let ms = |ms: Option<u64>| ms.and_then(|ms| i64::try_from(ms).ok()).and_then(DateTime::from_timestamp_millis).map_or("-".to_string(), log::stamp);
+    let short = |id: &str| Uuid::parse_str(id).map_or_else(|_| "?".to_string(), |id| log::short(&id));
+    let close = match &model.last_close {
+        None => "none".to_string(),
+        Some((code, reason)) => format!("{} {reason}", code.map_or("none".to_string(), |c| c.to_string())).trim_end().to_string(),
+    };
+    let key = match &facts.key {
+        identity::KeyFileState::Missing => "no file".to_string(),
+        identity::KeyFileState::Unreadable => "file there, can't be read now".to_string(),
+        identity::KeyFileState::Damaged => "file there, doesn't read".to_string(),
+        identity::KeyFileState::Present { epoch, owner } => format!(
+            "file of epoch {epoch}, {}",
+            match owner {
+                Some(true) => "of the signed-in account",
+                Some(false) => "of another account",
+                None => "account not known (sync not running)",
+            }
+        ),
+    };
     let mut lines = vec![
         "Koona Pin sync report".to_string(),
-        format!("app: {version}"),
+        format!("app: {} on {}", facts.version, facts.platform),
+        format!("relay: {}", facts.relay.as_deref().unwrap_or("none")),
         format!("service: {}", if status.available { "yes" } else { "no" }),
-        format!("enabled: {enabled}"),
+        format!("enabled: {}", facts.enabled),
         format!("phase: {:?}", status.phase),
-        format!("stop: {:?}", model.stop),
-        format!("device: {} ({:?})", status.device.id, status.device.status),
-        format!("hub: {} (this device: {})", status.hub.as_deref().unwrap_or("none"), status.is_hub),
-        format!("last sync: {}", status.last_sync_at.map_or("never".to_string(), |t| t.to_rfc3339())),
+        format!("stop: {}", model.stop.as_ref().map_or("none".to_string(), |s| match s {
+            koona_sync::net::Stop::Plan(reason) => format!("Plan {}", reason.as_deref().map_or("", log::word)).trim_end().to_string(),
+            other => format!("{other:?}"),
+        })),
         format!("error: {:?}", status.error),
+        format!("last close: {close}"),
+        format!("rejoining: {}", model.rejoining),
+        format!("seq: {}", status.seq),
+        format!("this device: {} ({:?})", short(&status.device.id), status.device.status),
+        format!("hub: {} (this device: {})", status.hub.as_deref().map_or("none".to_string(), short), status.is_hub),
+        format!("key: epoch {}, {key}", model.epoch().map_or("none".to_string(), |e| e.to_string())),
+        format!("last sync: {}", time(status.last_sync_at)),
         format!("pairing: {:?}", status.pairing.as_ref().map(|p| p.role)),
         format!("hub change: {:?}", status.hub_change.as_ref().map(|h| h.role)),
         format!("notices: {}", status.notices.len()),
-        format!("devices: {}", status.devices.len()),
     ];
-    for device in &status.devices {
-        lines.push(format!(
-            "  {} {:?}{}{} last seen {}",
-            device.id,
-            device.status,
-            if device.online { " online" } else { "" },
-            if device.is_hub { " hub" } else { "" },
-            device.last_seen.map_or("-".to_string(), |ms| ms.to_string()),
-        ));
+    if !facts.set_aside.is_empty() {
+        lines.push("set aside (did not read):".to_string());
+        for (name, at) in &facts.set_aside {
+            lines.push(format!("  {name} {}", at.map_or("time unknown".to_string(), log::stamp)));
+        }
     }
-    lines.push("recent:".to_string());
-    lines.extend(model.log().map(|line| format!("  {line}")));
+    let devices = model.every_device();
+    lines.push(format!("devices: {} (removed ones too)", devices.len()));
+    for device in &devices {
+        let mut marks = vec![format!("{:?}", device.status).to_lowercase()];
+        if device.id == status.device.id {
+            marks.push("this device".into());
+        }
+        if device.is_hub {
+            marks.push("hub".into());
+        }
+        marks.push(if device.online { "online".into() } else { "offline".into() });
+        lines.push(format!("  {} {} - {}, last seen {}", short(&device.id), device.name, marks.join(", "), ms(device.last_seen)));
+    }
+    lines.push(format!("log (last {} lines):", facts.log.len()));
+    lines.extend(facts.log.iter().map(|line| format!("  {line}")));
     lines.join("\n")
 }
 
@@ -1098,27 +1291,69 @@ mod tests {
     }
 
     #[test]
-    fn the_report_names_states_and_ids_only() {
-        let me = Identity::new("Studio Mac");
+    fn the_report_lists_every_device_and_keeps_secrets_out() {
+        use koona_sync::protocol::{DeviceInfo, DeviceStatus, B64};
+        let me = Identity::new("Office laptop");
+        let (hub, earlier) = (Uuid::from_u128(0x7c1e_9b20_0000_4000_8000_0000_0000_0001), Uuid::from_u128(0x5a2b_3c4d_0000_4000_8000_0000_0000_0002));
         let mut model = Model::default();
+        model.me = Some(me.device);
+        let info = |id, name: &str, status, last_seen| DeviceInfo { id, name: name.into(), key: B64([1; 32]), status, last_seen };
         model.on_event(
             Event::Session(koona_sync::session::Effect::Devices {
-                devices: vec![koona_sync::protocol::DeviceInfo {
-                    id: me.device,
-                    name: "Studio Mac".into(),
-                    key: koona_sync::protocol::B64([1; 32]),
-                    status: koona_sync::protocol::DeviceStatus::Active,
-                    last_seen: 5,
-                }],
+                devices: vec![
+                    info(hub, "Home iMac", DeviceStatus::Active, 1_794_000_000_000),
+                    info(me.device, "Office laptop", DeviceStatus::Pending, 1_794_700_000_000),
+                    info(earlier, "Office laptop", DeviceStatus::Revoked, 1_793_000_000_000),
+                ],
                 online: vec![me.device],
-                hub: Some(me.device),
+                hub: Some(hub),
             }),
             Utc::now(),
         );
-        let context = Context { enabled: true, service: true, plan: true, library_ready: true, identity: &me, app: "0.13.0".into(), bookmarks: None };
-        let text = report(&model.status(&context), "0.13.0", true, &model);
-        assert!(text.contains(&me.device.to_string()));
-        assert!(text.contains("app: 0.13.0"));
-        assert!(!text.contains("Studio Mac"), "names stay out:\n{text}");
+        model.on_event(Event::Closed { code: Some(1012), reason: Some("silent".into()) }, Utc::now());
+        model.rejoining = true;
+        let context = Context { enabled: true, service: true, plan: true, library_ready: true, identity: &me, app: "2.23.0".into(), bookmarks: None };
+        let facts = ReportFacts {
+            version: "2.23.0".into(),
+            platform: "macos".into(),
+            relay: relay_host("wss://sync.example.com/v1/sync?lease=abc"),
+            enabled: true,
+            key: identity::KeyFileState::Present { epoch: 3, owner: Some(true) },
+            set_aside: vec![("sync-device.json.damaged".into(), DateTime::from_timestamp(1_793_500_000, 0))],
+            log: vec!["2026-11-14T10:00:00Z phase Pending".into()],
+        };
+        let text = report(&model.status(&context), &model, &facts);
+        let short = |id: &Uuid| log::short(id);
+        assert!(text.contains(&format!("  {} Office laptop - revoked, offline, last seen", short(&earlier))), "the earlier identity:\n{text}");
+        assert!(text.contains(&format!("  {} Home iMac - active, hub, offline", short(&hub))), "{text}");
+        assert!(text.contains(&format!("  {} Office laptop - pending, this device, online", short(&me.device))), "{text}");
+        assert!(text.contains("devices: 3 (removed ones too)"));
+        assert!(text.contains("relay: sync.example.com\n"), "the host alone:\n{text}");
+        assert!(text.contains("key: epoch none, file of epoch 3, of the signed-in account"));
+        assert!(text.contains("  sync-device.json.damaged 2026-11-01T02:26:40Z"), "{text}");
+        assert!(text.contains("last close: 1012 silent"));
+        assert!(text.contains("rejoining: true"));
+        assert!(text.contains("app: 2.23.0 on macos"));
+        assert!(text.contains("  2026-11-14T10:00:00Z phase Pending"));
+        for secret in ["lease", "abc", "wss://", &me.device.to_string(), &hub.to_string(), "AQEBAQ"] {
+            assert!(!text.contains(secret), "{secret:?} in the report:\n{text}");
+        }
+    }
+
+    #[test]
+    fn the_relay_host_is_all_the_report_says_of_its_address() {
+        assert_eq!(relay_host("wss://sync.koonapin.com/v1/sync").as_deref(), Some("sync.koonapin.com"));
+        assert_eq!(relay_host("ws://127.0.0.1:8787/v1/sync?x=1").as_deref(), Some("127.0.0.1:8787"));
+        assert_eq!(relay_host("not a url"), None);
+    }
+
+    #[test]
+    fn the_main_computer_is_said_online_and_last_seen_when_the_relay_tells() {
+        let id = "0192f3a4-b5c6-7d8e-9f01-23456789abcd";
+        let me = Uuid::from_u128(7);
+        let new = account_answer(200, &format!(r#"{{"hub": {{"id": "{id}", "name": "Home iMac", "online": false, "last_seen": 1760399000000}}}}"#), me).unwrap();
+        assert_eq!(new, SyncAccount { main_name: Some("Home iMac".into()), main_online: Some(false), main_last_seen: Some(1_760_399_000_000) });
+        let old = account_answer(200, &format!(r#"{{"hub": {{"id": "{id}", "name": "Home iMac"}}}}"#), me).unwrap();
+        assert_eq!((old.main_online, old.main_last_seen), (None, None), "a relay before them");
     }
 }
