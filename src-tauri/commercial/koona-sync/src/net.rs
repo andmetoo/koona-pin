@@ -9,8 +9,8 @@
 //! and the future that does the work, for the app to spawn on its tokio runtime.
 
 use crate::library::Library;
-use crate::protocol::{close, MAX_BODY, MAX_CONTROL, PROTO};
-use crate::session::{Action, Effect, Input, Phase, Session, DEVICE_LIMIT};
+use crate::protocol::{self, close, Control, MAX_BODY, MAX_CONTROL, PROTO};
+use crate::session::{Action, Effect, Input, Session, DEVICE_LIMIT};
 use futures_util::{SinkExt, StreamExt};
 use ring::rand::{SecureRandom, SystemRandom};
 use std::future::Future;
@@ -74,6 +74,25 @@ impl ClientConfig {
             byte_burst: (8 << 20) as f64,
         }
     }
+
+    /// How long the socket may stay quiet before it counts as dead: two pings unanswered, plus a
+    /// little for a slow relay. A half-open socket never errors; only silence shows it.
+    pub fn silence_limit(&self) -> Duration {
+        self.ping_every * 2 + self.ping_every.min(Duration::from_secs(5))
+    }
+}
+
+/// Actions the person took that need the relay: they end the wait between attempts.
+fn needs_relay(action: &Action) -> bool {
+    matches!(
+        action,
+        Action::StartOver { .. } | Action::StartPairing | Action::JoinAgain | Action::SyncNow | Action::RequestHub
+    )
+}
+
+/// The relay's `welcome`: the connection got through, whatever the phase it leaves the device in.
+fn is_welcome(text: &str) -> bool {
+    text.contains("welcome") && matches!(protocol::decode_control(text), Ok(Control::Welcome { .. }))
 }
 
 /// Why the client gave up for good; the app shows it and starts a new client when it changes.
@@ -280,7 +299,7 @@ enum Ended {
 }
 
 /// Sends the frames among `effects` and reports the rest. Returns whether the socket still works.
-async fn deliver<S>(effects: Vec<Effect>, sink: &mut S, pace: &mut Pace, events: &mpsc::UnboundedSender<Event>, online: &mut bool) -> bool
+async fn deliver<S>(effects: Vec<Effect>, sink: &mut S, pace: &mut Pace, events: &mpsc::UnboundedSender<Event>) -> bool
 where
     S: futures_util::Sink<Message> + Unpin,
 {
@@ -295,9 +314,6 @@ where
                 Message::binary(frame)
             }
             other => {
-                if let Effect::Status(phase) = &other {
-                    *online |= matches!(phase, Phase::Online | Phase::Pending | Phase::Syncing { .. });
-                }
                 let _ = events.send(Event::Session(other));
                 continue;
             }
@@ -379,7 +395,16 @@ async fn run<L: Library + Send + 'static>(
             tokio::select! {
                 _ = &mut sleep => break,
                 command = commands.recv() => match command {
-                    Some(Command::Action(action)) => report(feed(&core, Owned::Action(action)).await.0, &events),
+                    Some(Command::Action(action)) => {
+                        let now = needs_relay(&action);
+                        // The session takes it first: it keeps a start over's token until `welcome`.
+                        report(feed(&core, Owned::Action(action)).await.0, &events);
+                        if now {
+                            // The person is waiting: try again at once, and from the shortest wait.
+                            backoff = cfg.min_backoff;
+                            break;
+                        }
+                    }
                     Some(Command::Shutdown) | None => break 'outer Stop::Shutdown,
                 },
             }
@@ -404,10 +429,10 @@ where
         + Unpin,
 {
     let (mut sink, mut stream) = socket.split();
-    let mut online = false;
     let (effects, mut pumping, devices) = feed(core, Owned::Connected).await;
     pace.set_devices(devices);
-    if !deliver(effects, &mut sink, pace, events, &mut online).await {
+    let mut heard = Instant::now();
+    if !deliver(effects, &mut sink, pace, events).await {
         return Ended::Closed(None, None);
     }
     let mut tick = tokio::time::interval(cfg.tick_every);
@@ -416,15 +441,21 @@ where
     loop {
         let input = tokio::select! {
             biased;
-            message = stream.next() => match message {
-                Some(Ok(Message::Text(text))) => Owned::Text(text.to_string()),
-                Some(Ok(Message::Binary(frame))) => Owned::Binary(frame.to_vec()),
-                Some(Ok(Message::Close(frame))) => {
-                    return Ended::Closed(frame.as_ref().map(|f| u16::from(f.code)), frame.map(|f| f.reason.to_string()));
+            message = stream.next() => {
+                // Anything at all, a pong or a ping frame too, shows the socket is alive.
+                if let Some(Ok(_)) = &message {
+                    heard = Instant::now();
                 }
-                Some(Ok(_)) => continue,
-                Some(Err(_)) | None => return Ended::Closed(None, None),
-            },
+                match message {
+                    Some(Ok(Message::Text(text))) => Owned::Text(text.to_string()),
+                    Some(Ok(Message::Binary(frame))) => Owned::Binary(frame.to_vec()),
+                    Some(Ok(Message::Close(frame))) => {
+                        return Ended::Closed(frame.as_ref().map(|f| u16::from(f.code)), frame.map(|f| f.reason.to_string()));
+                    }
+                    Some(Ok(_)) => continue,
+                    Some(Err(_)) | None => return Ended::Closed(None, None),
+                }
+            }
             command = commands.recv() => match command {
                 Some(Command::Action(action)) => Owned::Action(action),
                 Some(Command::Shutdown) | None => {
@@ -434,6 +465,12 @@ where
             },
             _ = tick.tick() => Owned::Tick,
             _ = ping.tick() => {
+                if heard.elapsed() > cfg.silence_limit() {
+                    // Pings went unanswered: the socket is half open. Close it (the send may never
+                    // get through) and connect again.
+                    let _ = tokio::time::timeout(Duration::from_secs(1), sink.send(Message::Close(None))).await;
+                    return Ended::Closed(None, None);
+                }
                 pace.take(12).await;
                 if sink.send(Message::text(r#"{"t":"ping"}"#)).await.is_err() {
                     return Ended::Closed(None, None);
@@ -442,14 +479,16 @@ where
             }
             _ = std::future::ready(()), if pumping => Owned::Pump,
         };
+        let welcome = matches!(&input, Owned::Text(text) if is_welcome(text));
         let (effects, wants, devices) = feed(core, input).await;
         pumping = wants;
         pace.set_devices(devices);
-        if !deliver(effects, &mut sink, pace, events, &mut online).await {
+        if !deliver(effects, &mut sink, pace, events).await {
             return Ended::Closed(None, None);
         }
-        if online {
-            // A connection that got as far as `welcome` starts the backoff over.
+        if welcome {
+            // A connection that got as far as `welcome` starts the backoff over, and the token
+            // worked, even when the device is paused (started over elsewhere, clock, update).
             *backoff = cfg.min_backoff;
             *refresh = false;
         }
@@ -471,5 +510,29 @@ mod tests {
         assert_eq!(pace.message_burst(), 1.0, "at least one message goes");
         pace.set_devices(0);
         assert_eq!(pace.message_rate(), 15.0, "alone when nobody is known to be online");
+    }
+
+    #[test]
+    fn silence_allows_two_pings_and_a_little() {
+        let mut cfg = ClientConfig::new("ws://127.0.0.1/v1/sync");
+        assert_eq!(cfg.silence_limit(), Duration::from_secs(65));
+        cfg.ping_every = Duration::from_millis(100);
+        assert_eq!(cfg.silence_limit(), Duration::from_millis(300));
+    }
+
+    #[test]
+    fn only_a_welcome_counts_as_one() {
+        let welcome = protocol::encode_control(&Control::Welcome {
+            status: protocol::DeviceStatus::Pending,
+            hub: uuid::Uuid::nil(),
+            epoch: 0,
+            devices: Vec::new(),
+            online: Vec::new(),
+            time: 0,
+            started_over: None,
+        });
+        assert!(is_welcome(&welcome));
+        assert!(!is_welcome(r#"{"t":"pong"}"#));
+        assert!(!is_welcome(r#"{"t":"error","code":"welcome"}"#));
     }
 }
