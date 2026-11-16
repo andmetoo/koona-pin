@@ -180,8 +180,10 @@ export function FeedList({
             </Hint>
           </div>
         </div>
-        <div className="mt-1 flex h-6 items-center gap-2">
-          <p data-feed-status className={`min-w-0 flex-1 truncate text-xs leading-[15px] ${statusAlert ? "text-on-amber-soft dark:text-amber" : "text-subtle"}`}>
+        {/* The status wraps to a second line rather than losing its end: «Новых: 11 · обновлено 2 мин. назад»
+            is wider than the column beside Unread | All (2.24.0). */}
+        <div className="mt-1 flex min-h-6 items-center gap-2">
+          <p data-feed-status className={`min-w-0 flex-1 text-xs leading-[15px] text-pretty ${statusAlert ? "text-on-amber-soft dark:text-amber" : "text-subtle"}`}>
             {status}
           </p>
           {/* The library's view switch in small (2.17.0). */}

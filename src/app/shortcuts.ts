@@ -7,7 +7,8 @@ import { isArrow, isDeleteKey } from "../services/keys";
 import type { AppState } from "./appState";
 
 /**
- * The window's keys: `Ctrl K` search, `Ctrl N` a new link, `Ctrl Z` undo, `Ctrl Q` quit where the
+ * The window's keys: `Ctrl 1` and `Ctrl 2` the mode (2.24.0), `Ctrl K` search, `Ctrl N` a new link
+ * (in Feeds, «Follow a site»), `Ctrl Z` undo, `Ctrl Q` quit where the
  * app quits (NP-096), and in the library the selection's keys: `Ctrl A`, `Esc`, `Del`, `R`, `Space`
  * and the arrows (NP-028, NP-029, NP-121, NP-123, #319). A shell wires them.
  */
@@ -22,6 +23,8 @@ export function useShortcuts(app: AppState) {
     setTriage,
     page,
     setPage,
+    mode,
+    switchMode,
     filters,
     searchRef,
     setSurface,
@@ -41,6 +44,9 @@ export function useShortcuts(app: AppState) {
       const key = e.key.toLowerCase();
       if ((e.ctrlKey || e.metaKey) && key === "k" && !reading) {
         e.preventDefault();
+        // The library's search: from Feeds it takes the person to Bookmarks, to the library itself
+        // (not Link check or Duplicates, where Bookmarks may have been left), where the field is.
+        if (mode === "feeds") switchMode("bookmarks");
         setPage("library");
         setTriage(null);
         // The toolbar's field mounts with the library: wait a few frames for it when coming from elsewhere.
@@ -55,7 +61,15 @@ export function useShortcuts(app: AppState) {
       }
       if ((e.ctrlKey || e.metaKey) && key === "n" && !document.querySelector("dialog[open]")) {
         e.preventDefault();
-        setSurface("add");
+        setSurface(mode === "feeds" ? "follow" : "add");
+      }
+      // The mode switch: by the key's place, so a layout that types other characters there works too.
+      // Not from a text field: its keys are the field's, and leaving would close the editor's draft.
+      const digit = e.code === "Digit1" || key === "1" ? "bookmarks" : e.code === "Digit2" || key === "2" ? "feeds" : null;
+      const inField = e.target instanceof HTMLElement && !!e.target.closest("input, textarea, select, [contenteditable=true]");
+      if (digit && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && !inField && !reading && !document.querySelector("dialog[open]")) {
+        e.preventDefault();
+        switchMode(digit);
       }
       if (e.key === "Escape" && wide && editing && !document.querySelector("dialog[open], [data-menu]")) {
         setEditing(null);
@@ -122,5 +136,5 @@ export function useShortcuts(app: AppState) {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [wide, editing, triage, page, filters.onlyTrash, filters.onlyReading, reading]);
+  }, [wide, editing, triage, page, mode, filters.onlyTrash, filters.onlyReading, reading]);
 }

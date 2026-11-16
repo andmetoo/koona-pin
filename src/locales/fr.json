@@ -106,6 +106,7 @@
     "inboxWaiting_many": "Boîte de réception : {{count}} en attente",
     "inboxWaiting_other": "Boîte de réception : {{count}} en attente",
     "all": "Signets",
+    "allRow": "Tout",
     "favorites": "Favoris",
     "reading": "À lire",
     "trash": "Corbeille",
@@ -113,6 +114,9 @@
     "links": "Vérification des liens",
     "settings": "Paramètres",
     "offline": "Hors ligne"
+  },
+  "mode": {
+    "label": "Mode"
   },
   "browser": {
     "ready": "Navigateur connecté",
@@ -1131,7 +1135,10 @@
     "trash": "La corbeille est vide",
     "trashHint": "Les signets supprimés restent ici 30 jours, puis disparaissent définitivement.",
     "offline": "Pas encore de copies hors ligne",
-    "offlineHint": "Choisissez « Enregistrer pour hors ligne » dans le menu d’un signet, ou « Enregistrer hors ligne » en mode lecture. Les copies restent sur cet ordinateur."
+    "offlineHint": "Choisissez « Enregistrer pour hors ligne » dans le menu d’un signet, ou « Enregistrer hors ligne » en mode lecture. Les copies restent sur cet ordinateur.",
+    "feedSaved": "Rien d’enregistré depuis les flux",
+    "feedSavedHint": "Enregistrez un article avec S ou son bouton de signet. Il reste ici comme signet, même quand le flux ne l’a plus.",
+    "feedSavedAction": "Ouvrir les flux"
   },
   "inbox": {
     "banner_one": "{{count}} nouveau signet attend. Le garder, le ranger ou le supprimer prend un instant.",
@@ -2034,8 +2041,10 @@
   "feeds": {
     "title": "Flux",
     "all": "Tous les flux",
+    "savedFromFeeds": "Enregistrés des flux",
     "follow": "Suivre un site…",
     "followSite": "Suivre un site",
+    "followButton": "Suivre un site",
     "newCount": "{{count}} nouveaux",
     "updated": "mis à jour {{when}}",
     "offline": "Hors ligne",

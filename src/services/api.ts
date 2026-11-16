@@ -125,6 +125,7 @@ const toQuery = (
   only_reading: filters.onlyReading ?? false,
   read: filters.read ?? undefined,
   only_offline: filters.onlyOffline ?? false,
+  only_feed: filters.onlyFeed ?? false,
   ...page,
 });
 /** Every command rejects with a `CommandError` carrying a machine code. */

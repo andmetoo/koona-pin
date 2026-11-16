@@ -113,6 +113,7 @@
     "inboxWaiting_many": "Skrzynka odbiorcza: czeka {{count}}",
     "inboxWaiting_other": "Skrzynka odbiorcza: czeka {{count}}",
     "all": "Zakładki",
+    "allRow": "Wszystko",
     "favorites": "Ulubione",
     "reading": "Do przeczytania",
     "trash": "Kosz",
@@ -120,6 +121,9 @@
     "links": "Sprawdzanie linków",
     "settings": "Ustawienia",
     "offline": "Offline"
+  },
+  "mode": {
+    "label": "Tryb"
   },
   "browser": {
     "ready": "Połączono",
@@ -1204,7 +1208,10 @@
     "trash": "Kosz jest pusty",
     "trashHint": "Usunięte zakładki zostają tu 30 dni, potem znikają na zawsze.",
     "offline": "Brak kopii offline",
-    "offlineHint": "Wybierz „Zapisz do czytania offline” w menu zakładki albo „Zapisz offline” w trybie czytania. Kopie zostają na tym komputerze."
+    "offlineHint": "Wybierz „Zapisz do czytania offline” w menu zakładki albo „Zapisz offline” w trybie czytania. Kopie zostają na tym komputerze.",
+    "feedSaved": "Nic jeszcze nie zapisano z kanałów",
+    "feedSavedHint": "Zapisz wpis klawiszem S lub jego przyciskiem zakładki. Zostanie tu jako zakładka, nawet gdy kanał go usunie.",
+    "feedSavedAction": "Otwórz kanały"
   },
   "inbox": {
     "banner_one": "Czeka {{count}} nowa zakładka. Zostawienie, przeniesienie do kolekcji albo usunięcie jej zajmie chwilę.",
@@ -2144,8 +2151,10 @@
   "feeds": {
     "title": "Kanały",
     "all": "Wszystkie kanały",
+    "savedFromFeeds": "Zapisane z kanałów",
     "follow": "Obserwuj stronę…",
     "followSite": "Obserwuj stronę",
+    "followButton": "Obserwuj stronę",
     "newCount": "Nowe: {{count}}",
     "updated": "zaktualizowano {{when}}",
     "offline": "Offline",

@@ -1660,6 +1660,7 @@ export const demo = {
       reading: live().filter((b) => b.reading_at).length,
       reading_unread: live().filter((b) => b.reading_at && !b.read_at).length,
       offline: live().filter((b) => b.offline_at).length,
+      feed: live().filter((b) => b.source === "feed").length,
     };
   },
   async addBookmark(
@@ -3221,6 +3222,7 @@ export const demo = {
           followed.has(item.feed_uid) &&
           (!query.feed_uid || item.feed_uid === query.feed_uid) &&
           (!query.unread_only || !item.read_at || !!query.keep?.includes(item.id)) &&
+          (!query.since || (item.published_at ?? item.fetched_at) >= query.since) &&
           (!search || item.title.toLowerCase().includes(search) || item.excerpt.toLowerCase().includes(search)),
       )
       .sort(newestFirst);

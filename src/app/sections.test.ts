@@ -10,6 +10,7 @@ const counts: LibraryCounts = {
   inbox: 3,
   inbox_newest: null,
   inbox_imported: 0,
+  feed: 0,
   trash: 2,
   duplicates: 0,
   links: 0,

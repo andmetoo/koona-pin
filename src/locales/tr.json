@@ -99,6 +99,7 @@
     "inboxWaiting_one": "Gelen Kutusu: {{count}} bekliyor",
     "inboxWaiting_other": "Gelen Kutusu: {{count}} bekliyor",
     "all": "Yer imleri",
+    "allRow": "Tümü",
     "favorites": "Favoriler",
     "reading": "Okuma Listesi",
     "trash": "Çöp Kutusu",
@@ -106,6 +107,9 @@
     "links": "Bağlantı denetimi",
     "settings": "Ayarlar",
     "offline": "Çevrimdışı"
+  },
+  "mode": {
+    "label": "Mod"
   },
   "browser": {
     "ready": "Tarayıcı bağlı",
@@ -1058,7 +1062,10 @@
     "trash": "Çöp Kutusu boş",
     "trashHint": "Silinen yer imleri burada 30 gün kalır, sonra kalıcı olarak gider.",
     "offline": "Henüz çevrimdışı kopya yok",
-    "offlineHint": "Bir yer iminin menüsünde “Çevrimdışı okumak için kaydet”i ya da okuma modunda “Çevrimdışı kaydet”i seçin. Kopyalar bu bilgisayarda kalır."
+    "offlineHint": "Bir yer iminin menüsünde “Çevrimdışı okumak için kaydet”i ya da okuma modunda “Çevrimdışı kaydet”i seçin. Kopyalar bu bilgisayarda kalır.",
+    "feedSaved": "Akışlardan henüz bir şey kaydedilmedi",
+    "feedSavedHint": "Bir yazıyı S tuşuyla ya da yer imi düğmesiyle kaydedin. Akıştan düşse bile burada yer imi olarak kalır.",
+    "feedSavedAction": "Akışları aç"
   },
   "inbox": {
     "banner_one": "{{count}} yeni yer imi bekliyor. Tutmak, bir koleksiyona yerleştirmek ya da silmek bir an sürer.",
@@ -1924,8 +1931,10 @@
   "feeds": {
     "title": "Akışlar",
     "all": "Tüm akışlar",
+    "savedFromFeeds": "Kaydedilenler",
     "follow": "Bir siteyi takip et…",
     "followSite": "Bir siteyi takip et",
+    "followButton": "Siteyi takip et",
     "newCount": "{{count}} yeni",
     "updated": "güncellendi: {{when}}",
     "offline": "Çevrimdışı",

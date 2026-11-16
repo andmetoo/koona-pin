@@ -10,6 +10,7 @@ const counts = (over: Partial<LibraryCounts> = {}): LibraryCounts => ({
   inbox: 0,
   inbox_newest: null,
   inbox_imported: 0,
+  feed: 0,
   trash: 0,
   duplicates: 0,
   links: 0,

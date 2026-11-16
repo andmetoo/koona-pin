@@ -99,6 +99,7 @@
     "inboxWaiting_one": "Inbox: {{count}} waiting",
     "inboxWaiting_other": "Inbox: {{count}} waiting",
     "all": "Bookmarks",
+    "allRow": "All",
     "favorites": "Favorites",
     "reading": "Reading",
     "trash": "Trash",
@@ -106,6 +107,9 @@
     "links": "Link check",
     "settings": "Settings",
     "offline": "Offline"
+  },
+  "mode": {
+    "label": "Mode"
   },
   "browser": {
     "ready": "Browser connected",
@@ -1058,7 +1062,10 @@
     "trash": "Trash is empty",
     "trashHint": "Deleted bookmarks stay here for 30 days, then they're gone for good.",
     "offline": "No offline copies yet",
-    "offlineHint": "Choose “Save for offline” in a bookmark’s menu, or “Save offline” in reading mode. Copies stay on this computer."
+    "offlineHint": "Choose “Save for offline” in a bookmark’s menu, or “Save offline” in reading mode. Copies stay on this computer.",
+    "feedSaved": "Nothing saved from feeds yet",
+    "feedSavedHint": "Save a post with S or its bookmark button. It stays here as a bookmark after the feed drops it.",
+    "feedSavedAction": "Open the feeds"
   },
   "inbox": {
     "banner_one": "{{count}} new bookmark is waiting. Keeping, filing or deleting it takes a moment.",
@@ -1924,8 +1931,10 @@
   "feeds": {
     "title": "Feeds",
     "all": "All feeds",
+    "savedFromFeeds": "Saved from feeds",
     "follow": "Follow a site…",
     "followSite": "Follow a site",
+    "followButton": "Follow a site",
     "newCount": "{{count}} new",
     "updated": "updated {{when}}",
     "offline": "Offline",

@@ -11,7 +11,7 @@ const sidebar = (page: Page) => page.getByRole("complementary", { name: "Library
 const rowStack = (page: Page) => page.locator("[data-row-stack]");
 const collection = (page: Page, name: string) => sidebar(page).locator("[data-collection-row]").filter({ hasText: name });
 const collectionNames = (page: Page) => sidebar(page).locator("[data-collection-row] [data-collection] .fade-end").allInnerTexts();
-const allBookmarks = (page: Page) => sidebar(page).getByRole("button", { name: /^Bookmarks/ });
+const allBookmarks = (page: Page) => sidebar(page).getByRole("button", { name: /^All \d/ });
 
 async function centre(locator: Locator) {
   const box = (await locator.boundingBox())!;
@@ -31,6 +31,12 @@ async function pick(page: Page, row: Locator) {
   await page.mouse.down();
   await page.mouse.move(at.x + 6, at.y + 4, { steps: 3 });
   return at;
+}
+
+/** The Feeds mode (2.24.0), where the feed rows are, once its posts have come. */
+async function feedsMode(page: Page) {
+  await page.getByRole("tab", { name: "Feeds" }).click();
+  await expect(page.locator("[data-feed-item]").first()).toBeVisible();
 }
 
 /** Out of the sidebar into the library, then onto the capsule. */
@@ -102,13 +108,15 @@ test("a tag chip adds a tag section, a feed row and All feeds add feeds", async 
   // The click that ended the drag did not filter by the tag.
   await expect(chip).toHaveAttribute("aria-pressed", "false");
 
+  // The feeds are in the Feeds mode (2.24.0).
+  await feedsMode(page);
   await pick(page, sidebar(page).locator("[data-feed-row]").filter({ hasText: "The Verge" }));
   await toCapsule(page);
   await expect(capsule(page)).toContainText("Add 1 feed");
   await page.mouse.up();
   await expect(announcer(page)).toHaveText("Added 1 feed to the bundle, 3 items");
 
-  await pick(page, sidebar(page).getByRole("button", { name: /^All feeds/ }));
+  await pick(page, sidebar(page).getByRole("navigation", { name: "Sections" }).getByRole("button", { name: /^All/ }));
   await toCapsule(page);
   await expect(capsule(page)).toContainText(/Add \d+ feeds?/);
   await page.mouse.up();
@@ -137,6 +145,7 @@ test("a sidebar row dropped on another sidebar row changes nothing, and nothing 
   await expect(capsule(page)).toHaveCount(0);
 
   // Esc cancels a drag out of the sidebar too, and the release after it opens nothing.
+  await feedsMode(page);
   await pick(page, sidebar(page).locator("[data-feed-row]").first());
   await toCapsule(page);
   await page.keyboard.press("Escape");
@@ -147,6 +156,7 @@ test("a sidebar row dropped on another sidebar row changes nothing, and nothing 
 });
 
 test("the capsule waits until the pointer leaves the sidebar; only near it does it move", async ({ page }) => {
+  await feedsMode(page);
   const start = await pick(page, sidebar(page).locator("[data-feed-row]").first());
   await page.mouse.move(start.x + 20, start.y + 120, { steps: 6 });
   await expect(rowStack(page).locator("[data-drop-hint]")).toBeVisible();
@@ -180,6 +190,7 @@ test("a drop flies cards into the capsule; the count rolls", async ({ page }) =>
   await expect(page.locator("[data-bundle-flyer]")).toHaveCount(0);
   await expect(capsule(page).locator("[data-bundle-count]")).toHaveText("2");
   // A second drop: the old count rolls out as the new one comes in.
+  await feedsMode(page);
   await pick(page, sidebar(page).locator("[data-feed-row]").first());
   await toCapsule(page);
   await watch(page, ".bundle-roll-out", "2");
@@ -192,6 +203,7 @@ test("a drop flies cards into the capsule; the count rolls", async ({ page }) =>
 });
 
 test("a drop that adds nothing new does not land", async ({ page }) => {
+  await feedsMode(page);
   for (let i = 0; i < 2; i++) {
     await pick(page, sidebar(page).locator("[data-feed-row]").first());
     await toCapsule(page);

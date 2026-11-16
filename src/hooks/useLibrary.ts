@@ -80,6 +80,7 @@ export function useLibrary(
     inbox: 0,
     inbox_newest: null,
     inbox_imported: 0,
+  feed: 0,
     trash: 0,
     duplicates: 0,
     links: 0,
@@ -326,6 +327,7 @@ export function useLibrary(
       filters.onlyReading,
       filters.read,
       filters.onlyOffline,
+      filters.onlyFeed,
       sort,
     ]);
     const before = lastList.current;
@@ -351,6 +353,7 @@ export function useLibrary(
     filters.onlyReading,
     filters.read,
     filters.onlyOffline,
+    filters.onlyFeed,
     sort,
     refresh,
   ]);

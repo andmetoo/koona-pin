@@ -39,7 +39,7 @@ bun run test:ui
 `tests/ui` against the browser preview with demo data (`playwright.config.ts` starts Vite itself). The locale is `en-US` and tests name controls in English. The project `phone` runs `tests/phone`: the same demo as a phone (`tests/phone/fixtures.ts` injects the platform, the phone's capabilities and a stub of the Back bridge before the page loads), 393×852 and the Fold's inner 1088×821; `-- --project desktop` or `--project phone` runs one. Tags:
 
 - `@visual` — screenshot comparisons, see [Visual baselines](#visual-baselines).
-- `@languages` — every language at 800×550 and 1600×800: no truncated interface labels, sidebar rows fit, IME input.
+- `@languages` — every language at 800×550 and 1600×800: no truncated interface labels (in both modes: the mode switch, the Feeds sidebar and the Feeds list header), sidebar rows fit, IME input.
 - `@chromium` — the two IME tests use Chromium's CDP; exclude these when running WebKit. They remain covered by the full suite in CI (Chromium on Linux).
 
 Run a subset with `bun run test:ui -- --grep @languages` or `-- --grep-invert @visual`. Use `bunx` only with `--bun`; without it, `bunx` runs a package on Node if Node is installed.

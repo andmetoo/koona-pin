@@ -38,6 +38,11 @@ read?: boolean,
  */
 only_offline: boolean, 
 /**
+ * Only posts saved from feeds (`source = 'feed'`): «Saved from feeds» of the Feeds mode. They
+ * outlive the feed cache, which drops a post 30 days after it came.
+ */
+only_feed: boolean, 
+/**
  * Only this bookmark: whether a changed one still belongs to the list.
  */
 id?: number, 

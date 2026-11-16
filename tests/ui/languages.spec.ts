@@ -8,12 +8,13 @@ import { type Catalog, catalog, dropPoint, locales, text } from "../fixtures/app
 const exactly = (label: string, whole = true) =>
   new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}${whole ? "$" : ""}`);
 
-/** Interface text that is cut off: wider or taller than its box, with the overflow hidden. Bookmark data may be cut. */
-async function cutLabels(page: Page) {
-  return page.evaluate(() => {
+/** Interface text that is cut off: wider or taller than its box, with the overflow hidden. Bookmark and post data may be cut. */
+async function cutLabels(page: Page, within = "body") {
+  return page.evaluate((within) => {
     const cut: string[] = [];
-    for (const el of document.querySelectorAll<HTMLElement>("body *")) {
-      if (el.closest("[data-bookmark-id], [data-user-text]") || !el.offsetParent || !el.textContent!.trim()) continue;
+    for (const el of document.querySelectorAll<HTMLElement>(`${within} *`)) {
+      // Bookmarks and feed posts are data, not interface: their titles and excerpts may be cut.
+      if (el.closest("[data-bookmark-id], [data-user-text], [data-feed-item], [data-feed-article]") || !el.offsetParent || !el.textContent!.trim()) continue;
       const style = getComputedStyle(el);
       const hides = style.textOverflow === "ellipsis" || style.webkitLineClamp !== "none" || el.classList.contains("fade-end");
       // scrollWidth is rounded: a text 0.4 px too wide gets its ellipsis but not a wider scrollWidth.
@@ -27,7 +28,7 @@ async function cutLabels(page: Page) {
       if (hides && (wide || tall)) cut.push(el.textContent!.trim().slice(0, 80));
     }
     return cut;
-  });
+  }, within);
 }
 
 /**
@@ -79,7 +80,7 @@ test("sidebar rows fit in every language", { tag: "@languages" }, async ({ page 
   const en = catalog("en");
   const rows: Record<string, string[]> = {
     "nav.inbox": ["nav.inbox"],
-    "nav.all": ["nav.all"],
+    "nav.allRow": ["nav.allRow"],
     "nav.favorites": ["nav.favorites"],
     "nav.trash": ["nav.trash"],
     "nav.settings": ["nav.settings"],
@@ -243,6 +244,17 @@ for (const code of codes) {
       };
 
       await shot("grid");
+      // The Feeds mode (2.24.0): its tab chosen, the Bookmarks tab beside it, the Feeds sidebar.
+      // The switch's tab, or in the narrow strip its one button to the other mode.
+      await page.getByRole("tab", { name: t("feeds.title") }).or(page.locator('[data-mode-other="feeds"]')).click();
+      await expect(page.locator('[data-mode-switch="feeds"]')).toBeVisible();
+      // The sidebar of the mode: the Feeds page itself is not part of these key screens.
+      found["feeds-mode"] = await cutLabels(page, "[data-sidebar]");
+      // The Feeds page: its title and status above the posts (post text is data, and may be cut).
+      found["feeds-mode"].push(...(await cutLabels(page, "[data-feed-list]")));
+      if (await clipped(page.locator("[data-feed-status]"))) found["feeds-mode"].push("feed status");
+      await page.getByRole("tab", { name: t("nav.all") }).or(page.locator('[data-mode-other="bookmarks"]')).click();
+      await expect(page.locator('[data-mode-switch="bookmarks"]')).toBeVisible();
       // The notification centre: the bell in the sidebar's header or the strip, its popover in the window.
       await page.locator("[data-notification-bell]").click();
       const centre = page.getByRole("dialog", { name: t("notifications.title") });

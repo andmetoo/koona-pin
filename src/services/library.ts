@@ -47,6 +47,7 @@ export function matchesFilters(
     (filters.onlyReading && !b.reading_at) ||
     (filters.read != null && (b.read_at !== null) !== filters.read) ||
     (filters.onlyOffline && !b.offline_at) ||
+    (filters.onlyFeed && b.source !== "feed") ||
     (filters.collectionId != null &&
       !(scope ?? new Set([filters.collectionId])).has(b.collection_id ?? -1)) ||
     (filters.domain && b.domain !== filters.domain) ||

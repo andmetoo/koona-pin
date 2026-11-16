@@ -141,6 +141,7 @@ test("a bare feed address: “Follow <title>”, no bookmark", async ({ page }) 
   await expect(sheet(page)).toHaveCount(0);
   expect(await calls(page, "subscribeFeed")).toEqual(['subscribeFeed "https://fieldnotes.example.com/feed.xml" null "feeds"']);
   expect(await calls(page, "addBookmark")).toEqual([]);
+  await page.getByRole("tab", { name: "Bookmarks" }).click();
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(before);
 });
 
@@ -226,6 +227,8 @@ test("More → “Import a file…” takes an OPML file and follows its feeds",
 
 test("“Follow a site” says what it is for, starts with “Follow” on, and follows a page's feed without a bookmark", async ({ page }) => {
   const before = await page.locator("[data-bookmark-id]").count();
+  // The Feeds mode's main button (2.24.0).
+  await page.getByRole("tab", { name: "Feeds" }).click();
   await page.getByRole("complementary").getByRole("button", { name: "Follow a site", exact: true }).click();
   const follow = page.getByRole("dialog", { name: "Follow a site" });
   const address = follow.getByRole("textbox", { name: "Link" });
@@ -245,11 +248,14 @@ test("“Follow a site” says what it is for, starts with “Follow” on, and 
   await expect(follow).toHaveCount(0);
   await expect.poll(() => calls(page, "subscribeFeed")).toEqual(['subscribeFeed "https://fieldnotes.example.com/feed.xml" null "feeds"']);
   expect(await calls(page, "addBookmark")).toEqual([]);
+  await page.getByRole("tab", { name: "Bookmarks" }).click();
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(before);
 });
 
 /** The sheet of «Follow a site» with an address pasted. */
 const followSite = async (page: Page, link: string) => {
+  // The Feeds mode's main button (2.24.0).
+  await page.getByRole("tab", { name: "Feeds" }).click();
   await page.getByRole("complementary").getByRole("button", { name: "Follow a site", exact: true }).click();
   const follow = page.getByRole("dialog", { name: "Follow a site" });
   await follow.getByRole("textbox", { name: "Link" }).evaluate((input: HTMLInputElement, text) => {
@@ -302,6 +308,8 @@ test("“Follow a site”: Enter during the feed's check follows once it is read
   await expect(none.getByRole("button", { name: "Follow", exact: true })).toBeDisabled();
   await page.keyboard.press("Enter");
   expect(await calls(page, "addBookmark")).toEqual([]);
+  await page.keyboard.press("Escape");
+  await page.getByRole("tab", { name: "Bookmarks" }).click();
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(before);
 });
 

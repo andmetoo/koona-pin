@@ -301,7 +301,7 @@ export function bundleView({
   }
   if (page !== "library" || filters.onlyTrash) return null;
   const plain = !filters.search.trim() && !filters.domain;
-  const anySection = filters.onlyFavorites || filters.onlyInbox || filters.onlyReading || filters.onlyOffline;
+  const anySection = filters.onlyFavorites || filters.onlyInbox || filters.onlyReading || filters.onlyOffline || filters.onlyFeed;
   if (plain && filters.tag && !filters.collectionId && !anySection) return { kind: "tag", name: filters.tag };
   const collection = filters.collectionId ? collections.find((c) => c.id === filters.collectionId) : undefined;
   if (plain && !filters.tag && collection) return { kind: "collection", collection, ...(filters.onlyCollection ? { only: true } : {}) };

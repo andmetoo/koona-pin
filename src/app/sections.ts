@@ -2,10 +2,10 @@ import type { TFunction } from "i18next";
 import type { Collection, FilterState, LibraryCounts } from "../types";
 
 /** One section of the library: All, Inbox, Favorites, Reading, Offline, Trash or a collection. */
-export type Section = Partial<Pick<FilterState, "collectionId" | "onlyCollection" | "onlyFavorites" | "onlyInbox" | "onlyTrash" | "onlyReading" | "read" | "onlyOffline">>;
+export type Section = Partial<Pick<FilterState, "collectionId" | "onlyCollection" | "onlyFavorites" | "onlyInbox" | "onlyTrash" | "onlyReading" | "read" | "onlyOffline" | "onlyFeed">>;
 
 /** Every section off: what `navigate` starts from. */
-export const noSection = { collectionId: null, onlyCollection: false, onlyFavorites: false, onlyInbox: false, onlyTrash: false, onlyReading: false, read: null, onlyOffline: false };
+export const noSection = { collectionId: null, onlyCollection: false, onlyFavorites: false, onlyInbox: false, onlyTrash: false, onlyReading: false, read: null, onlyOffline: false, onlyFeed: false };
 
 export const initialFilters: FilterState = {
   search: "",
@@ -26,7 +26,9 @@ export function sectionName(filters: FilterState, collection: Collection | undef
           ? t("nav.reading")
           : filters.onlyOffline
             ? t("nav.offline")
-            : collection
+            : filters.onlyFeed
+              ? t("feeds.savedFromFeeds")
+              : collection
               ? collection.name
               : t("nav.all");
 }
@@ -43,7 +45,9 @@ export function sectionCount(filters: FilterState, counts: LibraryCounts, collec
           ? counts.reading
           : filters.onlyOffline
             ? counts.offline
-            : collection
+            : filters.onlyFeed
+              ? counts.feed
+              : collection
               ? (collection.count ?? 0)
               : counts.total;
 }

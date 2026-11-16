@@ -133,7 +133,7 @@ test("real WebView2, SQLite, capture through the host, close-to-tray and single 
     await expect(page.getByRole("region", { name: "New bookmarks" })).toContainText("1 new in Inbox");
     await expect(page.locator("[data-bookmark-id]")).toHaveCount(1);
     await expect(page.locator("[data-bookmark-id]")).toContainText("From the browser");
-    await page.getByRole("button", { name: /^Bookmarks/ }).click();
+    await page.getByRole("button", { name: /^All \d/ }).click();
     // FTS5 through IPC: the capture is in the index, case folds.
     const search = page.getByRole("textbox", { name: "Search the library" });
     await search.fill("BROWSER native");
@@ -265,7 +265,7 @@ test("a capture pipe held by another program is reported while the library stays
     await expect(page.locator('[data-capture="none"]')).toBeVisible();
     await expect.poll(() => pipeReady(name)).toBe(true);
     // The library worked all along.
-    await page.getByRole("button", { name: /^Bookmarks/ }).click();
+    await page.getByRole("button", { name: /^All \d/ }).click();
     await emptyLibrary(page);
     await page.getByRole("button", { name: "New link", exact: true }).first().click();
     await page.getByLabel("Link", { exact: true }).fill("https://example.invalid/while-held");
@@ -818,7 +818,7 @@ test("backup: copy, changes, restore in place with capture working after it; a b
     expect(await counts(page)).toMatchObject({ total: 3 });
     // The open window shows both. «after-copy» comes back under the id it had
     // before the restore, with a lower revision than the window saw then.
-    await page.getByRole("button", { name: /^Bookmarks/ }).click();
+    await page.getByRole("button", { name: /^All \d/ }).click();
     await expect(page.locator("[data-bookmark-id]")).toHaveCount(3);
     await expect(page.getByRole("button", { name: "after-copy", exact: true })).toBeVisible();
     await page.evaluate(() => window.__TAURI_INTERNALS__.invoke("quit_app")).catch(() => {});

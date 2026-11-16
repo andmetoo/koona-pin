@@ -92,6 +92,7 @@
     "inbox": "받은함",
     "inboxWaiting_other": "받은함: {{count}}개 대기 중",
     "all": "북마크",
+    "allRow": "전체",
     "favorites": "즐겨찾기",
     "reading": "읽을거리",
     "trash": "휴지통",
@@ -99,6 +100,9 @@
     "links": "링크 검사",
     "settings": "설정",
     "offline": "오프라인"
+  },
+  "mode": {
+    "label": "모드"
   },
   "browser": {
     "ready": "브라우저 연결됨",
@@ -985,7 +989,10 @@
     "trash": "휴지통이 비어 있어요",
     "trashHint": "삭제한 북마크는 30일 동안 여기에 남았다가 영구 삭제돼요.",
     "offline": "아직 오프라인 사본이 없어요",
-    "offlineHint": "북마크 메뉴에서 ‘오프라인용으로 저장’을, 읽기 모드에서 ‘오프라인 저장’을 선택하세요. 사본은 이 컴퓨터에 남아요."
+    "offlineHint": "북마크 메뉴에서 ‘오프라인용으로 저장’을, 읽기 모드에서 ‘오프라인 저장’을 선택하세요. 사본은 이 컴퓨터에 남아요.",
+    "feedSaved": "아직 피드에서 저장한 글이 없어요",
+    "feedSavedHint": "S 키나 북마크 버튼으로 글을 저장하세요. 피드에서 사라져도 북마크로 여기에 남아요.",
+    "feedSavedAction": "피드 열기"
   },
   "inbox": {
     "banner_other": "새 북마크 {{count}}개가 기다리고 있어요. 그대로 두거나 분류하거나 삭제하는 데 1분쯤 걸려요.",
@@ -1814,8 +1821,10 @@
   "feeds": {
     "title": "피드",
     "all": "모든 피드",
+    "savedFromFeeds": "피드에서 저장함",
     "follow": "사이트 팔로우…",
     "followSite": "사이트 팔로우",
+    "followButton": "사이트 팔로우",
     "newCount": "새 글 {{count}}",
     "updated": "업데이트: {{when}}",
     "offline": "오프라인",

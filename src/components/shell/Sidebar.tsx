@@ -1,5 +1,6 @@
 import { KeyboardEvent, PointerEvent, ReactNode, TransitionEvent, useEffect, useId, useMemo, useRef, useState } from "react";
-import { BookOpen, ChevronDown, CircleArrowDown, CircleArrowUp, Copy, Heart, Link, MoreHorizontal, Plus, Rss, Settings, Trash2, TriangleAlert, Unlink } from "lucide-react";
+import { BookmarkCheck, BookOpen, ChevronDown, CircleArrowDown, CircleArrowUp, Copy, Heart, Link, MoreHorizontal, Plus, Rss, Settings, Sun, Trash2, TriangleAlert, Unlink } from "lucide-react";
+import type { Mode } from "../../app/navigation";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { CaptureStatus, Collection, Feed, FilterState, LibraryCounts, Tag, UpdateStatus } from "../../types";
@@ -101,6 +102,17 @@ export interface SidebarProps {
   feedsOpen: boolean;
   feedUid: string | null;
   onFeed: (uid: string | null) => void;
+  /**
+   * The window's mode (2.24.0): Bookmarks shows the library's sections, Collections and Tags;
+   * Feeds shows All, Today, «Saved from feeds» and the feeds. The switch under the logo changes it.
+   */
+  mode: Mode;
+  onMode: (mode: Mode) => void;
+  /** «Today» of the Feeds mode is open. */
+  feedsToday: boolean;
+  onFeedsToday: () => void;
+  /** «Saved from feeds»: the library's posts saved from feeds, in the Feeds mode. */
+  onFeedsSaved: () => void;
   /** A feed's row menu: Rename, Where new posts go, Mark all read, Copy, Open site, Unfollow. */
   feedActions: FeedActions;
   /**
@@ -249,7 +261,14 @@ export function Sidebar(props: SidebarProps) {
   const inbox = library && filters.onlyInbox;
   const trash = library && filters.onlyTrash;
   const all =
-    library && !filters.collectionId && !filters.onlyFavorites && !filters.onlyInbox && !filters.onlyTrash && !filters.onlyReading && !filters.onlyOffline;
+    library && !filters.collectionId && !filters.onlyFavorites && !filters.onlyInbox && !filters.onlyTrash && !filters.onlyReading && !filters.onlyOffline && !filters.onlyFeed;
+  const feedsMode = props.mode === "feeds";
+  const savedOpen = library && filters.onlyFeed;
+  const feedsAll = feedsOpen && props.feedUid === null && !props.feedsToday;
+  const todayOpen = feedsOpen && props.feedsToday;
+  /** The main button: «New link» in Bookmarks, «Follow a site» in Feeds; `Ctrl N` follows it. */
+  // The button's own short form where «Follow a site» is long («Подписаться»): «Ctrl N» beside it on Linux.
+  const primary = feedsMode ? { label: t("feeds.followButton"), onClick: props.onFollowSite } : { label: t("sidebar.newLink"), onClick: props.onNewLink };
   const favorites = library && filters.onlyFavorites;
   const reading = library && filters.onlyReading;
   const offlineOpen = library && filters.onlyOffline;
@@ -366,21 +385,48 @@ export function Sidebar(props: SidebarProps) {
         <div className="mb-2">
           <NotificationCenter items={props.notifications} place="right" onClearAll={props.onClearNotifications} onOpen={props.onOpenUrl} />
         </div>
+        <ModeSwitch mode={props.mode} unread={unread} onMode={props.onMode} strip />
         <div className="mb-2">
-          <Hint label={t("sidebar.newLink")} keys={shortcut("N")} side="right">
+          <Hint label={primary.label} keys={shortcut("N")} side="right">
             <button
               type="button"
-              aria-label={t("sidebar.newLink")}
+              aria-label={primary.label}
               aria-keyshortcuts="Control+N Meta+N"
-              data-new-link
-              onClick={props.onNewLink}
+              data-new-link={feedsMode ? undefined : true}
+              data-follow-site={feedsMode || undefined}
+              onClick={primary.onClick}
               className="flex size-9 items-center justify-center rounded-full bg-ink-btn text-on-ink-btn shadow-[0_1px_2px_rgb(0_0_0/0.2),inset_0_1px_0_rgb(255_255_255/0.12)] transition-colors duration-150 hover:bg-ink-btn-hover"
             >
               <Icon icon={Plus} size={17} strokeWidth={2} />
             </button>
           </Hint>
         </div>
-        <StripButton label={t("nav.all")} active={all} onClick={props.onAll}>
+        {feedsMode ? (
+          <>
+            <StripButton label={unread > 0 ? `${t("nav.allRow")}: ${t("feeds.newCount", { count: unread })}` : t("nav.allRow")} active={feedsAll} onClick={() => props.onFeed(null)}>
+              <span className="relative" data-strip-feeds>
+                <Icon icon={Rss} />
+                {unread > 0 && <span className="absolute -top-0.5 -right-1 size-1.5 rounded-full bg-ink" />}
+              </span>
+            </StripButton>
+            <StripButton label={t("groups.today")} active={todayOpen} onClick={props.onFeedsToday}>
+              <Icon icon={Sun} />
+            </StripButton>
+            <StripButton label={t("feeds.savedFromFeeds")} active={savedOpen} onClick={props.onFeedsSaved}>
+              <Icon icon={BookmarkCheck} />
+            </StripButton>
+            <div className="my-2.5 h-px w-6 bg-line" />
+            <div className="sidebar-scroll -mx-2 flex min-h-0 flex-1 flex-col items-center gap-0.5 overflow-y-auto px-2" data-strip-feed-list>
+              {feeds.map((feed) => (
+                <StripButton key={feed.uid} label={feed.unread > 0 ? `${feedName(feed)}: ${feed.unread}` : feedName(feed)} active={feedsOpen && props.feedUid === feed.uid} onClick={() => props.onFeed(feed.uid)}>
+                  <FeedIcon feed={feed} size={16} />
+                </StripButton>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+        <StripButton label={t("nav.allRow")} active={all} onClick={props.onAll}>
           <Icon icon={ClipIcon} />
         </StripButton>
         <StripButton
@@ -423,15 +469,9 @@ export function Sidebar(props: SidebarProps) {
             </span>
           </StripButton>
         )}
-        {/* Feeds (NP-132): one button, a dot while there is something new. */}
-        <StripButton label={unread > 0 ? `${t("feeds.title")}: ${t("feeds.newCount", { count: unread })}` : t("feeds.title")} active={feedsOpen} onClick={() => props.onFeed(props.feedUid)}>
-          <span className="relative" data-strip-feeds>
-            <Icon icon={Rss} />
-            {unread > 0 && <span className="absolute -top-0.5 -right-1 size-1.5 rounded-full bg-ink" />}
-          </span>
-        </StripButton>
         <div className="my-2.5 h-px w-6 bg-line" />
-        <div ref={list} className="flex flex-col items-center gap-0.5">
+        {/* The collections scroll in a short window, not the sections above them (800 × 550, 2.24.0). */}
+        <div ref={list} className="sidebar-scroll -mx-2 flex min-h-0 flex-1 flex-col items-center gap-0.5 overflow-y-auto px-2">
           {tops.map(({ item: c }) => (
             <div key={c.id} data-collection-row={c.id} className={`relative ${moving?.from === c.id ? "opacity-45" : ""}`}>
               {moving?.over?.row === c.id && <LandingLine at={moving.over.edge === "before" ? "top" : "bottom"} />}
@@ -449,12 +489,14 @@ export function Sidebar(props: SidebarProps) {
             </div>
           ))}
         </div>
+          </>
+        )}
         {ghost}
         <span aria-live="polite" className="sr-only">
           {moved}
         </span>
         {styleDialog}
-        <div className="flex-1" />
+        {/* No spacer: the list above (collections, or feeds) takes the room and scrolls. */}
         {update && (
           <StripButton label={updateLabel(t, update)} onClick={props.onUpdate}>
             <span className={`relative ${update.state === "failed" ? "text-amber" : "text-update"}`}>
@@ -503,24 +545,44 @@ export function Sidebar(props: SidebarProps) {
         <span className="flex-1 self-stretch" data-tauri-drag-region />
         <NotificationCenter items={props.notifications} place="below" onClearAll={props.onClearNotifications} onOpen={props.onOpenUrl} />
       </div>
+      <ModeSwitch mode={props.mode} unread={unread} onMode={props.onMode} />
       <button
         type="button"
         aria-keyshortcuts="Control+N Meta+N"
-        data-new-link
-        onClick={props.onNewLink}
+        data-new-link={feedsMode ? undefined : true}
+        data-follow-site={feedsMode || undefined}
+        onClick={primary.onClick}
         className="mb-2.5 flex h-9 w-full shrink-0 items-center justify-between gap-2 rounded-[10px] bg-ink-btn pr-2 pl-3 text-left text-sm font-semibold text-on-ink-btn shadow-[0_1px_2px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.1)] transition-colors duration-150 hover:bg-ink-btn-hover"
       >
         <span className="flex min-w-0 items-center gap-2">
           <Icon icon={Plus} size={15} strokeWidth={2} className="shrink-0" />
-          <span className="truncate">{t("sidebar.newLink")}</span>
+          <span className="truncate">{primary.label}</span>
         </span>
         <kbd aria-hidden className="shrink-0 font-sans text-2xs font-semibold opacity-60">
           {shortcut("N")}
         </kbd>
       </button>
+      {feedsMode ? (
+        <nav aria-label={t("sidebar.sections")} className="flex flex-col gap-0.5">
+          <NavRow
+            icon={
+              <span className="flex size-4 items-center justify-center rounded-[4.5px] bg-ink-btn text-on-ink-btn">
+                <Icon icon={Rss} size={10} strokeWidth={2.5} />
+              </span>
+            }
+            label={t("nav.allRow")}
+            active={feedsAll}
+            onClick={() => props.onFeed(null)}
+            onPointerDown={pressRow(() => ({ kind: "feeds", label: t("feeds.all"), feeds }))}
+            trailing={<CountPill count={unread} current={feedsAll} />}
+          />
+          <NavRow icon={<Icon icon={Sun} />} label={t("groups.today")} active={todayOpen} onClick={props.onFeedsToday} />
+          <NavRow icon={<Icon icon={BookmarkCheck} />} label={t("feeds.savedFromFeeds")} count={counts.feed} active={savedOpen} onClick={props.onFeedsSaved} />
+        </nav>
+      ) : (
       <nav aria-label={t("sidebar.sections")} className="flex flex-col gap-0.5">
-        {/* Bookmarks first, then Inbox (owner, 2026-11-16): the library is the home the logo opens. */}
-        <NavRow icon={<Icon icon={ClipIcon} />} label={t("nav.all")} count={counts.total} active={all} onClick={props.onAll} />
+        {/* All first, then Inbox (owner, 2026-11-16): the library is the home the logo opens. */}
+        <NavRow icon={<Icon icon={ClipIcon} />} label={t("nav.allRow")} count={counts.total} active={all} onClick={props.onAll} />
         <NavRow
           icon={<Icon icon={InboxTray} />}
           label={t("nav.inbox")}
@@ -560,20 +622,14 @@ export function Sidebar(props: SidebarProps) {
         )}
         {links && <NavRow icon={<Icon icon={Unlink} />} label={t("nav.links")} count={counts.links} active={linksOpen} onClick={props.onLinks} />}
       </nav>
+      )}
 
       <div ref={scrollRef} className="sidebar-scroll -mx-3 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3" data-drop-scroll>
-      {/* Feeds (NP-132): above Collections, folding like them; folded, the unread count. */}
+      {/* Feeds (NP-132), in the Feeds mode (2.24.0): the followed sites, folding like Collections. */}
+      {feedsMode && (
+      <>
       <div ref={folds.header("feeds")} className="flex items-center pt-[22px] pr-2 pb-1.5 pl-2.5">
         <SectionHeader label={t("feeds.title")} count={unread} folded={feedsFolded} controls={feedsId} onToggle={() => folds.toggle("feeds")} />
-        <button
-          type="button"
-          aria-label={t("feeds.followSite")}
-          title={t("feeds.followSite")}
-          onClick={props.onFollowSite}
-          className="flex size-5 items-center justify-center rounded-sm text-subtle hover:bg-hover hover:text-ink"
-        >
-          <Icon icon={Plus} size={14} />
-        </button>
       </div>
       <Folding id={feedsId} folded={feedsFolded}>
         <nav aria-label={t("feeds.title")} data-sidebar-feeds className="flex flex-col gap-0.5">
@@ -589,18 +645,6 @@ export function Sidebar(props: SidebarProps) {
           ) : (
             props.feeds && (
               <>
-                <NavRow
-                  icon={
-                    <span className="flex size-4 items-center justify-center rounded-[4.5px] bg-ink-btn text-on-ink-btn">
-                      <Icon icon={Rss} size={10} strokeWidth={2.5} />
-                    </span>
-                  }
-                  label={t("feeds.all")}
-                  active={feedsOpen && props.feedUid === null}
-                  onClick={() => props.onFeed(null)}
-                  onPointerDown={pressRow(() => ({ kind: "feeds", label: t("feeds.all"), feeds }))}
-                  trailing={<CountPill count={unread} current={feedsOpen && props.feedUid === null} />}
-                />
                 {feeds.map((feed) => {
                   const problem = healthLine(feed, t, i18n.language);
                   const current = feedsOpen && props.feedUid === feed.uid;
@@ -642,6 +686,8 @@ export function Sidebar(props: SidebarProps) {
           )}
         </nav>
       </Folding>
+      </>
+      )}
       {feedMenuAt && (
         <Menu
           entries={feedMenu(feedMenuAt.feed, t, props.feedActions)}
@@ -654,6 +700,9 @@ export function Sidebar(props: SidebarProps) {
         />
       )}
 
+      {/* Collections and Tags, in the Bookmarks mode. */}
+      {!feedsMode && (
+      <>
       <div ref={folds.header("collections")} className="flex items-center pt-[22px] pr-2 pb-1.5 pl-2.5">
         <SectionHeader
           label={t("sidebar.collections")}
@@ -693,7 +742,6 @@ export function Sidebar(props: SidebarProps) {
           onAddToBundle={props.onAddToBundle}
           onFailed={props.onCollectionFailed}
         />
-        {rowStack}
         {styleDialog}
         {dropping && <NewCollectionTarget hot={sameDrop(dropping.target, { kind: "new" })} />}
         {props.naming && <NameField key={props.naming.suggested} {...props.naming} />}
@@ -751,6 +799,11 @@ export function Sidebar(props: SidebarProps) {
           </Folding>
         </>
       )}
+      </>
+      )}
+
+      {/* The card of a dragged row (a portal): in both modes, feeds and tags alike. */}
+      {rowStack}
 
       <div className="sidebar-foot mt-auto flex flex-col gap-0.5 pb-3.5" data-below={below || undefined}>
       {update && <UpdateRow update={update} percent={percent(props.update)} onClick={props.onUpdate} />}
@@ -991,6 +1044,78 @@ function NameField({ suggested, count, color, onCreate, onCancel }: NewCollectio
   );
 }
 
+/**
+ * The mode switch (2.24.0): Bookmarks and Feeds as two tabs in a well under the logo, the chosen one
+ * raised; in the narrow strip, two icons. The Feeds tab has a dot for new posts while Bookmarks is shown.
+ * `Ctrl 1` and `Ctrl 2` press them (app/shortcuts.ts).
+ */
+function ModeSwitch({ mode, unread, onMode, strip = false }: { mode: Mode; unread: number; onMode: (mode: Mode) => void; strip?: boolean }) {
+  const { t } = useTranslation();
+  const tabs = [
+    { id: "bookmarks" as const, icon: ClipIcon, label: t("nav.all"), key: "1" },
+    { id: "feeds" as const, icon: Rss, label: t("feeds.title"), key: "2" },
+  ];
+  // The 56 px strip of an 800 × 550 window has no room for two: one button goes to the other mode
+  // (its icon, a dot for new posts); the sections under it say which mode this is.
+  if (strip) {
+    const other = tabs.find((tab) => tab.id !== mode)!;
+    const waiting = other.id === "feeds" && unread > 0;
+    return (
+      <div className="mb-2" data-mode-switch={mode}>
+        <Hint label={waiting ? `${other.label}: ${t("feeds.newCount", { count: unread })}` : other.label} keys={shortcut(other.key)} side="right">
+          <button
+            type="button"
+            aria-label={other.label}
+            aria-keyshortcuts={`Control+${other.key} Meta+${other.key}`}
+            data-mode-other={other.id}
+            onClick={() => onMode(other.id)}
+            className="relative flex size-9 items-center justify-center rounded-[10px] bg-well text-icon transition-colors duration-150 hover:text-ink"
+          >
+            <Icon icon={other.icon} size={16} />
+            {waiting && <span data-mode-new className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-ink" />}
+          </button>
+        </Hint>
+      </div>
+    );
+  }
+  return (
+    <div
+      role="tablist"
+      aria-label={t("mode.label")}
+      data-mode-switch={mode}
+      // The tabs share the well by their labels' length («Bookmarks» is the longer); each sits in its
+      // Hint's wrapper, so the wrappers grow and the buttons fill them.
+      className={strip ? "mb-2 flex flex-col gap-0.5 rounded-xl bg-well p-[3px]" : "mb-2.5 flex shrink-0 gap-0.5 rounded-[10px] bg-well p-[3px] [&>span]:min-w-0 [&>span]:flex-auto"}
+    >
+      {tabs.map((tab) => {
+        const on = mode === tab.id;
+        const waiting = tab.id === "feeds" && !on && unread > 0;
+        return (
+          <Hint key={tab.id} label={waiting ? `${tab.label}: ${t("feeds.newCount", { count: unread })}` : tab.label} keys={shortcut(tab.key)} side={strip ? "right" : "bottom"}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={on}
+              aria-label={strip ? tab.label : undefined}
+              aria-keyshortcuts={`Control+${tab.key} Meta+${tab.key}`}
+              onClick={() => onMode(tab.id)}
+              className={`relative flex items-center justify-center rounded-[7px] transition-[background-color,color,box-shadow] duration-150 ${
+                strip ? "size-[34px]" : "h-7 w-full min-w-0 gap-1.5 px-2 text-[13px]"
+              } ${on ? "bg-raised font-semibold text-ink shadow-segment" : "font-medium text-muted hover:text-ink"}`}
+            >
+              {/* Text alone in the sidebar: an icon beside «Обележивачи» left no room; the strip has only icons. */}
+              {strip ? <Icon icon={tab.icon} size={16} className={on ? "shrink-0 text-accent" : "shrink-0 text-icon"} /> : <span className="truncate">{tab.label}</span>}
+              {/* New posts: a dot, as in the strip; the number is in the hint and on Feeds' «All». A count
+                  pill left no room for «Обележивачи» or «ブックマーク» beside it. */}
+              {waiting && <span data-mode-new className={strip ? "absolute top-1.5 right-1.5 size-1.5 rounded-full bg-ink" : "size-1.5 shrink-0 rounded-full bg-ink"} />}
+            </button>
+          </Hint>
+        );
+      })}
+    </div>
+  );
+}
+
 function NavRow({
   icon,
   label,
@@ -1088,7 +1213,7 @@ function StripButton({
       onPointerDown={onPointerDown}
       onKeyDown={onKeyDown}
       data-drop={drop?.attr}
-      className={`flex h-8 w-9 items-center justify-center rounded-[9px] transition-[background-color,color,box-shadow] duration-150 ${look}`}
+      className={`flex h-8 w-9 shrink-0 items-center justify-center rounded-[9px] transition-[background-color,color,box-shadow] duration-150 ${look}`}
     >
       {children}
     </button>

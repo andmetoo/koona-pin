@@ -20,4 +20,9 @@ keep?: Array<number>,
 /**
  * `FeedItemPage::next` of the page before; none for the first.
  */
-after?: string, limit: number, };
+after?: string, limit: number, 
+/**
+ * Only posts published (or, without a date, fetched) at or after this time in the stored
+ * format: «Today» of the Feeds mode, from the start of the local day.
+ */
+since?: string, };

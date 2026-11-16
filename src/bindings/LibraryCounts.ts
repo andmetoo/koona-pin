@@ -42,4 +42,8 @@ reading_unread: number,
  * Bookmarks outside the trash with an offline copy (NP-126): «Offline N».
  * Counted by the command too: schemas before 12 have no copies.
  */
-offline: number, };
+offline: number, 
+/**
+ * Bookmarks outside the trash saved from a feed (`source = 'feed'`): «Saved from feeds N».
+ */
+feed: number, };

@@ -74,7 +74,7 @@ test("“Add {view}” adds a collection, a tag, Bookmarks and a feed, each as i
   await expect(panel(page).getByRole("textbox", { name: "Title" })).toHaveValue("Development");
 
   // A tag of Bookmarks.
-  await sidebar(page).getByRole("button", { name: /^Bookmarks/ }).click();
+  await sidebar(page).getByRole("button", { name: /^All \d/ }).click();
   const tag = sidebar(page).getByRole("button", { name: "design", exact: true });
   await tag.click();
   await panel(page).locator("[data-bundle-add]").click();
@@ -88,7 +88,8 @@ test("“Add {view}” adds a collection, a tag, Bookmarks and a feed, each as i
   await expect(panel(page).locator("[data-bundle-section]").first()).toHaveAttribute("data-bundle-section", "links");
   await expect(panel(page).locator("[data-bundle-add]")).toHaveCount(0);
 
-  // A feed: into Feeds, last.
+  // A feed: into Feeds, last. The feeds are in the Feeds mode (2.24.0).
+  await page.getByRole("tab", { name: "Feeds" }).click();
   await sidebar(page).getByRole("button", { name: /^The Verge \d/ }).click();
   await panel(page).getByRole("button", { name: /^Add The Verge · 1$/ }).click();
   await expect(panel(page).locator("[data-bundle-section]").last()).toHaveAttribute("data-bundle-section", "feeds");
@@ -238,14 +239,18 @@ test("× hides the resting capsule; a drag brings it back and a drop on it adds"
 });
 
 test("the sidebar has no right-click menus; a reload empties the bundle", async ({ page }) => {
+  await sidebar(page).locator("[data-collection-row]").first().click({ button: "right" });
+  await expect(page.locator("[role=menu]")).toHaveCount(0);
+  // The feeds are in the Feeds mode (2.24.0).
+  await page.getByRole("tab", { name: "Feeds" }).click();
   for (const row of [
-    sidebar(page).locator("[data-collection-row]").first(),
-    sidebar(page).getByRole("button", { name: /^All feeds/ }),
+    sidebar(page).getByRole("navigation", { name: "Sections" }).getByRole("button", { name: /^All/ }),
     sidebar(page).locator("[data-feed-row]").first(),
   ]) {
     await row.click({ button: "right" });
     await expect(page.locator("[role=menu]")).toHaveCount(0);
   }
+  await page.getByRole("tab", { name: "Bookmarks" }).click();
   await select(page, ["Typography is a voice"]);
   await addSelection(page);
   await expect(capsule(page)).toBeVisible();

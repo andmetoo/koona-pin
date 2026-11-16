@@ -157,4 +157,6 @@ export interface FilterState {
   read: boolean | null;
   /** The «Offline» section (NP-126): bookmarks with an offline copy on this computer. */
   onlyOffline: boolean;
+  /** «Saved from feeds» of the Feeds mode: the posts saved as bookmarks (`source = 'feed'`). */
+  onlyFeed: boolean;
 }
