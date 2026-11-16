@@ -235,7 +235,8 @@ const VIEW_STEPS = {
     ready: `[...document.querySelectorAll("h1")].some((h) => h.textContent === ${lit(library.bookmarks.find((b) => b.article).title)}) && [...document.querySelectorAll("article img, img")].some((i) => i.src.startsWith("data:") && i.complete)`,
   },
   feeds: {
-    open: [click(label("feeds.all"))],
+    // The Feeds mode opens on All feeds, the post of feeds.last open.
+    open: [],
     ready: `[...document.querySelectorAll("h1, h2")].some((h) => h.textContent === ${lit(feeds.posts[feeds.open].title)})`,
   },
   triage: {
@@ -279,10 +280,12 @@ async function show(driver, theme, view) {
     "sidebar.tags": "folded",
     // The cache is new: its posts' ids follow feeds.json's order from 1.
     "feeds.last": JSON.stringify({ feed: null, item: feeds.open + 1 }),
+    // The window's mode (2.24.0) is remembered: Feeds for its view, Bookmarks for every other.
+    mode: view === "feeds" ? "feeds" : "bookmarks",
   };
   await driver.js(`(Object.entries(${lit(storage)}).forEach(([k, v]) => localStorage.setItem("koonapin." + k, v)), location.reload(), true)`);
   await sleep(300);
-  await driver.until(`document.readyState === "complete" && document.querySelectorAll("[data-bookmark-id]").length > 0`, "the library after a reload");
+  await driver.until(`document.readyState === "complete" && document.querySelectorAll("[data-bookmark-id], [data-feed-item]").length > 0`, "the library or the feeds after a reload");
   // Opened once, the notifications are read: the bell has no badge.
   await driver.until(`(() => { const bell = document.querySelector("[data-notification-bell]"); if (!/\\d/.test(bell.textContent)) return true; bell.click(); setTimeout(() => bell.click(), 200); return false; })()`, "the bell read");
   for (const step of steps.open) {

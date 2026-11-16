@@ -60,6 +60,8 @@ Not translated: Koona Pin, Windows, Chrome, Edge, Firefox, Chrome Web Store, Edg
 | Sort inbox | The keyboard-driven review of the inbox (triage). In English it shares "Sort" with "Sort by"; in other languages use different words for the two. |
 | Keep | The triage decision to leave a bookmark as it is and take it out of the inbox. |
 | Collection | A named group a bookmark belongs to (at most one). Shown in the sidebar. |
+| Bookmarks / Feeds (modes) | The window's two modes (2.24.0), the tabs at the top of the sidebar. «Bookmarks» is also the library's main section; inside a mode its first row is «All». Keep both tab names short: they share a 200 px switch. |
+| Saved from feeds | The Feeds mode's list of posts saved as bookmarks. A short form is fine where it is long (Turkish «Kaydedilenler»). |
 | Tag | A free label; a bookmark can have many. |
 | Note | The person's own text on a bookmark. |
 | Favorites | Bookmarks marked with a heart. |
