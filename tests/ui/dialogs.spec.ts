@@ -300,7 +300,7 @@ test("dialogs with tabs keep their size and place when the tab changes", async (
     }
     await page.keyboard.press("Escape");
   };
-  await page.getByRole("button", { name: "No browser yet" }).click();
+  await page.getByRole("button", { name: "Connect browser" }).click();
   await steady("Connect browser", ["Edge", "Firefox", "Chrome"]);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await settingsGroup(page, "connections");
@@ -339,7 +339,7 @@ for (const [width, height] of [[1200, 800], [800, 550]]) {
     // Bottom: the capsule's place, 24 + 48 + 12 over the main area's bottom, even with no capsule shown.
     expect(first).toEqual({ x: width - 24 - 380, y: room.bottom - 84 - tallest(24), width: 380, height: tallest(24) });
     expect(first.y).toBeGreaterThanOrEqual(room.toolbar + 12);
-    await panel.getByRole("button", { name: /^Add All bookmarks/ }).click();
+    await panel.getByRole("button", { name: /^Add Bookmarks/ }).click();
     await expect(panel.locator("[data-bundle-row]").first()).toBeVisible();
     expect(await box(), "full").toEqual(first);
     await panel.locator("[data-bundle-row] > button").first().click();

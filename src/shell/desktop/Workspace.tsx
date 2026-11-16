@@ -115,7 +115,8 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     narrow,
     narrowed,
     navigate,
-    notesRequest,
+    fieldRequest,
+    requestedField,
     notice,
     notifications,
     offeredName,
@@ -207,7 +208,8 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     <BookmarkEditor
       key={editing.id}
       bookmark={editing}
-      notesRequest={notesRequest}
+      fieldRequest={fieldRequest}
+      field={requestedField}
       collections={library.collections}
       onOpen={actions.open}
       onCancel={closeEditor}
@@ -485,6 +487,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
           setSurface("collection");
         }}
         onNewLink={() => setSurface("add")}
+        onFollowSite={() => setSurface("follow")}
         onDeleteCollection={setDeletingCollection}
         onMoveCollection={library.moveCollection}
         onRenameCollection={library.renameCollection}
@@ -592,7 +595,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
                 onNotice={({ text, alert = false, undo, glass = false }) => setNotice({ text, alert, undo, glass })}
                 onUnsave={(id) => unsave(id, false)}
                 onUndo={undoing}
-                onNewLink={() => setSurface("add")}
+                onFollowSite={() => setSurface("follow")}
               />
               {bundleHere}
               </>
@@ -847,8 +850,9 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
           {editor}
         </Dialog>
       )}
-      {surface === "add" && (
+      {(surface === "add" || surface === "follow") && (
         <AddSheet
+          toFollow={surface === "follow"}
           collections={library.collections}
           destination={destinationOf(filters)}
           collectionId={filters.collectionId}

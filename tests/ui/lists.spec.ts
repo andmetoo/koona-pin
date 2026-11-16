@@ -80,7 +80,7 @@ test("a list: the preview (K10), Accept, the report, then “Show collection”"
   await d.getByRole("button", { name: "Accept" }).click();
 
   await expect(d.getByRole("status")).toHaveText("List imported");
-  await expect(d).toContainText("3 bookmarks added to Library");
+  await expect(d).toContainText("3 bookmarks added");
   await expect(d.locator("[data-list-report]")).toContainText("Added3");
   await expect(d.locator("[data-list-report]")).toContainText("Feeds followed1");
   expect(await box(page)).toEqual(first);

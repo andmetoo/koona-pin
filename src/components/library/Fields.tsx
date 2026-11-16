@@ -1,4 +1,4 @@
-import { ChangeEvent, CompositionEvent, FormEvent, KeyboardEvent, useId, useRef, useState } from "react";
+import { ChangeEvent, CompositionEvent, FormEvent, KeyboardEvent, Ref, useId, useRef, useState } from "react";
 import { ChevronDown, Tag as TagIcon, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Collection, Tag } from "../../types";
@@ -199,11 +199,14 @@ export function TagInput({
   tags,
   onChange,
   describedBy,
+  inputRef,
 }: {
   id: string;
   tags: string[];
   onChange: (tags: string[]) => void;
   describedBy?: string;
+  /** The field itself: the editor puts the caret here for «Add tag…». */
+  inputRef?: Ref<HTMLInputElement>;
 }) {
   const { t, i18n } = useTranslation();
   const [draft, setDraft] = useState("");
@@ -243,6 +246,7 @@ export function TagInput({
         </span>
       ))}
       <input
+        ref={inputRef}
         id={id}
         value={draft}
         aria-describedby={describedBy}

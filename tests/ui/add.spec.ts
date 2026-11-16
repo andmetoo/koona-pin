@@ -71,7 +71,7 @@ test("the sheet saves to Library, Inbox and Reading, with a preview and the sugg
   const design = sheet(page).getByRole("button", { name: "Design", exact: true });
   await expect(design).toHaveAttribute("aria-pressed", "true");
   await expect(design).toHaveAttribute("data-suggested", "true");
-  await expect(sheet(page).getByRole("button", { name: "Library", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(sheet(page).getByRole("button", { name: "Bookmarks", exact: true })).toHaveAttribute("aria-pressed", "true");
   // Typed: the first Enter looks the page up, the second saves it.
   await page.keyboard.press("Enter");
   await expect(sheet(page).getByRole("button", { name: "Save link" })).toBeEnabled();
@@ -133,7 +133,7 @@ test("the sheet: a link that is not one, a link already saved and “Show it”"
 test("⌘V in the library saves a link at once; Undo takes it away; text and fields are left alone", async ({ page }) => {
   const count = await page.locator("[data-bookmark-id]").count();
   await paste(page, "https://example.com/pasted");
-  await expect(toast(page)).toContainText("Saved to Library");
+  await expect(toast(page)).toContainText("Saved to Bookmarks");
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(count + 1);
   await expect(page.locator("[data-bookmark-id]").first()).toContainText("example.com");
   await toast(page).getByRole("button", { name: "Undo" }).click();
@@ -201,14 +201,14 @@ test("a link dragged over the window shows the drop zone; dropped, it is saved, 
   await expect(zone).toBeVisible();
   await expect(zone).toHaveAttribute("data-drop-zone", "link");
   await expect(zone).toContainText("Drop to save the link");
-  await expect(zone).toContainText("It goes to Library; hold Shift to send it to Inbox");
+  await expect(zone).toContainText("It goes to Bookmarks; hold Shift to send it to Inbox");
   // Said once through the live region.
-  await expect(page.locator("[data-announcer]")).toHaveText("Drop to save the link. It goes to Library; hold Shift to send it to Inbox");
+  await expect(page.locator("[data-announcer]")).toHaveText("Drop to save the link. It goes to Bookmarks; hold Shift to send it to Inbox");
   await drag("dragover", { link: "https://example.com/dropped", shift: true });
   await expect(zone).toContainText("It goes to Inbox");
   await drag("drop", { link: "https://example.com/dropped" });
   await expect(zone).toHaveCount(0);
-  await expect(toast(page)).toContainText("Saved to Library");
+  await expect(toast(page)).toContainText("Saved to Bookmarks");
   await expect(page.locator("[data-bookmark-id]").first()).toContainText("example.com");
 
   await drag("dragenter", { link: "https://example.com/dropped-later" });
@@ -261,7 +261,7 @@ test("over the sidebar or the toolbar a drag from outside shows no zone and its 
   // A drop that comes with no coordinates goes by where the last dragover was.
   await dragAt(page, "dragenter", { link: "https://example.com/zero" });
   await dragAt(page, "drop", { link: "https://example.com/zero" }, "zero");
-  await expect(page.locator("[data-glass-toast]")).toContainText("Saved to Library");
+  await expect(page.locator("[data-glass-toast]")).toContainText("Saved to Bookmarks");
   await dragAt(page, "dragenter", { link: "https://example.com/zero-off" }, "sidebar");
   await dragAt(page, "drop", { link: "https://example.com/zero-off" }, "zero");
   await page.waitForTimeout(400);
@@ -282,7 +282,7 @@ test("at 800 × 550, beside the sidebar's strip, the zone covers the list and a 
   await expect(zone.locator(".drop-zone-words")).toBeInViewport({ ratio: 1 });
   await dragAt(page, "drop", { link: "https://example.com/small" });
   await expect(zone).toHaveCount(0);
-  await expect(page.locator("[data-glass-toast]")).toContainText("Saved to Library");
+  await expect(page.locator("[data-glass-toast]")).toContainText("Saved to Bookmarks");
 });
 
 /**

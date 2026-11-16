@@ -4,6 +4,9 @@ import { restoreFocus } from "../components/ui/focus";
 import { useBack } from "../platform/useBack";
 import type { Bookmark } from "../types";
 
+/** A field of the editor that can take the caret when it opens instead of the title. */
+export type EditorField = "notes" | "tags";
+
 /** The bookmark's editor (frame 05): beside the list in a wide window, a drawer otherwise. */
 export function useEditing() {
   const [editing, setEditingState] = useState<Bookmark | null>(null);
@@ -13,15 +16,18 @@ export function useEditing() {
    */
   const editorSession = useRef(0);
   /**
-   * Asked for the note (the note marker, #410): a new number for each such open, never reused, 0
-   * otherwise. The editor already open for that bookmark moves its caret there too, keeping its
+   * Asked for a field instead of the title, the note (the note marker, #410) or the tags («Add tag…»):
+   * a new number for each such open, never reused, 0 otherwise. The editor already open for that bookmark moves its caret there too, keeping its
    * draft, and one remounted later (the window crossing to the drawer) does not move it again.
    */
-  const [notesRequest, setNotesRequest] = useState(0);
-  const notesRequests = useRef(0);
-  const setEditing = useCallback((b: Bookmark | null, field: "notes" | null = null) => {
+  const [fieldRequest, setFieldRequest] = useState(0);
+  const fieldRequests = useRef(0);
+  /** Which field the request is for: the note, or the tags («Add tag…» of the card menu). */
+  const [requestedField, setRequestedField] = useState<EditorField>("notes");
+  const setEditing = useCallback((b: Bookmark | null, field: EditorField | null = null) => {
     editorSession.current++;
-    setNotesRequest(field === "notes" ? ++notesRequests.current : 0);
+    setFieldRequest(field ? ++fieldRequests.current : 0);
+    if (field) setRequestedField(field);
     setEditingState(b);
   }, []);
   const editingRef = useRef(editing);
@@ -45,7 +51,7 @@ export function useEditing() {
   // as long as it is open, so moving between the two (a Fold opening) keeps its place under a
   // dialog opened over it; the drawer does not register itself (`back={false}`).
   useBack(closeEditor, !!editing);
-  return { editing, setEditing, editingRef, editorSession, notesRequest, editorFocus, editHooks, closeEditor };
+  return { editing, setEditing, editingRef, editorSession, fieldRequest, requestedField, editorFocus, editHooks, closeEditor };
 }
 
 export type Editing = ReturnType<typeof useEditing>;

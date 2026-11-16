@@ -75,16 +75,16 @@ test("S, R, F and O work from the keys and the toolbar", async ({ page }) => {
   // Beside the list there is nothing to go back to: no ← (2.1.3).
   await expect(sheet(page).getByRole("button", { name: "Back to the list" })).toHaveCount(0);
   await page.keyboard.press("s");
-  await expect(page.getByText("Saved to Library")).toBeVisible();
+  await expect(page.getByText("Saved to Bookmarks")).toBeVisible();
   await expect(sheet(page).getByRole("button", { name: "Saved", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(posts(page).nth(2).locator("[data-feed-saved]")).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: /All bookmarks/ })).toContainText("7");
+  await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: /Bookmarks/ })).toContainText("7");
   // R puts the saved post into Reading; again takes it out.
   await page.keyboard.press("r");
-  await expect(sheet(page).getByRole("button", { name: "Read later" })).toHaveAttribute("aria-pressed", "true");
+  await expect(sheet(page).getByRole("button", { name: "Send to Reading" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: /Reading/ })).toContainText("4");
-  await sheet(page).getByRole("button", { name: "Read later" }).click();
-  await expect(sheet(page).getByRole("button", { name: "Read later" })).toHaveAttribute("aria-pressed", "false");
+  await sheet(page).getByRole("button", { name: "Send to Reading" }).click();
+  await expect(sheet(page).getByRole("button", { name: "Send to Reading" })).toHaveAttribute("aria-pressed", "false");
   await page.keyboard.press("f");
   await expect(sheet(page).getByRole("button", { name: "Favorite" })).toHaveAttribute("aria-pressed", "true");
   // F on another post saves it as a favourite at once.
@@ -105,7 +105,7 @@ test("a post saved by S goes again with Undo", async ({ page }) => {
   await expect(posts(page).first().locator("[data-feed-saved]")).toBeVisible();
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(posts(page).first().locator("[data-feed-saved]")).toHaveCount(0);
-  await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: /All bookmarks/ })).toContainText("6");
+  await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: /Bookmarks/ })).toContainText("6");
 });
 
 test("⇧A marks all read; a feed's menu marks its own", async ({ page }) => {

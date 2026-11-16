@@ -170,7 +170,7 @@ test("an import refreshes the bookmarks it created, joining a run under way, and
   await (await chooser).setFiles(new URL("../fixtures/bookmarks/chrome.html", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"));
   await page.getByRole("dialog").getByRole("button", { name: "Import", exact: true }).click();
   const report = page.getByRole("dialog", { name: "Import finished" });
-  await expect(report.getByRole("status")).toHaveText("7 bookmarks added to Library");
+  await expect(report.getByRole("status")).toHaveText("7 bookmarks added");
   await expect(report).toContainText("Pictures, icons and site names are being fetched in the background.");
   await report.getByRole("button", { name: "Done" }).click();
   const state = await page.evaluate(async () => {

@@ -69,6 +69,8 @@ export interface SidebarProps {
   onNewCollection: () => void;
   /** «New link» (2026-10-16): the ink button under the logo, a round «+» in the strip; `⌘N` too. */
   onNewLink: () => void;
+  /** «Follow a site»: New link that says it is for following (review 2026-11-16). */
+  onFollowSite: () => void;
   onDeleteCollection: (collection: Collection) => void;
   /** A collection moved by a drag, `Alt` + arrows or «Move to» (NP-114, 2.19.0); shown at once. */
   onMoveCollection: (move: CollectionMove) => Promise<void>;
@@ -128,6 +130,51 @@ const DRAG_OPEN_MS = 600;
 type Fold = "feeds" | "collections" | "tags";
 const FOLDS: Fold[] = ["feeds", "collections", "tags"];
 const storedFolds = () => new Set(FOLDS.filter((name) => storedValue(`sidebar.${name}`) === "folded"));
+
+/**
+ * Whether more of the sidebar's middle lies under its footer: then the footer draws a hairline on
+ * top, so the rows cut by it read as a list that scrolls, not as a drawing fault (review 2026-11-16).
+ */
+function useMoreBelow(narrow: boolean | undefined) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [below, setBelow] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    // Measured once a frame at most: reading the heights forces a layout.
+    let frame = 0;
+    const check = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        setBelow(el.scrollTop + el.clientHeight < el.scrollHeight - 1);
+      });
+    };
+    // Every section's height (a fold opening, «+ N more» tags), the sections that come later (Tags
+    // once the library has tags) included; the container itself for the window's height.
+    const sizes = new ResizeObserver(check);
+    sizes.observe(el);
+    for (const child of Array.from(el.children)) sizes.observe(child);
+    // Sections that come and go (Tags with the first tag, gone with the last): watched while there.
+    const sections = new MutationObserver((records) => {
+      for (const record of records) {
+        record.addedNodes.forEach((node) => node instanceof Element && sizes.observe(node));
+        record.removedNodes.forEach((node) => node instanceof Element && sizes.unobserve(node));
+      }
+      check();
+    });
+    sections.observe(el, { childList: true });
+    el.addEventListener("scroll", check, { passive: true });
+    check();
+    return () => {
+      cancelAnimationFrame(frame);
+      el.removeEventListener("scroll", check);
+      sizes.disconnect();
+      sections.disconnect();
+    };
+  }, [narrow]);
+  return { ref, below };
+}
 
 /**
  * The folded sections of the sidebar (2026-10-16), each remembered. While the
@@ -208,7 +255,8 @@ export function Sidebar(props: SidebarProps) {
   const offlineOpen = library && filters.onlyOffline;
   /** Shown while there are copies, or while the section is open. */
   const offline = counts.offline > 0 || offlineOpen;
-  const status = { color: statusColor(capture), label: statusLabel(capture, t) };
+  // No browser yet: the row says what it does, «Connect browser», not the state (review 2026-11-16).
+  const status = { color: statusColor(capture), label: capture?.state === "none" ? t("browser.connectRow") : statusLabel(capture, t) };
   const update = offer(props.update);
   const { dropping } = props;
   /** While dragging: the element's `data-drop` and whether the pointer is over it. */
@@ -218,6 +266,7 @@ export function Sidebar(props: SidebarProps) {
   const favoritesDrop = drop({ kind: "favorites" });
   const readingDrop = drop({ kind: "reading" });
   const folds = useFolds(!!dropping);
+  const { ref: scrollRef, below } = useMoreBelow(narrow);
   const collectionsId = useId();
   const tagsId = useId();
   // The name field of «New collection from selection» is never hidden in a folded section.
@@ -307,7 +356,7 @@ export function Sidebar(props: SidebarProps) {
 
   if (narrow)
     return (
-      <aside className="sidebar-strip flex w-14 shrink-0 flex-col items-center gap-0.5 bg-panel py-3.5" aria-label={t("sidebar.label")}>
+      <aside data-sidebar className="sidebar-strip flex w-14 shrink-0 flex-col items-center gap-0.5 bg-panel py-3.5" aria-label={t("sidebar.label")}>
         <div className="mac-lights self-stretch" data-tauri-drag-region />
         <div className="mb-2 text-accent" data-tauri-drag-region>
           <button type="button" tabIndex={-1} aria-label="koona pin" onClick={props.onAll} className="block">
@@ -331,6 +380,9 @@ export function Sidebar(props: SidebarProps) {
             </button>
           </Hint>
         </div>
+        <StripButton label={t("nav.all")} active={all} onClick={props.onAll}>
+          <Icon icon={ClipIcon} />
+        </StripButton>
         <StripButton
           label={counts.inbox > 0 ? t("nav.inboxWaiting", { count: counts.inbox }) : t("nav.inbox")}
           active={inbox}
@@ -340,9 +392,6 @@ export function Sidebar(props: SidebarProps) {
             <Icon icon={InboxTray} />
             {counts.inbox > 0 && <span className="absolute -top-0.5 -right-1 size-1.5 rounded-full bg-accent" />}
           </span>
-        </StripButton>
-        <StripButton label={t("nav.all")} active={all} onClick={props.onAll}>
-          <Icon icon={ClipIcon} />
         </StripButton>
         <StripButton label={t("nav.favorites")} active={favorites} onClick={props.onFavorites} drop={favoritesDrop}>
           <Icon icon={Heart} />
@@ -443,10 +492,10 @@ export function Sidebar(props: SidebarProps) {
   // footer's glass (2026-10-16). No scrollbar: one that came and went cut long labels in WebKitGTK
   // (NP-132), and WKWebView flashed it over the reading mode as the mode opened.
   return (
-    <aside className="flex w-[232px] shrink-0 flex-col gap-0.5 bg-panel pt-3.5 pr-3 pl-3" aria-label={t("sidebar.label")}>
+    <aside data-sidebar className="flex w-[232px] shrink-0 flex-col gap-0.5 bg-panel pt-3.5 pr-3 pl-3" aria-label={t("sidebar.label")}>
       <div className="mac-lights" data-tauri-drag-region />
       <div className="flex items-center gap-2.5 pt-1.5 pr-0 pb-2.5 pl-2 text-accent" data-tauri-drag-region>
-        {/* The logo goes home, to All bookmarks (2026-10-16); the keyboard has the row below. */}
+        {/* The logo goes home, to Bookmarks (2026-10-16); the keyboard has the row below. */}
         <button type="button" tabIndex={-1} aria-label="koona pin" onClick={props.onAll} className="flex min-w-0 items-center gap-2.5">
           <Mascot className="pointer-events-none" />
           <span className="truncate text-lg font-semibold">koona pin</span>
@@ -470,6 +519,8 @@ export function Sidebar(props: SidebarProps) {
         </kbd>
       </button>
       <nav aria-label={t("sidebar.sections")} className="flex flex-col gap-0.5">
+        {/* Bookmarks first, then Inbox (owner, 2026-11-16): the library is the home the logo opens. */}
+        <NavRow icon={<Icon icon={ClipIcon} />} label={t("nav.all")} count={counts.total} active={all} onClick={props.onAll} />
         <NavRow
           icon={<Icon icon={InboxTray} />}
           label={t("nav.inbox")}
@@ -477,7 +528,6 @@ export function Sidebar(props: SidebarProps) {
           active={inbox}
           onClick={props.onInbox}
         />
-        <NavRow icon={<Icon icon={ClipIcon} />} label={t("nav.all")} count={counts.total} active={all} onClick={props.onAll} />
         <NavRow
           icon={<Icon icon={Heart} />}
           label={t("nav.favorites")}
@@ -511,7 +561,7 @@ export function Sidebar(props: SidebarProps) {
         {links && <NavRow icon={<Icon icon={Unlink} />} label={t("nav.links")} count={counts.links} active={linksOpen} onClick={props.onLinks} />}
       </nav>
 
-      <div className="sidebar-scroll -mx-3 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3" data-drop-scroll>
+      <div ref={scrollRef} className="sidebar-scroll -mx-3 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3" data-drop-scroll>
       {/* Feeds (NP-132): above Collections, folding like them; folded, the unread count. */}
       <div ref={folds.header("feeds")} className="flex items-center pt-[22px] pr-2 pb-1.5 pl-2.5">
         <SectionHeader label={t("feeds.title")} count={unread} folded={feedsFolded} controls={feedsId} onToggle={() => folds.toggle("feeds")} />
@@ -519,7 +569,7 @@ export function Sidebar(props: SidebarProps) {
           type="button"
           aria-label={t("feeds.followSite")}
           title={t("feeds.followSite")}
-          onClick={props.onNewLink}
+          onClick={props.onFollowSite}
           className="flex size-5 items-center justify-center rounded-sm text-subtle hover:bg-hover hover:text-ink"
         >
           <Icon icon={Plus} size={14} />
@@ -530,7 +580,7 @@ export function Sidebar(props: SidebarProps) {
           {props.feeds && feeds.length === 0 ? (
             <button
               type="button"
-              onClick={props.onNewLink}
+              onClick={props.onFollowSite}
               className="flex h-8 items-center gap-2.5 rounded-[9px] px-2.5 text-left text-sm text-subtle transition-colors duration-150 hover:bg-hover hover:text-ink"
             >
               <Icon icon={Plus} size={14} className="mx-px shrink-0" />
@@ -702,7 +752,7 @@ export function Sidebar(props: SidebarProps) {
         </>
       )}
 
-      <div className="sidebar-foot mt-auto flex flex-col gap-0.5 pb-3.5">
+      <div className="sidebar-foot mt-auto flex flex-col gap-0.5 pb-3.5" data-below={below || undefined}>
       {update && <UpdateRow update={update} percent={percent(props.update)} onClick={props.onUpdate} />}
       {props.plan && <PlanRow plan={props.plan} badge={props.badge} onClick={props.plan === "free" ? props.onSupport : props.onPlan} />}
       {capabilities.browser_capture && (

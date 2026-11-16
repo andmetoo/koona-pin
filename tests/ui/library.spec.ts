@@ -135,9 +135,9 @@ test("inbox: new links wait there until a decision, triage Esc goes back to it, 
       const { api } = await import("/src/services/api.ts");
       await api.addBookmark({ url, title: "From the browser" });
     }, url);
-  // All bookmarks include the inbox; no banner over the list, the bell tells about it.
+  // Bookmarks include the inbox; no banner over the list, the bell tells about it.
   await expect(inbox(2)).toBeVisible();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/All bookmarks\s*6/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Bookmarks\s*6/);
   await expect(banner).toHaveCount(0);
   await bell(page).click();
   await expect(waiting).toContainText("2 new in Inbox");
@@ -175,7 +175,7 @@ test("inbox: new links wait there until a decision, triage Esc goes back to it, 
   await expect(cards).toHaveCount(1);
 
   // Hidden until a bookmark newer than the ones waiting arrives (the restart: notifications.spec.ts).
-  await page.getByRole("button", { name: "All bookmarks" }).click();
+  await page.getByRole("button", { name: /^Bookmarks/ }).click();
   await bell(page).click();
   await waiting.getByRole("button", { name: "Hide until new bookmarks arrive" }).click();
   await expect(waiting).toHaveCount(0);
@@ -221,7 +221,7 @@ test("trash: delete without a dialog, undo, restore with every field, a link sav
   await trashCard(3);
   await trashCard(1);
   await expect(nav("Favorites 0")).toBeVisible();
-  await expect(nav("All bookmarks 4")).toBeVisible();
+  await expect(nav("Bookmarks 4")).toBeVisible();
   await expect(nav("Design 0")).toBeVisible();
   await page.getByRole("textbox", { name: "Search the library" }).fill("principles");
   await expect(cards).toHaveCount(0);
@@ -320,7 +320,7 @@ test("trash: deleting for good asks first, “Keep” keeps it, emptying takes t
   await empty.getByRole("button", { name: "Delete forever" }).click();
   await expect(toast).toContainText("Trash emptied: 2 bookmarks deleted for good");
   await expect(page.getByRole("heading", { name: "Trash is empty" })).toBeVisible();
-  await expect(nav("All bookmarks 3")).toBeVisible();
+  await expect(nav("Bookmarks 3")).toBeVisible();
   // Gone after a restart too.
   await page.reload();
   await expect(nav("Trash 0")).toBeVisible();
@@ -481,7 +481,7 @@ test("triage: every key, a failed decision, undo, a new link, the end and back t
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("Enter");
   // Ten bookmarks, one of them in the trash.
-  await expect(heading).toHaveText(/All bookmarks\s*9/);
+  await expect(heading).toHaveText(/Bookmarks\s*9/);
 });
 test("triage: a collection is suggested by the site, explained, and nothing changes until chosen", async ({ page }) => {
   // Two links from example.org already lie in «Inspiration»; a third waits.
@@ -739,11 +739,11 @@ async function openImport(page: import("@playwright/test").Page, file: string | 
 test("import: browser folders become collections and tags, the report gives reasons, a repeated import changes nothing", async ({ page }) => {
   const dialog = await openImport(page, fixture("chrome"));
   await expect(dialog).toContainText("7 links in 4 folders · choose another file");
-  await expect(dialog.getByRole("radio", { name: "Library" })).toHaveAttribute("aria-checked", "true");
+  await expect(dialog.getByRole("radio", { name: "Bookmarks" })).toHaveAttribute("aria-checked", "true");
   await dialog.getByRole("button", { name: "Import", exact: true }).click();
 
   const report = page.getByRole("dialog", { name: "Import finished" });
-  await expect(report.getByRole("status")).toHaveText("7 bookmarks added to Library");
+  await expect(report.getByRole("status")).toHaveText("7 bookmarks added");
   await expect(report).toContainText("4 new collections: Работа, Работа/Rust and 2 more");
   await expect(report).toContainText("Skipped3");
   await expect(report).toContainText("Repeated within the file1");
@@ -1004,7 +1004,7 @@ test("duplicates: the section groups the same page, the main one is chosen, merg
   await expect(page.getByRole("heading", { name: "No duplicates" })).toBeVisible();
 
   // The kept bookmark has everything; a page with another parameter was never a duplicate.
-  await nav("All bookmarks 7").click();
+  await nav("Bookmarks 7").click();
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(7);
 });
 
@@ -1068,7 +1068,7 @@ test("import of 10 000 links shows progress and keeps the window usable", async 
   await expect(page.getByRole("progressbar")).toBeVisible();
   // Escape does not close it while the file is being written.
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog", { name: "Import finished" }).getByRole("status")).toHaveText("10,000 bookmarks added to Library", { timeout: 20_000 });
+  await expect(page.getByRole("dialog", { name: "Import finished" }).getByRole("status")).toHaveText("10,000 bookmarks added", { timeout: 20_000 });
 });
 
 test("a large library loads page by page while scrolling", async ({ page }) => {
@@ -1233,7 +1233,7 @@ test("sort: the menu orders every section, by title and site without date groups
 
   // Kept like the view.
   await page.reload();
-  await page.getByRole("button", { name: "All bookmarks" }).click();
+  await page.getByRole("button", { name: /^Bookmarks/ }).click();
   await expect(page.getByRole("button", { name: /^Sort: / })).toHaveAccessibleName("Sort: Site A–Z");
 });
 
@@ -1259,7 +1259,7 @@ test("collections: a drag puts one in another place, Esc and a drop outside chan
   await page.mouse.up();
   expect(await names()).toEqual(["Design", "To read", "Development", "Inspiration"]);
   // The drop did not open the collection it ended on.
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("All bookmarks");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Bookmarks");
 
   // Esc while moving, and a drop outside the list: nothing changes.
   const design = (await row("Design").boundingBox())!;
@@ -1567,7 +1567,7 @@ test("reading: the sidebar counts the unread, R sends the selection and takes it
   await expect(page.getByRole("main").getByRole("heading", { level: 1 })).toContainText("Reading");
 
   // R in the library sends the selection; Ctrl Z takes it back whole.
-  await sidebar.getByRole("button", { name: /^All bookmarks/ }).click();
+  await sidebar.getByRole("button", { name: /^Bookmarks/ }).click();
   await selectCards(page, ["Noticing the everyday", "Notes on attention"]);
   await page.keyboard.press("r");
   await expect(notice(page, "2 bookmarks sent to Reading")).toBeVisible();
@@ -1668,7 +1668,7 @@ test("bulk actions: a new collection from the selection, export of the selected,
   await expect(bar).toHaveCount(0);
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "All bookmarks" }).click();
+  await page.getByRole("button", { name: /^Bookmarks/ }).click();
   await selectCards(page, ["Ten principles for good design", "Noticing the everyday"]);
   await page.keyboard.press("Delete");
   await page.getByRole("button", { name: /^Trash/ }).click();
@@ -1745,13 +1745,13 @@ test("drag: the selection onto a collection, a tag and the trash; the hint names
   // Every tag is a target while dragging, the hidden ones too; the hint follows the pointer.
   const tags = sidebar.locator('[data-drop^="tag:"]');
   await expect(sidebar.getByRole("button", { name: /^\+ \d+ more/ })).toBeVisible();
-  await dragOver(page, preview, sidebar.getByRole("button", { name: /^All bookmarks/ }));
+  await dragOver(page, preview, sidebar.getByRole("button", { name: /^Bookmarks/ }));
   await expect(dropHint(page)).toHaveText("Drop on a collection, a tag, Favorites, Reading or Trash");
   await expect(tags).toHaveCount(10);
   await expect(sidebar.getByRole("button", { name: /^\+ \d+ more/ })).toHaveCount(0);
   const last = tags.last();
   const tag = (await last.textContent())!;
-  // Off the sidebar first: «All bookmarks» is in its top edge, where the drag scrolls it up every
+  // Off the sidebar first: «Bookmarks» is in its top edge, where the drag scrolls it up every
   // frame, and would pull the list back down under the box measured below (the tag above it, on CI).
   const library = (await page.locator('[data-scroll="main"]').boundingBox())!;
   await page.mouse.move(library.x + library.width / 2, library.y + library.height / 2, { steps: 4 });
@@ -1830,7 +1830,7 @@ test("drag: Esc and a drop outside a target change nothing; an unselected card s
   await expect(page.locator("[data-dragging]")).toHaveCount(0);
 
   // Released over the list: nothing happens.
-  await dragOver(page, selected.locator("[data-preview]"), page.getByRole("heading", { name: "All bookmarks" }));
+  await dragOver(page, selected.locator("[data-preview]"), page.getByRole("heading", { name: "Bookmarks" }));
   await page.mouse.up();
   await expect(page.locator("[role=status], [role=alert]").filter({ hasText: /moved|in Trash|added/ })).toHaveCount(0);
   await expect(bar.getByRole("status")).toHaveText("2 selected");
@@ -2284,7 +2284,7 @@ test("covers: no empty plates; a fresh link shimmers; hover lives; Refresh previ
   await expect(cover(1)).toBeVisible();
 });
 test("a help link that can't open says so over the dialog, readable and not inert (NP-092)", async ({ page }) => {
-  await page.getByRole("button", { name: "No browser yet" }).click();
+  await page.getByRole("button", { name: "Connect browser" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect browser" });
   await failOnce(page, "openUrl", "internal", "No browser to open the link");
   await dialog.getByRole("button", { name: "Help ↗" }).click();
@@ -2324,13 +2324,13 @@ test("a notice set as its sheet closes never goes into it; an older one stays be
   expect(await page.evaluate(() => (window as unknown as { intoDialog: number }).intoDialog)).toBe(0);
   expect(await toast.evaluate((el) => !!el.closest("dialog") || el.hasAttribute("popover"))).toBe(false);
   // A dialog opened now covers it, as any window does: the notice is older than the dialog.
-  await page.getByRole("button", { name: "No browser yet" }).click();
+  await page.getByRole("button", { name: "Connect browser" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect browser" });
   await expect(dialog).toBeVisible();
   await expect(dialog.locator("[data-glass-toast]")).toHaveCount(0);
 });
 test("the dialog a notice is raised in closes: the notice comes back to the window, the page goes on (NP-092)", async ({ page }) => {
-  await page.getByRole("button", { name: "No browser yet" }).click();
+  await page.getByRole("button", { name: "Connect browser" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect browser" });
   await failOnce(page, "openUrl", "internal", "No browser to open the link");
   await dialog.getByRole("button", { name: "Help ↗" }).click();
@@ -2380,7 +2380,7 @@ test("a late frame leaves an older notice behind a dialog opened since (NP-092)"
   await expect(sheet).toHaveCount(0);
   const toast = page.locator("[data-glass-toast]");
   await expect(toast).toContainText("Saved to");
-  await page.getByRole("button", { name: "No browser yet" }).click();
+  await page.getByRole("button", { name: "Connect browser" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect browser" });
   await expect(dialog).toBeVisible();
   await page.evaluate(() => (window as unknown as { releaseFrames: () => void }).releaseFrames());
@@ -2388,7 +2388,7 @@ test("a late frame leaves an older notice behind a dialog opened since (NP-092)"
   expect(await toast.evaluate((el) => !!el.closest("dialog") || el.hasAttribute("popover"))).toBe(false);
 });
 test("connect dialog: steps for each browser, no token and no bookmarklet", async ({ page }) => {
-  await page.getByRole("button", { name: "No browser yet" }).click();
+  await page.getByRole("button", { name: "Connect browser" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect browser" });
   // Every tab is laid out at once (fixed height); its text is read in the one shown.
   const shown = dialog.locator("[data-tab-panel][data-active]");
@@ -2424,7 +2424,7 @@ test("Linux without a tray: round window buttons, Chromium, Firefox from Snap an
   // GNOME's layout: «×» only, round.
   await expect(page.locator("[data-window-button]")).toHaveCount(1);
   await expect(page.locator('[data-window-button="close"]')).toHaveAttribute("aria-label", "Close window");
-  await page.getByRole("button", { name: "No browser yet" }).click();
+  await page.getByRole("button", { name: "Connect browser" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect browser" });
   const shown = dialog.locator("[data-tab-panel][data-active]");
   await expect(dialog.getByRole("radio")).toHaveText(["Chrome", "Edge", "Chromium", "Firefox"]);
@@ -2449,7 +2449,7 @@ test("macOS: Safari first in “Connect browser”, turned on in Safari's settin
     localStorage.setItem("koonapin.demo.desktop", JSON.stringify({ native_frame: true, linux: false, left: [], right: [], tray: true, appimage: false })),
   );
   await page.reload();
-  await page.getByRole("button", { name: "No browser yet" }).click();
+  await page.getByRole("button", { name: "Connect browser" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect browser" });
   const shown = dialog.locator("[data-tab-panel][data-active]");
   await expect(dialog.getByRole("radio")).toHaveText(["Safari", "Chrome", "Edge", "Chromium", "Firefox"]);
@@ -3196,4 +3196,34 @@ test("the webview's own menu and keys stay closed, a text field keeps its menu",
   expect(await shown("body", "keydown", { key: "r", code: "KeyR", ctrlKey: true })).toBe(false);
   expect(await shown("body", "keydown", { key: "p", code: "KeyP", ctrlKey: true })).toBe(false);
   expect(await shown('input[aria-label="Search the library"]', "keydown", { key: "c", code: "KeyC", ctrlKey: true })).toBe(true);
+});
+
+test("card menu: Enter is named only where it opens the browser; «Add tag…» opens the editor on its tags", async ({ page }) => {
+  await page.locator('[data-bookmark-id="2"]').hover();
+  await page.getByRole("button", { name: /^Actions: The architecture/ }).click();
+  // «Open links» is reading mode here: Enter reads, so «Open in browser» has no key.
+  await expect(page.getByRole("menuitem", { name: /^Open in browser/ })).not.toContainText("Enter");
+  await page.getByRole("menuitem", { name: /^Add tag/ }).click();
+  await expect(page.getByRole("textbox", { name: "Tags" })).toBeFocused();
+});
+
+test("sidebar: a row clicked keeps no ring while letter keys work the list; its footer has a hairline only over hidden rows", async ({ page }) => {
+  const sidebar = page.getByRole("complementary", { name: "Library" });
+  await sidebar.getByRole("button", { name: /^All feeds/ }).click();
+  await page.keyboard.press("j");
+  const row = sidebar.getByRole("button", { name: /^All feeds/ });
+  // Still the focused element, matching :focus-visible after a key, and yet no ring.
+  await expect(row).toBeFocused();
+  expect(await row.evaluate((el) => el.matches(":focus-visible"))).toBe(true);
+  await expect(row).toHaveCSS("outline-style", "none");
+  // Tab moves focus: from then on the ring is the keyboard's.
+  await expect(page.locator("html")).toHaveAttribute("data-input", "pointer");
+  await page.keyboard.press("Tab");
+  await expect(page.locator("html")).toHaveAttribute("data-input", "keys");
+
+  await page.setViewportSize({ width: 1440, height: 600 });
+  const foot = sidebar.locator(".sidebar-foot");
+  await expect(foot).toHaveAttribute("data-below", "true");
+  await sidebar.locator(".sidebar-scroll").evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+  await expect(foot).not.toHaveAttribute("data-below");
 });

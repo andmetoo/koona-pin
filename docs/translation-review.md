@@ -67,7 +67,7 @@ These are the strings that make the other languages sound translated. Replace th
 | `common.ok` | Got it | Got it | Keep this. Japanese replaced it with OK, and Korean with 확인, which is the system OK. |
 | `feedback.sentTitle` | Sent. Thank you! | Sent. Thank you. | An exclamation mark is for a celebration. Sending a message is not one. |
 | `update.failed` body | Something went wrong while updating. Try again later. | Couldn’t update. Try again later. | “Something went wrong” names nothing. The title already has room for the fact. |
-| `nav.all` | All bookmarks | All bookmarks | Spanish dropped “All” and says only Marcadores, so the row looks like the word Bookmark. Keep “All” in every language. |
+| `nav.all` | All bookmarks | All bookmarks | Spanish dropped “All” and says only Marcadores, so the row looks like the word Bookmark. Keep “All” in every language. **Superseded 2026-11-16:** the row is now «Bookmarks» in every language, the first row under «New link», above Inbox (owner). |
 | `settings` licences on the phone | Licences | Licenses | Same word as desktop Settings. |
 | `collectionStyle.title` | Icon and colour | Icon and color | American spelling, like the rest of the English. |
 

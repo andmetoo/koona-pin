@@ -129,7 +129,7 @@ test("Move to collection: the picker moves the link with Undo; find-or-create ma
   await expect(picker(page)).toHaveCount(0);
 });
 
-test("New link: a pasted page shows its preview and its feed; Save to Library saves it there", async ({ page }) => {
+test("New link: a pasted page shows its preview and its feed; Save to Bookmarks saves it there", async ({ page }) => {
   await openPhone(page);
   await navPill(page).getByRole("button", { name: "New link" }).click();
   const sheet = newLink(page);
@@ -139,10 +139,10 @@ test("New link: a pasted page shows its preview and its feed; Save to Library sa
   await expect(sheet.locator("[data-feed-offer]")).toContainText("Field Notes has a feed");
   await expect(sheet.getByRole("switch", { name: "Follow Field Notes" })).toHaveAttribute("aria-checked", "false");
   await expect(sheet.getByRole("radio", { name: "Inbox" })).toHaveAttribute("aria-checked", "true");
-  await sheet.getByRole("radio", { name: "Library" }).click();
+  await sheet.getByRole("radio", { name: "Bookmarks" }).click();
   await sheet.getByRole("button", { name: "Save link" }).click();
   await expect(sheet).toHaveCount(0);
-  await expect(snackbar(page)).toContainText("Saved to Library");
+  await expect(snackbar(page)).toContainText("Saved to Bookmarks");
 });
 
 test("New link: Follow turns Save into Save and follow; the feed is followed after the link", async ({ page }) => {

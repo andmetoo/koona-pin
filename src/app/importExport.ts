@@ -60,7 +60,7 @@ export function useImportExport(
   useEffect(() =>
     onFollowFailed((err) => {
       // Once the sheet's own closing has rendered: open, it shows the error itself.
-      window.setTimeout(() => surfaceNow.current !== "add" && setNotice({ text: describeError(err), alert: true }), 50);
+      window.setTimeout(() => surfaceNow.current !== "add" && surfaceNow.current !== "follow" && setNotice({ text: describeError(err), alert: true }), 50);
     }),
   []);
   // `⌘V` in the library with a link on the clipboard saves it at once (2026-10-16). The paste

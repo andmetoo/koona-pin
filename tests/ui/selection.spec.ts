@@ -376,7 +376,7 @@ test("Space reads the selection in a sheet over the list; ↑/↓ go through it,
   await expect(s).toBeVisible();
   await expect(heading).toHaveText(TITLES[1]);
   await expect(s.locator("[data-reader-position]")).toHaveText("↑ ↓2 of 3");
-  await expect(s.getByRole("button", { name: /Back to All bookmarks$/ })).toBeVisible();
+  await expect(s.getByRole("button", { name: /Back to Bookmarks$/ })).toBeVisible();
   // Over the list: the sheet is 760 px wide, the list stays under the scrim.
   const panel = (await s.locator(":scope > div").first().boundingBox())!;
   expect(Math.round(panel.width)).toBe(760);

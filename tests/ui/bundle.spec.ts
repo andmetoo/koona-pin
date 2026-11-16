@@ -60,7 +60,7 @@ test("Export → Add to bundle; the capsule sits above the bulk bar and comes do
   await expect.poll(async () => Math.round(await bottom())).toBe(24);
 });
 
-test("“Add {view}” adds a collection, a tag, All bookmarks and a feed, each as its section says", async ({ page }) => {
+test("“Add {view}” adds a collection, a tag, Bookmarks and a feed, each as its section says", async ({ page }) => {
   await sidebar(page).getByRole("treeitem", { name: /^Development/ }).click();
   await openFromMenu(page);
   // The empty bundle: the button of the empty state, focused.
@@ -73,8 +73,8 @@ test("“Add {view}” adds a collection, a tag, All bookmarks and a feed, each 
   await expect(panel(page).locator("[data-bundle-add]")).toHaveCount(0);
   await expect(panel(page).getByRole("textbox", { name: "Title" })).toHaveValue("Development");
 
-  // A tag of All bookmarks.
-  await sidebar(page).getByRole("button", { name: "All bookmarks" }).click();
+  // A tag of Bookmarks.
+  await sidebar(page).getByRole("button", { name: /^Bookmarks/ }).click();
   const tag = sidebar(page).getByRole("button", { name: "design", exact: true });
   await tag.click();
   await panel(page).locator("[data-bundle-add]").click();
@@ -82,8 +82,8 @@ test("“Add {view}” adds a collection, a tag, All bookmarks and a feed, each 
   await expect(panel(page).getByRole("textbox", { name: "Title" })).toHaveValue("Development and 1 more");
   await tag.click();
 
-  // All bookmarks: what is not in yet goes to Links, on top.
-  await panel(page).getByRole("button", { name: /^Add All bookmarks · 6$/ }).click();
+  // Bookmarks: what is not in yet goes to Links, on top.
+  await panel(page).getByRole("button", { name: /^Add Bookmarks · 6$/ }).click();
   await expect(announcer(page)).toHaveText(/^Added \d bookmarks? to the bundle, 6 items$/);
   await expect(panel(page).locator("[data-bundle-section]").first()).toHaveAttribute("data-bundle-section", "links");
   await expect(panel(page).locator("[data-bundle-add]")).toHaveCount(0);

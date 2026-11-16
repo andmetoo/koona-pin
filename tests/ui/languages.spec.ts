@@ -83,14 +83,15 @@ test("sidebar rows fit in every language", { tag: "@languages" }, async ({ page 
     "nav.favorites": ["nav.favorites"],
     "nav.trash": ["nav.trash"],
     "nav.settings": ["nav.settings"],
-    "browser.notConnected": ["browser.ready", "browser.failing", "browser.checking", "browser.notConnected", "browser.lost", "browser.update", "browser.updateApp"],
+    // Without a browser the row says «Connect browser» (browser.connectRow), the states otherwise.
+    "browser.connectRow": ["browser.ready", "browser.failing", "browser.checking", "browser.connectRow", "browser.lost", "browser.update", "browser.updateApp"],
   };
   const room: Record<string, { width: number; font: string }> = {};
   for (const key of Object.keys(rows)) {
     const label = page.locator("aside button span.fade-end", { hasText: exactly(text(en, key)) }).first();
     room[key] = await label.evaluate((el) => ({ width: el.clientWidth, font: getComputedStyle(el).font }));
   }
-  for (const key of Object.keys(room)) room[key].width -= key === "browser.notConnected" ? LINUX_SPARE.status : LINUX_SPARE.row;
+  for (const key of Object.keys(room)) room[key].width -= key === "browser.connectRow" ? LINUX_SPARE.status : LINUX_SPARE.row;
   /** The text as the app shows it: the plural form the language picks for days the status can show. */
   const words = (code: string, key: string): string[] => {
     const [section, name] = key.split(".");

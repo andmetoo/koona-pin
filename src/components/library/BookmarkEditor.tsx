@@ -29,8 +29,8 @@ function shortUrl(url: string) {
   }
 }
 
-/** The last `notesRequest` an editor served (`useEditing` numbers them and never reuses one). */
-let servedNotesRequest = 0;
+/** The last `fieldRequest` an editor served (`useEditing` numbers them and never reuses one). */
+let servedFieldRequest = 0;
 
 /**
  * The bookmark editor of frame 16: preview, page, title, collection, tags,
@@ -39,7 +39,8 @@ let servedNotesRequest = 0;
  */
 export function BookmarkEditor({
   bookmark,
-  notesRequest = 0,
+  fieldRequest = 0,
+  field = "notes",
   collections,
   onSave,
   onOpen,
@@ -48,10 +49,12 @@ export function BookmarkEditor({
 }: {
   bookmark: Bookmark;
   /**
-   * Opened from the note marker (#410): the caret at the end of the note, not in the title.
-   * Grows with each such open, so an editor already open moves its caret there too.
+   * Opened for a field, not the title: the caret at the end of the note (the note marker, #410) or
+   * in the tags («Add tag…»). Grows with each such open, so an editor already open moves its caret too.
    */
-  notesRequest?: number;
+  fieldRequest?: number;
+  /** The field that request is for: the note, or the tags («Add tag…» of the card menu). */
+  field?: "notes" | "tags";
   collections: Collection[];
   onSave: (data: BookmarkChanges) => Promise<void>;
   onOpen: (url: string) => void;
@@ -63,14 +66,15 @@ export function BookmarkEditor({
   const titleField = useRef<HTMLInputElement>(null);
   const notesField = useRef<HTMLTextAreaElement>(null);
   // A request is served once: an editor remounted with it (moving to the drawer) leaves the caret be.
-  const toNotes = notesRequest > servedNotesRequest;
+  const toField = fieldRequest > servedFieldRequest;
+  const tagsField = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    const field = notesField.current;
-    if (!toNotes || !field) return;
-    servedNotesRequest = notesRequest;
-    field.focus();
-    field.setSelectionRange(field.value.length, field.value.length);
-  }, [notesRequest]);
+    const target = field === "tags" ? tagsField.current : notesField.current;
+    if (!toField || !target) return;
+    servedFieldRequest = fieldRequest;
+    target.focus();
+    if (target instanceof HTMLTextAreaElement) target.setSelectionRange(target.value.length, target.value.length);
+  }, [fieldRequest]);
   const [title, setTitle] = useState(bookmark.title);
   const [notes, setNotes] = useState(bookmark.notes ?? "");
   const [collection, setCollection] = useState<number | null>(bookmark.collection_id ?? null);
@@ -134,7 +138,7 @@ export function BookmarkEditor({
           <input
             ref={titleField}
             id={id}
-            autoFocus={!toNotes}
+            autoFocus={!toField}
             value={title}
             aria-invalid={!!titleError}
             aria-describedby={note}
@@ -150,7 +154,7 @@ export function BookmarkEditor({
         <Field label={t("editor.collection")}>
           {(id) => <CollectionSelect id={id} value={collection} collections={collections} onChange={setCollection} />}
         </Field>
-        <Field label={t("editor.tags")}>{(id) => <TagInput id={id} tags={tags} onChange={setTags} />}</Field>
+        <Field label={t("editor.tags")}>{(id) => <TagInput id={id} tags={tags} onChange={setTags} inputRef={tagsField} />}</Field>
       </div>
       <Field label={t("editor.notes")}>
         {(id) => (
