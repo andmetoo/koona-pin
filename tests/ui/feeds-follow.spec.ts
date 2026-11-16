@@ -135,7 +135,7 @@ test("a bare feed address: “Follow <title>”, no bookmark", async ({ page }) 
   await open(page, "https://fieldnotes.example.com/feed.xml");
   await expect(offer(page)).toContainText("Follow Field Notes");
   await expect(offer(page)).toContainText("About 4 new posts a day");
-  await expect(sheet(page).getByRole("button", { name: "Library", exact: true })).toHaveCount(0);
+  await expect(sheet(page).getByRole("button", { name: "Bookmarks", exact: true })).toHaveCount(0);
   await expect(sheet(page).getByRole("button", { name: "Title and tags" })).toHaveCount(0);
   await sheet(page).getByRole("button", { name: "Follow", exact: true }).click();
   await expect(sheet(page)).toHaveCount(0);
@@ -222,4 +222,99 @@ test("More → “Import a file…” takes an OPML file and follows its feeds",
   await expect(done).toContainText("Already followed — left as they were");
   await done.getByRole("button", { name: "Show the skipped addresses" }).click();
   await expect(done).toContainText("Router status — On this computer or the local network");
+});
+
+test("“Follow a site” says what it is for, starts with “Follow” on, and follows a page's feed without a bookmark", async ({ page }) => {
+  const before = await page.locator("[data-bookmark-id]").count();
+  await page.getByRole("complementary").getByRole("button", { name: "Follow a site", exact: true }).click();
+  const follow = page.getByRole("dialog", { name: "Follow a site" });
+  const address = follow.getByRole("textbox", { name: "Link" });
+  await expect(address).toHaveAttribute("placeholder", "Paste a site's address");
+  await expect(follow).toContainText("If the site has a feed, its new posts will appear in Feeds");
+  await address.evaluate((input: HTMLInputElement, text) => {
+    input.focus();
+    input.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true }));
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, text);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }, "https://fieldnotes.example.com/");
+  // Followed only: no switch to turn it off, no place for a bookmark, no title or tags.
+  await expect(follow.getByRole("switch", { name: "Follow Field Notes" })).toHaveCount(0);
+  await expect(follow.getByRole("button", { name: "Bookmarks", exact: true })).toHaveCount(0);
+  await expect(follow.getByRole("button", { name: "Title and tags" })).toHaveCount(0);
+  await follow.getByRole("button", { name: "Follow", exact: true }).click();
+  await expect(follow).toHaveCount(0);
+  await expect.poll(() => calls(page, "subscribeFeed")).toEqual(['subscribeFeed "https://fieldnotes.example.com/feed.xml" null "feeds"']);
+  expect(await calls(page, "addBookmark")).toEqual([]);
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(before);
+});
+
+/** The sheet of «Follow a site» with an address pasted. */
+const followSite = async (page: Page, link: string) => {
+  await page.getByRole("complementary").getByRole("button", { name: "Follow a site", exact: true }).click();
+  const follow = page.getByRole("dialog", { name: "Follow a site" });
+  await follow.getByRole("textbox", { name: "Link" }).evaluate((input: HTMLInputElement, text) => {
+    input.focus();
+    input.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true }));
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, text);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }, link);
+  return follow;
+};
+/** The feed's check held until `release()` in the page. */
+const holdFeedCheck = (page: Page) =>
+  page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const methods = api as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>;
+    const original = methods.previewFeed;
+    const w = window as unknown as { release: () => void };
+    const gate = new Promise<void>((resolve) => (w.release = resolve));
+    methods.previewFeed = async (...args) => {
+      await gate;
+      return original(...args);
+    };
+  });
+
+test("“Follow a site”: a failed subscription says so in the sheet", async ({ page }) => {
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    (api as unknown as Record<string, () => Promise<never>>).subscribeFeed = () => Promise.reject(new Error("The feed answered 404"));
+  });
+  const follow = await followSite(page, "https://fieldnotes.example.com/");
+  await follow.getByRole("button", { name: "Follow", exact: true }).click();
+  await expect(follow.getByRole("alert")).toContainText("404");
+  await expect(follow).toBeVisible();
+});
+
+test("“Follow a site”: Enter during the feed's check follows once it is read; a page without a feed saves nothing", async ({ page }) => {
+  const before = await page.locator("[data-bookmark-id]").count();
+  await holdFeedCheck(page);
+  const follow = await followSite(page, "https://fieldnotes.example.com/");
+  await expect(offer(page).or(follow.locator("[data-feed-offer]"))).toHaveAttribute("data-feed-offer", "looking");
+  await page.keyboard.press("Enter");
+  await expect(follow.getByRole("button", { name: "Checking the feed…" })).toBeDisabled();
+  expect(await calls(page, "subscribeFeed")).toEqual([]);
+  await page.evaluate(() => (window as unknown as { release: () => void }).release());
+  await expect(follow).toHaveCount(0);
+  expect(await calls(page, "subscribeFeed")).toEqual(['subscribeFeed "https://fieldnotes.example.com/feed.xml" null "feeds"']);
+
+  const none = await followSite(page, "https://example.com/plain-page");
+  await expect(none.locator("[data-follow-none]")).toHaveText("No feed found on this page");
+  await expect(none.getByRole("button", { name: "Follow", exact: true })).toBeDisabled();
+  await page.keyboard.press("Enter");
+  expect(await calls(page, "addBookmark")).toEqual([]);
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(before);
+});
+
+test("New link: Save is never held by a slow feed check; with “Follow” off it saves at once", async ({ page }) => {
+  await holdFeedCheck(page);
+  await open(page, "https://fieldnotes.example.com/");
+  await sheet(page).getByRole("switch", { name: "Follow Field Notes" }).click();
+  await expect(offer(page)).toHaveAttribute("data-feed-offer", "looking");
+  await sheet(page).getByRole("button", { name: "Save and follow" }).click();
+  await expect(sheet(page).getByRole("button", { name: "Checking the feed…" })).toBeVisible();
+  // The person changes their mind: the waiting save goes ahead as «Save link».
+  await sheet(page).getByRole("switch", { name: "Follow Field Notes" }).click();
+  await expect(sheet(page)).toHaveCount(0);
+  expect(await calls(page, "subscribeFeed")).toEqual([]);
+  expect(await calls(page, "addBookmark")).toHaveLength(1);
 });

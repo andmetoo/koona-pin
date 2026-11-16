@@ -736,6 +736,12 @@
   :root[data-input="pointer"] [data-bookmark-id]:focus-visible {
     outline: none;
   }
+  /* The same for the sidebar's rows (review 2026-11-16): «All feeds» clicked, then J, ringed the
+     row while J moved through the posts. Only there: the sidebar is left by letter keys, while in a
+     dialog or a menu a ring after Esc or Enter is where the keyboard is. */
+  :root[data-input="pointer"] [data-sidebar] :focus-visible {
+    outline: none;
+  }
   /* Focused and selected (#319): one ring. The card keeps the ink ring around all of
      it over its glass; the row's border thickens to 2 px in place. */
   :root:not([data-input="pointer"]) [data-view="list"] [data-bookmark-id][data-selected]:focus-visible {
@@ -2207,13 +2213,14 @@
 /* The notification centre (2026-10-16, banner variant D): a bell in the sidebar's header, or
    under the spirit in the narrow strip, with a badge of the unread; a glass popover of the
    notifications, each with a rounded icon tile, its title and time, its text, an action row and
-   a × on hover. The glass is the card at 80 % over a blur of the library. */
+   a × on hover. The card at 96 % over a blur of the library (review 2026-11-16): at 80 % the
+   titles of the cards behind read through the notification's text. */
 :root {
-  --np-notify-glass: color-mix(in oklab, var(--np-card) 80%, transparent);
+  --np-notify-glass: color-mix(in oklab, var(--np-card) 96%, transparent);
   --np-notify-shadow: 0 24px 60px -18px rgb(0 0 0 / 0.35), 0 2px 6px rgb(0 0 0 / 0.06);
 }
 [data-theme="dark"] {
-  --np-notify-glass: color-mix(in oklab, var(--np-card) 82%, transparent);
+  --np-notify-glass: color-mix(in oklab, var(--np-card) 96%, transparent);
   --np-notify-shadow: 0 24px 60px -18px rgb(0 0 0 / 0.75), 0 2px 6px rgb(0 0 0 / 0.3);
 }
 @layer components {
@@ -3266,19 +3273,11 @@
   backdrop-filter: blur(20px) saturate(170%);
 }
 /* Linux (2.1.1): WebKitGTK rendering in software at times leaves the whole window blank under these
-   blurs and masks (CI's Arch smoke). There the bars are near-solid, the sidebar's footer fades in
-   with plain colour and its middle has no mask; `data-linux` is set before the first paint (main.tsx). */
+   blurs and masks (CI's Arch smoke). There the bars are near-solid and the sidebar's middle has no mask; `data-linux` is set before the first paint (main.tsx). */
 :root[data-linux] .toolbar-glass::before {
   background: color-mix(in srgb, var(--glass-bg) 96%, transparent);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
-}
-:root[data-linux] .sidebar-foot::before {
-  background: linear-gradient(to bottom, transparent, var(--np-panel) 28px);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  -webkit-mask-image: none;
-  mask-image: none;
 }
 :root[data-linux] :is(.sidebar-scroll, .scroll-fade) {
   -webkit-mask-image: none;
@@ -3324,19 +3323,21 @@
   position: sticky;
   bottom: 0;
   isolation: isolate;
-  padding-top: 28px;
+  padding-top: 8px;
 }
+/* Solid, with a hairline on top while rows lie under it (review 2026-11-16): the old 28 px fade
+   over a blur left half a row of tags faded out above «Settings», which read as a drawing fault. */
 .sidebar-foot::before {
   content: "";
   position: absolute;
   inset: 0 -12px;
   z-index: -1;
-  /* Solid under the rows (2.17.1): at 94 % the tags behind showed through «Settings» as a ghost. */
-  background: linear-gradient(to bottom, transparent, var(--np-panel) 28px);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28px);
-  mask-image: linear-gradient(to bottom, transparent, #000 28px);
+  background: var(--np-panel);
+  border-top: 1px solid transparent;
+  transition: border-color 150ms ease;
+}
+.sidebar-foot[data-below]::before {
+  border-top-color: var(--np-line);
 }
 
 /* macOS (2026-10-16): no title bar of its own colour; the traffic lights sit on the app at

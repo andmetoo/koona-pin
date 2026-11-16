@@ -64,7 +64,7 @@ test("the tree: levels, totals, chevrons that fold and are remembered, arrows th
   await expect(tree(page).locator("[data-collection][tabindex='0']")).toHaveCount(1);
   await item(page, "Development").locator("[data-fold]").click();
   expect(await rows(page)).toEqual(["1 Design", "1 Development", "1 Inspiration", "1 To read"]);
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("All bookmarks");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Bookmarks");
   await page.reload();
   await expect(item(page, "Development")).toHaveAttribute("aria-expanded", "false");
 
@@ -96,7 +96,7 @@ test("a drag into the middle of a row puts the collection inside it; into a quar
   await page.screenshot({ path: "test-results/tree-n2.png" });
   await page.mouse.up();
   expect(await rows(page)).toEqual(["1 Design", "2 Inspiration", "1 Development", "2 Rust", "2 Web", "3 React", "2 Tools", "1 To read"]);
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("All bookmarks");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Bookmarks");
 
   // Below Rust (frame N3): a line at Rust's level, «Into Development, after Rust».
   await drag(page, item(page, "To read"), item(page, "Rust"), 0.9);

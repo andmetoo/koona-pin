@@ -11,7 +11,7 @@ const sidebar = (page: Page) => page.getByRole("complementary", { name: "Library
 const rowStack = (page: Page) => page.locator("[data-row-stack]");
 const collection = (page: Page, name: string) => sidebar(page).locator("[data-collection-row]").filter({ hasText: name });
 const collectionNames = (page: Page) => sidebar(page).locator("[data-collection-row] [data-collection] .fade-end").allInnerTexts();
-const allBookmarks = (page: Page) => sidebar(page).getByRole("button", { name: /^All bookmarks/ });
+const allBookmarks = (page: Page) => sidebar(page).getByRole("button", { name: /^Bookmarks/ });
 
 async function centre(locator: Locator) {
   const box = (await locator.boundingBox())!;
@@ -75,7 +75,7 @@ test("a collection dragged to the capsule becomes a section; a reorder still reo
   await page.mouse.up();
   await expect(announcer(page)).toHaveText("Added Development to the bundle, 1 item");
   await expect(capsuleButton(page)).toHaveAccessibleName("Bundle, 1 item");
-  // The drop opened nothing: the view is still All bookmarks.
+  // The drop opened nothing: the view is still Bookmarks.
   await expect(allBookmarks(page)).toHaveAttribute("aria-current", "page");
   await capsuleButton(page).click();
   await expect(page.locator("[data-bundle-panel] [data-bundle-section^='collection:']")).toContainText("Development");

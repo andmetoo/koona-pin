@@ -36,7 +36,7 @@ const menu = (page: Page) => page.locator('[data-sheet-kind="bookmarkMenu"]');
 test("L1: the header, the search field, the switch, the chips and the shelves", async ({ page }) => {
   await openPhone(page);
   const screen = topScreen(page);
-  await expect(screen.getByRole("heading", { level: 1 })).toHaveText("Library");
+  await expect(screen.getByRole("heading", { level: 1 })).toHaveText("Bookmarks");
   await expect(screen.locator(".ph-header .ph-meta")).toHaveText(/^\d+ links?$/);
   await expect(screen.getByRole("button", { name: /^Search \d+ links$/ })).toBeVisible();
   await expect(screen.getByRole("radio", { name: "List" })).toHaveAttribute("aria-checked", "true");
@@ -185,7 +185,7 @@ test("Q1: Search opens over the tab without the pill, finds bookmarks and posts 
   await search.getByRole("radio", { name: "Feeds" }).click();
   await expect(search.locator(".lib-row[data-post-id]").first()).toBeVisible();
   await expect(search.locator(".lib-row[data-bookmark-id]")).toHaveCount(0);
-  await search.getByRole("radio", { name: "Library" }).click();
+  await search.getByRole("radio", { name: "Bookmarks" }).click();
   await expect(search.locator(".lib-row[data-bookmark-id]").first()).toBeVisible();
   await expect(search.locator(".lib-row[data-post-id]")).toHaveCount(0);
 

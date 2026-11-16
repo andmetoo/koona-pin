@@ -21,8 +21,8 @@ import { layerFor, windowBox } from "../ui/place";
 export interface BookmarkActions {
   open: (url: string) => void;
   copy: (url: string) => void;
-  /** The editor; `"notes"` puts the caret in the note (the note marker, #410). */
-  edit: (bookmark: Bookmark, field?: "notes") => void;
+  /** The editor; `"notes"` puts the caret in the note (the note marker, #410), `"tags"` in the tags. */
+  edit: (bookmark: Bookmark, field?: "notes" | "tags") => void;
   favorite: (bookmark: Bookmark) => void;
   /** Into Reading or out of it, with an undo in the notice (NP-121). */
   reading: (bookmark: Bookmark) => void;
@@ -107,18 +107,19 @@ const moveEntries = (b: Bookmark, collections: Collection[], actions: BookmarkAc
 
 /** Menu «⋯» of a bookmark (frame «15 · Меню карточки»); in the trash, restore, open and delete for good (frame 25). */
 export function menuEntries(b: Bookmark, collections: Collection[], actions: BookmarkActions, t: TFunction): MenuEntry[] {
-  const soon = t("common.soon");
+  // Enter follows «Open links» (`actions.follow`): it is this item's key only when that is the browser.
+  const enter = actions.linksToBrowser ? "Enter" : undefined;
   if (b.deleted_at)
     return [
       { id: "restore", icon: RotateCcw, label: t("trash.restore"), onSelect: () => actions.restore(b) },
       "separator",
-      { id: "open", icon: ExternalLink, label: t("card.openInBrowser"), keys: "Enter", onSelect: () => actions.open(b.url) },
+      { id: "open", icon: ExternalLink, label: t("card.openInBrowser"), keys: enter, onSelect: () => actions.open(b.url) },
       { id: "copy", icon: Copy, label: t("card.copyLink"), keys: shortcut("C"), onSelect: () => actions.copy(b.url) },
       "separator",
       { id: "delete", icon: Trash2, label: t("trash.deleteForever"), keys: "Del", onSelect: () => actions.deleteForever(b) },
     ];
   return [
-    { id: "open", icon: ExternalLink, label: t("card.openInBrowser"), keys: "Enter", onSelect: () => actions.open(b.url) },
+    { id: "open", icon: ExternalLink, label: t("card.openInBrowser"), keys: enter, onSelect: () => actions.open(b.url) },
     { id: "copy", icon: Copy, label: t("card.copyLink"), keys: shortcut("C"), onSelect: () => actions.copy(b.url) },
     { id: "edit", icon: Pencil, label: t("card.edit"), keys: "E", onSelect: () => actions.edit(b) },
     "separator",
@@ -149,7 +150,7 @@ export function menuEntries(b: Bookmark, collections: Collection[], actions: Boo
       onSelect: () => actions.offline(b),
     },
     { id: "move", icon: Folder, label: t("card.moveTo"), submenu: moveEntries(b, collections, actions, t), submenuWidth: 264 },
-    { id: "tag", icon: TagIcon, label: t("card.addTag"), keys: "T", disabled: true, disabledHint: soon },
+    { id: "tag", icon: TagIcon, label: t("card.addTag"), onSelect: () => actions.edit(b, "tags") },
     "separator",
     { id: "refresh", icon: RefreshCw, label: t("card.refresh"), onSelect: () => actions.refresh(b) },
     "separator",

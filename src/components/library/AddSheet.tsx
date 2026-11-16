@@ -73,6 +73,7 @@ export async function clipboardLink(): Promise<string | null> {
  * One height from opening to an error (NP-118): the preview's slot is reserved.
  */
 export function AddSheet({
+  toFollow = false,
   collections,
   destination: initialDestination,
   collectionId: initialCollection,
@@ -82,6 +83,11 @@ export function AddSheet({
   onClose,
   onDropFile,
 }: {
+  /**
+   * Opened from «Follow a site» (review 2026-11-16): the same sheet, saying what it is for, since a
+   * site's address finds its feed here as it does for any link.
+   */
+  toFollow?: boolean;
   collections: Collection[];
   /** The section the person is in: Inbox and Reading open with their own destination. */
   destination: Destination;
@@ -176,15 +182,19 @@ export function AddSheet({
   // The page itself and its feeds (NP-133): one request once the address settles, one more
   // to the feed only when «Follow» is turned on. Save reuses the answer: the app keeps it.
   const linkPreview = useLinkPreview(pasted !== null && pasted === text ? url : null);
-  const [follow, setFollow] = useState(false);
+  // Opened to follow a site, its feed's switch starts on.
+  const [follow, setFollow] = useState(toFollow);
   const [chosen, setChosen] = useState(0);
   const [feedDestination, setFeedDestination] = useState<FeedDestination>("feeds");
   /** Followed from this sheet: the line says so, as for a site followed before. */
   const [followedUid, setFollowedUid] = useState<string | null>(null);
+  /** Save pressed while the feed was still being checked: it runs once the check settles. */
+  const [queued, setQueued] = useState(false);
   useEffect(() => {
-    setFollow(false);
+    setFollow(toFollow);
     setChosen(0);
     setFollowedUid(null);
+    setQueued(false);
   }, [href]);
   const bare = linkPreview.state === "done" && !!linkPreview.page?.is_feed;
   const asked = feedOffer(linkPreview, chosen, follow, { state: "idle" });
@@ -192,9 +202,15 @@ export function AddSheet({
   const offer: FeedOffer = followedUid
     ? { kind: "followed", uid: followedUid, site: asked.kind === "offer" ? asked.site : "" }
     : feedOffer(linkPreview, chosen, follow, feedPreview);
-  const primary = primaryAction(offer);
-  /** A bare feed is followed, not saved: no place, no collection, no title. */
+  /** A feed to follow, read or still being checked: not none, not unreadable, not followed already. */
+  const followable = (offer.kind === "offer" || offer.kind === "feed") && (offer.status === "ready" || offer.status === "looking");
+  // Opened to follow a site (review 2026-11-16), the sheet only follows: never a bookmark of the
+  // site's page, not even when it has no feed or its feed can't be read — then «Follow» waits disabled.
+  const primary = toFollow ? "follow" : primaryAction(offer);
+  /** A bare feed, or a site followed from «Follow a site», is followed, not saved: no place, no collection, no title. */
   const feedOnly = primary === "follow";
+  /** Following, with the feed still being checked: a save waits for it (`queued`) instead of following blind. */
+  const checking = (primary === "follow" || primary === "saveFollow") && (offer.kind === "offer" || offer.kind === "feed") && offer.status === "looking";
 
   const known = lookup && !lookup.loading && lookup.url === href ? lookup : null;
   const existing = saved ?? known?.existing ?? null;
@@ -218,6 +234,13 @@ export function AddSheet({
 
   const save = async (link = typedLink(text)) => {
     if (busy || asking) return;
+    // Following a feed still being checked: the save runs when the check settles (the effect below),
+    // as «Save and follow», as «Save link» if the feed turned out unreadable or the switch went off.
+    if (checking) {
+      setQueued(true);
+      return;
+    }
+    if (toFollow && !followable) return;
     if (!link) {
       field.current?.focus();
       return;
@@ -259,6 +282,11 @@ export function AddSheet({
       setBusy(false);
     }
   };
+  useEffect(() => {
+    if (!queued || checking) return;
+    setQueued(false);
+    void save();
+  }, [queued, checking]);
   const submit = (e: FormEvent) => {
     e.preventDefault();
     void save();
@@ -318,7 +346,7 @@ export function AddSheet({
       </button>
     </div>
   ) : (
-    <p className={`add-note ${text.trim() ? "is-warn" : ""}`}>{text.trim() ? t("add.notLink") : t("add.hint")}</p>
+    <p className={`add-note ${text.trim() ? "is-warn" : ""}`}>{text.trim() ? t("add.notLink") : t(toFollow ? "add.followHint" : "add.hint")}</p>
   );
 
   const rate = offer.kind === "offer" || offer.kind === "feed" ? (offer.preview ? feedRate(offer.preview) : null) : null;
@@ -372,7 +400,7 @@ export function AddSheet({
               ))}
             </select>
           )}
-          {offer.kind === "offer" && (
+          {offer.kind === "offer" && !toFollow && (
             <Switch checked={follow} onChange={setFollow} label={t("add.feedToggle", { site: offer.candidate.title || offer.site })} />
           )}
           {offer.kind === "followed" && onShowFeed && (
@@ -444,16 +472,23 @@ export function AddSheet({
     >
       {open && (
         <form className="add-sheet-body" onSubmit={submit} noValidate>
-          <h2 id={titleId} className="sr-only">
-            {t("add.title")}
-          </h2>
+          {toFollow ? (
+            <h2 id={titleId} className="flex items-center gap-2 px-1.5 pb-2.5 text-[15px] font-semibold text-ink">
+              <Icon icon={Rss} size={15} className="text-accent" />
+              {t("feeds.followSite")}
+            </h2>
+          ) : (
+            <h2 id={titleId} className="sr-only">
+              {t("add.title")}
+            </h2>
+          )}
           <label className="add-big">
             <Icon icon={Link} className="shrink-0 text-subtle" />
             <input
               ref={field}
               autoFocus
               aria-label={t("add.url")}
-              placeholder={t("add.placeholder")}
+              placeholder={t(toFollow ? "add.followPlaceholder" : "add.placeholder")}
               value={text}
               onPaste={() => {
                 // The paste's own input comes in this task; a paste that changed nothing
@@ -480,8 +515,16 @@ export function AddSheet({
               {shortcut("V")}
             </kbd>
           </label>
-          {!feedOnly && <div className="add-slot">{slot}</div>}
+          {/* Followed only, the slot holds an error (a failed subscription must still say so) and, in
+              «Follow a site», the hint until there is an address to follow. */}
+          {(!feedOnly || error || (toFollow && !url)) && <div className="add-slot">{slot}</div>}
           {feedRow}
+          {/* «Follow a site» with a page that offers no feed: said, since there is nothing to save instead. */}
+          {toFollow && !!url && pasted === text && linkPreview.state !== "idle" && linkPreview.state !== "looking" && offer.kind === "none" && (
+            <p className="add-note is-warn px-1 pt-2.5" data-follow-none>
+              {t("add.followNoFeed")}
+            </p>
+          )}
           {feedPlaces}
           {!feedOnly && (
             <>
@@ -559,8 +602,10 @@ export function AddSheet({
             <button type="button" className="add-cancel" onClick={() => closeRef.current()}>
               {t("common.cancel")}
             </button>
-            <button type="submit" className="add-ink-btn h-[34px] rounded-[10px] px-3.5 text-[13px]" disabled={busy || asking}>
-              {busy
+            <button type="submit" className="add-ink-btn h-[34px] rounded-[10px] px-3.5 text-[13px]" disabled={busy || asking || queued || (toFollow && !followable)}>
+              {queued
+                ? t("add.feedLooking")
+                : busy
                 ? t(feedOnly ? "add.feedFollowing" : "add.saving")
                 : t(primary === "follow" ? "add.feedFollow" : primary === "saveFollow" ? "add.feedSaveFollow" : "add.save")}
             </button>

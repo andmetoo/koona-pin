@@ -6,8 +6,8 @@ import { FOLD, navPill, openPhone, systemBack, topScreen } from "./fixtures";
 test("the nav pill switches tabs, and the app's section follows", async ({ page }) => {
   await openPhone(page);
   const pill = navPill(page);
-  await expect(pill.getByRole("button", { name: "All bookmarks" })).toHaveAttribute("aria-current", "page");
-  await expect(topScreen(page).getByRole("heading", { level: 1 })).toHaveText("Library");
+  await expect(pill.getByRole("button", { name: "Bookmarks", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(topScreen(page).getByRole("heading", { level: 1 })).toHaveText("Bookmarks");
 
   await pill.getByRole("button", { name: "Inbox" }).click();
   await expect(pill.getByRole("button", { name: "Inbox" })).toHaveAttribute("aria-current", "page");
@@ -18,7 +18,7 @@ test("the nav pill switches tabs, and the app's section follows", async ({ page 
 
   await pill.getByRole("button", { name: "Feeds" }).click();
   await expect(topScreen(page).getByRole("heading", { level: 1 })).toHaveText("Feeds");
-  await expect(pill.getByRole("button", { name: "All bookmarks" })).not.toHaveAttribute("aria-current");
+  await expect(pill.getByRole("button", { name: "Bookmarks", exact: true })).not.toHaveAttribute("aria-current");
 });
 
 test("the nav pill hides on a pushed route and shows again at the root", async ({ page }) => {

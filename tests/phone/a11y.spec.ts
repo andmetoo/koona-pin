@@ -45,7 +45,7 @@ test("L1, I1, R1 and A1: every control is named, nothing focusable is hidden", a
   await expect(page.locator("[data-decision-pill]")).toBeVisible();
   await check(page, "I1", problems);
 
-  await navPill(page).getByRole("button", { name: "All bookmarks" }).click();
+  await navPill(page).getByRole("button", { name: "Bookmarks", exact: true }).click();
   await topScreen(page).locator("[data-bookmark-id]").first().click();
   await expect(topScreen(page).getByRole("button", { name: "Text and theme" })).toBeVisible();
   await check(page, "R1", problems);

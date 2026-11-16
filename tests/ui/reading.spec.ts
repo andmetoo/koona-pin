@@ -75,7 +75,7 @@ test("“Read” drops the mode at the first unread of Reading; Esc twice return
   await expect(current(page)).toContainText(list.find((b) => !b.read)!.title);
   await expect(heading(page)).toHaveText(list.find((b) => !b.read)!.title);
   // «Read» stays where it was: the mode's own, pressed, in the same place and size (owner, 2026-10-15).
-  const pressed = mode(page).getByRole("button", { name: "Read", exact: true });
+  const pressed = mode(page).getByRole("button", { name: "Reading mode", exact: true });
   await expect(pressed).toHaveAttribute("aria-pressed", "true");
   expect(await pressed.boundingBox()).toEqual(toolbar);
   // The library underneath takes no focus.
@@ -95,7 +95,7 @@ test("“Read” drops the mode at the first unread of Reading; Esc twice return
 
   // «Read» in the mode leaves at once, folding back.
   await readButton(page).click();
-  await mode(page).getByRole("button", { name: "Read", exact: true }).click();
+  await mode(page).getByRole("button", { name: "Reading mode", exact: true }).click();
   await expect(mode(page)).toHaveCount(0);
   expect(await scroll.evaluate((el) => el.scrollTop)).toBe(top);
 });
@@ -215,8 +215,8 @@ test("the queue: read ones dimmed at the bottom, the switch reads the section, t
 
   // The switch: the library's section, in its order.
   await queue(page).getByRole("button", { name: /^Queue: Reading/ }).click();
-  await page.getByRole("menuitemradio", { name: "All bookmarks" }).click();
-  await expect(queue(page).getByRole("button", { name: /^Queue: All bookmarks/ })).toBeVisible();
+  await page.getByRole("menuitemradio", { name: "Bookmarks" }).click();
+  await expect(queue(page).getByRole("button", { name: /^Queue: Bookmarks/ })).toBeVisible();
   const all = await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
     return (await api.getBookmarks({}, { sort: "newest" })).items.length;
@@ -394,7 +394,7 @@ test("a narrow window: the queue behind “Queue”, Tab never reaches it hidden
   // Reduced motion: a fade instead of the circle.
   await expect(mode(page)).toHaveAttribute("data-drop", "fade");
   // «Read» stays where it was, the book alone, in the same place and size (owner, 2026-10-15).
-  const pressed = mode(page).getByRole("button", { name: "Read", exact: true });
+  const pressed = mode(page).getByRole("button", { name: "Reading mode", exact: true });
   await expect(pressed).toHaveAttribute("aria-pressed", "true");
   expect(await pressed.boundingBox()).toEqual(toolbar);
   const article = mode(page).locator("[data-reader-scroll]");

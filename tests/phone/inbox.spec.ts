@@ -217,7 +217,7 @@ test("the inbox sorted: summary, undo of the last decision, then the library; em
   await expect(sorted).toBeVisible();
 
   await sorted.getByRole("button", { name: "Go to library" }).click();
-  await expect(navPill(page).getByRole("button", { name: "All bookmarks" })).toHaveAttribute("aria-current", "page");
+  await expect(navPill(page).getByRole("button", { name: "Bookmarks", exact: true })).toHaveAttribute("aria-current", "page");
 
   // Back in the Inbox nothing waits: E1, with the cluster again and a tip that fits the phone.
   await navPill(page).getByRole("button", { name: "Inbox" }).click();
@@ -260,5 +260,5 @@ test("a tap on the card opens it in the reader; Back returns to the same card", 
 test("Done leaves triage for the library", async ({ page }) => {
   await openInbox(page);
   await topScreen(page).getByRole("button", { name: "Done" }).click();
-  await expect(navPill(page).getByRole("button", { name: "All bookmarks" })).toHaveAttribute("aria-current", "page");
+  await expect(navPill(page).getByRole("button", { name: "Bookmarks", exact: true })).toHaveAttribute("aria-current", "page");
 });

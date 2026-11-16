@@ -22,7 +22,7 @@ const design = { id: 4, name: "Design", count: 9 } as Collection;
 describe("sections (NP-072a)", () => {
   it("names the section and counts it, a collection by its own count", () => {
     const table = [
-      [{}, "All bookmarks", 40],
+      [{}, "Bookmarks", 40],
       [{ onlyInbox: true }, "Inbox", 3],
       [{ onlyFavorites: true }, "Favorites", 5],
       [{ onlyReading: true }, "Reading", 7],

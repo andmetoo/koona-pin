@@ -40,8 +40,8 @@ test("the rail is on the right by default, the list next to it and the detail sh
   expect(Math.round(FOLD.height - (r.y + r.height))).toBe(24 + 16);
   // The Inbox's name says how many wait there, as its badge does.
   await expect(rail(page).getByRole("button", { name: "Inbox: 2 waiting", exact: true })).toBeVisible();
-  for (const name of ["All bookmarks", "Reading", "Feeds", "New link"]) await expect(rail(page).getByRole("button", { name, exact: true })).toBeVisible();
-  await expect(rail(page).getByRole("button", { name: "All bookmarks" })).toHaveAttribute("aria-current", "page");
+  for (const name of ["Bookmarks", "Reading", "Feeds", "New link"]) await expect(rail(page).getByRole("button", { name, exact: true })).toBeVisible();
+  await expect(rail(page).getByRole("button", { name: "Bookmarks", exact: true })).toHaveAttribute("aria-current", "page");
   // The account cluster stands above the rail, centred on it, and not in the list's header.
   const account = await box(page.locator(".ph-rail-account [data-account]"));
   expect(account.y + account.height).toBeLessThanOrEqual(r.y);
@@ -140,7 +140,7 @@ test("a row's tap selects it into the detail sheet; Read on the rail opens the r
   await expect(detailScreen(page).getByRole("heading", { level: 1 })).toHaveText(title);
   await expect(detailScreen(page)).toContainText(/Saved /);
   // The list stays: the tab's screen still shows beside it.
-  await expect(listPane(page).getByRole("heading", { level: 1 })).toHaveText("Library");
+  await expect(listPane(page).getByRole("heading", { level: 1 })).toHaveText("Bookmarks");
   await expect(primary(page)).toHaveAccessibleName("Read");
 
   await primary(page).click();
@@ -174,7 +174,7 @@ test("Search fills the list pane; Cancel closes it with the result chosen from i
   await expect(detailScreen(page).getByRole("heading", { level: 1 })).toBeVisible();
   await listPane(page).getByRole("button", { name: "Cancel" }).click();
   await expect(page.locator("[data-detail-empty]")).toBeVisible();
-  await expect(listPane(page).getByRole("heading", { level: 1 })).toHaveText("Library");
+  await expect(listPane(page).getByRole("heading", { level: 1 })).toHaveText("Bookmarks");
 });
 
 test("a post from Feeds fills the detail sheet; Save on the rail saves it as a bookmark", async ({ page }) => {
@@ -234,7 +234,7 @@ test("folding and unfolding keeps the tab, the open bookmark or post, and an edi
   expect(await systemBack(page)).toBe(true);
 
   // An open sheet and what was typed in it.
-  await navPill(page).getByRole("button", { name: "All bookmarks" }).click();
+  await navPill(page).getByRole("button", { name: "Bookmarks", exact: true }).click();
   await longPress(page, topScreen(page).locator("[data-bookmark-id]").first(), { x: 40, y: 20 });
   await page.locator('[data-sheet-kind="bookmarkMenu"]').getByRole("button", { name: "Edit" }).click();
   const field = editSheet(page).getByRole("textbox", { name: "Title" });

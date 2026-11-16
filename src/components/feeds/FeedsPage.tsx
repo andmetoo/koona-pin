@@ -61,7 +61,7 @@ export function FeedsPage({
   onNotice,
   onUnsave,
   onUndo,
-  onNewLink,
+  onFollowSite,
 }: {
   feeds: Feed[];
   refreshing: boolean;
@@ -80,7 +80,8 @@ export function FeedsPage({
   onUnsave: (bookmarkId: number) => void;
   /** «Undo» of a journal command (Reading, Favorites). */
   onUndo: (command: number | null) => (() => void) | undefined;
-  onNewLink: () => void;
+  /** «Follow a site…» of the empty page: New link that says it is for following (review 2026-11-16). */
+  onFollowSite: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const [searching, setSearching] = useState(false);
@@ -325,9 +326,9 @@ export function FeedsPage({
   const empty =
     feeds.length === 0 ? (
       <EmptyState icon={Rss} title={t("feeds.none.title")} text={t("feeds.none.text")}>
-        <Button variant="primary" onClick={onNewLink} className="mt-1">
+        <Button variant="primary" onClick={onFollowSite} className="mt-1">
           <Icon icon={Plus} size={14} />
-          {t("sidebar.newLink")}
+          {t("feeds.follow")}
         </Button>
       </EmptyState>
     ) : allRead ? (
