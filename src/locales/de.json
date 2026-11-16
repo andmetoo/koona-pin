@@ -1934,6 +1934,7 @@
     "savedFromFeeds": "Aus Feeds gespeichert",
     "follow": "Website folgen…",
     "followSite": "Website folgen",
+    "followButton": "Website folgen",
     "newCount": "{{count}} neu",
     "updated": "aktualisiert {{when}}",
     "offline": "Offline",

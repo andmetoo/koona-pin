@@ -1824,6 +1824,7 @@
     "savedFromFeeds": "从订阅源保存的",
     "follow": "关注网站…",
     "followSite": "关注网站",
+    "followButton": "关注网站",
     "newCount": "{{count}} 篇新文章",
     "updated": "{{when}}更新",
     "offline": "离线",

@@ -2154,6 +2154,7 @@
     "savedFromFeeds": "Zapisane z kanałów",
     "follow": "Obserwuj stronę…",
     "followSite": "Obserwuj stronę",
+    "followButton": "Obserwuj stronę",
     "newCount": "Nowe: {{count}}",
     "updated": "zaktualizowano {{when}}",
     "offline": "Offline",

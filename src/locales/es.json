@@ -2044,6 +2044,7 @@
     "savedFromFeeds": "Guardados de feeds",
     "follow": "Seguir un sitio…",
     "followSite": "Seguir un sitio",
+    "followButton": "Seguir un sitio",
     "newCount": "{{count}} nuevos",
     "updated": "actualizado {{when}}",
     "offline": "Sin conexión",

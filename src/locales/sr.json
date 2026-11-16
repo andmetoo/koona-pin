@@ -2044,6 +2044,7 @@
     "savedFromFeeds": "Сачувано из фидова",
     "follow": "Прати сајт…",
     "followSite": "Прати сајт",
+    "followButton": "Прати сајт",
     "newCount": "Нових: {{count}}",
     "updated": "ажурирано {{when}}",
     "offline": "Нема везе",

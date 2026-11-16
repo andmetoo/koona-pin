@@ -2044,6 +2044,7 @@
     "savedFromFeeds": "Enregistrés des flux",
     "follow": "Suivre un site…",
     "followSite": "Suivre un site",
+    "followButton": "Suivre un site",
     "newCount": "{{count}} nouveaux",
     "updated": "mis à jour {{when}}",
     "offline": "Hors ligne",

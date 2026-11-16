@@ -1934,6 +1934,7 @@
     "savedFromFeeds": "Saved from feeds",
     "follow": "Follow a site…",
     "followSite": "Follow a site",
+    "followButton": "Follow a site",
     "newCount": "{{count}} new",
     "updated": "updated {{when}}",
     "offline": "Offline",

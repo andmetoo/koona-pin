@@ -1934,6 +1934,7 @@
     "savedFromFeeds": "Kaydedilenler",
     "follow": "Bir siteyi takip et…",
     "followSite": "Bir siteyi takip et",
+    "followButton": "Siteyi takip et",
     "newCount": "{{count}} yeni",
     "updated": "güncellendi: {{when}}",
     "offline": "Çevrimdışı",

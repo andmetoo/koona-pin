@@ -2044,6 +2044,7 @@
     "savedFromFeeds": "Sačuvano iz fidova",
     "follow": "Prati sajt…",
     "followSite": "Prati sajt",
+    "followButton": "Prati sajt",
     "newCount": "Novih: {{count}}",
     "updated": "ažurirano {{when}}",
     "offline": "Nema veze",

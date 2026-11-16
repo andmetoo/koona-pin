@@ -2154,6 +2154,7 @@
     "savedFromFeeds": "Сохранённые из лент",
     "follow": "Подписаться на сайт…",
     "followSite": "Подписаться на сайт",
+    "followButton": "Подписаться",
     "newCount": "Новых: {{count}}",
     "updated": "обновлено {{when}}",
     "offline": "Нет связи",

@@ -1824,6 +1824,7 @@
     "savedFromFeeds": "피드에서 저장함",
     "follow": "사이트 팔로우…",
     "followSite": "사이트 팔로우",
+    "followButton": "사이트 팔로우",
     "newCount": "새 글 {{count}}",
     "updated": "업데이트: {{when}}",
     "offline": "오프라인",

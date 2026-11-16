@@ -267,7 +267,8 @@ export function Sidebar(props: SidebarProps) {
   const feedsAll = feedsOpen && props.feedUid === null && !props.feedsToday;
   const todayOpen = feedsOpen && props.feedsToday;
   /** The main button: «New link» in Bookmarks, «Follow a site» in Feeds; `Ctrl N` follows it. */
-  const primary = feedsMode ? { label: t("feeds.followSite"), onClick: props.onFollowSite } : { label: t("sidebar.newLink"), onClick: props.onNewLink };
+  // The button's own short form where «Follow a site» is long («Подписаться»): «Ctrl N» beside it on Linux.
+  const primary = feedsMode ? { label: t("feeds.followButton"), onClick: props.onFollowSite } : { label: t("sidebar.newLink"), onClick: props.onNewLink };
   const favorites = library && filters.onlyFavorites;
   const reading = library && filters.onlyReading;
   const offlineOpen = library && filters.onlyOffline;

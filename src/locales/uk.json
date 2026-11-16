@@ -2154,6 +2154,7 @@
     "savedFromFeeds": "Збережене зі стрічок",
     "follow": "Підписатися на сайт…",
     "followSite": "Підписатися на сайт",
+    "followButton": "Підписатися",
     "newCount": "Нових: {{count}}",
     "updated": "оновлено {{when}}",
     "offline": "Немає зв'язку",

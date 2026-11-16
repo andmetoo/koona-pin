@@ -1824,6 +1824,7 @@
     "savedFromFeeds": "フィードから保存",
     "follow": "サイトをフォロー…",
     "followSite": "サイトをフォロー",
+    "followButton": "サイトをフォロー",
     "newCount": "新着 {{count}}",
     "updated": "{{when}}に更新",
     "offline": "オフライン",
