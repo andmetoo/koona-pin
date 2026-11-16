@@ -66,6 +66,7 @@ const filters: FilterState = {
   onlyReading: false,
   read: null,
   onlyOffline: false,
+  onlyFeed: false,
 };
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));

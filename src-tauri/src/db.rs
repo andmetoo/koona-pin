@@ -227,6 +227,8 @@ pub struct LibraryCounts {
     /// Bookmarks outside the trash with an offline copy (NP-126): «Offline N».
     /// Counted by the command too: schemas before 12 have no copies.
     pub offline: i64,
+    /// Bookmarks outside the trash saved from a feed (`source = 'feed'`): «Saved from feeds N».
+    pub feed: i64,
 }
 
 /// The trash is counted apart, every other count leaves it out. Each count
@@ -242,7 +244,8 @@ pub fn get_counts(conn: &Connection) -> Result<LibraryCounts> {
                     (SELECT count(*) {inbox}),
                     (SELECT max(created_at) {inbox}),
                     (SELECT count(*) {inbox} AND source IN ('import', 'list')),
-                    (SELECT count(*) FROM bookmarks WHERE deleted_at IS NOT NULL)"
+                    (SELECT count(*) FROM bookmarks WHERE deleted_at IS NOT NULL),
+                    (SELECT count(*) {live} AND source = 'feed')"
         ),
         [],
         |r| {
@@ -258,6 +261,7 @@ pub fn get_counts(conn: &Connection) -> Result<LibraryCounts> {
                 reading: 0,
                 reading_unread: 0,
                 offline: 0,
+                feed: r.get(6)?,
             })
         },
     )
@@ -463,6 +467,10 @@ pub struct BookmarkQuery {
     /// Only bookmarks with an offline copy (NP-126), in the order chosen.
     #[serde(default)]
     pub only_offline: bool,
+    /// Only posts saved from feeds (`source = 'feed'`): «Saved from feeds» of the Feeds mode. They
+    /// outlive the feed cache, which drops a post 30 days after it came.
+    #[serde(default)]
+    pub only_feed: bool,
     /// Only this bookmark: whether a changed one still belongs to the list.
     #[ts(optional)]
     pub id: Option<i64>,
@@ -847,6 +855,9 @@ fn query_filter(query: &BookmarkQuery) -> (String, &'static str, Vec<rusqlite::t
         Some(true) => filter.push_str(" AND b.read_at IS NOT NULL"),
         Some(false) => filter.push_str(" AND b.read_at IS NULL"),
         None => {}
+    }
+    if query.only_feed {
+        filter.push_str(" AND b.source = 'feed'");
     }
     if query.only_offline {
         // The few copies first, not a lookup on every row.
@@ -2411,6 +2422,10 @@ mod tests {
         );
         let counts = get_counts(&conn).unwrap();
         assert_eq!((counts.total, counts.inbox), (3, 2));
+        // «Saved from feeds»: only what came from a feed.
+        conn.execute("UPDATE bookmarks SET source = 'feed' WHERE id = ?1", [imported.id]).unwrap();
+        let from_feeds = get_bookmarks(&conn, &BookmarkQuery { only_feed: true, ..Default::default() }).unwrap();
+        assert_eq!(from_feeds.items.iter().map(|b| b.id).collect::<Vec<_>>(), [imported.id]);
         assert_eq!(
             counts.inbox_newest.as_deref(),
             Some("2026-10-02T10:00:00.000Z")

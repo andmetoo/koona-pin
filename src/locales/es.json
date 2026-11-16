@@ -106,6 +106,7 @@
     "inboxWaiting_many": "Bandeja de entrada: {{count}} en espera",
     "inboxWaiting_other": "Bandeja de entrada: {{count}} en espera",
     "all": "Marcadores",
+    "allRow": "Todo",
     "favorites": "Favoritos",
     "reading": "Para leer",
     "trash": "Papelera",
@@ -113,6 +114,9 @@
     "links": "Comprobación de enlaces",
     "settings": "Configuración",
     "offline": "Sin conexión"
+  },
+  "mode": {
+    "label": "Modo"
   },
   "browser": {
     "ready": "Conectado",
@@ -1131,7 +1135,10 @@
     "trash": "La Papelera está vacía",
     "trashHint": "Los marcadores eliminados se quedan aquí 30 días y después desaparecen para siempre.",
     "offline": "Aún no hay copias sin conexión",
-    "offlineHint": "Elige «Guardar para leer sin conexión» en el menú de un marcador o «Guardar sin conexión» en modo lectura. Las copias se quedan en este ordenador."
+    "offlineHint": "Elige «Guardar para leer sin conexión» en el menú de un marcador o «Guardar sin conexión» en modo lectura. Las copias se quedan en este ordenador.",
+    "feedSaved": "Aún no has guardado nada de los feeds",
+    "feedSavedHint": "Guarda una publicación con S o con su botón de marcador. Se queda aquí como marcador aunque el feed ya no la tenga.",
+    "feedSavedAction": "Abrir los feeds"
   },
   "inbox": {
     "banner_one": "{{count}} marcador nuevo en espera. Conservarlo, archivarlo o eliminarlo lleva un momento.",
@@ -2034,6 +2041,7 @@
   "feeds": {
     "title": "Feeds",
     "all": "Todos los feeds",
+    "savedFromFeeds": "Guardados de feeds",
     "follow": "Seguir un sitio…",
     "followSite": "Seguir un sitio",
     "newCount": "{{count}} nuevos",

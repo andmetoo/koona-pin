@@ -188,7 +188,20 @@ export function healthLine(feed: Pick<Feed, "health">, t: TFunction, language: s
 export function headerLine(
   feeds: Feed[],
   feedUid: string | null,
-  { t, language, refreshing, ago }: { t: TFunction; language: string; refreshing: boolean; ago: (iso: string) => string | null },
+  {
+    t,
+    language,
+    refreshing,
+    ago,
+    newCount,
+  }: {
+    t: TFunction;
+    language: string;
+    refreshing: boolean;
+    ago: (iso: string) => string | null;
+    /** What is new in the list on screen, when it is not every post of the feeds shown (Today). */
+    newCount?: number;
+  },
 ): string {
   const shown = feedUid ? feeds.filter((f) => f.uid === feedUid) : feeds;
   if (refreshing) return t("feeds.checking");
@@ -198,7 +211,7 @@ export function headerLine(
   const fetched = shown.map((f) => f.fetched_at).filter((at): at is string => !!at).sort().at(-1);
   const updated = fetched ? ago(fetched) : null;
   const offline = shown.length > 0 && shown.every((f) => f.health.state === "offline");
-  const first = offline ? t("feeds.offline") : t("feeds.newCount", { count: shown.reduce((sum, f) => sum + f.unread, 0) });
+  const first = offline ? t("feeds.offline") : t("feeds.newCount", { count: newCount ?? shown.reduce((sum, f) => sum + f.unread, 0) });
   return updated ? `${first} · ${t("feeds.updated", { when: updated })}` : first;
 }
 
@@ -212,6 +225,8 @@ export const listTitle = (feeds: Feed[], feedUid: string | null, t: TFunction) =
 export interface FeedsPlace {
   feed: string | null;
   item: number | null;
+  /** «Today» of the Feeds mode (2.24.0): every feed's posts of the local day; `feed` is null then. */
+  today?: boolean;
 }
 export function parsePlace(raw: string | null): FeedsPlace {
   try {
@@ -219,6 +234,7 @@ export function parsePlace(raw: string | null): FeedsPlace {
     return {
       feed: typeof value?.feed === "string" ? value.feed : null,
       item: typeof value?.item === "number" ? value.item : null,
+      today: value?.today === true && typeof value?.feed !== "string",
     };
   } catch {
     return { feed: null, item: null };

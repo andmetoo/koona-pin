@@ -1,5 +1,5 @@
 import { ReactNode, useState, useSyncExternalStore } from "react";
-import { ArrowDownToLine, BookOpen, ChevronDown, ChevronRight, CircleArrowDown, Heart, Link, Plus, Search, Trash2, X } from "lucide-react";
+import { ArrowDownToLine, BookmarkCheck, BookOpen, ChevronDown, ChevronRight, CircleArrowDown, Heart, Link, Plus, Search, Trash2, X } from "lucide-react";
 import type { AppState } from "../../app/appState";
 import { inboxLine } from "../../app/notifications";
 import { noSection } from "../../app/sections";
@@ -123,6 +123,8 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     open,
     openDuplicates,
     openFeeds,
+    mode,
+    switchMode,
     openInbox,
     openLinks,
     openReading,
@@ -222,7 +224,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     if (narrowed) {
       // Frame 09: what was searched and where, the whole library one click away.
       const query = filters.search.trim();
-      const inSection = !!collection || filters.onlyFavorites || filters.onlyInbox || filters.onlyTrash || filters.onlyReading || filters.onlyOffline;
+      const inSection = !!collection || filters.onlyFavorites || filters.onlyInbox || filters.onlyTrash || filters.onlyReading || filters.onlyOffline || filters.onlyFeed;
       const title = query
         ? inSection
           ? t("empty.noResultsInFor", { section, query })
@@ -259,6 +261,13 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
       return { icon: Heart, title: t("empty.noFavorites"), text: t("empty.noFavoritesHint"), actions: null };
     if (filters.onlyReading) return { icon: BookOpen, title: t("empty.reading"), text: t("empty.readingHint"), actions: null };
     if (filters.onlyOffline) return { icon: CircleArrowDown, title: t("empty.offline"), text: t("empty.offlineHint"), actions: null };
+    if (filters.onlyFeed)
+      return {
+        icon: BookmarkCheck,
+        title: t("empty.feedSaved"),
+        text: t("empty.feedSavedHint"),
+        actions: <Button onClick={() => openFeeds(null)}>{t("empty.feedSavedAction")}</Button>,
+      };
     if (collection)
       return {
         icon: Plus,
@@ -348,16 +357,20 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
       docked={selecting}
       raise={notice}
       action={
-        notice.undo ? (
-          <button type="button" onClick={notice.undo}>
-            {t("notice.undo")}
-          </button>
-        ) : (
-          notice.show && (
-            <button type="button" onClick={notice.show}>
-              {t("add.show")}
-            </button>
-          )
+        // A post saved from Feeds has both (2.24.0): «Show» takes it to Bookmarks, «Undo» takes it back.
+        (notice.show || notice.undo) && (
+          <>
+            {notice.show && (
+              <button type="button" onClick={notice.show}>
+                {t("add.show")}
+              </button>
+            )}
+            {notice.undo && (
+              <button type="button" onClick={notice.undo}>
+                {t("notice.undo")}
+              </button>
+            )}
+          </>
         )
       }
     >
@@ -520,6 +533,11 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
         feedsOpen={page === "feeds"}
         feedUid={feedPlace.feed}
         onFeed={openFeeds}
+        mode={mode}
+        onMode={switchMode}
+        feedsToday={!!feedPlace.today}
+        onFeedsToday={() => openFeeds(null, { today: true })}
+        onFeedsSaved={() => navigate({ onlyFeed: true })}
         feedActions={feedActions}
       />
       {dragging && <DragStack drag={dragging} collections={library.collections} stack={selectionDrag.stack} place={selectionDrag.place} />}
@@ -575,6 +593,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
                 feeds={feeds ?? []}
                 refreshing={feedsRefreshing}
                 feedUid={feedPlace.feed}
+                today={!!feedPlace.today}
                 itemId={feedPlace.item}
                 onFeed={openFeeds}
                 onItem={(item) => setFeedPlace((place) => ({ ...place, item }))}
@@ -592,10 +611,19 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
                   onSupporter: () => setSurface("supporter"),
                 }}
                 onOpen={open}
-                onNotice={({ text, alert = false, undo, glass = false }) => setNotice({ text, alert, undo, glass })}
+                onNotice={({ text, alert = false, undo, glass = false, show }) => setNotice({ text, alert, undo, glass, show })}
                 onUnsave={(id) => unsave(id, false)}
                 onUndo={undoing}
                 onFollowSite={() => setSurface("follow")}
+                onShowBookmark={(id) => {
+                  // «Show» of a post just saved: Bookmarks, All, with the new bookmark open in the editor.
+                  switchMode("bookmarks");
+                  navigate();
+                  void api
+                    .getBookmarks({}, { id })
+                    .then((found) => found.items[0] && setEditing(found.items[0]))
+                    .catch(() => {});
+                }}
               />
               {bundleHere}
               </>

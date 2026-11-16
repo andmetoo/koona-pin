@@ -180,6 +180,10 @@ pub struct FeedItemQuery {
     #[ts(optional)]
     pub after: Option<String>,
     pub limit: u32,
+    /// Only posts published (or, without a date, fetched) at or after this time in the stored
+    /// format: «Today» of the Feeds mode, from the start of the local day.
+    #[ts(optional)]
+    pub since: Option<String>,
 }
 
 /// A post to read in the article sheet.

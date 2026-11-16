@@ -99,6 +99,7 @@
     "inboxWaiting_one": "Eingang: {{count}} wartet",
     "inboxWaiting_other": "Eingang: {{count}} warten",
     "all": "Lesezeichen",
+    "allRow": "Alle",
     "favorites": "Favoriten",
     "reading": "Leseliste",
     "trash": "Papierkorb",
@@ -106,6 +107,9 @@
     "links": "Linkprüfung",
     "settings": "Einstellungen",
     "offline": "Offline"
+  },
+  "mode": {
+    "label": "Modus"
   },
   "browser": {
     "ready": "Browser verbunden",
@@ -1058,7 +1062,10 @@
     "trash": "Der Papierkorb ist leer",
     "trashHint": "Gelöschte Lesezeichen bleiben 30 Tage hier, danach sind sie endgültig weg.",
     "offline": "Noch keine Offline-Kopien",
-    "offlineHint": "Wählen Sie „Für offline speichern“ im Menü eines Lesezeichens oder „Offline speichern“ im Lesemodus. Kopien bleiben auf diesem Computer."
+    "offlineHint": "Wählen Sie „Für offline speichern“ im Menü eines Lesezeichens oder „Offline speichern“ im Lesemodus. Kopien bleiben auf diesem Computer.",
+    "feedSaved": "Noch nichts aus Feeds gespeichert",
+    "feedSavedHint": "Speichere einen Beitrag mit S oder seiner Lesezeichen-Schaltfläche. Er bleibt hier als Lesezeichen, auch wenn der Feed ihn nicht mehr führt.",
+    "feedSavedAction": "Feeds öffnen"
   },
   "inbox": {
     "banner_one": "{{count}} neues Lesezeichen wartet. Behalten, einsortieren oder löschen dauert einen Moment.",
@@ -1924,6 +1931,7 @@
   "feeds": {
     "title": "Feeds",
     "all": "Alle Feeds",
+    "savedFromFeeds": "Aus Feeds gespeichert",
     "follow": "Website folgen…",
     "followSite": "Website folgen",
     "newCount": "{{count}} neu",

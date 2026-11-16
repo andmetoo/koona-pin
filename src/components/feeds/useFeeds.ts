@@ -39,7 +39,7 @@ const SEARCH_MS = 250;
  * the list, listed by the query among the unread once read (2.17.0); a reload asks with the ones
  * kept then, so a post no longer kept goes at the next change.
  */
-export function useFeedItems(feedUid: string | null, typed: string, changed: unknown, unreadOnly = false, keep: readonly number[] = []) {
+export function useFeedItems(feedUid: string | null, typed: string, changed: unknown, unreadOnly = false, keep: readonly number[] = [], since?: string) {
   // The search waits for typing to settle: a query per keystroke would reload the list each time.
   const [search, setSearch] = useState(typed);
   useEffect(() => {
@@ -47,7 +47,7 @@ export function useFeedItems(feedUid: string | null, typed: string, changed: unk
     const timer = window.setTimeout(() => setSearch(typed), SEARCH_MS);
     return () => window.clearTimeout(timer);
   }, [typed]);
-  const key = `${feedUid ?? ""}\n${search}\n${unreadOnly}`;
+  const key = `${feedUid ?? ""}\n${search}\n${unreadOnly}\n${since ?? ""}`;
   const [state, setState] = useState<{ key: string; items: FeedItem[]; next: string | null; loaded: boolean }>({
     key,
     items: [],
@@ -63,6 +63,7 @@ export function useFeedItems(feedUid: string | null, typed: string, changed: unk
     unread_only: unreadOnly,
     keep: unreadOnly && kept.current.length ? [...kept.current] : undefined,
     search: search.trim() || undefined,
+    since,
   });
   const loadingMore = useRef<Promise<boolean> | null>(null);
   // A saved post's bookmark trashed or deleted (Undo, the library) changes its «· saved»;

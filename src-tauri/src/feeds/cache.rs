@@ -617,6 +617,10 @@ pub fn list_items(conn: &Connection, query: &FeedItemQuery) -> rusqlite::Result<
             }
         }
     }
+    if let Some(since) = &query.since {
+        filter.push(format!("{SORT_AT} >= ?"));
+        values.push(since.clone().into());
+    }
     for word in query.search.as_deref().unwrap_or_default().split_whitespace() {
         filter.push("np_feed_match(?, title, excerpt)".into());
         values.push(word.to_string().into());
@@ -1143,6 +1147,17 @@ mod tests {
         assert_eq!(search("ежик туман"), ["Ёжик в ТУМАНЕ"], "Cyrillic, case and ё folded");
         assert_eq!(search("FOG"), ["Post a3"], "the excerpt too");
         assert!(search("nothing").is_empty());
+    }
+
+    #[test]
+    fn since_keeps_the_posts_of_the_day_and_the_undated_ones_fetched_in_it() {
+        let conn = open_in_memory().unwrap();
+        let posts = vec![item("new", Some(days_ago(0))), item("old", Some(days_ago(3))), item("undated", None)];
+        store_fetch(&conn, "a", &document(posts), NOW).unwrap();
+        let today = FeedItemQuery { since: Some(days_ago(1)), ..query(None, 10) };
+        let mut titles: Vec<String> = list_items(&conn, &today).unwrap().0.into_iter().map(|(i, _)| i.title).collect();
+        titles.sort();
+        assert_eq!(titles, ["Post new", "Post undated"]);
     }
 
     #[test]

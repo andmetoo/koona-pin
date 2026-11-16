@@ -19,6 +19,7 @@ const filters = (extra: Partial<FilterState> = {}): FilterState => ({
   onlyReading: false,
   read: null,
   onlyOffline: false,
+  onlyFeed: false,
   ...extra,
 });
 

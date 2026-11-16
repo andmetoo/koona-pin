@@ -106,6 +106,7 @@
     "inboxWaiting_few": "Prijemno sanduče: čekaju {{count}}",
     "inboxWaiting_other": "Prijemno sanduče: čeka {{count}}",
     "all": "Obeleživači",
+    "allRow": "Sve",
     "favorites": "Omiljeno",
     "reading": "Za čitanje",
     "trash": "Otpad",
@@ -113,6 +114,9 @@
     "links": "Provera linkova",
     "settings": "Podešavanja",
     "offline": "Van mreže"
+  },
+  "mode": {
+    "label": "Režim"
   },
   "browser": {
     "ready": "Pregledač povezan",
@@ -1131,7 +1135,10 @@
     "trash": "Otpad je prazan",
     "trashHint": "Obrisani obeleživači ostaju ovde 30 dana, a zatim nestaju zauvek.",
     "offline": "Još nema kopija van mreže",
-    "offlineHint": "Izaberite „Sačuvaj za čitanje van mreže“ u meniju obeleživača ili „Sačuvaj van mreže“ u režimu čitanja. Kopije ostaju na ovom računaru."
+    "offlineHint": "Izaberite „Sačuvaj za čitanje van mreže“ u meniju obeleživača ili „Sačuvaj van mreže“ u režimu čitanja. Kopije ostaju na ovom računaru.",
+    "feedSaved": "Iz fidova još ništa nije sačuvano",
+    "feedSavedHint": "Sačuvajte objavu tasterom S ili dugmetom obeleživača. Ostaje ovde kao obeleživač i kad nestane iz fida.",
+    "feedSavedAction": "Otvori fidove"
   },
   "inbox": {
     "banner_one": "{{count}} novi obeleživač čeka. Da ga zadržite, razvrstate ili obrišete treba trenutak.",
@@ -2034,6 +2041,7 @@
   "feeds": {
     "title": "Fidovi",
     "all": "Svi fidovi",
+    "savedFromFeeds": "Sačuvano iz fidova",
     "follow": "Prati sajt…",
     "followSite": "Prati sajt",
     "newCount": "Novih: {{count}}",

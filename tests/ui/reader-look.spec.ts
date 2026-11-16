@@ -162,7 +162,7 @@ test("Settings → Reading: “Open links” changes what the title, double-clic
     const links = page.getByRole("radiogroup", { name: "Open links" });
     await links.getByRole("radio", { name: label }).click();
     await expect(links.getByRole("radio", { name: label })).toHaveAttribute("aria-checked", "true");
-    await page.getByRole("button", { name: /^Bookmarks/ }).click();
+    await page.getByRole("button", { name: /^All \d/ }).click();
     await expect(page.locator("[data-bookmark-id]").first()).toBeVisible();
   };
   // Everything the setting must not change, checked in both of its states.

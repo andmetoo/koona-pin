@@ -106,6 +106,7 @@
     "inboxWaiting_many": "In arrivo: {{count}} in attesa",
     "inboxWaiting_other": "In arrivo: {{count}} in attesa",
     "all": "Segnalibri",
+    "allRow": "Tutto",
     "favorites": "Preferiti",
     "reading": "Da leggere",
     "trash": "Cestino",
@@ -113,6 +114,9 @@
     "links": "Controllo dei link",
     "settings": "Impostazioni",
     "offline": "Offline"
+  },
+  "mode": {
+    "label": "Modalità"
   },
   "browser": {
     "ready": "Browser collegato",
@@ -1131,7 +1135,10 @@
     "trash": "Il Cestino è vuoto",
     "trashHint": "I segnalibri eliminati restano qui 30 giorni, poi spariscono per sempre.",
     "offline": "Ancora nessuna copia offline",
-    "offlineHint": "Scegli «Salva per offline» nel menu di un segnalibro, o «Salva offline» in modalità lettura. Le copie restano su questo computer."
+    "offlineHint": "Scegli «Salva per offline» nel menu di un segnalibro, o «Salva offline» in modalità lettura. Le copie restano su questo computer.",
+    "feedSaved": "Ancora niente salvato dai feed",
+    "feedSavedHint": "Salva un articolo con S o con il suo pulsante segnalibro. Resta qui come segnalibro anche quando il feed non lo ha più.",
+    "feedSavedAction": "Apri i feed"
   },
   "inbox": {
     "banner_one": "{{count}} nuovo segnalibro in attesa. Tenerlo, archiviarlo o eliminarlo richiede un attimo.",
@@ -2034,6 +2041,7 @@
   "feeds": {
     "title": "Feed",
     "all": "Tutti i feed",
+    "savedFromFeeds": "Salvati dai feed",
     "follow": "Segui un sito…",
     "followSite": "Segui un sito",
     "newCount": "{{count}} nuovi",

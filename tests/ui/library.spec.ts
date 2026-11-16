@@ -175,7 +175,7 @@ test("inbox: new links wait there until a decision, triage Esc goes back to it, 
   await expect(cards).toHaveCount(1);
 
   // Hidden until a bookmark newer than the ones waiting arrives (the restart: notifications.spec.ts).
-  await page.getByRole("button", { name: /^Bookmarks/ }).click();
+  await page.getByRole("button", { name: /^All \d/ }).click();
   await bell(page).click();
   await waiting.getByRole("button", { name: "Hide until new bookmarks arrive" }).click();
   await expect(waiting).toHaveCount(0);
@@ -221,7 +221,7 @@ test("trash: delete without a dialog, undo, restore with every field, a link sav
   await trashCard(3);
   await trashCard(1);
   await expect(nav("Favorites 0")).toBeVisible();
-  await expect(nav("Bookmarks 4")).toBeVisible();
+  await expect(nav("All 4")).toBeVisible();
   await expect(nav("Design 0")).toBeVisible();
   await page.getByRole("textbox", { name: "Search the library" }).fill("principles");
   await expect(cards).toHaveCount(0);
@@ -320,7 +320,7 @@ test("trash: deleting for good asks first, “Keep” keeps it, emptying takes t
   await empty.getByRole("button", { name: "Delete forever" }).click();
   await expect(toast).toContainText("Trash emptied: 2 bookmarks deleted for good");
   await expect(page.getByRole("heading", { name: "Trash is empty" })).toBeVisible();
-  await expect(nav("Bookmarks 3")).toBeVisible();
+  await expect(nav("All 3")).toBeVisible();
   // Gone after a restart too.
   await page.reload();
   await expect(nav("Trash 0")).toBeVisible();
@@ -1004,7 +1004,7 @@ test("duplicates: the section groups the same page, the main one is chosen, merg
   await expect(page.getByRole("heading", { name: "No duplicates" })).toBeVisible();
 
   // The kept bookmark has everything; a page with another parameter was never a duplicate.
-  await nav("Bookmarks 7").click();
+  await nav("All 7").click();
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(7);
 });
 
@@ -1233,7 +1233,7 @@ test("sort: the menu orders every section, by title and site without date groups
 
   // Kept like the view.
   await page.reload();
-  await page.getByRole("button", { name: /^Bookmarks/ }).click();
+  await page.getByRole("button", { name: /^All \d/ }).click();
   await expect(page.getByRole("button", { name: /^Sort: / })).toHaveAccessibleName("Sort: Site A–Z");
 });
 
@@ -1567,7 +1567,7 @@ test("reading: the sidebar counts the unread, R sends the selection and takes it
   await expect(page.getByRole("main").getByRole("heading", { level: 1 })).toContainText("Reading");
 
   // R in the library sends the selection; Ctrl Z takes it back whole.
-  await sidebar.getByRole("button", { name: /^Bookmarks/ }).click();
+  await sidebar.getByRole("button", { name: /^All \d/ }).click();
   await selectCards(page, ["Noticing the everyday", "Notes on attention"]);
   await page.keyboard.press("r");
   await expect(notice(page, "2 bookmarks sent to Reading")).toBeVisible();
@@ -1668,7 +1668,7 @@ test("bulk actions: a new collection from the selection, export of the selected,
   await expect(bar).toHaveCount(0);
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(0);
 
-  await page.getByRole("button", { name: /^Bookmarks/ }).click();
+  await page.getByRole("button", { name: /^All \d/ }).click();
   await selectCards(page, ["Ten principles for good design", "Noticing the everyday"]);
   await page.keyboard.press("Delete");
   await page.getByRole("button", { name: /^Trash/ }).click();
@@ -1745,7 +1745,7 @@ test("drag: the selection onto a collection, a tag and the trash; the hint names
   // Every tag is a target while dragging, the hidden ones too; the hint follows the pointer.
   const tags = sidebar.locator('[data-drop^="tag:"]');
   await expect(sidebar.getByRole("button", { name: /^\+ \d+ more/ })).toBeVisible();
-  await dragOver(page, preview, sidebar.getByRole("button", { name: /^Bookmarks/ }));
+  await dragOver(page, preview, sidebar.getByRole("button", { name: /^All \d/ }));
   await expect(dropHint(page)).toHaveText("Drop on a collection, a tag, Favorites, Reading or Trash");
   await expect(tags).toHaveCount(10);
   await expect(sidebar.getByRole("button", { name: /^\+ \d+ more/ })).toHaveCount(0);
@@ -3209,9 +3209,10 @@ test("card menu: Enter is named only where it opens the browser; «Add tag…» 
 
 test("sidebar: a row clicked keeps no ring while letter keys work the list; its footer has a hairline only over hidden rows", async ({ page }) => {
   const sidebar = page.getByRole("complementary", { name: "Library" });
-  await sidebar.getByRole("button", { name: /^All feeds/ }).click();
+  await page.getByRole("tab", { name: "Feeds" }).click();
+  const row = sidebar.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: /^All/ });
+  await row.click();
   await page.keyboard.press("j");
-  const row = sidebar.getByRole("button", { name: /^All feeds/ });
   // Still the focused element, matching :focus-visible after a key, and yet no ring.
   await expect(row).toBeFocused();
   expect(await row.evaluate((el) => el.matches(":focus-visible"))).toBe(true);
@@ -3221,6 +3222,8 @@ test("sidebar: a row clicked keeps no ring while letter keys work the list; its 
   await page.keyboard.press("Tab");
   await expect(page.locator("html")).toHaveAttribute("data-input", "keys");
 
+  // Bookmarks has the longer sidebar: Collections and Tags pass under the footer.
+  await page.getByRole("tab", { name: "Bookmarks" }).click();
   await page.setViewportSize({ width: 1440, height: 600 });
   const foot = sidebar.locator(".sidebar-foot");
   await expect(foot).toHaveAttribute("data-below", "true");

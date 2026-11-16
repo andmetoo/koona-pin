@@ -92,6 +92,7 @@
     "inbox": "收件箱",
     "inboxWaiting_other": "收件箱：{{count}} 个待整理",
     "all": "书签",
+    "allRow": "全部",
     "favorites": "收藏",
     "reading": "稍后读",
     "trash": "回收站",
@@ -99,6 +100,9 @@
     "links": "链接检查",
     "settings": "设置",
     "offline": "离线"
+  },
+  "mode": {
+    "label": "模式"
   },
   "browser": {
     "ready": "浏览器已连接",
@@ -985,7 +989,10 @@
     "trash": "回收站是空的",
     "trashHint": "已删除的书签会在这里保留 30 天，之后将被永久删除。",
     "offline": "还没有离线副本",
-    "offlineHint": "在书签菜单中选择“保存以便离线阅读”，或在阅读模式中选择“离线保存”。副本保留在这台电脑上。"
+    "offlineHint": "在书签菜单中选择“保存以便离线阅读”，或在阅读模式中选择“离线保存”。副本保留在这台电脑上。",
+    "feedSaved": "还没有从订阅源保存内容",
+    "feedSavedHint": "按 S 或书签按钮保存文章。即使它从订阅源中消失，也会作为书签留在这里。",
+    "feedSavedAction": "打开订阅源"
   },
   "inbox": {
     "banner_other": "有 {{count}} 个新书签等待处理。保留、归档或删除只需大约一分钟。",
@@ -1814,6 +1821,7 @@
   "feeds": {
     "title": "订阅源",
     "all": "全部订阅源",
+    "savedFromFeeds": "从订阅源保存的",
     "follow": "关注网站…",
     "followSite": "关注网站",
     "newCount": "{{count}} 篇新文章",

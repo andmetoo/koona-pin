@@ -26,6 +26,8 @@ export interface FeedNotice {
   undo?: () => void;
   /** The glass notice of a link saved by hand: «Undo» takes the new bookmark away again. */
   glass?: boolean;
+  /** «Show»: the saved post as a bookmark, in the Bookmarks mode (2.24.0). */
+  show?: () => void;
 }
 
 /**
@@ -50,6 +52,7 @@ export function FeedsPage({
   feeds,
   refreshing,
   feedUid,
+  today = false,
   itemId,
   onFeed,
   onItem,
@@ -62,10 +65,13 @@ export function FeedsPage({
   onUnsave,
   onUndo,
   onFollowSite,
+  onShowBookmark,
 }: {
   feeds: Feed[];
   refreshing: boolean;
   feedUid: string | null;
+  /** «Today» of the Feeds mode (2.24.0): the posts of the local day, of every feed. */
+  today?: boolean;
   itemId: number | null;
   onFeed: (uid: string | null) => void;
   onItem: (id: number | null) => void;
@@ -82,6 +88,8 @@ export function FeedsPage({
   onUndo: (command: number | null) => (() => void) | undefined;
   /** «Follow a site…» of the empty page: New link that says it is for following (review 2026-11-16). */
   onFollowSite: () => void;
+  /** «Show» of a post just saved: its bookmark in the Bookmarks mode. */
+  onShowBookmark?: (id: number) => void;
 }) {
   const { t, i18n } = useTranslation();
   const [searching, setSearching] = useState(false);
@@ -90,7 +98,10 @@ export function FeedsPage({
   const [show, setShow] = useState<FeedShow>(() => preference("feeds.show", ["unread", "all"], "all"));
   useEffect(() => savePreference("feeds.show", show), [show]);
   const kept = useMemo(() => (itemId === null ? [] : [itemId]), [itemId]);
-  const { items, loaded, hasMore, loadMore } = useFeedItems(feedUid, searching ? search : "", feeds, show === "unread", kept);
+  // «Today» starts at the local midnight; the key changes once a day, not on every render.
+  const day = new Date().toDateString();
+  const since = useMemo(() => (today ? new Date(new Date().setHours(0, 0, 0, 0)).toISOString() : undefined), [today, day]);
+  const { items, loaded, hasMore, loadMore } = useFeedItems(feedUid, searching ? search : "", feeds, show === "unread", kept, since);
   const list = useRef<FeedListHandle>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const sheetEl = useRef<HTMLElement>(null);
@@ -248,7 +259,9 @@ export function FeedsPage({
           : kind === "favorite"
             ? t("feeds.notice.favorited")
             : t("add.savedTo", { place: t("import.library") });
-      onNotice({ text, undo, glass: result.created });
+      // A new bookmark: «Show» takes the person to it, in the Bookmarks mode.
+      const show = result.created && kind === "library" && onShowBookmark ? () => onShowBookmark(saved.id) : undefined;
+      onNotice({ text, undo, glass: result.created, show });
     } catch (err) {
       failed(err);
     }
@@ -259,8 +272,9 @@ export function FeedsPage({
   // A search narrows the list, not what «Mark all read» marks: ✓✓ and ⇧A wait until it is cleared (2.17.0).
   const narrowed = searching && !!search.trim();
   // Up to the newest post the page knew of: one a check brought since stays new.
+  // «Today» shows part of each feed: marking all read would also mark the older posts it hides.
   const markAll = () => {
-    if (narrowed) return;
+    if (narrowed || today) return;
     void markFeedRead(feedUid, newestOf(feeds, feedUid)).then(
       (count) => onNotice({ text: count ? t("feeds.notice.markedRead", { count }) : t("feeds.notice.allRead") }),
       failed,
@@ -317,10 +331,12 @@ export function FeedsPage({
 
   const failing = shownFeed ? !!healthLine(shownFeed, t, i18n.language) : false;
   const offline = (shownFeed ? [shownFeed] : feeds).some((f) => f.health.state === "offline");
-  const status = headerLine(feeds, feedUid, { t, language: i18n.language, refreshing, ago: (iso) => relativeTime(iso, i18n.language) });
-  const title = listTitle(feeds, feedUid, t);
+  // Today holds part of each feed: what is new is counted in its own posts, not in the feeds'.
+  const todayUnread = today ? items.filter((item) => !item.read).length : undefined;
+  const status = headerLine(feeds, feedUid, { t, language: i18n.language, refreshing, ago: (iso) => relativeTime(iso, i18n.language), newCount: todayUnread });
+  const title = today ? t("groups.today") : listTitle(feeds, feedUid, t);
   const shown = feeds.filter((f) => feedUid === null || f.uid === feedUid);
-  const unread = shown.reduce((sum, f) => sum + f.unread, 0);
+  const unread = todayUnread ?? shown.reduce((sum, f) => sum + f.unread, 0);
   // «Everything is read» only where there are posts: a feed not fetched yet has none to read.
   const allRead = show === "unread" && !narrowed && shown.some((f) => f.total > 0);
   const empty =
@@ -406,7 +422,7 @@ export function FeedsPage({
           onSearch={setSearch}
           show={show}
           onShow={setShow}
-          onMarkAll={unread > 0 && !narrowed ? markAll : undefined}
+          onMarkAll={unread > 0 && !narrowed && !today ? markAll : undefined}
           listRef={list}
           empty={empty}
           narrow={narrow}

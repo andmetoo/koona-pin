@@ -8,7 +8,7 @@ Your bookmarks and reading list, in one file on your computer. Koona Pin is a bo
 
 **[Download for Windows, macOS and Linux](https://koona.app/pin/downloads/)** · [Android on Google Play](https://play.google.com/store/apps/details?id=app.koona.pin) · [koona.app/pin](https://koona.app/pin/)
 
-![Koona Pin in the light theme: bookmarks in a compact grid with pictures, site names and titles; Inbox, Reading, Feeds, collections and tags in the sidebar](docs/shots/app-en-light-grid-1280.webp)
+![Koona Pin in the light theme: bookmarks in a compact grid with pictures, site names and titles; the Bookmarks and Feeds tabs, Inbox, Reading, collections and tags in the sidebar](docs/shots/app-en-light-grid-1280.webp)
 
 ![Feeds in three columns: followed feeds in the sidebar, a list of posts with unread ones marked, and the open post on a card on the right](docs/shots/app-en-light-feeds-1280.webp)
 
@@ -17,12 +17,13 @@ Your bookmarks and reading list, in one file on your computer. Koona Pin is a bo
 ## What it does
 
 - **One-button capture.** The browser extension saves the current page to Koona Pin, even when the app window is closed. New links arrive in Inbox.
+- **Two modes.** Bookmarks and Feeds each have their own sidebar, switched at its top or with ⌘1 and ⌘2 (Ctrl 1 and Ctrl 2 elsewhere). The app opens in the mode you used last.
 - **New link, paste or drop.** «New link» at the top of the sidebar (⌘N on a Mac, Ctrl N elsewhere) shows the page's real title and picture before you save it, and offers to follow the site's feed. Paste a link anywhere in the library (⌘V or Ctrl V) or drop it onto the window to save it at once.
 - **Inbox as a stack of cards.** Each new link sits on top of the next ones: ← moves it to the Trash, → keeps it, the heart adds it to Favorites. The collection where links from that site usually go is suggested.
 - **Reading mode.** Saved articles open in one serif column, with the Reading queue beside them; J and K move between articles, Tab between the queue and the article, ⌫ takes an article out of Reading. The Aa panel sets text size, column width, font and theme. A title or Enter opens a bookmark in reading mode; when a page can't be shown as an article, it offers the browser instead.
 - **A Reading list without a limit.** Send links there with R, from the card menu, or with «Save to Reading» in the extension (right-click a page or a link, or Alt+Shift+R). Reading remembers where you stopped.
 - **Offline copies.** «Save for offline» keeps an article's text and pictures on your computer, to read without a connection; Settings can do it for every article you open from Reading (off by default). Copies are never uploaded or synced.
-- **Feeds.** Follow a site's RSS, Atom or JSON feed and read new posts in three columns: feeds in the sidebar, the posts, and the article on a card with next and previous story. S saves a post, R sends it to Reading, F to Favorites, O opens it in the browser. A post becomes a bookmark only when you save it; unsaved posts are kept for 30 days. The app fetches feeds itself, straight from the sites, about once an hour or as often as you choose. Feeds import and export as OPML.
+- **Feeds.** Follow a site's RSS, Atom or JSON feed and read new posts in three columns: feeds in the sidebar, the posts, and the article on a card with next and previous story. Today gathers the day's posts; «Saved from feeds» keeps the posts you saved, after the feed drops them. S saves a post, R sends it to Reading, F to Favorites, O opens it in the browser. A post becomes a bookmark only when you save it; unsaved posts are kept for 30 days. The app fetches feeds itself, straight from the sites, about once an hour or as often as you choose. Feeds import and export as OPML.
 - **Collections three levels deep**, tags, favorites and a note on every link. Importing your browser's bookmarks keeps its folder tree as collections; folders deeper than that become tags.
 - **Grid, compact grid and list views**, a light and a dark theme. A link without a picture shows the site's name on its cover. A click selects; the arrow keys move the selection and Shift extends it. Drag selected links onto a collection, a tag, Favorites, Reading or Trash.
 - **Search** across titles, sites and tags as you type; Ctrl K (⌘K on a Mac) opens it from anywhere.

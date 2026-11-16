@@ -148,7 +148,10 @@ describe("the list's header line", () => {
 });
 
 it("remembers the place on the page, and ignores a broken one", () => {
-  expect(parsePlace('{"feed":"a","item":3}')).toEqual({ feed: "a", item: 3 });
+  expect(parsePlace('{"feed":"a","item":3}')).toEqual({ feed: "a", item: 3, today: false });
   expect(parsePlace("{oops")).toEqual({ feed: null, item: null });
-  expect(parsePlace(null)).toEqual({ feed: null, item: null });
+  expect(parsePlace(null)).toEqual({ feed: null, item: null, today: false });
+  // Today is every feed's: a feed with it is that feed.
+  expect(parsePlace('{"feed":null,"item":null,"today":true}')).toEqual({ feed: null, item: null, today: true });
+  expect(parsePlace('{"feed":"a","item":null,"today":true}')).toEqual({ feed: "a", item: null, today: false });
 });

@@ -106,6 +106,7 @@
     "inboxWaiting_many": "Caixa de entrada: {{count}} aguardando",
     "inboxWaiting_other": "Caixa de entrada: {{count}} aguardando",
     "all": "Marcadores",
+    "allRow": "Tudo",
     "favorites": "Favoritos",
     "reading": "Para ler",
     "trash": "Lixeira",
@@ -113,6 +114,9 @@
     "links": "Verificação de links",
     "settings": "Configurações",
     "offline": "Offline"
+  },
+  "mode": {
+    "label": "Modo"
   },
   "browser": {
     "ready": "Conectado",
@@ -1131,7 +1135,10 @@
     "trash": "A Lixeira está vazia",
     "trashHint": "Os marcadores excluídos ficam aqui por 30 dias e depois somem de vez.",
     "offline": "Nenhuma cópia offline ainda",
-    "offlineHint": "Escolha “Salvar para ler offline” no menu de um marcador ou “Salvar offline” no modo de leitura. As cópias ficam neste computador."
+    "offlineHint": "Escolha “Salvar para ler offline” no menu de um marcador ou “Salvar offline” no modo de leitura. As cópias ficam neste computador.",
+    "feedSaved": "Nada salvo dos feeds ainda",
+    "feedSavedHint": "Salve uma publicação com S ou com o botão de marcador. Ela fica aqui como marcador mesmo depois que sai do feed.",
+    "feedSavedAction": "Abrir os feeds"
   },
   "inbox": {
     "banner_one": "{{count}} marcador novo aguardando. Manter, guardar ou excluir leva um instante.",
@@ -2034,6 +2041,7 @@
   "feeds": {
     "title": "Feeds",
     "all": "Todos os feeds",
+    "savedFromFeeds": "Salvos dos feeds",
     "follow": "Seguir um site…",
     "followSite": "Seguir um site",
     "newCount": "{{count}} novos",

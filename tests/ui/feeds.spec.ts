@@ -4,12 +4,16 @@ import { openApp, opened, settingsGroup, stubBrowser } from "../fixtures/app";
 // The Feeds page (NP-132) on the preview's five sample feeds (NP-128): the sidebar section, the
 // list column, the article sheet and its keys. `koonapin.demo.feeds` switches the preview to no
 // feeds (`empty`), no connection (`offline`) or Ars Technica not updating (`failing`).
-const open = (page: Page, settings: Record<string, string> = {}) => openApp(page, { clear: true, settings });
+/** The app in the Feeds mode (2.24.0), or in Bookmarks with `{ feeds: false }`. */
+const open = async (page: Page, settings: Record<string, string> = {}, { feeds = true } = {}) => {
+  await openApp(page, { clear: true, settings });
+  if (feeds) await page.getByRole("tab", { name: "Feeds" }).click();
+};
 const section = (page: Page) => page.getByRole("navigation", { name: "Feeds" });
-/** A row of the section: «All feeds», or the feed's own button (not its «…»). */
+/** A row of the sidebar: «All feeds» (the mode's «All»), or the feed's own button (not its «…»). */
 const row = (page: Page, name: string) =>
   name === "All feeds"
-    ? section(page).getByRole("button", { name: /^All feeds/ })
+    ? page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: /^All/ })
     : section(page).locator("[data-feed-row]").filter({ has: page.getByText(name, { exact: true }) }).locator("button").first();
 /** A feed's row menu, from its «…»: the sidebar has no right-click menus (share-bundle.md, M6). */
 async function rowMenu(page: Page, name: string) {
@@ -23,15 +27,18 @@ const openFeeds = async (page: Page) => {
   await expect(posts(page).first()).toBeVisible();
 };
 
-test("the section lists the feeds with their counts, folds and stays folded", async ({ page }) => {
-  await open(page);
+test("the Feeds mode lists the feeds with their counts, folds and stays folded, and is remembered", async ({ page }) => {
+  await open(page, {}, { feeds: false });
+  // Bookmarks: no feeds in the sidebar, a dot on the Feeds tab for what is new.
+  await expect(section(page)).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: "Feeds" }).locator("[data-mode-new]")).toBeVisible();
+  await page.getByRole("tab", { name: "Feeds" }).click();
+  await expect(page.getByRole("tab", { name: "Feeds" })).toHaveAttribute("aria-selected", "true");
   await expect(section(page).locator("[data-feed-row]")).toHaveCount(5);
   await expect(row(page, "All feeds")).toContainText("11");
   await expect(row(page, "Serious Eats")).toContainText("3");
-  // Above Collections.
-  const feedsTop = (await section(page).boundingBox())!.y;
-  const collectionsTop = (await page.getByRole("button", { name: /^Collections/ }).boundingBox())!.y;
-  expect(feedsTop).toBeLessThan(collectionsTop);
+  // Collections belong to Bookmarks.
+  await expect(page.getByRole("button", { name: /^Collections/ })).toHaveCount(0);
   await page.getByRole("button", { name: /^Feeds/ }).click();
   await expect(page.getByRole("button", { name: /^Feeds/ })).toHaveAttribute("aria-expanded", "false");
   // Folded, the header says how many are new.
@@ -78,11 +85,15 @@ test("S, R, F and O work from the keys and the toolbar", async ({ page }) => {
   await expect(page.getByText("Saved to Bookmarks")).toBeVisible();
   await expect(sheet(page).getByRole("button", { name: "Saved", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(posts(page).nth(2).locator("[data-feed-saved]")).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: /Bookmarks/ })).toContainText("7");
+  // In Feeds, «Saved from feeds» counts it.
+  await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: /^Saved from feeds/ })).toContainText("1");
   // R puts the saved post into Reading; again takes it out.
   await page.keyboard.press("r");
   await expect(sheet(page).getByRole("button", { name: "Send to Reading" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: /Reading/ })).toContainText("4");
+  // Reading is a Bookmarks section: counted from the library while Feeds is shown.
+  await expect
+    .poll(() => page.evaluate(async () => (await (await import("/src/services/api.ts")).api.getCounts()).reading_unread))
+    .toBe(4);
   await sheet(page).getByRole("button", { name: "Send to Reading" }).click();
   await expect(sheet(page).getByRole("button", { name: "Send to Reading" })).toHaveAttribute("aria-pressed", "false");
   await page.keyboard.press("f");
@@ -105,7 +116,7 @@ test("a post saved by S goes again with Undo", async ({ page }) => {
   await expect(posts(page).first().locator("[data-feed-saved]")).toBeVisible();
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(posts(page).first().locator("[data-feed-saved]")).toHaveCount(0);
-  await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: /Bookmarks/ })).toContainText("6");
+  await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: /^Saved from feeds/ })).toContainText("0");
 });
 
 test("⇧A marks all read; a feed's menu marks its own", async ({ page }) => {
@@ -172,10 +183,10 @@ test("offline, failing and no feeds", async ({ page }) => {
   await expect(page.locator("dialog[open]")).toBeVisible();
 });
 
-test("the strip of a narrow window has one Feeds button, with a dot for new posts", async ({ page }) => {
+test("the strip of a narrow window has the Feeds tab, with a dot for new posts", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 700 });
-  await open(page);
-  const button = page.getByRole("button", { name: /^Feeds/ });
+  await open(page, {}, { feeds: false });
+  const button = page.getByRole("tab", { name: "Feeds" });
   await expect(button.locator("span.bg-ink")).toBeVisible();
   await button.click();
   await expect(posts(page).first()).toBeVisible();
@@ -382,12 +393,17 @@ test("a post is never read from its site until “Load the full article” (NP-1
 test("R and F act on the open post's bookmark, not on the one of the post before", async ({ page }) => {
   await open(page);
   await openFeeds(page);
-  const sections = page.getByRole("navigation", { name: "Sections" });
-  const base = Number((await sections.getByRole("button", { name: /^Favorites \d+$/ }).textContent())!.match(/\d+/)![0]);
-  const favorites = (more: number) => sections.getByRole("button", { name: `Favorites ${base + more}` });
+  // Favorites is a Bookmarks section: counted from the library, not from the Feeds sidebar.
+  const favoriteCount = () =>
+    page.evaluate(async () => {
+      const { api } = await import("/src/services/api.ts");
+      return (await api.getCounts()).favorites;
+    });
+  const base = await favoriteCount();
+  const favorites = (more: number) => ({ toBeVisible: () => expect.poll(favoriteCount).toBe(base + more) });
   await posts(page).nth(0).click();
   await page.keyboard.press("f");
-  await expect(favorites(1)).toBeVisible();
+  await favorites(1).toBeVisible();
   await posts(page).nth(1).click();
   await page.keyboard.press("s");
   await expect(posts(page).nth(1).locator("[data-feed-saved]")).toBeVisible();
@@ -405,7 +421,7 @@ test("R and F act on the open post's bookmark, not on the one of the post before
   await posts(page).nth(1).click();
   // Before it arrives, F favourites this post; the first one stays a favourite.
   await page.keyboard.press("f");
-  await expect(favorites(2)).toBeVisible();
+  await favorites(2).toBeVisible();
 });
 
 test("F finishing on a post left behind does not lose the bookmark of the post open now", async ({ page }) => {
@@ -449,6 +465,7 @@ for (const width of [1200, 1600]) {
         localStorage.clear();
         localStorage.setItem("koonapin.theme", theme);
         localStorage.setItem("koonapin.feeds.last", JSON.stringify({ feed: null, item: 2 }));
+        localStorage.setItem("koonapin.mode", "feeds");
       }, theme);
       await page.goto("/");
       await openFeeds(page);
@@ -461,3 +478,90 @@ for (const width of [1200, 1600]) {
     });
   }
 }
+
+test("the mode switch: Ctrl 1 and Ctrl 2, each mode back where it was, the last one remembered, Ctrl N follows the mode", async ({ page }) => {
+  await open(page, {}, { feeds: false });
+  const mod = process.platform === "darwin" ? "Meta" : "Control";
+  // Bookmarks on a collection, then Feeds on a feed.
+  await page.getByRole("treeitem", { name: /^Design/ }).click();
+  await expect(page.getByRole("heading", { level: 1, name: /^Design/ })).toBeVisible();
+  await page.keyboard.press(`${mod}+2`);
+  await expect(page.getByRole("tab", { name: "Feeds" })).toHaveAttribute("aria-selected", "true");
+  await row(page, "Serious Eats").click();
+  await expect(page.getByRole("heading", { level: 1, name: "Serious Eats" })).toBeVisible();
+  // Each mode comes back where it was left.
+  await page.keyboard.press(`${mod}+1`);
+  await expect(page.getByRole("heading", { level: 1, name: /^Design/ })).toBeVisible();
+  await page.keyboard.press(`${mod}+2`);
+  await expect(page.getByRole("heading", { level: 1, name: "Serious Eats" })).toBeVisible();
+  // Ctrl N in Feeds is «Follow a site».
+  await page.keyboard.press(`${mod}+n`);
+  await expect(page.getByRole("dialog", { name: "Follow a site" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  // The app opens in the last mode.
+  await page.reload();
+  await expect(page.getByRole("tab", { name: "Feeds" })).toHaveAttribute("aria-selected", "true");
+  await expect(section(page).locator("[data-feed-row]")).toHaveCount(5);
+  await page.keyboard.press(`${mod}+1`);
+  await page.keyboard.press(`${mod}+n`);
+  await expect(page.getByRole("dialog", { name: "Add link" })).toBeVisible();
+});
+
+test("Today lists the posts of the day; Saved from feeds lists the saved posts, and «Show it» opens one in Bookmarks", async ({ page }) => {
+  await open(page);
+  const sections = page.getByRole("navigation", { name: "Sections" });
+  await sections.getByRole("button", { name: "Today" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Today" })).toBeVisible();
+  const today = await posts(page).count();
+  expect(today).toBeGreaterThan(0);
+  expect(today).toBeLessThan(11);
+  // Nothing saved yet: the section says how to save one.
+  await sections.getByRole("button", { name: /^Saved from feeds/ }).click();
+  await expect(page.getByRole("heading", { level: 1, name: /^Saved from feeds/ })).toBeVisible();
+  await expect(page.getByText("Nothing saved from feeds yet")).toBeVisible();
+  await page.getByRole("button", { name: "Open the feeds" }).click();
+  await posts(page).first().click();
+  await page.keyboard.press("s");
+  await expect(sections.getByRole("button", { name: /^Saved from feeds/ })).toContainText("1");
+  await sections.getByRole("button", { name: /^Saved from feeds/ }).click();
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(1);
+  // Saved again from a post: «Show it» takes it to Bookmarks, in the editor.
+  await row(page, "All feeds").click();
+  await posts(page).nth(1).click();
+  await page.keyboard.press("s");
+  await page.getByRole("button", { name: "Show it", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "Bookmarks" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(/battery report/);
+});
+
+test("the mode's own tab keeps an open editor; Ctrl 2 in a field types; the Bookmarks tab leaves Settings; Today counts its own posts", async ({ page }) => {
+  await open(page, {}, { feeds: false });
+  const mod = process.platform === "darwin" ? "Meta" : "Control";
+  // The editor open in Bookmarks: its tab and Ctrl 1 change nothing.
+  await page.locator("[data-bookmark-id]").first().click({ button: "right" });
+  await page.getByRole("menuitem", { name: /^Edit/ }).click();
+  const title = page.getByRole("textbox", { name: "Title" });
+  await expect(title).toBeVisible();
+  await page.getByRole("tab", { name: "Bookmarks" }).click();
+  await expect(title).toBeVisible();
+  // In a field, Ctrl 2 is the field's.
+  await title.focus();
+  await page.keyboard.press(`${mod}+2`);
+  await expect(page.getByRole("tab", { name: "Bookmarks" })).toHaveAttribute("aria-selected", "true");
+  await expect(title).toBeVisible();
+  await page.keyboard.press("Escape");
+  // From Settings, the Bookmarks tab goes back to the library.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Bookmarks" }).click();
+  await expect(page.locator("[data-bookmark-id]").first()).toBeVisible();
+  // Today's header counts what is new among its own posts.
+  await page.getByRole("tab", { name: "Feeds" }).click();
+  await page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: "Today" }).click();
+  await expect(posts(page).first()).toBeVisible();
+  // All feeds have 11 new; Today shows fewer posts, and its count is within them.
+  const shown = await posts(page).count();
+  await expect(page.locator("[data-feed-status]")).toContainText(/^\d+ new/);
+  const counted = Number((await page.locator("[data-feed-status]").textContent())!.match(/^(\d+)/)![1]);
+  expect(counted).toBeLessThanOrEqual(shown);
+  expect(counted).toBeLessThan(11);
+});

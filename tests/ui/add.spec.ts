@@ -330,7 +330,7 @@ test("Feeds: the zone lies over the posts and the article, wide and narrow; over
   const posts = page.locator("[data-feed-item]");
   const article = page.locator("[data-feed-article] [data-feed-scroll]");
   const feedColumn = page.getByRole("navigation", { name: "Feeds" });
-  await feedColumn.getByRole("button", { name: /^All feeds/ }).click();
+  await page.getByRole("tab", { name: "Feeds" }).click();
   await posts.nth(1).click();
   await expect(article).toBeVisible();
   // Three columns: the posts and the article; not the feeds in the sidebar, not the headers.

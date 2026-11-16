@@ -80,7 +80,7 @@ test("save for offline from a row, the marker, the Offline section, the copy in 
   await page.getByRole("menuitem", { name: "Remove offline copy" }).click();
   await expect(page.getByText("No offline copies yet")).toBeVisible();
   await expect(offlineNav(page)).toContainText("0");
-  await sidebar(page).getByRole("button", { name: /^Bookmarks/ }).click();
+  await sidebar(page).getByRole("button", { name: /^All \d/ }).click();
   await expect(offlineNav(page)).toHaveCount(0);
 });
 
