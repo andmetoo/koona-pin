@@ -245,14 +245,16 @@ for (const code of codes) {
 
       await shot("grid");
       // The Feeds mode (2.24.0): its tab chosen, the Bookmarks tab beside it, the Feeds sidebar.
-      await page.getByRole("tab", { name: t("feeds.title") }).click();
-      await expect(page.getByRole("tab", { name: t("feeds.title") })).toHaveAttribute("aria-selected", "true");
+      // The switch's tab, or in the narrow strip its one button to the other mode.
+      await page.getByRole("tab", { name: t("feeds.title") }).or(page.locator('[data-mode-other="feeds"]')).click();
+      await expect(page.locator('[data-mode-switch="feeds"]')).toBeVisible();
       // The sidebar of the mode: the Feeds page itself is not part of these key screens.
       found["feeds-mode"] = await cutLabels(page, "[data-sidebar]");
       // The Feeds page: its title and status above the posts (post text is data, and may be cut).
       found["feeds-mode"].push(...(await cutLabels(page, "[data-feed-list]")));
       if (await clipped(page.locator("[data-feed-status]"))) found["feeds-mode"].push("feed status");
-      await page.getByRole("tab", { name: t("nav.all") }).click();
+      await page.getByRole("tab", { name: t("nav.all") }).or(page.locator('[data-mode-other="bookmarks"]')).click();
+      await expect(page.locator('[data-mode-switch="bookmarks"]')).toBeVisible();
       // The notification centre: the bell in the sidebar's header or the strip, its popover in the window.
       await page.locator("[data-notification-bell]").click();
       const centre = page.getByRole("dialog", { name: t("notifications.title") });

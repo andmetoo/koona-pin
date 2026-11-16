@@ -415,7 +415,7 @@ export function Sidebar(props: SidebarProps) {
               <Icon icon={BookmarkCheck} />
             </StripButton>
             <div className="my-2.5 h-px w-6 bg-line" />
-            <div className="flex flex-col items-center gap-0.5" data-strip-feed-list>
+            <div className="sidebar-scroll -mx-2 flex min-h-0 flex-1 flex-col items-center gap-0.5 overflow-y-auto px-2" data-strip-feed-list>
               {feeds.map((feed) => (
                 <StripButton key={feed.uid} label={feed.unread > 0 ? `${feedName(feed)}: ${feed.unread}` : feedName(feed)} active={feedsOpen && props.feedUid === feed.uid} onClick={() => props.onFeed(feed.uid)}>
                   <FeedIcon feed={feed} size={16} />
@@ -469,7 +469,8 @@ export function Sidebar(props: SidebarProps) {
           </StripButton>
         )}
         <div className="my-2.5 h-px w-6 bg-line" />
-        <div ref={list} className="flex flex-col items-center gap-0.5">
+        {/* The collections scroll in a short window, not the sections above them (800 × 550, 2.24.0). */}
+        <div ref={list} className="sidebar-scroll -mx-2 flex min-h-0 flex-1 flex-col items-center gap-0.5 overflow-y-auto px-2">
           {tops.map(({ item: c }) => (
             <div key={c.id} data-collection-row={c.id} className={`relative ${moving?.from === c.id ? "opacity-45" : ""}`}>
               {moving?.over?.row === c.id && <LandingLine at={moving.over.edge === "before" ? "top" : "bottom"} />}
@@ -494,7 +495,7 @@ export function Sidebar(props: SidebarProps) {
           {moved}
         </span>
         {styleDialog}
-        <div className="flex-1" />
+        {/* No spacer: the list above (collections, or feeds) takes the room and scrolls. */}
         {update && (
           <StripButton label={updateLabel(t, update)} onClick={props.onUpdate}>
             <span className={`relative ${update.state === "failed" ? "text-amber" : "text-update"}`}>
@@ -1053,6 +1054,29 @@ function ModeSwitch({ mode, unread, onMode, strip = false }: { mode: Mode; unrea
     { id: "bookmarks" as const, icon: ClipIcon, label: t("nav.all"), key: "1" },
     { id: "feeds" as const, icon: Rss, label: t("feeds.title"), key: "2" },
   ];
+  // The 56 px strip of an 800 × 550 window has no room for two: one button goes to the other mode
+  // (its icon, a dot for new posts); the sections under it say which mode this is.
+  if (strip) {
+    const other = tabs.find((tab) => tab.id !== mode)!;
+    const waiting = other.id === "feeds" && unread > 0;
+    return (
+      <div className="mb-2" data-mode-switch={mode}>
+        <Hint label={waiting ? `${other.label}: ${t("feeds.newCount", { count: unread })}` : other.label} keys={shortcut(other.key)} side="right">
+          <button
+            type="button"
+            aria-label={other.label}
+            aria-keyshortcuts={`Control+${other.key} Meta+${other.key}`}
+            data-mode-other={other.id}
+            onClick={() => onMode(other.id)}
+            className="relative flex size-9 items-center justify-center rounded-[10px] bg-well text-icon transition-colors duration-150 hover:text-ink"
+          >
+            <Icon icon={other.icon} size={16} />
+            {waiting && <span data-mode-new className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-ink" />}
+          </button>
+        </Hint>
+      </div>
+    );
+  }
   return (
     <div
       role="tablist"
@@ -1188,7 +1212,7 @@ function StripButton({
       onPointerDown={onPointerDown}
       onKeyDown={onKeyDown}
       data-drop={drop?.attr}
-      className={`flex h-8 w-9 items-center justify-center rounded-[9px] transition-[background-color,color,box-shadow] duration-150 ${look}`}
+      className={`flex h-8 w-9 shrink-0 items-center justify-center rounded-[9px] transition-[background-color,color,box-shadow] duration-150 ${look}`}
     >
       {children}
     </button>

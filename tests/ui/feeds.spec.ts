@@ -183,11 +183,12 @@ test("offline, failing and no feeds", async ({ page }) => {
   await expect(page.locator("dialog[open]")).toBeVisible();
 });
 
-test("the strip of a narrow window has the Feeds tab, with a dot for new posts", async ({ page }) => {
+test("the strip of a narrow window has one button to Feeds, with a dot for new posts, and back", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 700 });
   await open(page, {}, { feeds: false });
-  const button = page.getByRole("tab", { name: "Feeds" });
-  await expect(button.locator("span.bg-ink")).toBeVisible();
+  // In the strip, one button goes to the other mode, with a dot for new posts.
+  const button = page.getByRole("button", { name: "Feeds", exact: true });
+  await expect(button.locator("[data-mode-new]")).toBeVisible();
   await button.click();
   await expect(posts(page).first()).toBeVisible();
   // One column: the post replaces the list, ← brings it back.
@@ -195,6 +196,8 @@ test("the strip of a narrow window has the Feeds tab, with a dot for new posts",
   await expect(page.locator("[data-feed-list]")).toHaveCount(0);
   await sheet(page).getByRole("button", { name: "Back to the list" }).click();
   await expect(page.locator("[data-feed-list]")).toBeVisible();
+  await page.getByRole("button", { name: "Bookmarks", exact: true }).click();
+  await expect(page.locator("[data-bookmark-id]").first()).toBeVisible();
 });
 
 test("the card spreads over the list with E; at the end of a post Next story and Previous story move on and back", async ({ page }) => {

@@ -1323,6 +1323,8 @@ test("sort and collections in a narrow window: the order is an icon with a hint,
   await sort.hover();
   await expect(page.getByRole("tooltip", { name: "Sort: Newest first" })).toBeVisible();
 
+  // The strip's collections scroll in a 550 px window (2.24.0): taller, all four dots are in view to drag.
+  await page.setViewportSize({ width: 800, height: 720 });
   const strip = page.getByRole("complementary", { name: "Library" });
   const dots = () => strip.locator("[data-collection]").evaluateAll((rows) => rows.map((r) => r.getAttribute("aria-label")));
   expect(await dots()).toEqual(["Design", "Development", "Inspiration", "To read"]);
