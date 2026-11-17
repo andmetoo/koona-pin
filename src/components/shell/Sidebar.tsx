@@ -19,7 +19,7 @@ import { capabilities } from "../../platform/capabilities";
 import { shortcut } from "../../services/keys";
 import { savePreference, storedValue } from "../../services/preferences";
 import { ClipIcon, Icon, InboxTray, Mascot } from "../icons";
-import { Dot } from "../ui/Controls";
+import { Dot, rovingKey } from "../ui/Controls";
 import { Hint } from "../ui/Hint";
 import { AppNotification, NotificationCenter } from "./NotificationCenter";
 import { Menu } from "../ui/Menu";
@@ -566,8 +566,10 @@ export function Sidebar(props: SidebarProps) {
           {shortcut("N")}
         </kbd>
       </button>
-      {/* The mode's sections are the panel its tab controls; `contents`, so the layout is the nav's own. */}
-      <div role="tabpanel" id={sectionsPanel} aria-labelledby={`${sectionsPanel}-${props.mode}`} className="contents">
+      {/* The panel the mode's tab controls: its sections and, in the scroll under them, its feeds or its
+          collections and tags. A box of its own (a `contents` panel drops out of older WebKit's tree)
+          that takes the column's rest as the scroll did. */}
+      <div role="tabpanel" id={sectionsPanel} aria-labelledby={`${sectionsPanel}-${props.mode}`} className="flex min-h-0 flex-1 flex-col gap-0.5">
       {feedsMode ? (
         <nav aria-label={t("sidebar.sections")} className="flex flex-col gap-0.5">
           <NavRow
@@ -629,7 +631,6 @@ export function Sidebar(props: SidebarProps) {
         {links && <NavRow icon={<Icon icon={Unlink} />} label={t("nav.links")} count={counts.links} active={linksOpen} onClick={props.onLinks} />}
       </nav>
       )}
-      </div>
 
       <div ref={scrollRef} className="sidebar-scroll -mx-3 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3" data-drop-scroll>
       {/* Feeds (NP-132), in the Feeds mode (2.24.0): the followed sites, folding like Collections. */}
@@ -827,6 +828,7 @@ export function Sidebar(props: SidebarProps) {
         />
       )}
       <NavRow icon={<Icon icon={Settings} />} label={t("nav.settings")} active={settingsOpen} onClick={props.onSettings} plain />
+      </div>
       </div>
       </div>
     </aside>
@@ -1123,19 +1125,14 @@ function ModeSwitch({
               tabIndex={on ? 0 : -1}
               onClick={() => onMode(tab.id)}
               onKeyDown={(e) => {
-                // Chords keep their own meaning (⌘← , Alt ←), as the app's arrows do (app/shortcuts.ts).
-                if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
-                const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-                const to = e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : step ? (index + step + tabs.length) % tabs.length : -1;
-                if (to < 0) return;
-                e.preventDefault();
+                const to = rovingKey(e, index, tabs.length);
                 // Home on the first tab, End on the last: nothing to choose. Choosing the chosen mode
                 // would take Settings or Duplicates back to the library (switchMode).
-                if (to === index) return;
+                if (to === null || to === index) return;
                 onMode(tabs[to].id);
                 e.currentTarget.closest('[role="tablist"]')?.querySelectorAll<HTMLElement>('[role="tab"]')[to]?.focus();
               }}
-              className={`relative flex h-7 w-full min-w-0 items-center justify-center gap-1.5 rounded-[7px] px-2 text-[13px] transition-[background-color,color,box-shadow] duration-150 ${
+              className={`relative flex h-7 w-full min-w-0 items-center justify-center rounded-[7px] px-2 text-[13px] transition-[background-color,color,box-shadow] duration-150 ${
                 on ? "bg-raised font-semibold text-ink shadow-segment" : "font-medium text-muted hover:text-ink"
               }`}
             >

@@ -1,4 +1,18 @@
-import { ReactNode, useId, useLayoutEffect, useRef } from "react";
+import { KeyboardEvent, ReactNode, useId, useLayoutEffect, useRef } from "react";
+
+/**
+ * The keys of a row of choices with one in the Tab order (a radio group, a tablist): ← → wrap, Home and
+ * End go to the ends. The index to move to (the key is then handled), or null. Chords such as ⌘← keep
+ * their own meaning, as the app's arrows do (app/shortcuts.ts).
+ */
+export function rovingKey(e: KeyboardEvent, index: number, count: number): number | null {
+  if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return null;
+  const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+  const to = e.key === "Home" ? 0 : e.key === "End" ? count - 1 : step ? (index + step + count) % count : -1;
+  if (to < 0) return null;
+  e.preventDefault();
+  return to;
+}
 
 /** A labelled form field with an optional hint or error under it. */
 export function Field({
@@ -79,12 +93,11 @@ export function Segmented<T extends string>({
           aria-checked={value === option.value}
           onClick={() => onChange(option.value)}
           onKeyDown={(e) => {
-            if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-            e.preventDefault();
             const index = options.findIndex((o) => o.value === value);
-            const next = options[(index + (e.key === "ArrowRight" ? 1 : -1) + options.length) % options.length];
-            onChange(next.value);
-            (e.currentTarget.parentElement?.children[options.indexOf(next)] as HTMLElement)?.focus();
+            const to = rovingKey(e, index, options.length);
+            if (to === null || to === index) return;
+            onChange(options[to].value);
+            (e.currentTarget.parentElement?.children[to] as HTMLElement)?.focus();
           }}
           tabIndex={value === option.value ? 0 : -1}
           className={`h-6 rounded-sm px-2.5 text-xs transition-[background-color,color] duration-150 ${value === option.value ? "bg-card text-ink shadow-active" : "text-muted hover:text-ink"}`}
