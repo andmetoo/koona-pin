@@ -868,7 +868,7 @@ mod tests {
         assert_eq!(tag_state(&a), tag_state(&b));
 
         // At once, offline: `a` cleans, `b` tags Z with the «coop» that goes.
-        let (merged, tombstones) = recorded(&a, |a| assert_eq!(db::clean_tag_names(a).unwrap().tags, 3));
+        let (merged, tombstones) = recorded(&a, |a| assert_eq!(db::clean_tag_names(a).unwrap(), 3));
         let tag_uid = |n: u128| uuid::Uuid::from_u128(n).to_string();
         assert_eq!(tombstones, [(format!("tag {}", tag_uid(20)), Some(tag_uid(10)))].into());
         assert!(merged.contains(&(TAG, soft, 0)) && merged.contains(&(TAG, spaced, 0)), "the renames: {merged:?}");
@@ -908,6 +908,11 @@ mod tests {
         });
         let expected = vec![(uuid::Uuid::from_u128(5).to_string(), "web".to_string(), format!("{X} {Y}"))];
         assert_eq!(tag_state(&new), expected);
+        // The cleaning in the batch kept its record, as one at open does: the merge, with where it went.
+        let record = db::tag_cleanup_log(&new).unwrap();
+        let done: Vec<(&str, &str, Option<&str>)> = record.iter().map(|e| (e.action.as_str(), e.uid.as_str(), e.into.as_deref())).collect();
+        let look_alike_uid = uuid::Uuid::from_u128(5).to_string();
+        assert_eq!(done, [("merged", web.as_str(), Some(look_alike_uid.as_str())), ("renamed", look_alike_uid.as_str(), None)]);
         settle(&new, apply_now, &old, apply_as_before);
         assert_eq!(tag_state(&old), expected);
         assert!(db::is_purged(&old, &web).unwrap());
@@ -920,8 +925,8 @@ mod tests {
         link(&c, X, dirty);
         link(&c, Y, clean);
         send(&c, &d, apply_as_before);
-        assert_eq!(db::clean_tag_names(&c).unwrap().tags, 2);
-        assert_eq!(db::clean_tag_names(&d).unwrap().tags, 2);
+        assert_eq!(db::clean_tag_names(&c).unwrap(), 2);
+        assert_eq!(db::clean_tag_names(&d).unwrap(), 2);
         settle(&c, apply_now, &d, apply_now);
         let expected = vec![(uuid::Uuid::from_u128(40).to_string(), "rust".to_string(), format!("{X} {Y}"))];
         assert_eq!((tag_state(&c), tag_state(&d)), (expected.clone(), expected));
@@ -942,7 +947,7 @@ mod tests {
 
         // At once, offline: `new` removes it, `old` puts Y on it as well.
         let (_, tombstones) = recorded(&new, |new| {
-            assert_eq!(db::clean_tag_names(new).unwrap().tags, 1);
+            assert_eq!(db::clean_tag_names(new).unwrap(), 1);
         });
         assert_eq!(tombstones, [(format!("tag {gone}"), None)].into(), "a purge, not a merge");
         let theirs: i64 = old.query_row("SELECT id FROM tags WHERE uid = ?1", [&gone], |r| r.get(0)).unwrap();
@@ -970,7 +975,7 @@ mod tests {
         send(&old, &new, apply_now);
         assert_eq!(tag_state(&new), tag_state(&old), "the batch is applied, the name left as it came");
         new.execute_batch("DROP TRIGGER refuse_rename;").unwrap();
-        assert_eq!(db::clean_tag_names(&new).unwrap().tags, 1, "a later try cleans it");
+        assert_eq!(db::clean_tag_names(&new).unwrap(), 1, "a later try cleans it");
     }
 
     /// The library of `koona-sync/tests/measure.rs`, which SPIKE.md measured:

@@ -172,26 +172,17 @@ pub fn open_with(
     crate::sorting::apply_stored_language(&conn).map_err(|e| OpenFailure::sqlite(e, paths))?;
     // Tag names as they are read now, every time: no schema step, since names
     // keep coming from older devices and backups, and an older build still
-    // opens the library. Merges and removals are final for sync, so a copy
-    // comes first, as before a migration; without it nothing is cleaned. A
-    // failure leaves the names as they were.
-    match db::has_tags_to_clean(&conn) {
-        Ok(false) => {}
-        Ok(true) => match backup::before_tag_cleanup(&conn, &paths.backups, target) {
-            Ok(_) => {
-                if let Err(error) = clean_tag_names(&conn) {
-                    eprintln!("The tag names were not cleaned: {error}");
-                }
-            }
-            Err(error) => eprintln!("The tag names were not cleaned, no copy was made first: {error}"),
-        },
-        Err(error) => eprintln!("The tag names were not read: {error}"),
+    // opens the library. What a merge or a removal did is kept in the
+    // library's own record (`db::TAG_CLEANUP_LOG`), as wherever the cleaning
+    // runs. A failure leaves the names as they were.
+    if let Err(error) = clean_tag_names(&conn) {
+        eprintln!("The tag names were not cleaned: {error}");
     }
     Ok(Opened { conn, moved_aside })
 }
 
 /// [`db::clean_tag_names`] in a transaction of its own.
-fn clean_tag_names(conn: &Connection) -> rusqlite::Result<db::CleanedTags> {
+fn clean_tag_names(conn: &Connection) -> rusqlite::Result<usize> {
     let tx = conn.unchecked_transaction()?;
     let changed = db::clean_tag_names(&tx)?;
     tx.commit()?;
@@ -944,16 +935,16 @@ mod tests {
 
         dirty_tag(&conn, "co\u{200B}op");
         assert_eq!(tag_names(&conn), ["coop", "co\u{200B}op"]);
-        let before = paths.backups.join(format!("koonapin.before-v{}-tag-names.db", migrations::SCHEMA_VERSION));
-        assert!(!before.exists(), "an open with nothing to clean copies nothing");
+        let copies = backup::list(&paths.backups).len();
         drop(conn);
         let reopened = open(&paths).unwrap().conn;
         assert_eq!(tag_names(&reopened), ["coop"], "the next open merges the look-alike");
-        // The library as it was is kept first, listed as a copy before an update.
-        let copy = Connection::open(&before).unwrap();
-        assert_eq!(tag_names(&copy), ["coop", "co\u{200B}op"]);
-        let listed = backup::list(&paths.backups).into_iter().find(|c| before.ends_with(&c.file_name)).unwrap();
-        assert_eq!(listed.kind, backup::CopyKind::BeforeUpdate);
+        assert_eq!(backup::list(&paths.backups).len(), copies, "no copy of the whole library at open");
+        // What was done is in the library's record: the restore's rename, then the open's merge.
+        let record = db::tag_cleanup_log(&reopened).unwrap();
+        let actions: Vec<(&str, &str)> = record.iter().map(|e| (e.action.as_str(), e.name.as_str())).collect();
+        assert_eq!(actions, [("renamed", "co\u{AD}op"), ("merged", "co\u{200B}op")]);
+        assert_eq!(record[1].bookmarks.len(), 1, "the bookmark it was on, to put it back by hand");
     }
 
     #[test]

@@ -75,8 +75,12 @@ pub fn apply(
 
     let list_tags: Vec<Vec<String>> = list.links.iter().map(|link| link.tags_with(options.sections_as_tags)).collect();
     // A list's `coop` is the library's `coop`: stored names are cleaned at
-    // open and after sync (`db::clean_tag_names`). Should a look-alike still
-    // be there (a cleaning that failed), the next cleaning merges the two.
+    // open and after sync (`db::clean_tag_names`), and again here, where a
+    // look-alike left by a cleaning that failed would otherwise get a twin.
+    // With nothing to clean it is one query.
+    if list_tags.iter().any(|tags| !tags.is_empty()) {
+        db::clean_tag_names(&tx)?;
+    }
     for (link, tags) in list.links.iter().zip(list_tags) {
         match saved(&tx, &link.url)? {
             Some(true) => report.in_trash += 1,
@@ -242,15 +246,14 @@ mod tests {
         let uid: String = c.query_row("SELECT uid FROM tags", [], |r| r.get(0)).unwrap();
         apply(&c, &parse(VALID).unwrap(), &options(ListCollection::None), |_, _| {}).unwrap();
         assert_eq!(tags_of(&c, "https://doc.rust-lang.org/nomicon/"), ["book", "compiler and language", "unsafe"]);
-        // The next cleaning (an open, a sync batch) makes the two one: the older survives.
-        db::clean_tag_names(&c).unwrap();
-        assert_eq!(tags_of(&c, "https://doc.rust-lang.org/nomicon/"), ["book", "compiler and language", "unsafe"]);
+        // The import cleaned first: the stored tag itself is the list's `unsafe`, no twin was made.
         assert_eq!(
             c.query_row("SELECT uid FROM tags WHERE name = 'unsafe'", [], |r| r.get::<_, String>(0)).unwrap(),
             uid,
             "no second tag that looks the same"
         );
         assert_eq!(count(&c, "SELECT count(*) FROM tags WHERE name GLOB '*[^ -~]*'"), 0);
+        assert_eq!(db::tag_cleanup_log(&c).unwrap().len(), 1, "the rename is in the record");
     }
 
     #[test]

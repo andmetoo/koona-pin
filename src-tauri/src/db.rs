@@ -311,9 +311,17 @@ pub fn tag_name(raw: &str) -> Option<String> {
     crate::lists::format::line(&raw.to_lowercase(), usize::MAX)
 }
 
-/// The tags whose name [`tag_name`] changes: id, uid and the clean name
-/// (none: nothing visible is left).
-fn tags_to_clean(conn: &Connection) -> Result<Vec<(i64, String, Option<String>)>> {
+/// A tag whose name [`tag_name`] changes.
+struct DirtyTag {
+    id: i64,
+    uid: String,
+    name: String,
+    /// None: nothing visible is left.
+    clean: Option<String>,
+}
+
+/// The tags whose name [`tag_name`] changes.
+fn tags_to_clean(conn: &Connection) -> Result<Vec<DirtyTag>> {
     // Stored names are trimmed and lowercased; cleaning changes only one with
     // a character outside printable ASCII or two spaces in a row, unless it
     // came in some other way. Most libraries have few or none.
@@ -327,34 +335,60 @@ fn tags_to_clean(conn: &Connection) -> Result<Vec<(i64, String, Option<String>)>
         let (id, uid, name) = row?;
         let clean = tag_name(&name);
         if clean.as_deref() != Some(name.as_str()) {
-            dirty.push((id, uid, clean));
+            dirty.push(DirtyTag { id, uid, name, clean });
         }
     }
     Ok(dirty)
 }
 
-/// Whether [`clean_tag_names`] would change anything: the library is copied
-/// first then (`library::open`), as before a migration.
-pub fn has_tags_to_clean(conn: &Connection) -> Result<bool> {
-    Ok(!tags_to_clean(conn)?.is_empty())
+/// The `app_settings` key of [`clean_tag_names`]'s record.
+pub const TAG_CLEANUP_LOG: &str = "tag_cleanup_log";
+/// The record keeps this many of its latest entries.
+const TAG_CLEANUP_LOG_LEN: usize = 1000;
+
+/// One entry of [`TAG_CLEANUP_LOG`]: what a cleaning did to one tag, enough
+/// to put it back by hand. Merges and removals are final for sync, and a
+/// copy of the whole library cannot be taken inside the transaction of a sync
+/// batch, so the record is kept in the library itself, in the same
+/// transaction, wherever the cleaning runs. `app_settings` does not sync: each
+/// device keeps what it did.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TagCleanup {
+    pub at: String,
+    /// `renamed`, `merged` or `removed`.
+    pub action: String,
+    pub uid: String,
+    /// The name it had.
+    pub name: String,
+    /// For `renamed`, the name it has now; for `merged`, the name of the tag it went into.
+    pub now_named: Option<String>,
+    /// For `merged`, the uid of the tag it went into.
+    pub into: Option<String>,
+    /// For `merged` and `removed`, the uids of the bookmarks it was on.
+    pub bookmarks: Vec<String>,
 }
 
-/// What [`clean_tag_names`] changed.
-#[derive(Debug, Default, PartialEq, Eq)]
-pub struct CleanedTags {
-    /// Tags renamed, merged away or removed.
-    pub tags: usize,
-    /// The bookmarks that had any of them, in id order: their tags read differently now.
-    pub bookmarks: Vec<i64>,
+/// The record of [`clean_tag_names`], oldest first.
+pub fn tag_cleanup_log(conn: &Connection) -> Result<Vec<TagCleanup>> {
+    let raw: Option<String> =
+        conn.query_row("SELECT value FROM app_settings WHERE key = ?1", [TAG_CLEANUP_LOG], |r| r.get(0)).optional()?;
+    Ok(raw.and_then(|raw| serde_json::from_str(&raw).ok()).unwrap_or_default())
+}
+
+fn bookmark_uids_of_tag(conn: &Connection, tag: i64) -> Result<Vec<String>> {
+    conn.prepare_cached("SELECT b.uid FROM bookmark_tags bt JOIN bookmarks b ON b.id = bt.bookmark_id WHERE bt.tag_id = ?1 ORDER BY b.id")?
+        .query_map([tag], |r| r.get(0))?
+        .collect()
 }
 
 /// Gives every stored tag the name [`tag_name`] gives it, in the caller's
-/// transaction. Tags
+/// transaction, and returns how many tags were renamed, merged away or
+/// removed; each is written to the record [`TAG_CLEANUP_LOG`] first. Tags
 /// saved before names were read this way, synced from a device of an older
 /// version or brought back by an older backup may hold characters nobody
 /// sees: a `co`+U+00AD+`op` that looks like `coop` and is not found by it.
 /// It runs where such names come in (`library::open`, a sync batch, a
-/// restore) and finds nothing to do the second time.
+/// restore, a list import) and finds nothing to do the second time.
 ///
 /// With sync on (Р-68) every step is a change the engine already knows, made
 /// as the engine makes it, so devices of any version end the same:
@@ -374,28 +408,29 @@ pub struct CleanedTags {
 /// write of that name makes none and a restore brings none back: it goes,
 /// taken off its bookmarks, a deleted tag for sync like any other (a purge
 /// that comes again from an older device goes again on arrival).
-pub fn clean_tag_names(conn: &Connection) -> Result<CleanedTags> {
+pub fn clean_tag_names(conn: &Connection) -> Result<usize> {
     let dirty = tags_to_clean(conn)?;
-    let mut cleaned = CleanedTags::default();
     if dirty.is_empty() {
-        return Ok(cleaned);
+        return Ok(0);
     }
-    let mut bookmarks = std::collections::BTreeSet::new();
-    let mut note_bookmarks = |tag: i64| -> Result<()> {
-        let mut statement = conn.prepare_cached("SELECT bookmark_id FROM bookmark_tags WHERE tag_id = ?1")?;
-        for id in statement.query_map([tag], |r| r.get::<_, i64>(0))? {
-            bookmarks.insert(id?);
-        }
-        Ok(())
+    let at = now();
+    let mut log = Vec::new();
+    let entry = |action: &str, tag: &DirtyTag| TagCleanup {
+        at: at.clone(),
+        action: action.to_owned(),
+        uid: tag.uid.clone(),
+        name: tag.name.clone(),
+        now_named: None,
+        into: None,
+        bookmarks: Vec::new(),
     };
-    let mut groups: std::collections::BTreeMap<String, Vec<(i64, String)>> = Default::default();
-    for (id, uid, clean) in dirty {
-        match clean {
-            Some(clean) => groups.entry(clean).or_default().push((id, uid)),
+    let mut groups: std::collections::BTreeMap<String, Vec<DirtyTag>> = Default::default();
+    for tag in dirty {
+        match tag.clean.clone() {
+            Some(clean) => groups.entry(clean).or_default().push(tag),
             None => {
-                note_bookmarks(id)?;
-                conn.prepare_cached("DELETE FROM tags WHERE id = ?1")?.execute([id])?;
-                cleaned.tags += 1;
+                log.push(TagCleanup { bookmarks: bookmark_uids_of_tag(conn, tag.id)?, ..entry("removed", &tag) });
+                conn.prepare_cached("DELETE FROM tags WHERE id = ?1")?.execute([tag.id])?;
             }
         }
     }
@@ -404,36 +439,45 @@ pub fn clean_tag_names(conn: &Connection) -> Result<CleanedTags> {
             .prepare_cached("SELECT id, uid FROM tags WHERE name = ?1")?
             .query_row([&clean], |r| Ok((r.get(0)?, r.get(1)?)))
             .optional()?;
-        tags.extend(exact);
+        tags.extend(exact.map(|(id, uid)| DirtyTag { id, uid, name: clean.clone(), clean: Some(clean.clone()) }));
         // The order of `koona_sync`: uids compared as UUIDs, by their bytes
         // (one that is no UUID, which the engine would refuse, last).
-        tags.sort_by_cached_key(|(_, uid)| {
-            let parsed = uuid::Uuid::parse_str(uid).ok();
-            (parsed.is_none(), parsed, uid.clone())
+        tags.sort_by_cached_key(|tag| {
+            let parsed = uuid::Uuid::parse_str(&tag.uid).ok();
+            (parsed.is_none(), parsed, tag.uid.clone())
         });
-        for (tag, _) in &tags {
-            note_bookmarks(*tag)?;
-        }
-        let (survivor, survivor_uid) = tags[0].clone();
-        for (loser, loser_uid) in &tags[1..] {
+        let survivor = &tags[0];
+        for loser in &tags[1..] {
+            log.push(TagCleanup {
+                now_named: Some(clean.clone()),
+                into: Some(survivor.uid.clone()),
+                bookmarks: bookmark_uids_of_tag(conn, loser.id)?,
+                ..entry("merged", loser)
+            });
             conn.prepare_cached(
                 "INSERT INTO bookmark_tags (bookmark_id, tag_id) SELECT bookmark_id, ?2 FROM bookmark_tags WHERE tag_id = ?1
                  ON CONFLICT DO NOTHING",
             )?
-            .execute(params![loser, survivor])?;
+            .execute(params![loser.id, survivor.id])?;
             // Its links go with it and record nothing: the tombstone says it all.
-            conn.prepare_cached("DELETE FROM tags WHERE id = ?1")?.execute([loser])?;
+            conn.prepare_cached("DELETE FROM tags WHERE id = ?1")?.execute([loser.id])?;
             // With sync on the delete left a tombstone of this device; it says where the tag went.
             conn.prepare_cached("UPDATE tombstones SET merged_into = ?2 WHERE uid = ?1 AND kind = 'tag'")?
-                .execute(params![loser_uid, survivor_uid])?;
-            cleaned.tags += 1;
+                .execute(params![loser.uid, survivor.uid])?;
         }
-        cleaned.tags += conn
-            .prepare_cached("UPDATE tags SET name = ?1 WHERE id = ?2 AND name <> ?1")?
-            .execute(params![clean, survivor])?;
+        if survivor.name != clean {
+            log.push(TagCleanup { now_named: Some(clean.clone()), ..entry("renamed", survivor) });
+            conn.prepare_cached("UPDATE tags SET name = ?1 WHERE id = ?2")?.execute(params![clean, survivor.id])?;
+        }
     }
-    cleaned.bookmarks = bookmarks.into_iter().collect();
-    Ok(cleaned)
+    let changed = log.len();
+    let mut record = tag_cleanup_log(conn)?;
+    record.extend(log);
+    let keep = record.len().saturating_sub(TAG_CLEANUP_LOG_LEN);
+    let record = serde_json::to_string(&record[keep..]).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    conn.prepare_cached("INSERT INTO app_settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value")?
+        .execute(params![TAG_CLEANUP_LOG, record])?;
+    Ok(changed)
 }
 
 fn tag_id(conn: &Connection, name: &str, now: &str) -> Result<i64> {
@@ -3031,7 +3075,7 @@ mod tests {
         assert!(found(&conn, "coop").len() < 3);
 
         let cleaned = clean_tag_names(&conn).unwrap();
-        assert_eq!(cleaned, CleanedTags { tags: 5, bookmarks: ids.clone() }, "two merged away, two renamed, one gone");
+        assert_eq!(cleaned, 5, "two merged away, two renamed, one gone");
         let uid = |n: u128| uuid::Uuid::from_u128(n).to_string();
         assert_eq!(tag_rows(&conn), [(uid(1), "coop".into()), (uid(4), "open source".into()), (uid(6), "👩\u{200D}💻".into())]);
         assert_eq!(get_bookmark_by_id(&conn, ids[1]).unwrap().tags.unwrap(), ["coop"]);
@@ -3041,7 +3085,7 @@ mod tests {
         for id in &ids {
             assert_eq!(get_bookmark_by_id(&conn, *id).unwrap().tags.unwrap().iter().filter(|t| *t == "coop").count(), 1);
         }
-        assert_eq!(clean_tag_names(&conn).unwrap(), CleanedTags::default(), "the second time finds nothing");
+        assert_eq!(clean_tag_names(&conn).unwrap(), 0, "the second time finds nothing");
     }
 
     /// The whole list in one page.
