@@ -117,6 +117,11 @@ pub struct ParsedList {
 /// One line of text: control and invisible characters dropped, white
 /// space collapsed, at most `max` characters. Empty: none.
 pub fn line(raw: &str, max: usize) -> Option<String> {
+    // Most text is already a line (every title and tag of an import goes through
+    // here): nothing the marks would change, so it is not marked at all.
+    if is_a_line(raw) {
+        return capped(raw, max);
+    }
     let kept: String = line_marks(raw)
         .into_iter()
         .filter_map(|(c, mark)| match mark {
@@ -126,6 +131,25 @@ pub fn line(raw: &str, max: usize) -> Option<String> {
         })
         .collect();
     capped(&kept, max)
+}
+
+/// Text that [`line_marks`] keeps whole: no invisible character, control or
+/// white space other than single plain spaces between words.
+fn is_a_line(raw: &str) -> bool {
+    let mut space_before = true;
+    for c in raw.chars() {
+        if c == ' ' {
+            if space_before {
+                return false;
+            }
+            space_before = true;
+        } else if c.is_whitespace() || c.is_control() || is_invisible(c) {
+            return false;
+        } else {
+            space_before = false;
+        }
+    }
+    !space_before || raw.is_empty()
 }
 
 /// What [`line`] does with one character of the text it is given.
@@ -177,6 +201,9 @@ pub(crate) fn line_marks(raw: &str) -> Vec<(char, Mark)> {
 /// zero width joiner or non-joiner where it changes what is drawn
 /// ([`joiner_stays`]). [`without_invisible`] keeps those that are.
 fn seen_marks(raw: &str) -> Vec<(char, bool)> {
+    if !raw.chars().any(is_invisible) {
+        return raw.chars().map(|c| (c, true)).collect();
+    }
     // The flags whole, everything but the joiners, then the joiners judged by what stands around them.
     let mut marks: Vec<(char, bool)> = Vec::new();
     let mut rest = raw;
@@ -631,37 +658,43 @@ mod tests {
     use crate::lists::conformance::{self as suite, case_text, padded};
     use serde_json::json;
 
-    /// `line`, built from `line_marks`, gives what it gave as a filter over
-    /// `without_invisible`; and the marks say what went, what stayed and which
-    /// white space became the plain space.
+    /// `line` gives the lines written out here (what it gave before it was built
+    /// from `line_marks`), its fast path agrees with the marks, and the marks
+    /// say what went, what stayed and which white space became the plain space.
     #[test]
     fn line_marks_say_what_line_takes_out() {
-        let before = |raw: &str| {
-            let kept: String = without_invisible(raw).chars().filter_map(|c| if c.is_whitespace() { Some(' ') } else if c.is_control() { None } else { Some(c) }).collect();
-            capped(&kept.split_whitespace().collect::<Vec<_>>().join(" "), usize::MAX)
-        };
-        let samples = [
-            "co\u{AD}op",
-            " coop ",
-            "to  read\tlater",
-            "to\t read",
-            "to\tread",
-            "\u{200B}",
-            "\u{1F4DA}\u{200D}",
-            "\u{1F469}\u{200D}\u{1F4BB}",
-            "\u{DCB}\u{DCA}\u{200D}\u{DBB}\u{DD3}",
-            "a\u{200D}b",
-            "x\u{202E}y\u{E0041}",
-            "\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F} wales",
-            "a \u{200B} b",
-            "a\u{1} b",
-            "to read\u{A0}later",
+        let flag = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F}";
+        let samples: [(&str, Option<&str>); 18] = [
+            ("co\u{AD}op", Some("coop")),
+            (" coop ", Some("coop")),
+            ("to  read\tlater", Some("to read later")),
+            ("to\t read", Some("to read")),
+            ("to\tread", Some("to read")),
+            ("\u{200B}", None),
+            ("  ", None),
+            ("", None),
+            ("\u{1F4DA}\u{200D}", Some("\u{1F4DA}")),
+            ("\u{1F469}\u{200D}\u{1F4BB}", Some("\u{1F469}\u{200D}\u{1F4BB}")),
+            ("\u{DCB}\u{DCA}\u{200D}\u{DBB}\u{DD3}", Some("\u{DCB}\u{DCA}\u{200D}\u{DBB}\u{DD3}")),
+            ("a\u{200D}b", Some("ab")),
+            ("x\u{202E}y\u{E0041}", Some("xy")),
+            ("\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F} wales", Some("\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F} wales")),
+            ("a \u{200B} b", Some("a b")),
+            ("a\u{1} b", Some("a b")),
+            ("to read\u{A0}later", Some("to read later")),
+            ("to read later", Some("to read later")),
         ];
-        for raw in samples {
+        assert!(samples[13].0.starts_with(flag));
+        for (raw, wanted) in samples {
             let marks = line_marks(raw);
             assert_eq!(marks.iter().map(|m| m.0).collect::<String>(), raw);
-            assert_eq!(line(raw, usize::MAX), before(raw), "{raw:?}");
+            assert_eq!(line(raw, usize::MAX).as_deref(), wanted, "{raw:?}");
+            // What the fast path takes as a line is one the marks leave whole.
+            if is_a_line(raw) {
+                assert!(marks.iter().all(|m| m.1 == Mark::Kept), "{raw:?}");
+            }
         }
+        assert!(is_a_line("to read later") && !is_a_line(" coop") && !is_a_line("coop ") && !is_a_line("to  read") && !is_a_line("co\u{AD}op"));
         let marked = |raw: &str, wanted: Mark| line_marks(raw).into_iter().filter(|m| m.1 == wanted).map(|m| m.0).collect::<String>();
         assert_eq!(marked("\u{1F4DA}\u{200D}", Mark::Dropped), "\u{200D}", "a joiner after an emoji and before nothing goes");
         assert_eq!(marked("\u{1F469}\u{200D}\u{1F4BB}", Mark::Dropped), "", "one between two emoji stays");

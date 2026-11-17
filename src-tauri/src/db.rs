@@ -409,13 +409,25 @@ fn tag_cleanup_list(conn: &Connection) -> Result<Vec<serde_json::Value>> {
 /// and the rows together (an entry without a time first; one cleaning's in the
 /// order they were done). An entry that does not read is left where it is and skipped.
 fn tag_cleanup_entries<T: serde::de::DeserializeOwned>(conn: &Connection) -> Result<Vec<T>> {
-    let mut entries: Vec<serde_json::Value> = tag_cleanup_list(conn)?;
-    let mut statement = conn.prepare_cached("SELECT value FROM app_settings WHERE key GLOB ?1 ORDER BY key")?;
-    let rows = statement.query_map([format!("{TAG_CLEANUP_LOG}*")], |r| r.get::<_, String>(0))?;
-    entries.extend(rows.filter_map(|row| row.ok().and_then(|raw| serde_json::from_str(&raw).ok())));
+    // The old list is small and rare: read as JSON for its times.
+    let mut entries: Vec<(String, T)> = tag_cleanup_list(conn)?
+        .into_iter()
+        .filter_map(|value| {
+            let at = value["at"].as_str().unwrap_or("").to_owned();
+            serde_json::from_value(value).ok().map(|entry| (at, entry))
+        })
+        .collect();
+    // A row's time is in its key (`tag_cleanup/<at>/<place>/<uid>`), so it reads straight into `T`.
+    let mut statement = conn.prepare_cached("SELECT key, value FROM app_settings WHERE key GLOB ?1 ORDER BY key")?;
+    let rows = statement.query_map([format!("{TAG_CLEANUP_LOG}*")], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
+    entries.extend(rows.filter_map(|row| {
+        let (key, raw) = row.ok()?;
+        let at = key[TAG_CLEANUP_LOG.len()..].split('/').next().unwrap_or("").to_owned();
+        serde_json::from_str(&raw).ok().map(|entry| (at, entry))
+    }));
     // Stable: the rows' keys already order one cleaning, and the list comes before rows of its own time.
-    entries.sort_by(|a, b| a["at"].as_str().unwrap_or("").cmp(b["at"].as_str().unwrap_or("")));
-    Ok(entries.into_iter().filter_map(|entry| serde_json::from_value(entry).ok()).collect())
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
+    Ok(entries.into_iter().map(|(_, entry)| entry).collect())
 }
 
 /// The record of [`clean_tag_names`], oldest first. An entry that does not
@@ -443,7 +455,7 @@ pub struct NamePart {
 fn name_parts(name: &str) -> Vec<NamePart> {
     use crate::lists::format::Mark;
     let mut parts: Vec<NamePart> = Vec::new();
-    let mut text = |parts: &mut Vec<NamePart>, c: char| match parts.last_mut() {
+    let text = |parts: &mut Vec<NamePart>, c: char| match parts.last_mut() {
         Some(last) if !last.unseen => last.text.push(c),
         _ => parts.push(NamePart { text: c.to_string(), unseen: false }),
     };
@@ -557,7 +569,8 @@ fn write_tag_cleanups(conn: &Connection, entries: &[TagCleanup]) -> Result<()> {
         write_rows(conn, &read)?;
         if unread.is_empty() {
             conn.prepare_cached("DELETE FROM app_settings WHERE key = ?1")?.execute([TAG_CLEANUP_LOG_LIST])?;
-        } else {
+        } else if !read.is_empty() {
+            // Written once, when the rest moved; a list left with only what does not read stays untouched.
             set_setting(conn, TAG_CLEANUP_LOG_LIST, &serde_json::Value::Array(unread).to_string())?;
         }
     }
@@ -3414,6 +3427,14 @@ mod tests {
         let left: serde_json::Value = serde_json::from_str(&setting(&conn, TAG_CLEANUP_LOG_LIST).unwrap()).unwrap();
         assert_eq!(left, serde_json::json!([unknown]), "only what does not read is left in the list");
         assert_eq!(tag_cleanup_log(&conn).unwrap().iter().map(|e| e.uid.as_str()).collect::<Vec<_>>()[0], "t1");
+
+        // Left with only what does not read, the list is not written again by later cleanings:
+        // its text stays exactly as it was (a rewrite would lay it out anew).
+        let spaced = format!("[ {unknown} ]");
+        set_setting(&conn, TAG_CLEANUP_LOG_LIST, &spaced).unwrap();
+        old_tag(&conn, 7, "co\u{AD}op");
+        clean_tag_names(&conn).unwrap();
+        assert_eq!(setting(&conn, TAG_CLEANUP_LOG_LIST).unwrap(), spaced);
 
         // A list that is no list at all is left as it is.
         set_setting(&conn, TAG_CLEANUP_LOG_LIST, "{not json").unwrap();
