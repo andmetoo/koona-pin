@@ -335,7 +335,7 @@ A list reaches Koona Pin in one of four ways, and every one opens the same dialo
 Only **Accept** writes, in one transaction: an error leaves the library as it was. Then:
 
 - A link is already saved when the library has a bookmark with exactly the same address. It is left as it is: its tags and its collection never change. A link in Trash stays there and is only counted.
-- A tag of the list that the library already has under a name that differs only by what a reader drops from text (a tag saved before readers dropped the soft hyphen, say) is given the library's name, so the import does not make a second tag that looks the same. The library's tags keep their names.
+- Koona Pin names tags the way a list reads them: lowercase, and cleaned as text is. This holds for new tags and for the ones the library already has, so a tag of the list and a library tag that differ only by what a reader drops (a tag saved before readers dropped the soft hyphen, say) are one tag. A stored tag like that gets the clean name, or merges into the tag that already has it.
 - A variant of a saved address (another spelling with the same key) is saved as a new bookmark and shows up among duplicates, as after any import.
 - New links are marked as coming from the list and named after its title.
 - Feeds the person kept checked are followed; feeds already followed are not touched. Feeds are fetched later, on the usual schedule, never during import.
@@ -400,7 +400,7 @@ So some files read differently than in Koona Pin 2.24.1:
 - Text that differed only by one of these characters is now the same text: a tag `co`, U+00AD, `op` and the tag `coop` are one tag, and two links whose titles differed that way show the same title.
 - Emoji joined by U+200D (👩‍💻, 🏳️‍🌈) keep their joiner and show as one emoji, and Persian, Hindi or Sinhala words keep the joiners and non-joiners they are spelled with.
 
-Koona Pin also reuses a tag the library already has when it differs only by these characters ([How Koona Pin imports a list](#how-koona-pin-imports-a-list)). The spec now says what readers already did: U+0085 is white space, a cut trims the space it leaves, and tracking parameters match in any case. The [conformance suite](#conformance) is published with the spec.
+Koona Pin also cleans the library's tag names the same way, the stored ones included, so a tag that differed only by these characters is the same tag as the list's ([How Koona Pin imports a list](#how-koona-pin-imports-a-list)). The spec now says what readers already did: U+0085 is white space, a cut trims the space it leaves, and tracking parameters match in any case. The [conformance suite](#conformance) is published with the spec.
 
 ### 1.0 (October 2026, Koona Pin 2.4.0)
 
