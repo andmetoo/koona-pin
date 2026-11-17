@@ -8,6 +8,10 @@ import type { TagCleanupAction } from "./TagCleanupAction";
  */
 export type CleanedTag = { 
 /**
+ * The entry's row in the record, one of its own: the interface's key for it.
+ */
+key: string, 
+/**
  * When, UTC; empty when an entry of another version did not say.
  */
 at: string, action: TagCleanupAction, 

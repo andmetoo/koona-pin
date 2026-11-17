@@ -888,10 +888,26 @@ function CleanedTagsRow({ dataVersion }: { dataVersion: number }) {
   const [shown, setShown] = useState(false);
   const listId = useId();
   useEffect(() => {
-    const read = () => void api.getCleanedTags().then(setRecord).catch(() => {});
+    // Only the latest read counts: an earlier, slower one must not put back an older record,
+    // and none lands once the row is gone.
+    let latest = 0;
+    let gone = false;
+    const read = () => {
+      const asked = ++latest;
+      void api
+        .getCleanedTags()
+        .then((got) => {
+          if (!gone && asked === latest) setRecord(got);
+        })
+        .catch(() => {});
+    };
     read();
-    // A sync batch and a restore clean names too.
-    return api.onLibraryInvalidated(read);
+    // A sync batch, a restore and a list import clean names too.
+    const off = api.onLibraryInvalidated(read);
+    return () => {
+      gone = true;
+      off();
+    };
   }, [dataVersion]);
   if (!record?.length) return null;
   return (
@@ -903,8 +919,8 @@ function CleanedTagsRow({ dataVersion }: { dataVersion: number }) {
       </Row>
       {shown && (
         <ul id={listId} aria-label={t("settings.cleanedTags")} className="max-h-[320px] divide-y divide-divider overflow-y-auto border-t border-divider">
-          {record.map((entry, n) => (
-            <li key={n} data-cleaned={entry.action} className="px-3 py-2">
+          {record.map((entry) => (
+            <li key={entry.key} data-cleaned={entry.action} className="px-3 py-2">
               <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-sm [overflow-wrap:anywhere]">
                 {/* The marks come from the rule that cleaned the name (`db::name_parts`); spaces as they were. */}
                 <span data-cleaned-name className="whitespace-pre-wrap">

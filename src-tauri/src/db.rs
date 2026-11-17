@@ -395,45 +395,26 @@ pub struct TagCleanup {
     pub more_bookmarks: usize,
 }
 
-/// The key of the record as builds before one row per entry kept it: one JSON
-/// list. It is read with the rows, and the next cleaning moves it into them.
-const TAG_CLEANUP_LOG_LIST: &str = "tag_cleanup_log";
-
-/// The entries of the old list ([`TAG_CLEANUP_LOG_LIST`]) as JSON; none without one.
-fn tag_cleanup_list(conn: &Connection) -> Result<Vec<serde_json::Value>> {
-    let list: Option<String> = setting(conn, TAG_CLEANUP_LOG_LIST).optional()?;
-    Ok(list.and_then(|raw| serde_json::from_str::<Vec<serde_json::Value>>(&raw).ok()).unwrap_or_default())
-}
-
-/// The record's entries read as `T`, oldest first by their time, the old list
-/// and the rows together (an entry without a time first; one cleaning's in the
-/// order they were done). An entry that does not read is left where it is and skipped.
-fn tag_cleanup_entries<T: serde::de::DeserializeOwned>(conn: &Connection) -> Result<Vec<T>> {
-    // The old list is small and rare: read as JSON for its times.
-    let mut entries: Vec<(String, T)> = tag_cleanup_list(conn)?
-        .into_iter()
-        .filter_map(|value| {
-            let at = value["at"].as_str().unwrap_or("").to_owned();
-            serde_json::from_value(value).ok().map(|entry| (at, entry))
-        })
-        .collect();
-    // A row's time is in its key (`tag_cleanup/<at>/<place>/<uid>`), so it reads straight into `T`.
+/// The record's entries with their row keys, read as `T`, oldest first: the
+/// keys (`tag_cleanup/<at>/<place>/<uid>`) order them by time, and one
+/// cleaning's in the order they were done. An entry that does not read is
+/// left where it is and skipped.
+fn tag_cleanup_entries<T: serde::de::DeserializeOwned>(conn: &Connection) -> Result<Vec<(String, T)>> {
     let mut statement = conn.prepare_cached("SELECT key, value FROM app_settings WHERE key GLOB ?1 ORDER BY key")?;
     let rows = statement.query_map([format!("{TAG_CLEANUP_LOG}*")], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
-    entries.extend(rows.filter_map(|row| {
-        let (key, raw) = row.ok()?;
-        let at = key[TAG_CLEANUP_LOG.len()..].split('/').next().unwrap_or("").to_owned();
-        serde_json::from_str(&raw).ok().map(|entry| (at, entry))
-    }));
-    // Stable: the rows' keys already order one cleaning, and the list comes before rows of its own time.
-    entries.sort_by(|a, b| a.0.cmp(&b.0));
-    Ok(entries.into_iter().map(|(_, entry)| entry).collect())
+    Ok(rows
+        .filter_map(|row| {
+            let (key, raw) = row.ok()?;
+            serde_json::from_str(&raw).ok().map(|entry| (key, entry))
+        })
+        .collect())
 }
 
-/// The record of [`clean_tag_names`], oldest first. An entry that does not
-/// read is left where it is and skipped.
+/// The record of [`clean_tag_names`] in full, every bookmark uid included,
+/// oldest first: for tests. Settings reads [`cleaned_tags`], which skips the uids.
+#[cfg(test)]
 pub fn tag_cleanup_log(conn: &Connection) -> Result<Vec<TagCleanup>> {
-    tag_cleanup_entries(conn)
+    Ok(tag_cleanup_entries(conn)?.into_iter().map(|(_, entry)| entry).collect())
 }
 
 /// A piece of a tag's old name as Settings shows it: visible text, or one
@@ -477,6 +458,8 @@ fn name_parts(name: &str) -> Vec<NamePart> {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[ts(export)]
 pub struct CleanedTag {
+    /// The entry's row in the record, one of its own: the interface's key for it.
+    pub key: String,
     /// When, UTC; empty when an entry of another version did not say.
     pub at: String,
     pub action: TagCleanupAction,
@@ -528,7 +511,8 @@ fn count_of<'de, D: serde::Deserializer<'de>>(list: D) -> std::result::Result<us
 pub fn cleaned_tags(conn: &Connection) -> Result<Vec<CleanedTag>> {
     let mut record: Vec<CleanedTag> = tag_cleanup_entries::<CleanedEntry>(conn)?
         .into_iter()
-        .map(|entry| CleanedTag {
+        .map(|(key, entry)| CleanedTag {
+            key,
             bookmarks: u32::try_from(entry.bookmarks + entry.more_bookmarks).unwrap_or(u32::MAX),
             parts: name_parts(&entry.name),
             at: entry.at,
@@ -551,29 +535,7 @@ fn write_rows(conn: &Connection, entries: &[TagCleanup]) -> Result<()> {
 }
 
 /// Writes the entries of one cleaning and keeps the latest [`TAG_CLEANUP_LOG_LEN`].
-/// The old list ([`TAG_CLEANUP_LOG_LIST`]) moves into rows first, so it is kept as
-/// long as its entries are among the latest and goes with them.
 fn write_tag_cleanups(conn: &Connection, entries: &[TagCleanup]) -> Result<()> {
-    // Only a list that reads moves, and only its entries that read: the rest stay
-    // where they are, as an entry of the rows that does not read is left alone.
-    let list: Option<String> = setting(conn, TAG_CLEANUP_LOG_LIST).optional()?;
-    if let Some(list) = list.and_then(|raw| serde_json::from_str::<Vec<serde_json::Value>>(&raw).ok()) {
-        let mut unread = Vec::new();
-        let mut read = Vec::new();
-        for value in list {
-            match serde_json::from_value::<TagCleanup>(value.clone()) {
-                Ok(entry) => read.push(entry),
-                Err(_) => unread.push(value),
-            }
-        }
-        write_rows(conn, &read)?;
-        if unread.is_empty() {
-            conn.prepare_cached("DELETE FROM app_settings WHERE key = ?1")?.execute([TAG_CLEANUP_LOG_LIST])?;
-        } else if !read.is_empty() {
-            // Written once, when the rest moved; a list left with only what does not read stays untouched.
-            set_setting(conn, TAG_CLEANUP_LOG_LIST, &serde_json::Value::Array(unread).to_string())?;
-        }
-    }
     write_rows(conn, entries)?;
     conn.prepare_cached(
         "DELETE FROM app_settings WHERE key GLOB ?1 AND key NOT IN
@@ -3395,57 +3357,10 @@ mod tests {
         assert_eq!(shown("Coop"), "Coop", "a capital is seen: no mark, the new name shows the change");
     }
 
-    /// The record of builds before one row per entry, one JSON list, is shown
-    /// with the rows and moved into them by the next cleaning.
+    /// The record reads in the order of its time, one cleaning's in the order
+    /// they were done, and Settings gets each with a key of its own.
     #[test]
-    fn the_old_list_record_is_read_and_moved_into_rows() {
-        let conn = setup_test_db();
-        let old = serde_json::json!([{"at": "2026-10-01T00:00:00.000Z", "action": "merged", "uid": "t1", "name": "we\u{AD}b", "now_named": "web", "into": "t0", "bookmarks": ["b1", "b2"]}]).to_string();
-        set_setting(&conn, TAG_CLEANUP_LOG_LIST, &old).unwrap();
-        let shown = cleaned_tags(&conn).unwrap();
-        assert_eq!((shown.len(), shown[0].bookmarks, shown[0].now_named.as_deref()), (1, 2, Some("web")));
-
-        old_tag(&conn, 5, "re\u{AD}ad");
-        assert_eq!(clean_tag_names(&conn).unwrap(), 1);
-        assert!(setting(&conn, TAG_CLEANUP_LOG_LIST).optional().unwrap().is_none(), "the list is gone");
-        let record = tag_cleanup_log(&conn).unwrap();
-        assert_eq!(record.iter().map(|e| e.uid.as_str()).collect::<Vec<_>>()[0], "t1", "oldest first, kept as a row");
-        assert_eq!(record.len(), 2);
-        assert_eq!(record[0].bookmarks, ["b1", "b2"]);
-    }
-
-    /// An entry of the old list that this build does not read is not lost when
-    /// the list moves into rows: it stays in the list, and the rest move.
-    #[test]
-    fn the_old_list_keeps_what_does_not_read() {
-        let conn = setup_test_db();
-        let unknown = serde_json::json!({"at": "2026-10-02T00:00:00.000Z", "action": "split", "uid": "t9", "name": "x"});
-        let old = serde_json::json!([{"at": "2026-10-01T00:00:00.000Z", "action": "removed", "uid": "t1", "name": "\u{200B}"}, unknown.clone()]).to_string();
-        set_setting(&conn, TAG_CLEANUP_LOG_LIST, &old).unwrap();
-        old_tag(&conn, 5, "re\u{AD}ad");
-        clean_tag_names(&conn).unwrap();
-        let left: serde_json::Value = serde_json::from_str(&setting(&conn, TAG_CLEANUP_LOG_LIST).unwrap()).unwrap();
-        assert_eq!(left, serde_json::json!([unknown]), "only what does not read is left in the list");
-        assert_eq!(tag_cleanup_log(&conn).unwrap().iter().map(|e| e.uid.as_str()).collect::<Vec<_>>()[0], "t1");
-
-        // Left with only what does not read, the list is not written again by later cleanings:
-        // its text stays exactly as it was (a rewrite would lay it out anew).
-        let spaced = format!("[ {unknown} ]");
-        set_setting(&conn, TAG_CLEANUP_LOG_LIST, &spaced).unwrap();
-        old_tag(&conn, 7, "co\u{AD}op");
-        clean_tag_names(&conn).unwrap();
-        assert_eq!(setting(&conn, TAG_CLEANUP_LOG_LIST).unwrap(), spaced);
-
-        // A list that is no list at all is left as it is.
-        set_setting(&conn, TAG_CLEANUP_LOG_LIST, "{not json").unwrap();
-        old_tag(&conn, 6, "we\u{AD}b");
-        clean_tag_names(&conn).unwrap();
-        assert_eq!(setting(&conn, TAG_CLEANUP_LOG_LIST).unwrap(), "{not json");
-    }
-
-    /// The list and the rows read in the order of their time, whichever wrote them.
-    #[test]
-    fn the_record_is_in_the_order_of_its_time() {
+    fn the_record_is_in_the_order_of_its_time_each_with_its_key() {
         let conn = setup_test_db();
         let entry = |at: &str, uid: &str| TagCleanup {
             at: at.into(),
@@ -3457,12 +3372,15 @@ mod tests {
             bookmarks: Vec::new(),
             more_bookmarks: 0,
         };
-        write_rows(&conn, &[entry("2026-10-01T00:00:00.000Z", "row-early")]).unwrap();
-        write_rows(&conn, &[entry("2026-10-03T00:00:00.000Z", "row-late")]).unwrap();
-        // A build of the old list wrote after the rows.
-        set_setting(&conn, TAG_CLEANUP_LOG_LIST, &serde_json::to_string(&[entry("2026-10-02T00:00:00.000Z", "list")]).unwrap()).unwrap();
+        write_tag_cleanups(&conn, &[entry("2026-10-03T00:00:00.000Z", "late")]).unwrap();
+        // One cleaning: its uids out of order, its entries in the order they were done.
+        write_tag_cleanups(&conn, &[entry("2026-10-01T00:00:00.000Z", "z-first"), entry("2026-10-01T00:00:00.000Z", "a-second")]).unwrap();
         let order = tag_cleanup_log(&conn).unwrap().into_iter().map(|e| e.uid).collect::<Vec<_>>();
-        assert_eq!(order, ["row-early", "list", "row-late"]);
+        assert_eq!(order, ["z-first", "a-second", "late"]);
+        let keys: Vec<String> = cleaned_tags(&conn).unwrap().into_iter().map(|e| e.key).collect();
+        assert_eq!(keys.len(), 3);
+        assert_eq!(keys.iter().collect::<std::collections::HashSet<_>>().len(), 3, "one key each");
+        assert!(keys[0].ends_with("/late"), "newest first: {keys:?}");
     }
 
     /// The whole list in one page.

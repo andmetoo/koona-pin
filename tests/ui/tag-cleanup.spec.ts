@@ -17,9 +17,9 @@ const text = (text: string) => ({ text, unseen: false });
 const code = (text: string) => ({ text, unseen: true });
 // As db::cleaned_tags gives it: the old name in parts, what the cleaning took out by its code.
 const record = [
-  { at: "2026-11-02T09:30:00Z", action: "removed", parts: [code("U+200B")], now_named: null, bookmarks: 1 },
-  { at: "2026-11-01T14:05:00Z", action: "merged", parts: [text("co"), code("U+00AD"), text("op")], now_named: "coop", bookmarks: 3 },
-  { at: "", action: "renamed", parts: [code("U+0020"), text("to "), code("U+0020"), text("read")], now_named: "to read", bookmarks: 0 },
+  { key: "tag_cleanup/2026-11-02T09:30:00Z/000000/t3", at: "2026-11-02T09:30:00Z", action: "removed", parts: [code("U+200B")], now_named: null, bookmarks: 1 },
+  { key: "tag_cleanup/2026-11-01T14:05:00Z/000000/t2", at: "2026-11-01T14:05:00Z", action: "merged", parts: [text("co"), code("U+00AD"), text("op")], now_named: "coop", bookmarks: 3 },
+  { key: "tag_cleanup//000000/t1", at: "", action: "renamed", parts: [code("U+0020"), text("to "), code("U+0020"), text("read")], now_named: "to read", bookmarks: 0 },
 ];
 
 test("nothing cleaned: no row in Storage", async ({ page }) => {
@@ -76,7 +76,7 @@ test("the record: folded with its count, then each entry with its old name, what
 });
 
 test("a long record scrolls in its place, the page does not grow with it", async ({ page }) => {
-  const many = Array.from({ length: 200 }, (_, n) => ({ ...record[1], at: `2026-10-${String((n % 28) + 1).padStart(2, "0")}T10:00:00Z` }));
+  const many = Array.from({ length: 200 }, (_, n) => ({ ...record[1], key: `tag_cleanup/many/${n}`, at: `2026-10-${String((n % 28) + 1).padStart(2, "0")}T10:00:00Z` }));
   await openApp(page, { settings: { "demo.tagCleanups": JSON.stringify(many) } });
   await storage(page);
   await row(page).getByRole("button", { name: "Show", exact: true }).click();

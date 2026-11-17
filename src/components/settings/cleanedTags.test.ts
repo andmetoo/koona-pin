@@ -5,6 +5,7 @@ import { cleanedDetails } from "./cleanedTags";
 import { moment } from "./time";
 
 const entry = (over: Partial<CleanedTag>): CleanedTag => ({
+  key: "tag_cleanup/2026-11-01T14:05:00.000Z/000000/t1",
   at: "2026-11-01T14:05:00.000Z",
   action: "merged",
   parts: [{ text: "coop", unseen: false }],
