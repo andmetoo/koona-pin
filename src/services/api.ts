@@ -62,6 +62,7 @@ import {
   OfflineCopy,
   OfflineCopyContent,
   OfflineStats,
+  CleanedTag,
   Replaced,
   PickedCopy,
   SaveCopyOutcome,
@@ -142,6 +143,8 @@ const native = {
   rebuildSearchIndex: () => call<number>("rebuild_search_index"),
   getCollections: () => call<Collection[]>("get_collections"),
   getTags: () => call<Tag[]>("get_tags"),
+  /** Settings → Storage: what the cleaning of tag names did on this device, newest first. */
+  getCleanedTags: () => call<CleanedTag[]>("get_cleaned_tags"),
   getDomains: () => call<DomainCount[]>("get_domains"),
   /** Triage: where the site's other bookmarks mostly lie (NP-026); none when unclear. */
   suggestCollection: (id: number) => call<Suggestion | null>("suggest_collection", { id }),

@@ -352,8 +352,9 @@ const TAG_CLEANUP_LOG_LEN: usize = 1000;
 const TAG_CLEANUP_BOOKMARKS: usize = 200;
 
 /// What a cleaning did to a tag.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
+#[ts(export)]
 pub enum TagCleanupAction {
     /// Its name lost what nobody sees.
     Renamed,
@@ -400,6 +401,38 @@ pub fn tag_cleanup_log(conn: &Connection) -> Result<Vec<TagCleanup>> {
     let mut statement = conn.prepare_cached("SELECT value FROM app_settings WHERE key GLOB ?1 ORDER BY key")?;
     let rows = statement.query_map([format!("{TAG_CLEANUP_LOG}*")], |r| r.get::<_, String>(0))?;
     Ok(rows.filter_map(|row| row.ok().and_then(|raw| serde_json::from_str(&raw).ok())).collect())
+}
+
+/// One entry of the record as Settings shows it (Storage → «Cleaned tag names»): its
+/// bookmarks counted, not named, so a record of a thousand entries stays small to send.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[ts(export)]
+pub struct CleanedTag {
+    /// When, UTC.
+    pub at: String,
+    pub action: TagCleanupAction,
+    /// The name it had, invisible characters and all.
+    pub name: String,
+    /// For `renamed` and `merged`, the name it has now or went into.
+    pub now_named: Option<String>,
+    /// For `merged` and `removed`, how many bookmarks it was on; for `renamed`, 0 (it is still the same tag).
+    pub bookmarks: u32,
+}
+
+/// The record of [`clean_tag_names`] for Settings, newest first.
+pub fn cleaned_tags(conn: &Connection) -> Result<Vec<CleanedTag>> {
+    let mut record: Vec<CleanedTag> = tag_cleanup_log(conn)?
+        .into_iter()
+        .map(|entry| CleanedTag {
+            bookmarks: u32::try_from(entry.bookmarks.len() + entry.more_bookmarks).unwrap_or(u32::MAX),
+            at: entry.at,
+            action: entry.action,
+            name: entry.name,
+            now_named: entry.now_named,
+        })
+        .collect();
+    record.reverse();
+    Ok(record)
 }
 
 /// Writes the entries of one cleaning and keeps the latest [`TAG_CLEANUP_LOG_LEN`].
@@ -3181,6 +3214,31 @@ mod tests {
         let kept = tag_cleanup_log(&conn).unwrap();
         assert_eq!(kept.len(), TAG_CLEANUP_LOG_LEN);
         assert_eq!(kept.last().unwrap().uid, format!("u{}", TAG_CLEANUP_LOG_LEN + 9));
+    }
+
+    /// Settings' view of the record: newest first, bookmarks counted with the ones not named.
+    #[test]
+    fn cleaned_tags_are_newest_first_with_their_bookmarks_counted() {
+        let conn = setup_test_db();
+        assert!(cleaned_tags(&conn).unwrap().is_empty(), "nothing cleaned, nothing to show");
+        let entry = |at: &str, action, bookmarks: usize, more_bookmarks| TagCleanup {
+            at: at.into(),
+            action,
+            uid: format!("u-{at}"),
+            name: "co\u{AD}op".into(),
+            now_named: Some("coop".into()),
+            into: None,
+            bookmarks: (0..bookmarks).map(|n| format!("b{n}")).collect(),
+            more_bookmarks,
+        };
+        write_tag_cleanups(&conn, &[entry("2026-01-01T00:00:00Z", TagCleanupAction::Merged, 3, 0)]).unwrap();
+        write_tag_cleanups(&conn, &[entry("2026-02-01T00:00:00Z", TagCleanupAction::Removed, TAG_CLEANUP_BOOKMARKS, 7)]).unwrap();
+        let shown = cleaned_tags(&conn).unwrap();
+        assert_eq!(shown.len(), 2);
+        assert_eq!((shown[0].action, shown[0].bookmarks), (TagCleanupAction::Removed, TAG_CLEANUP_BOOKMARKS as u32 + 7));
+        assert_eq!((shown[1].action, shown[1].bookmarks), (TagCleanupAction::Merged, 3));
+        assert_eq!(shown[1].name, "co\u{AD}op", "the old name as it was, for Settings to show what it held");
+        assert_eq!(serde_json::to_value(&shown[1]).unwrap()["action"], "merged");
     }
 
     /// The whole list in one page.

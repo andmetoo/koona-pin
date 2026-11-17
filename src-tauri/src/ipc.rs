@@ -37,6 +37,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         commands::refresh_preview,
         commands::delete_collection,
         commands::get_tags,
+        commands::get_cleaned_tags,
         commands::get_domains,
         commands::suggest_collection,
         commands::get_counts,

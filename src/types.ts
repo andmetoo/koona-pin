@@ -73,6 +73,8 @@ export type { LibraryStatus } from "./bindings/LibraryStatus";
 export type { OpenCode } from "./bindings/OpenCode";
 export type { OpenFailure } from "./bindings/OpenFailure";
 export type { Tag } from "./bindings/Tag";
+export type { CleanedTag } from "./bindings/CleanedTag";
+export type { TagCleanupAction } from "./bindings/TagCleanupAction";
 export type { Browser } from "./bindings/Browser";
 export type { BrowserStatus } from "./bindings/BrowserStatus";
 export type { CaptureProblem } from "./bindings/CaptureProblem";

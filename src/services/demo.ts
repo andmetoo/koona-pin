@@ -63,6 +63,7 @@ import {
   OfflineCopy,
   OfflineCopyContent,
   OfflineStats,
+  CleanedTag,
   SupporterStatus,
   SupporterPrices,
   PlanInterval,
@@ -1674,6 +1675,18 @@ export const demo = {
         count: live().filter((b) => b.tags?.includes(name)).length,
       }),
     );
+  },
+  /**
+   * get_cleaned_tags: the preview cleans no stored names, so the record is empty unless a test
+   * lays one in `koonapin.demo.tagCleanups` (JSON, newest first, as the command gives it).
+   */
+  async getCleanedTags(): Promise<CleanedTag[]> {
+    try {
+      const record: unknown = JSON.parse(localStorage.getItem("koonapin.demo.tagCleanups") ?? "[]");
+      return Array.isArray(record) ? (record as CleanedTag[]) : [];
+    } catch {
+      return [];
+    }
   },
   async getDomains() {
     return [...new Set(live().map((b) => b.domain))].map((domain) => ({

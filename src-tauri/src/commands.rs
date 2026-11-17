@@ -588,6 +588,11 @@ pub async fn suggest_collection(
     })
     .await
 }
+/// Settings → Storage → «Cleaned tag names»: what the cleaning of tag names did on this device, newest first.
+#[tauri::command]
+pub async fn get_cleaned_tags(state: State<'_, Arc<DbState>>) -> Result<Vec<db::CleanedTag>, CommandError> {
+    blocking(&state, |conn| db::cleaned_tags(conn).map_err(text)).await
+}
 #[tauri::command]
 pub async fn get_domains(state: State<'_, Arc<DbState>>) -> Result<Vec<DomainCount>, CommandError> {
     blocking(&state, |conn| db::get_domains(conn).map_err(text)).await
