@@ -224,7 +224,7 @@ export function ReadingMode({
     else if (focus === "article") {
       setQueueOpen(false);
       cancelAnimationFrame(articleFocus.current);
-      articleFocus.current = requestAnimationFrame(() => scroller.current?.focus({ preventScroll: true }));
+      articleFocus.current = requestAnimationFrame(() => quietFocus(scroller.current));
     }
   }, []);
 
@@ -255,7 +255,7 @@ export function ReadingMode({
   );
   useLayoutEffect(() => {
     drop("in", () => onCovers?.(true));
-    scroller.current?.focus({ preventScroll: true });
+    quietFocus(scroller.current);
   }, []);
   const leave = useCallback(() => {
     if (leaving) return;
@@ -395,7 +395,7 @@ export function ReadingMode({
             e.preventDefault();
             focusQueue();
           }}
-          className={`min-h-0 flex-1 overflow-y-auto outline-offset-[-2px] ${narrow ? "scroll-pt-[72px] px-6 pt-20" : "scroll-pt-[74px] px-8 pt-24"} pb-24`}
+          className={`min-h-0 flex-1 overflow-y-auto pane-scroll outline-offset-[-2px] ${narrow ? "scroll-pt-[72px] px-6 pt-20" : "scroll-pt-[74px] px-8 pt-24"} pb-24`}
         >
           {current ? (
             <ArticleView
@@ -851,3 +851,24 @@ const Queue = function Queue({
     </div>
   );
 };
+
+/**
+ * The article takes the focus by itself (opening, J, K): no ring around the whole page for that.
+ * The mark goes with the focus, so Tab back onto it rings it again; the window losing focus
+ * (Alt Tab) keeps it, as the article still has the focus when the window comes back.
+ */
+function quietFocus(element: HTMLElement | null) {
+  if (!element) return;
+  if (!("quietFocus" in element.dataset)) {
+    element.dataset.quietFocus = "";
+    const blur = () => {
+      if (!document.hasFocus()) return;
+      delete element.dataset.quietFocus;
+      element.removeEventListener("blur", blur);
+    };
+    element.addEventListener("blur", blur);
+  }
+  element.focus({ preventScroll: true });
+  // Not focused after all (hidden, gone): no mark left behind to swallow a later Tab's ring.
+  if (document.activeElement !== element) delete element.dataset.quietFocus;
+}

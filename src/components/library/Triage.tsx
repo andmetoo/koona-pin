@@ -530,7 +530,7 @@ export function Triage({
 
   return (
     <section aria-label={t("triage.title")} className="relative flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-8 pt-3 pb-24">
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto pane-scroll px-8 pt-3 pb-24">
         <div className="sort-col flex flex-col gap-[18px]">
           <header className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
             <h1 className="flex min-w-0 items-baseline gap-2 text-xl font-semibold tracking-[-0.015em]">

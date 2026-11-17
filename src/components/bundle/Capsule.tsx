@@ -5,6 +5,7 @@ import { BundleEntry, entryKey } from "../../services/bundle";
 import { Icon } from "../icons";
 import { FeedIcon } from "../feeds/FeedIcon";
 import { SiteMark } from "../library/Bookmarks";
+import { reducedMotion } from "../../platform/motion";
 
 /** The fan of mini cards (K6b): −8°, 0°, 8°, the first three things in the bundle. */
 const FAN = [-8, 0, 8];
@@ -26,7 +27,7 @@ const ROLL_MS = 160;
 /** Reduced motion: the static 2 px accent border that says it landed (N5). */
 const LANDED_MS = 300;
 
-const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+const reduced = reducedMotion;
 
 /** Settled (K6b, 5): «+3» floats 12 px up and fades out above the capsule. */
 const PLUS_MS = 500;

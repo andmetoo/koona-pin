@@ -1,5 +1,5 @@
 import { Fragment, KeyboardEvent, MouseEvent, ReactNode, useEffect, useRef, useState } from "react";
-import { ArrowUpRight, FileX, WifiOff } from "lucide-react";
+import { ArrowUpRight, FileText, FileX, WifiOff } from "lucide-react";
 import { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { figureCaption, pictureFor, viewable, viewerSource, type ViewerSource, watchPictures } from "../../services/articlePictures";
@@ -120,6 +120,7 @@ export function ArticleView({
   header,
   byline,
   lead,
+  compact = false,
 }: {
   url: string;
   /** The bookmark's title: shown while the article loads and when there is none. */
@@ -161,6 +162,11 @@ export function ArticleView({
   byline?: ReactNode;
   /** Between the title and the body: the post's picture and its caption. */
   lead?: ReactNode;
+  /**
+   * A card, not a page (the reading sheet after a page that could not be read): the failure with
+   * less room around it, and while the next one loads a line instead of the article's skeleton.
+   */
+  compact?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const state = useArticle(url, attempt, bookmarkId, offlineAt, live, given, fetches);
@@ -184,6 +190,16 @@ export function ArticleView({
   const copySaved = state.kind === "article" && state.offlineAt && offlineAt ? offlineAt : null;
 
   if (state.kind === "failed" && failure) return failure(state.failure);
+  if (compact && state.kind === "loading")
+    return (
+      <div data-reader-opening role="status" className="mx-auto flex max-w-[460px] flex-col items-center gap-3 px-6 py-8 text-center">
+        <span className="flex size-12 animate-pulse items-center justify-center rounded-full bg-secondary text-icon">
+          <Icon icon={FileText} size={20} />
+        </span>
+        <h2 className="max-w-full truncate text-lg font-semibold">{title}</h2>
+        <p className="text-sm text-muted">{t("reader.loading")}</p>
+      </div>
+    );
 
   // A picture opens in the viewer, even one inside a link (the viewer offers the link); a link in
   // the text opens in the browser.
@@ -219,12 +235,12 @@ export function ArticleView({
 
   if (state.kind === "failed")
     return (
-      <div data-reader-failure className="mx-auto flex max-w-[460px] flex-col items-center gap-3 px-6 py-20 text-center">
+      <div data-reader-failure className={`mx-auto flex max-w-[460px] flex-col items-center gap-3 px-6 text-center ${compact ? "py-8" : "py-20"}`}>
         <span className="flex size-12 items-center justify-center rounded-full bg-secondary text-icon">
           <Icon icon={FileX} size={20} />
         </span>
         <h2 className="text-lg font-semibold">{t("reader.failure.title")}</h2>
-        <p className="text-sm text-muted">{failureText(state.failure, t)}</p>
+        <p className="text-sm text-balance text-muted">{failureText(state.failure, t)}</p>
         <div className="mt-2 flex flex-wrap justify-center gap-2">
           <Button variant="primary" onClick={() => onOpen(url)}>
             {t("reader.openInBrowser")}

@@ -429,6 +429,119 @@ test("Space reads the selection in a sheet over the list; ↑/↓ go through it,
   await expect(s).toHaveCount(0);
 });
 
+test("the sheet falls away: it stays a moment, takes no click, a second Esc does not cut it, focus goes back; closed mid-rise it falls from there", async ({ page }) => {
+  const first = card(page, TITLES[0]);
+  await spot(first).click();
+  await page.keyboard.press(" ");
+  const s = sheet(page);
+  await expect(s).toBeVisible();
+  await expect(s.locator(".reader-body")).toContainText("is the page this bookmark was saved from");
+  // The backdrop fades in with the rise.
+  expect(await s.evaluate((el) => getComputedStyle(el, "::backdrop").animationName)).toBe("add-fade");
+
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  // Falling: still there, out of reach of clicks and keys, the scrim fading with it.
+  const state = await s.evaluate((el) => ({
+    open: (el as HTMLDialogElement).open,
+    leaving: el.hasAttribute("data-leaving"),
+    clicks: getComputedStyle(el.firstElementChild!).pointerEvents,
+    // The fall reaches past the dialog's bottom: no scrollbar for it, so the sheet does not move sideways.
+    scrollbar: el.clientWidth !== (el as HTMLElement).offsetWidth,
+    focusInside: el.contains(document.activeElement),
+    fall: getComputedStyle(el.firstElementChild!).animationName,
+    scrim: getComputedStyle(el, "::backdrop").animationName,
+  }));
+  expect(state).toEqual({ open: true, leaving: true, clicks: "none", scrollbar: false, focusInside: true, fall: "reading-sheet-out", scrim: "reading-sheet-scrim-out" });
+  await expect(s).toHaveCount(0);
+  await expect(first).toBeFocused();
+
+  // Esc while it still rises: the fall starts where the rise was, not from the top.
+  await page.keyboard.press(" ");
+  await expect(s).toBeVisible();
+  const from = await s.evaluate(
+    (el) =>
+      new Promise<{ opacity: number; y: number }>((resolve) =>
+        setTimeout(() => {
+          el.querySelector("[data-reader-scroll]")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+          const d = el as HTMLElement;
+          resolve({ opacity: Number(d.style.getPropertyValue("--sheet-from-opacity")), y: parseFloat(d.style.getPropertyValue("--sheet-from-y")) });
+        }, 40),
+      ),
+  );
+  expect(from.opacity).toBeLessThan(1);
+  expect(from.y).toBeGreaterThan(0);
+  await expect(s).toHaveCount(0);
+});
+
+test("selecting in a short list moves nothing sideways: the grid keeps the scrollbar's place", async ({ page }) => {
+  // Six cards fit this window; the selection bar's room under them makes it scroll.
+  await page.setViewportSize({ width: 1000, height: 660 });
+  const first = card(page, TITLES[0]);
+  const scroller = page.locator("[data-scroll=main]");
+  expect(await scroller.evaluate((el) => getComputedStyle(el).scrollbarGutter)).toBe("stable");
+  const before = (await first.boundingBox())!;
+  await spot(first).click();
+  await expect(bar(page).getByRole("status")).toHaveText("1 selected");
+  expect(await scroller.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+  const selected = (await first.boundingBox())!;
+  await page.keyboard.press("Escape");
+  await expect(bar(page)).toHaveCount(0);
+  const after = (await first.boundingBox())!;
+  expect([selected.x, selected.width]).toEqual([before.x, before.width]);
+  expect([after.x, after.width]).toEqual([before.x, before.width]);
+});
+
+test("↑/↓ through pages that cannot be read keep the card, its height while the next loads; an article makes it the sheet again", async ({ page }) => {
+  // Linear answers 403 at once, Are.na after half a second: long enough to see it load in the card.
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const fetch = api.fetchReaderPage;
+    api.fetchReaderPage = async (url: string) => {
+      if (url.includes("are.na")) await new Promise((resolve) => setTimeout(resolve, 500));
+      return url.includes("linear") || url.includes("are.na") ? { kind: "status", url, status: 403 } : fetch(url);
+    };
+  });
+  await spot(card(page, TITLES[3])).click();
+  await spot(card(page, TITLES[5])).click({ modifiers: ["ControlOrMeta"] });
+  await spot(card(page, TITLES[0])).click({ modifiers: ["ControlOrMeta"] });
+  await page.keyboard.press(" ");
+  const s = sheet(page);
+  const panel = s.locator(".reading-sheet-panel");
+  await expect(s.locator(".reader-body")).toBeVisible();
+  await expect(panel).not.toHaveAttribute("data-compact");
+  await expect.poll(async () => Math.round((await panel.boundingBox())!.width)).toBe(760);
+
+  // ↓: Linear cannot be read, the card.
+  await page.keyboard.press("ArrowDown");
+  await expect(s.locator("[data-reader-failure]")).toBeVisible();
+  await expect(panel).toHaveAttribute("data-compact");
+  await expect.poll(async () => Math.round((await panel.boundingBox())!.width)).toBe(480);
+  const cardHeight = (await panel.boundingBox())!.height;
+  // Every change of the card from here on is written down: it must not become the sheet in between.
+  await panel.evaluate((el) => {
+    const w = window as unknown as { shapes: boolean[] };
+    w.shapes = [];
+    new MutationObserver(() => w.shapes.push(el.hasAttribute("data-compact"))).observe(el, { attributeFilter: ["data-compact"] });
+  });
+
+  // ↓: Are.na loads in the card, at the card's height, then cannot be read either.
+  await page.keyboard.press("ArrowDown");
+  await expect(s.locator("[data-reader-opening]")).toBeVisible();
+  expect(Math.round((await panel.boundingBox())!.height)).toBeGreaterThanOrEqual(Math.round(cardHeight));
+  await expect(s.locator("[data-reader-failure]")).toContainText("error 403");
+  expect(await page.evaluate(() => (window as unknown as { shapes: boolean[] }).shapes)).toEqual([]);
+
+  // ↑ ↑: back to the article, the sheet again, with its own «Open in browser» in the header.
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("ArrowUp");
+  await expect(s.locator(".reader-body")).toBeVisible();
+  await expect(panel).not.toHaveAttribute("data-compact");
+  await expect.poll(async () => Math.round((await panel.boundingBox())!.width)).toBe(760);
+  await expect(s.getByRole("button", { name: "Open in browser" })).toHaveCount(1);
+  await expect(s.locator("header").getByRole("button", { name: "Open in browser" })).toBeVisible();
+});
+
 test("the sheet: a page that cannot be read offers the browser; progress is saved at most every 2 s and on close (NP-123)", async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 550 });
   await page.clock.install();
@@ -452,6 +565,12 @@ test("the sheet: a page that cannot be read offers the browser; progress is save
   const s = sheet(page);
   await expect(s.locator("[data-reader-failure]")).toContainText("This page can’t be shown here");
   await expect(s.locator("[data-reader-failure]")).toContainText("The site answered with error 403");
+  // Not a whole sheet of empty paper: a card of 480 px around the reason, its one «Open in browser».
+  const panel = s.locator(".reading-sheet-panel");
+  await expect(panel).toHaveAttribute("data-compact");
+  await expect.poll(async () => Math.round((await panel.boundingBox())!.width)).toBe(480);
+  await expect.poll(async () => (await panel.boundingBox())!.height).toBeLessThan(400);
+  await expect(s.getByRole("button", { name: "Open in browser" })).toHaveCount(1);
   await s.locator("[data-reader-failure]").getByRole("button", { name: "Open in browser" }).click();
   expect(await opened(page)).toEqual([await urlOf(card(page, TITLES[3]))]);
   await page.keyboard.press("Escape");

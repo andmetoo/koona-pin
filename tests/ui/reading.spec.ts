@@ -180,9 +180,16 @@ test("Tab goes between the queue and the article; arrows in the queue pick the a
   await expect(heading(page)).toHaveText(list[0].title);
   // The ring of the region.
   expect(await article.evaluate((el) => getComputedStyle(el).outlineStyle)).toBe("solid");
-  // J and Esc as before.
+  // J and Esc as before; the focus J hands the article draws no ring around the whole page.
   await page.keyboard.press("j");
   await expect(heading(page)).toHaveText(list[1].title);
+  await expect(article).toBeFocused();
+  expect(await article.evaluate((el) => [el.matches(":focus-visible"), getComputedStyle(el).outlineStyle])).toEqual([true, "none"]);
+  // Shift+Tab and Tab back: the ring of the region again.
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Tab");
+  await expect(article).toBeFocused();
+  expect(await article.evaluate((el) => getComputedStyle(el).outlineStyle)).toBe("solid");
   await page.keyboard.press("Escape");
   await expect(current(page)).toBeFocused();
   await page.keyboard.press("Escape");

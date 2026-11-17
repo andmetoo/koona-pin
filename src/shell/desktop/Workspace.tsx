@@ -551,7 +551,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
                   <h1 className="flex h-9 items-center text-2xl font-semibold">{t("nav.settings")}</h1>
                 </div>
                 {/* The groups fade in under the title as the sidebar's middle does (2.17.1), not cut at a hard edge. */}
-                <div data-drop-area className={`scroll-fade min-h-0 flex-1 overflow-y-auto pt-3.5 ${padding}`}>
+                <div data-drop-area className={`scroll-fade pane-scroll min-h-0 flex-1 overflow-y-auto pt-3.5 ${padding}`}>
                   <SettingsPage
                     theme={theme}
                     onTheme={setTheme}
@@ -818,7 +818,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
                   data-scroll="main"
                   data-drop-area
                   style={{ paddingTop: headHeight + 7, scrollPaddingTop: headHeight + 8 }}
-                  className={`min-h-0 flex-1 overflow-y-auto ${padding} ${selecting ? "pb-[120px]" : "pb-8"}`}
+                  className={`min-h-0 flex-1 overflow-y-auto pane-scroll ${padding} ${selecting ? "pb-[120px]" : "pb-8"}`}
                 >
                   {content}
                 </div>
@@ -849,7 +849,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
             )}
           </main>
           {editing && wide && (
-            <aside className="w-[380px] shrink-0 animate-appear overflow-y-auto border-l border-border bg-card p-6" aria-label={t("editor.label")}>
+            <aside className="w-[380px] shrink-0 animate-appear overflow-y-auto pane-scroll border-l border-border bg-card p-6" aria-label={t("editor.label")}>
               <header className="mb-5 flex items-center justify-between">
                 <h2 className="text-lg font-semibold">{t("editor.label")}</h2>
                 <span className="flex items-center gap-1.5">

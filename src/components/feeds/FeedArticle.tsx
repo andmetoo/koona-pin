@@ -147,7 +147,7 @@ export function FeedArticleSheet({
         ref={scrollerRef}
         tabIndex={-1}
         data-feed-scroll
-        className={`feed-scroll min-h-0 flex-1 overflow-y-auto px-6 pt-1 outline-none sm:px-16 ${item && next ? "" : "pb-24"}`}
+        className={`feed-scroll pane-scroll min-h-0 flex-1 overflow-y-auto px-6 pt-1 outline-none sm:px-16 ${item && next ? "" : "pb-24"}`}
       >
         {item ? (
           <>
