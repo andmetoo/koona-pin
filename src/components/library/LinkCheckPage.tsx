@@ -189,7 +189,7 @@ export function LinkCheckPage({
           {report && count > 0 && <span className="text-md text-subtle">{count}</span>}
         </h1>
       </div>
-      <div className={`min-h-0 flex-1 overflow-y-auto pb-8 ${padding}`}>
+      <div className={`min-h-0 flex-1 overflow-y-auto pane-scroll pb-8 ${padding}`}>
         {report === null ? (
           <p role="status" className="text-sm text-muted">
             {t("links.loading")}
