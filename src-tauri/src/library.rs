@@ -942,8 +942,8 @@ mod tests {
         assert_eq!(backup::list(&paths.backups).len(), copies, "no copy of the whole library at open");
         // What was done is in the library's record: the restore's rename, then the open's merge.
         let record = db::tag_cleanup_log(&reopened).unwrap();
-        let actions: Vec<(&str, &str)> = record.iter().map(|e| (e.action.as_str(), e.name.as_str())).collect();
-        assert_eq!(actions, [("renamed", "co\u{AD}op"), ("merged", "co\u{200B}op")]);
+        let actions: Vec<(db::TagCleanupAction, &str)> = record.iter().map(|e| (e.action, e.name.as_str())).collect();
+        assert_eq!(actions, [(db::TagCleanupAction::Renamed, "co\u{AD}op"), (db::TagCleanupAction::Merged, "co\u{200B}op")]);
         assert_eq!(record[1].bookmarks.len(), 1, "the bookmark it was on, to put it back by hand");
     }
 

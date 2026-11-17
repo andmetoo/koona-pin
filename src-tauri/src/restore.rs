@@ -369,6 +369,9 @@ pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, back
     // Tags: by name; a new one keeps the copy's uid unless another tag has it.
     let tags_before: i64 = tx.query_row("SELECT count(*) FROM tags", [], |r| r.get(0))?;
     // Named as tags are read now (`db::tag_name`), as the bookmarks' links below are.
+    // This changes only what the copy brings, which stays as it is on disk; the
+    // library's own tags are neither merged nor removed here, so nothing goes in
+    // the cleaning record (`db::TAG_CLEANUP_LOG`), which is for those.
     for t in &library.tags {
         let Some(name) = db::tag_name(&t.name) else { continue };
         let taken = tx.query_row("SELECT 1 FROM tags WHERE uid = ?1", [&t.uid], |_| Ok(())).optional()?.is_some();

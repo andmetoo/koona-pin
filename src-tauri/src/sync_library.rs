@@ -910,9 +910,9 @@ mod tests {
         assert_eq!(tag_state(&new), expected);
         // The cleaning in the batch kept its record, as one at open does: the merge, with where it went.
         let record = db::tag_cleanup_log(&new).unwrap();
-        let done: Vec<(&str, &str, Option<&str>)> = record.iter().map(|e| (e.action.as_str(), e.uid.as_str(), e.into.as_deref())).collect();
+        let done: Vec<(db::TagCleanupAction, &str, Option<&str>)> = record.iter().map(|e| (e.action, e.uid.as_str(), e.into.as_deref())).collect();
         let look_alike_uid = uuid::Uuid::from_u128(5).to_string();
-        assert_eq!(done, [("merged", web.as_str(), Some(look_alike_uid.as_str())), ("renamed", look_alike_uid.as_str(), None)]);
+        assert_eq!(done, [(db::TagCleanupAction::Merged, web.as_str(), Some(look_alike_uid.as_str())), (db::TagCleanupAction::Renamed, look_alike_uid.as_str(), None)]);
         settle(&new, apply_now, &old, apply_as_before);
         assert_eq!(tag_state(&old), expected);
         assert!(db::is_purged(&old, &web).unwrap());
