@@ -14,7 +14,7 @@ This licensing change applies to revisions carrying these notices. It does not w
 
 ## The `.kpin` list format: CC0
 
-The specification of the `.kpin` list format, its JSON Schema and its examples in [`docs/kpin/`](docs/kpin/README.md) are dedicated to the public domain under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/), so that any tool can implement the format. The app's code that reads and writes it stays under the GPL.
+The specification of the `.kpin` list format, its JSON Schema, its examples and its conformance suite (files and test vectors, `docs/kpin/conformance/`) in [`docs/kpin/`](docs/kpin/README.md) are dedicated to the public domain under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/), so that any tool can implement the format. The app's code that reads and writes it stays under the GPL.
 
 ## Commercial code
 

@@ -158,8 +158,8 @@ mod tests {
     use crate::lists::format::parse;
     use crate::lists::tests::database;
 
-    const VALID: &str = include_str!("../../tests/fixtures/kpin/valid.kpin");
-    const REPEATS: &str = include_str!("../../tests/fixtures/kpin/repeats.kpin");
+    const VALID: &str = include_str!("../../../docs/kpin/conformance/lists/valid.kpin");
+    const REPEATS: &str = include_str!("../../../docs/kpin/conformance/lists/repeats.kpin");
 
     fn options(collection: ListCollection) -> ListImportOptions {
         ListImportOptions {

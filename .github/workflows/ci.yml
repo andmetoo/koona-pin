@@ -7,7 +7,8 @@ name: CI
 # Playwright UI, and checks the packages on every distribution. Windows and macOS check only what is
 # their own: the Rust tests on that system and the packaging.
 #
-# A pull request runs what its files can break («changes»): only docs and the changelog, nothing; scripts,
+# A pull request runs what its files can break («changes»): only docs and the changelog, nothing (the .kpin
+# spec and its conformance suite in docs/kpin, Linux: the tests read them); scripts,
 # tests and the Linux pipeline, Linux; the app, its dependencies and toolchains, or this file, everything.
 # Pushes to main and runs by hand run everything. «CI» sums the jobs up: it is the one check main
 # requires (with CLA), green when no job that ran failed. The package and distribution jobs of linux.yml
@@ -56,6 +57,9 @@ jobs:
           while IFS= read -r file; do
             echo "$file"
             case "$file" in
+              # The .kpin spec, schema and conformance suite: the Rust reader's tests and Vitest read them,
+              # and run on Linux; nothing in them differs on Windows or macOS.
+              docs/kpin/*) linux=true ;;
               docs/* | changelog/* | design/* | *.md | LICENSE* | .github/workflows/cla.yml | .github/workflows/release.yml) ;;
               # src-tauri/* includes the Safari extension's Xcode project (src-tauri/macos/safari).
               src/* | src-tauri/* | scripts/build-macos.mjs | scripts/build-extension.mjs | scripts/build-android.mjs | scripts/check-apk-billing.mjs | scripts/build-ios-sim.mjs | \

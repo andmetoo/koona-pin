@@ -919,13 +919,13 @@ export function demoList(text: string): DemoList | Exclude<ListCheck, { outcome:
   if (!version) return { outcome: "not_a_list" };
   const [major, minor] = [Number(version[1]), Number(version[2])];
   if (raw.kind !== "list" || major > 1) return { outcome: "needs_newer_app" };
-  const title = typeof raw.title === "string" ? raw.title.replace(/\s+/g, " ").trim().slice(0, 120) : "";
+  const title = typeof raw.title === "string" ? (demoLine(raw.title, 120) ?? "") : "";
   if (major !== 1 || !title) return { outcome: "not_a_list" };
   const sections = Array.isArray(raw.sections) ? (raw.sections as Record<string, unknown>[]) : [];
   if (sections.length > 200) return { outcome: "too_big" };
   const groups: [string | null, Record<string, unknown>[]][] = [
     ...sections.map((section): [string | null, Record<string, unknown>[]] => [
-      typeof section?.name === "string" && section.name.trim() ? section.name.trim().slice(0, 120) : null,
+      typeof section?.name === "string" ? demoLine(section.name, 120) : null,
       Array.isArray(section?.items) ? section.items : [],
     ]),
     [null, Array.isArray(raw.items) ? (raw.items as Record<string, unknown>[]) : []],
@@ -937,7 +937,7 @@ export function demoList(text: string): DemoList | Exclude<ListCheck, { outcome:
   const links = new Map<string, DemoListItem>();
   const feeds = new Set<string>();
   const tagsOf = (item: Record<string, unknown>) =>
-    [...new Set((Array.isArray(item.tags) ? item.tags : []).filter((tag): tag is string => typeof tag === "string").map((tag) => tag.trim().toLowerCase().slice(0, 64)).filter(Boolean))].slice(0, 20);
+    [...new Set((Array.isArray(item.tags) ? item.tags : []).filter((tag): tag is string => typeof tag === "string").map(demoTag).filter((tag): tag is string => tag !== null))].slice(0, 20);
   for (const [section, items] of groups) {
     for (const item of items) {
       if (item?.type !== "link" && item?.type !== "feed") {
@@ -960,8 +960,8 @@ export function demoList(text: string): DemoList | Exclude<ListCheck, { outcome:
       }
       const entry = {
         url,
-        title: typeof item.title === "string" ? item.title.trim().slice(0, 300) || null : null,
-        description: typeof item.description === "string" ? item.description.trim().slice(0, 1000) || null : null,
+        title: typeof item.title === "string" ? demoLine(item.title, 500) : null,
+        description: typeof item.description === "string" ? demoParagraph(item.description, 2000) : null,
         tags: tagsOf(item),
         sections: section ? [section] : [],
         site: item.type === "feed" ? demoWebUrl(item.site) : null,
@@ -990,15 +990,36 @@ export function demoList(text: string): DemoList | Exclude<ListCheck, { outcome:
   }
   return list;
 }
-/** `format::tag`: lowercased, control and invisible characters dropped, white space collapsed, at most 64 characters; none when empty. */
-function demoTag(raw: string): string | null {
-  const kept = [...raw.toLowerCase()]
-    // The invisible ones first: JavaScript counts U+FEFF as white space, Rust does not.
-    .map((c) => (/[\u061c\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]/.test(c) ? "" : /\s/.test(c) ? " " : /\p{Cc}/u.test(c) ? "" : c))
-    .join("");
-  const capped = [...kept.split(/\s+/).filter(Boolean).join(" ")].slice(0, 64).join("").trimEnd();
-  return capped || null;
+/**
+ * `format::without_invisible`: the invisible characters of the spec's Text dropped, except the tags
+ * of the flags of England, Scotland and Wales (U+1F3F4, the tags of gbeng, gbsct or gbwls, CANCEL TAG), kept whole.
+ */
+const INVISIBLE =
+  /(\u{1f3f4}\u{e0067}\u{e0062}(?:\u{e0065}\u{e006e}\u{e0067}|\u{e0073}\u{e0063}\u{e0074}|\u{e0077}\u{e006c}\u{e0073})\u{e007f})|[\u00ad\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u206f\ufeff\ufff9-\ufffb\u{e0001}\u{e0020}-\u{e007f}]/gu;
+const demoVisible = (raw: string) => raw.replace(INVISIBLE, (_, flag: string | undefined) => flag ?? "");
+
+/** `format::capped`: at most `max` characters (not UTF-16 units), the end trimmed; a cut through a flag drops the tags it leaves. */
+function demoCapped(text: string, max: number): string | null {
+  const chars = [...text];
+  const cut = chars.length > max ? demoVisible(chars.slice(0, max).join("")) : text;
+  return cut.trimEnd() || null;
 }
+
+/** `format::line`: invisible and control characters dropped, white space collapsed, at most `max` characters; none when empty. */
+export function demoLine(raw: string, max: number): string | null {
+  // The invisible ones first: JavaScript counts U+FEFF as white space, Rust does not; Rust counts U+0085 as white space, JavaScript does not.
+  const kept = [...demoVisible(raw)].map((c) => (/[\s\u0085]/.test(c) ? " " : /\p{Cc}/u.test(c) ? "" : c)).join("");
+  return demoCapped(kept.split(" ").filter(Boolean).join(" "), max);
+}
+
+/** `format::paragraph`: as `demoLine`, but line breaks stay (CRLF becomes LF) and only the ends are trimmed. */
+export function demoParagraph(raw: string, max: number): string | null {
+  const kept = [...demoVisible(raw.replace(/\r\n/g, "\n"))].filter((c) => c === "\n" || !/\p{Cc}/u.test(c)).join("");
+  return demoCapped(kept.trim(), max);
+}
+
+/** `format::tag`: a line of at most 64 characters, lowercased. */
+export const demoTag = (raw: string) => demoLine(raw.toLowerCase(), 64);
 /** `ListPreview.groups` as `lists/preview.rs` makes them: the top level first, then each section where it first appears, a link under its first section. */
 function demoGroups(list: DemoList, bookmarkAt: (url: string) => Bookmark | undefined, feedAt: Map<string, string>): ListPreviewGroup[] {
   const rows = [...list.links.map((entry) => ({ entry, kind: "link" as const })), ...list.feeds.map((entry) => ({ entry, kind: "feed" as const }))].sort((a, b) => a.entry.at - b.entry.at);

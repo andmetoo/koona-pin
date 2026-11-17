@@ -135,39 +135,16 @@ fn is_device(stem: &str) -> bool {
     }
 }
 
-/// An invisible format character (Unicode Cf) that may hide or reorder what
-/// a name shows: the soft hyphen, zero-width ones, bidi marks, embeddings,
-/// overrides and isolates, word joiners and invisible operators, the
-/// deprecated shaping controls, the BOM, interlinear annotation marks and
-/// tag characters. The Cf characters that show a sign of their own (Arabic
-/// and Syriac number signs, Kaithi, Egyptian and musical controls) stay.
-fn is_format(c: char) -> bool {
-    matches!(
-        c,
-        '\u{00AD}'
-            | '\u{061C}'
-            | '\u{180E}'
-            | '\u{200B}'..='\u{200F}'
-            | '\u{202A}'..='\u{202E}'
-            | '\u{2060}'..='\u{2064}'
-            | '\u{2066}'..='\u{206F}'
-            | '\u{FEFF}'
-            | '\u{FFF9}'..='\u{FFFB}'
-            | '\u{E0001}'
-            | '\u{E0020}'..='\u{E007F}'
-    )
-}
-
 /// The file name the app suggests (`listText.ts` makes it from the title),
 /// made safe on every system: no `/ \ : * ? " < > |`, control or invisible
-/// format characters (`is_format`), no trailing dots or spaces, at most 64 characters, a device
+/// format characters (`format::without_invisible`, as a reader drops them from text, so a flag stays whole), no trailing dots or spaces, at most 64 characters, a device
 /// name of Windows given `-list` before its first dot (`con.backup` →
 /// `con-list.backup`), else `list`; always with `.kpin`, in any case.
 pub fn safe_file_name(name: &str) -> String {
     let cut = name.len().checked_sub(5).filter(|&at| name.is_char_boundary(at) && name[at..].eq_ignore_ascii_case(".kpin"));
     let base = cut.map_or(name, |at| &name[..at]);
-    let kept: String = base.chars().filter(|c| !c.is_control() && !is_format(*c) && !r#"/\:*?"<>|"#.contains(*c)).collect();
-    let capped: String = kept.trim_start().chars().take(ID_LEN).collect();
+    let kept: String = format::without_invisible(base).chars().filter(|c| !c.is_control() && !r#"/\:*?"<>|"#.contains(*c)).collect();
+    let capped = cut_name(kept.trim_start());
     let mut base = capped.trim_end_matches(['.', ' ']).to_owned();
     if base.is_empty() {
         base = "list".to_owned();
@@ -177,10 +154,20 @@ pub fn safe_file_name(name: &str) -> String {
         let at = stem.trim_end_matches(' ').len();
         base.insert_str(at, "-list");
         // Still at most `ID_LEN`: what is cut is past the stem and its `-list`.
-        let capped: String = base.chars().take(ID_LEN).collect();
-        base = capped.trim_end_matches(['.', ' ']).to_owned();
+        base = cut_name(&base).trim_end_matches(['.', ' ']).to_owned();
     }
     format!("{base}.kpin")
+}
+
+/// At most `ID_LEN` characters of a name; a cut through a flag drops the
+/// tags it leaves without their end, as a reader's cut does.
+fn cut_name(name: &str) -> String {
+    let cut: String = name.chars().take(ID_LEN).collect();
+    if cut.len() < name.len() {
+        format::without_invisible(&cut).into_owned()
+    } else {
+        cut
+    }
 }
 
 /// «Save .kpin…»: the text the preview shows, checked as a reader would
@@ -242,6 +229,13 @@ mod tests {
         assert_eq!(safe_file_name("मेरी-सूची"), "मेरी-सूची.kpin");
         assert_eq!(safe_file_name("a/b\\c:d*e?f\"g<h>i|j\u{7}k\n.kpin"), "abcdefghijk.kpin");
         assert_eq!(safe_file_name(" notes. . "), "notes.kpin");
+        // A flag the reader keeps stays whole; tags anywhere else go.
+        let scotland = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}";
+        assert_eq!(safe_file_name(&format!("Scotland {scotland}")), format!("Scotland {scotland}.kpin"));
+        assert_eq!(safe_file_name("a\u{E0067}\u{E0062}b\u{200B}c"), "abc.kpin");
+        // A cut through the flag leaves no tags without their end.
+        let cut = safe_file_name(&format!("{}{scotland}", "x".repeat(ID_LEN - 3)));
+        assert_eq!(cut, format!("{}\u{1F3F4}.kpin", "x".repeat(ID_LEN - 3)));
         assert_eq!(safe_file_name("..."), "list.kpin");
         assert_eq!(safe_file_name(""), "list.kpin");
         let long = safe_file_name(&"я".repeat(100));
@@ -304,8 +298,10 @@ mod tests {
         assert_eq!(safe_file_name("a\u{206A}b\u{206B}c\u{206C}d\u{206D}e\u{206E}f\u{206F}g"), "abcdefg.kpin");
         assert_eq!(safe_file_name("a\u{FFF9}b\u{FFFA}c\u{FFFB}d"), "abcd.kpin");
         assert_eq!(safe_file_name("tag\u{E0001}\u{E0020}\u{E0061}\u{E007F}ged"), "tagged.kpin");
-        // A flag of tag characters keeps its black flag.
-        assert_eq!(safe_file_name("\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F} notes"), "\u{1F3F4} notes.kpin");
+        // The flag of England stays whole, as a reader keeps it; another flag of tag characters keeps only its black flag.
+        let england = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}";
+        assert_eq!(safe_file_name(&format!("{england} notes")), format!("{england} notes.kpin"));
+        assert_eq!(safe_file_name("\u{1F3F4}\u{E0075}\u{E0073}\u{E0063}\u{E0061}\u{E007F} notes"), "\u{1F3F4} notes.kpin");
         // Other characters around them stay.
         assert_eq!(safe_file_name("👩\u{200D}💻 notes"), "👩💻 notes.kpin");
     }

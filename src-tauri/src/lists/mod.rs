@@ -13,6 +13,8 @@
 
 pub mod apply;
 pub mod bundle;
+#[cfg(test)]
+pub(crate) mod conformance;
 pub mod download;
 pub mod export;
 pub mod format;
@@ -398,7 +400,7 @@ pub(crate) mod tests {
         let dir = std::env::temp_dir().join(format!("kpin-read-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let good = dir.join("good.kpin");
-        std::fs::write(&good, include_str!("../../tests/fixtures/kpin/valid.kpin")).unwrap();
+        std::fs::write(&good, include_str!("../../../docs/kpin/conformance/lists/valid.kpin")).unwrap();
         assert!(format::parse(&read_file(&good).unwrap()).is_ok());
         let big = dir.join("big.kpin");
         std::fs::write(&big, vec![b' '; format::MAX_BYTES + 1]).unwrap();

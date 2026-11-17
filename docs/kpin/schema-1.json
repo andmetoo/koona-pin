@@ -152,8 +152,8 @@
     "text": {
       "type": "string",
       "minLength": 1,
-      "pattern": "[^\\s\\u0000-\\u001f\\u007f-\\u009f\\u061c\\u200b-\\u200f\\u202a-\\u202e\\u2060\\u2066-\\u2069]",
-      "description": "One line of text with at least one visible character: not empty, and not only white space, control or invisible characters."
+      "pattern": "[^\\s\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u061c\\u180e\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u2064\\u2066-\\u206f\\ufeff\\ufff9-\\ufffb]",
+      "description": "One line of text with at least one visible character: not empty, and not only white space, control or invisible characters. The tag characters (U+E0001, U+E0020 to U+E007F) lie outside the Basic Multilingual Plane, where patterns differ between validators, so they are not named here: a text made only of them passes this pattern and is still empty to a reader."
     },
     "httpUrl": {
       "type": "string",

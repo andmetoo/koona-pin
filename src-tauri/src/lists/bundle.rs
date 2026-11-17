@@ -247,7 +247,7 @@ mod tests {
     use crate::lists::{apply::apply, format::parse, tests::database, ExistingLinks, ListCollection, ListImportOptions};
     use serde_json::Value;
 
-    const VALID: &str = include_str!("../../tests/fixtures/kpin/valid.kpin");
+    const VALID: &str = include_str!("../../../docs/kpin/conformance/lists/valid.kpin");
     const GENERATOR: &str = "Koona Pin 2.5.0";
 
     /// The links of `valid.kpin` in a collection «Rust», with its sections as tags.

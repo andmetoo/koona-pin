@@ -2,13 +2,16 @@ import { describe, expect, it } from "vitest";
 import { Bookmark } from "../types";
 import { clutter, groupsOf, mergedFields, urlKey } from "./duplicates";
 import cases from "../../tests/fixtures/url-keys.json";
+import { vectors } from "./kpinConformance";
 
 /** The same cases as `dedupe::tests` in Rust: the demo groups as the app does. */
 describe("urlKey", () => {
+  it("finds the same page as the .kpin conformance suite says", () => {
+    for (const { a, b, same } of vectors<{ a: string; b: string; same: boolean }>("same-page.json")) expect(urlKey(a) === urlKey(b), `${a} · ${b}`).toBe(same);
+  });
+
   it("sets aside what does not change the page", () => {
     for (const same of cases.same) expect(urlKey(same), same).toBe(cases.key);
-    for (const different of cases.different) expect(urlKey(different), different).not.toBe(cases.key);
-    for (const [a, b] of cases.equal) expect(urlKey(a), a).toBe(urlKey(b));
     for (const [url, key] of Object.entries(cases.keys)) expect(urlKey(url)).toBe(key);
     for (const none of cases.none) expect(urlKey(none), none).toBeNull();
   });

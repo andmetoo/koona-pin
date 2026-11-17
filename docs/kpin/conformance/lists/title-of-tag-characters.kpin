@@ -1,0 +1,13 @@
+{
+  "format": "koona",
+  "app": "pin",
+  "kind": "list",
+  "version": "1.0",
+  "title": "\udb40\udc68\udb40\udc69\udb40\udc64\udb40\udc64\udb40\udc65\udb40\udc6e\udb40\udc20\udb40\udc74\udb40\udc69\udb40\udc74\udb40\udc6c\udb40\udc65",
+  "items": [
+    {
+      "type": "link",
+      "url": "https://example.com/"
+    }
+  ]
+}

@@ -6,6 +6,7 @@ A `.kpin` file is a shareable list of links and feeds: "Rust blogs worth followi
 
 - [schema-1.json](schema-1.json): the JSON Schema (2020-12) of version 1.x.
 - [examples/](examples): a minimal list, a list with sections and feeds, and a file from a newer 1.x.
+- [conformance/](conformance): the conformance suite, files and test vectors that say what a reader must answer and read.
 
 The words **must**, **must not**, **should** and **may** are used as in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119). "Character" means a Unicode scalar value (a code point), as JSON Schema counts `maxLength`.
 
@@ -25,6 +26,7 @@ The words **must**, **must not**, **should** and **may** are used as in [RFC 211
 - [How Koona Pin imports a list](#how-koona-pin-imports-a-list)
 - [The one-click link](#the-one-click-link)
 - [Schema and readers](#schema-and-readers)
+- [Conformance](#conformance)
 - [Changelog](#changelog)
 - [License](#license)
 
@@ -246,11 +248,15 @@ A list over a limit of the first three rows is refused rather than cut, because 
 
 Every text field is plain text: no HTML or Markdown is interpreted, and readers must show it as text.
 
-**One-line fields** (titles, names, tags, `author.name`, `license`, `generator`): a reader replaces every white space character, line breaks and tabs included, with a space, removes control characters and invisible characters (below), collapses runs of spaces into one, trims both ends and cuts the result to the field's limit. Empty is none.
+**One-line fields** (titles, names, tags, `author.name`, `license`, `generator`): a reader replaces every white space character (Unicode White_Space, line breaks, tabs and U+0085 included) with a space, removes control characters and invisible characters (below), collapses runs of spaces into one, trims both ends and cuts the result to the field's limit; a space the cut leaves at the end is trimmed too. Empty is none.
 
 **Descriptions** keep their line breaks: `\r\n` becomes `\n`; every other control character, `\r` and tab included, and every invisible character is removed; the text is trimmed at both ends and cut to 2,000 characters. Empty is none.
 
-**Invisible characters** are removed because they can make a title hide what it says, or pass for another: U+061C, U+200B–U+200F, U+202A–U+202E, U+2060, U+2066–U+2069 and U+FEFF.
+**Invisible characters** are removed because they can make a title hide what it says, pass for another, or carry text a person never sees: U+00AD (soft hyphen), U+061C, U+180E, U+200B–U+200F, U+202A–U+202E, U+2060–U+2064, U+2066–U+206F, U+FEFF, U+FFF9–U+FFFB, U+E0001 and U+E0020–U+E007F (tag characters). These are the format characters (Unicode Cf) that show nothing; those that show a sign of their own, such as U+0600 ARABIC NUMBER SIGN, stay.
+
+One use of tag characters stays too, because it is seen: the three **subdivision flags** Unicode recommends for general interchange, England, Scotland and Wales. Each is U+1F3F4 WAVING BLACK FLAG, then the tag characters of `gbeng`, `gbsct` or `gbwls`, then U+E007F CANCEL TAG, and a reader keeps it as it is. Any other tag character goes, and so do the tags of any other sequence, even one in the same form (such as `usca`): the black flag itself stays. Accepting a form rather than these three would let one black flag after another carry hidden text a few characters at a time. A cut that ends inside a flag drops the tags it leaves without their end.
+
+The schema names the invisible characters of the Basic Multilingual Plane, but not the tag characters, which lie outside it, where patterns differ between validators. A title made only of tag characters passes the schema, and a reader finds it empty; see [Schema and readers](#schema-and-readers).
 
 A list's `title` that is empty after this makes the file not a list. An empty item title, description or tag is none.
 
@@ -277,7 +283,7 @@ All addresses are absolute URLs as the [WHATWG URL Standard](https://url.spec.wh
 
 The same page twice in one file is imported once:
 
-- **Links** are the same when their address keys are equal. The key sets aside what does not change the page: `http` or `https`, a leading `www.`, the case of the host, a default port, a trailing slash, the `#fragment`, tracking parameters (`utm_*`, `fbclid`, `gclid`, `dclid`, `gbraid`, `wbraid`, `msclkid`, `yclid`, `mc_eid`, `mc_cid`, `igshid`) and the order of the other query parameters. The path keeps its case.
+- **Links** are the same when their address keys are equal. The key sets aside what does not change the page: `http` or `https`, a leading `www.`, the case of the host, a default port, a trailing slash, the `#fragment`, tracking parameters (`utm_*`, `fbclid`, `gclid`, `dclid`, `gbraid`, `wbraid`, `msclkid`, `yclid`, `mc_eid`, `mc_cid`, `igshid`, their names in any case) and the order of the other query parameters. The path keeps its case.
 - **Feeds** are the same when their parsed addresses are equal.
 
 The first occurrence wins: its address, title and description are kept. A later link's tags are added to the first one's, up to 20, and its section is added to the first one's sections, so a link listed under two sections can get both as tags. Every repeat after the first is counted as repeated.
@@ -354,7 +360,7 @@ Anything else is ignored. Pages must percent-encode the `url` value whenever the
 
 ## Schema and readers
 
-[schema-1.json](schema-1.json) describes what a writer must produce. Readers are more tolerant, so that a list with one bad entry still imports: a file the schema refuses may still be read, with its bad items skipped and counted and its bad optional fields dropped. A file the schema accepts is never refused for its content, only for what it is (another app, an unknown kind) or for its size: more than 2 MB, or more than 5,000 items in all. Its items can still be skipped: one whose address is longer than 2,048 bytes is invalid to the reader, though the schema, which counts characters, accepts it.
+[schema-1.json](schema-1.json) describes what a writer must produce. Readers are more tolerant, so that a list with one bad entry still imports: a file the schema refuses may still be read, with its bad items skipped and counted and its bad optional fields dropped. A file the schema accepts is refused only for what it is (another app, an unknown kind), for its size (more than 2 MB, or more than 5,000 items in all), or for one thing in it the schema cannot see: a list's title made only of [tag characters](#text), which is empty to a reader. Its items can still be skipped: one whose address is longer than 2,048 bytes is invalid to the reader, though the schema, which counts characters, accepts it.
 
 The schema allows any field and any item `type` beyond those of 1.0, so that it accepts files of later 1.x versions; it pins `version` to MAJOR 1. Its `$id`, `https://koona.app/pin/schema/list-1.json`, names the schema; this repository holds its source.
 
@@ -368,7 +374,15 @@ cp docs/kpin/examples/minimal.kpin /tmp/minimal.json
 npx -p ajv-cli@5 -p ajv-formats@3 ajv validate --spec=draft2020 -c ajv-formats -s docs/kpin/schema-1.json -d /tmp/minimal.json
 ```
 
+## Conformance
+
+[conformance/](conformance) holds the files and vectors a reader is tested with: for every file, whether the schema accepts it, the one answer a reader gives and what it reads out of it (titles, addresses, tags, sections and counts); how text is cleaned; which addresses are kept and in which form; when two links are the same page; and which one-click links are accepted. Its [README](conformance/README.md) says how each file is read. Koona Pin's reader and the schema are checked against it on every change, and a change of this spec comes with its cases there.
+
 ## Changelog
+
+### Reader rules, November 2026 (after Koona Pin 2.24.1)
+
+No change to files: every 1.0 file means what it meant. Readers now remove a wider set of [invisible characters](#text) from text (the soft hyphen, U+180E, the invisible operators U+2061–U+2064, the deprecated controls U+206A–U+206F, U+FFF9–U+FFFB and the tag characters, except those of the flags of England, Scotland and Wales, which a reader keeps), and the schema's text pattern names the same set within the Basic Multilingual Plane. A title made only of tag characters is the one file the schema accepts and a reader refuses for its content. The spec now says what readers already did: U+0085 is white space, a cut trims the space it leaves, and tracking parameters match in any case. The [conformance suite](#conformance) is published with the spec.
 
 ### 1.0 (October 2026, Koona Pin 2.4.0)
 
@@ -376,6 +390,6 @@ The first version: the envelope (`format`, `app`, `kind`, `version`, `generator`
 
 ## License
 
-This specification, [schema-1.json](schema-1.json) and the [examples](examples) are dedicated to the public domain under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/): to the extent possible under law, their authors have waived all copyright and related rights in them. Copy, adapt and implement them in any tool, open or closed, without asking or crediting.
+This specification, [schema-1.json](schema-1.json), the [examples](examples) and the [conformance suite](conformance) are dedicated to the public domain under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/): to the extent possible under law, their authors have waived all copyright and related rights in them. Copy, adapt and implement them in any tool, open or closed, without asking or crediting.
 
 This covers only the files in `docs/kpin/`. Koona Pin's code, including its reader and writer of this format, stays under the [GNU GPL 3.0](../../LICENSE); see [LICENSING.md](../../LICENSING.md). "Koona" and "Koona Pin" are trademarks ([TRADEMARKS.md](../../TRADEMARKS.md)); implementing the format does not need permission, but a tool should not present itself as Koona.
