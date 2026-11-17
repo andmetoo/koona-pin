@@ -26,6 +26,9 @@ applySeason();
 // Linux, before the first paint (2.1.1): WebKitGTK rendering in software at times leaves the whole
 // window blank under a backdrop blur or a mask, so the glass and fades stay off there (app.css).
 if (/\b(Linux|X11)\b/.test(navigator.userAgent) && !/Android/.test(navigator.userAgent)) document.documentElement.dataset.linux = "";
+// A Mac: the system's overlay scrollbars, which show only while you scroll (app.css). WebKit draws
+// classic bars that never hide as soon as the page styles ::-webkit-scrollbar.
+if (!isMobile && /Mac/.test(navigator.userAgent)) document.documentElement.dataset.mac = "";
 // A phone (NP-151): the page keeps clear of the system's bars and the keyboard (app.css).
 if (isMobile) document.documentElement.dataset.platform = platform;
 blockBrowserChrome(window);

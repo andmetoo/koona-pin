@@ -467,16 +467,18 @@
     background: var(--np-accent-soft);
     color: var(--np-on-accent-soft);
   }
-  ::-webkit-scrollbar {
+  /* Thin bars on Windows and Linux. Not on a Mac (data-mac, main.tsx): any ::-webkit-scrollbar rule
+     turns WebKit's overlay scrollbars, hidden until you scroll as in Finder, into bars always shown. */
+  :root:not([data-mac]) ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
-  ::-webkit-scrollbar-thumb {
+  :root:not([data-mac]) ::-webkit-scrollbar-thumb {
     /* The dark border is white at 8 %: too faint for a thumb, which has its own. */
     background: var(--np-thumb, var(--np-border));
     border-radius: 9999px;
   }
-  ::-webkit-scrollbar-track {
+  :root:not([data-mac]) ::-webkit-scrollbar-track {
     background: transparent;
   }
   dialog::backdrop {
