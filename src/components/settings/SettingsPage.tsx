@@ -30,7 +30,7 @@ import { Kbd } from "../ui/Hint";
 import { ConfirmDialog } from "../library/Dialogs";
 import { Menu } from "../ui/Menu";
 import { helpUrl } from "../../services/help";
-import { visibleName } from "../../services/tagCleanup";
+import { cleanedDetails, moment } from "./cleanedTags";
 
 /** The groups that fold (sheet S1–S3); General is always open. */
 type GroupId = "connections" | "reading" | "feeds" | "backups" | "storage" | "support";
@@ -801,16 +801,6 @@ function lastRequest(status: McpStatus | null, t: TFunction, language: string) {
   return at.today ? t("assistants.lastToday", at) : t("assistants.lastOn", at);
 }
 
-/** When something happened, for «… today at 14:05» or «… on 3 October at 14:05». */
-function moment(iso: string, language: string) {
-  const at = new Date(iso);
-  return {
-    today: at.toDateString() === new Date().toDateString(),
-    time: at.toLocaleTimeString(language, { hour: "2-digit", minute: "2-digit" }),
-    date: at.toLocaleDateString(language, { day: "numeric", month: "long" }),
-  };
-}
-
 /** «Check for new posts» (NP-132): minutes, 0 only on refresh. */
 const FEED_CHECKS = [30, 60, 180, 720, 0];
 function checkLabel(minutes: number, t: TFunction, language: string): string {
@@ -903,7 +893,6 @@ function CleanedTagsRow({ dataVersion }: { dataVersion: number }) {
     return api.onLibraryInvalidated(read);
   }, [dataVersion]);
   if (!record?.length) return null;
-  const when = new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" });
   return (
     <div data-settings-cleaned-tags={shown ? "shown" : "folded"}>
       <Row title={t("settings.cleanedTags")} description={t("settings.cleanedTagsHint", { count: record.length })}>
@@ -916,31 +905,27 @@ function CleanedTagsRow({ dataVersion }: { dataVersion: number }) {
           {record.map((entry, n) => (
             <li key={n} data-cleaned={entry.action} className="px-3 py-2">
               <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-sm [overflow-wrap:anywhere]">
-                <span data-cleaned-name>
-                  {visibleName(entry.name).map((part, i) =>
-                    "text" in part ? (
-                      <span key={i}>{part.text}</span>
-                    ) : (
+                {/* The marks come from the rule that cleaned the name (`db::name_parts`); spaces as they were. */}
+                <span data-cleaned-name className="whitespace-pre-wrap">
+                  {entry.parts.map((part, i) =>
+                    part.unseen ? (
                       <span key={i} className="mx-px rounded-[3px] bg-well px-1 align-[1px] text-[11px] text-meta tabular-nums">
-                        {part.code}
+                        {part.text}
                       </span>
+                    ) : (
+                      <span key={i}>{part.text}</span>
                     ),
                   )}
                 </span>
                 <span aria-hidden className="text-muted">→</span>
+                <span className="sr-only">{t("settings.cleanedBecame")}</span>
                 {entry.now_named ? (
                   <span data-cleaned-now>{entry.now_named}</span>
                 ) : (
                   <span data-cleaned-now className="text-muted">{t("settings.cleanedNothingLeft")}</span>
                 )}
               </div>
-              <div className="mt-0.5 text-xs text-muted">
-                {[
-                  t(`settings.cleaned_${entry.action}`),
-                  ...(entry.action === "renamed" ? [] : [t("settings.cleanedBookmarks", { count: entry.bookmarks })]),
-                  when.format(new Date(entry.at)),
-                ].join(" · ")}
-              </div>
+              <div className="mt-0.5 text-xs text-muted">{cleanedDetails(entry, t, i18n.language)}</div>
             </li>
           ))}
         </ul>

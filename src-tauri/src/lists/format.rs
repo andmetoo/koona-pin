@@ -129,6 +129,64 @@ pub fn line(raw: &str, max: usize) -> Option<String> {
     capped(&joined, max)
 }
 
+/// Each character of `raw` and whether [`line`] keeps it as it is: false for
+/// one it drops (an [`is_invisible`] one that is not seen, a control, white
+/// space at either end or after other white space) or changes (white space
+/// other than the plain space, which becomes one). The same rule as [`line`],
+/// so what a person is shown as taken out is what was taken out.
+pub(crate) fn kept_by_line(raw: &str) -> Vec<(char, bool)> {
+    // As `without_invisible`: the flags whole, everything but the joiners, then the joiners judged by what stands around them.
+    let mut marks: Vec<(char, bool)> = Vec::new();
+    let mut rest = raw;
+    while let Some(c) = rest.chars().next() {
+        if let Some(flag) = FLAGS.iter().find(|flag| rest.starts_with(**flag)) {
+            marks.extend(flag.chars().map(|c| (c, true)));
+            rest = &rest[flag.len()..];
+            continue;
+        }
+        marks.push((c, c == ZWJ || c == ZWNJ || !is_invisible(c)));
+        rest = &rest[c.len_utf8()..];
+    }
+    let kept: Vec<usize> = (0..marks.len()).filter(|&i| marks[i].1).collect();
+    let judged: Vec<(usize, bool)> = kept
+        .iter()
+        .enumerate()
+        .filter(|&(_, &i)| marks[i].0 == ZWJ || marks[i].0 == ZWNJ)
+        .map(|(at, &i)| {
+            let before = at.checked_sub(1).map(|b| marks[kept[b]].0);
+            let after = kept.get(at + 1).map(|&a| marks[a].0);
+            (i, joiner_stays(marks[i].0, before, after))
+        })
+        .collect();
+    for (i, stays) in judged {
+        marks[i].1 = stays;
+    }
+    // As `line`: controls go, white space becomes one plain space between words.
+    let mut space_before = true;
+    let mut pending: Option<usize> = None;
+    for i in 0..marks.len() {
+        let (c, kept) = marks[i];
+        if !kept {
+            continue;
+        }
+        if c.is_whitespace() {
+            marks[i].1 = false;
+            if !space_before && c == ' ' {
+                pending = Some(i);
+            }
+            space_before = true;
+        } else if c.is_control() {
+            marks[i].1 = false;
+        } else {
+            if let Some(space) = pending.take() {
+                marks[space].1 = true;
+            }
+            space_before = false;
+        }
+    }
+    marks
+}
+
 /// A description: as [`line`], but its line breaks stay.
 pub(crate) fn paragraph(raw: &str, max: usize) -> Option<String> {
     let kept: String = without_invisible(&raw.replace("\r\n", "\n")).chars().filter(|&c| c == '\n' || !c.is_control()).collect();
@@ -572,6 +630,42 @@ mod tests {
     use super::*;
     use crate::lists::conformance::{self as suite, case_text, padded};
     use serde_json::json;
+
+    /// What `kept_by_line` keeps is exactly what `line` gives, and it marks the rest.
+    #[test]
+    fn kept_by_line_marks_what_line_takes_out() {
+        let samples = [
+            "co\u{AD}op",
+            " coop ",
+            "to  read\tlater",
+            "\u{200B}",
+            "\u{1F4DA}\u{200D}",
+            "\u{1F469}\u{200D}\u{1F4BB}",
+            "\u{DCB}\u{DCA}\u{200D}\u{DBB}\u{DD3}",
+            "a\u{200D}b",
+            "x\u{202E}y\u{E0041}",
+            "\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F} wales",
+            "a \u{200B} b",
+            "to read\u{A0}later",
+        ];
+        for raw in samples {
+            let marks = kept_by_line(raw);
+            assert_eq!(marks.iter().map(|m| m.0).collect::<String>(), raw);
+            // White space that is marked became the plain space or went: either way it reads as a gap.
+            let kept: String = marks.iter().filter_map(|&(c, kept)| if kept { Some(c) } else if c.is_whitespace() { Some(' ') } else { None }).collect();
+            let kept = kept.split_whitespace().collect::<Vec<_>>().join(" ");
+            assert_eq!(Some(kept), line(raw, usize::MAX).or(Some(String::new())), "{raw:?}");
+            // And no space that stays is one `line` would not keep.
+            let spaces = marks.iter().filter(|m| m.1 && m.0 == ' ').count();
+            assert!(spaces <= line(raw, usize::MAX).unwrap_or_default().matches(' ').count(), "{raw:?}");
+        }
+        let dropped = |raw: &str| kept_by_line(raw).into_iter().filter(|m| !m.1).map(|m| m.0).collect::<String>();
+        assert_eq!(dropped("\u{1F4DA}\u{200D}"), "\u{200D}", "a joiner after an emoji and before nothing goes");
+        assert_eq!(dropped("\u{1F469}\u{200D}\u{1F4BB}"), "", "one between two emoji stays");
+        assert_eq!(dropped("\u{DCB}\u{DCA}\u{200D}\u{DBB}\u{DD3}"), "", "a Sinhala joiner stays");
+        assert_eq!(dropped(" coop "), "  ");
+        assert_eq!(dropped("to  read"), " ");
+    }
 
     macro_rules! fixture {
         ($name:literal) => {

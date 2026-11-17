@@ -10,10 +10,13 @@ const storage = async (page: Page) => {
   return settingsGroup(page, "storage");
 };
 
+const text = (text: string) => ({ text, unseen: false });
+const code = (text: string) => ({ text, unseen: true });
+// As db::cleaned_tags gives it: the old name in parts, what the cleaning took out by its code.
 const record = [
-  { at: "2026-11-02T09:30:00Z", action: "removed", name: "\u{200B}", now_named: null, bookmarks: 1 },
-  { at: "2026-11-01T14:05:00Z", action: "merged", name: "co\u{AD}op", now_named: "coop", bookmarks: 3 },
-  { at: "2026-11-01T14:05:00Z", action: "renamed", name: "re\u{E0041}ad", now_named: "read", bookmarks: 0 },
+  { at: "2026-11-02T09:30:00Z", action: "removed", parts: [code("U+200B")], now_named: null, bookmarks: 1 },
+  { at: "2026-11-01T14:05:00Z", action: "merged", parts: [text("co"), code("U+00AD"), text("op")], now_named: "coop", bookmarks: 3 },
+  { at: "", action: "renamed", parts: [code("U+0020"), text("to "), code("U+0020"), text("read")], now_named: "to read", bookmarks: 0 },
 ];
 
 test("nothing cleaned: no row in Storage", async ({ page }) => {
@@ -28,7 +31,7 @@ test("the record: folded with its count, then each entry with its old name, what
   await storage(page);
   await expect(row(page)).toHaveAttribute("data-settings-cleaned-tags", "folded");
   await expect(row(page)).toContainText("Cleaned tag names");
-  await expect(row(page)).toContainText("3 changes to tags whose names held characters nobody sees, such as a soft hyphen. The list stays on this device.");
+  await expect(row(page)).toContainText("3 tag names were tidied the way new tags are: characters nobody sees and extra spaces taken out, capitals lowered. The list stays on this device.");
   const show = row(page).getByRole("button", { name: "Show", exact: true });
   await expect(show).toHaveAttribute("aria-expanded", "false");
   await show.click();
@@ -43,19 +46,21 @@ test("the record: folded with its count, then each entry with its old name, what
   await expect(removed).toHaveAttribute("data-cleaned", "removed");
   await expect(removed.locator("[data-cleaned-name]")).toHaveText("U+200B");
   await expect(removed.locator("[data-cleaned-now]")).toHaveText("no visible name");
-  await expect(removed).toContainText(/Removed · 1 bookmark · .*2026/);
+  await expect(removed).toContainText(/Removed · 1 bookmark · November 2 at [0-9]/);
 
   const merged = entries.nth(1);
   await expect(merged.locator("[data-cleaned-name]")).toHaveText("coU+00ADop");
   await expect(merged.locator("[data-cleaned-now]")).toHaveText("coop");
   await expect(merged).toContainText(/Merged · 3 bookmarks · /);
 
-  // A rename keeps its tag and its bookmarks: no count.
+  // A rename keeps its tag and its bookmarks: no count; an entry without a time that reads goes without one.
+  // Spaces show as they were, the extra ones by their code.
   const renamed = entries.nth(2);
-  await expect(renamed.locator("[data-cleaned-name]")).toHaveText("reU+E0041ad");
-  await expect(renamed.locator("[data-cleaned-now]")).toHaveText("read");
-  await expect(renamed).toContainText("Renamed · ");
-  await expect(renamed).not.toContainText("bookmark");
+  await expect(renamed.locator("[data-cleaned-name]")).toHaveText("U+0020to U+0020read");
+  await expect(renamed.locator("[data-cleaned-now]")).toHaveText("to read");
+  await expect(renamed.locator("div").last()).toHaveText("Renamed");
+  // Read as one sentence: the old name, then what it became.
+  await expect(renamed).toContainText("became");
 
   // Read only: nothing in the list to press.
   await expect(list.getByRole("button")).toHaveCount(0);
