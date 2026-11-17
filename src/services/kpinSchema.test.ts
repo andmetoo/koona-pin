@@ -1,18 +1,16 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import Ajv2020 from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import { describe, expect, it } from "vitest";
-import { caseName, caseText, cases } from "./kpinConformance";
+import { caseName, caseText, cases, kpinDir, kpinText } from "../../tests/kpin-conformance";
 
 // The public schema of `.kpin` (`docs/kpin/schema-1.json`) against the format's conformance suite:
 // `cases.json` says of every file whether the schema accepts it (`schema_valid`), and the Rust reader's
 // test (`lists/format.rs`) holds what readers answer. Checked here with a JSON Schema 2020-12 validator,
 // as the spec tells other tools to check their lists.
-const kpin = new URL("../../docs/kpin/", import.meta.url);
-const read = (path: string) => readFileSync(new URL(path, kpin), "utf8");
 const ajv = new Ajv2020({ allErrors: true });
 addFormats(ajv);
-const validate = ajv.compile(JSON.parse(read("schema-1.json")));
+const validate = ajv.compile(JSON.parse(kpinText("schema-1.json")));
 
 /** The JSON of a text; undefined, which no schema accepts, for a text that is not JSON (a file cut off). */
 const json = (text: string): unknown => {
@@ -30,8 +28,8 @@ describe("the schema of .kpin", () => {
   });
 
   it("accepts every example of the spec", () => {
-    for (const name of readdirSync(new URL("examples/", kpin))) {
-      expect(validate(JSON.parse(read(`examples/${name}`))), `${name}: ${JSON.stringify(validate.errors)}`).toBe(true);
+    for (const name of readdirSync(new URL("examples/", kpinDir))) {
+      expect(validate(JSON.parse(kpinText(`examples/${name}`))), `${name}: ${JSON.stringify(validate.errors)}`).toBe(true);
     }
   });
 

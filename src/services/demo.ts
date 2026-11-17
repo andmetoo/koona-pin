@@ -992,13 +992,31 @@ export function demoList(text: string): DemoList | Exclude<ListCheck, { outcome:
 }
 /**
  * `format::without_invisible`: the invisible characters of the spec's Text dropped, except the tags
- * of the flags of England, Scotland and Wales (U+1F3F4, the tags of gbeng, gbsct or gbwls, CANCEL TAG), kept whole.
+ * of the flags of England, Scotland and Wales (U+1F3F4, the tags of gbeng, gbsct or gbwls, CANCEL TAG), kept whole,
+ * and a zero width joiner or non-joiner where it changes what is drawn, judged once the others are gone (`format::joiner_stays`).
  */
 const INVISIBLE =
-  /(\u{1f3f4}\u{e0067}\u{e0062}(?:\u{e0065}\u{e006e}\u{e0067}|\u{e0073}\u{e0063}\u{e0074}|\u{e0077}\u{e006c}\u{e0073})\u{e007f})|[\u00ad\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u206f\ufeff\ufff9-\ufffb\u{e0001}\u{e0020}-\u{e007f}]/gu;
-const demoVisible = (raw: string) => raw.replace(INVISIBLE, (_, flag: string | undefined) => flag ?? "");
+  /(\u{1f3f4}\u{e0067}\u{e0062}(?:\u{e0065}\u{e006e}\u{e0067}|\u{e0073}\u{e0063}\u{e0074}|\u{e0077}\u{e006c}\u{e0073})\u{e007f})|[\u00ad\u061c\u180e\u200b\u200e\u200f\u202a-\u202e\u2060-\u2064\u2066-\u206f\ufeff\ufff9-\ufffb\u{e0001}\u{e0020}-\u{e007f}]/gu;
+const JOINS_AFTER = /^[\p{Extended_Pictographic}\ufe0f\u{1f3fb}-\u{1f3ff}]$/u;
+const PICTOGRAPHIC = /^\p{Extended_Pictographic}$/u;
+/** `format::JOINING_SCRIPTS`: where a joiner or non-joiner changes how letters are drawn and spelled. */
+const JOINING_SCRIPTS = ["Arabic", "Syriac", "Nko", "Mongolian", "Mandaic", "Manichaean", "Adlam", "Hanifi_Rohingya", "Devanagari", "Bengali", "Gurmukhi", "Gujarati", "Oriya", "Tamil", "Telugu", "Kannada", "Malayalam", "Sinhala"].map(
+  (script) => new RegExp(`^\\p{Script=${script}}$`, "u"),
+);
+/** The character before UTF-16 index `at`, a pair of surrogates as one. */
+const before = (text: string, at: number) => [...text.slice(Math.max(0, at - 2), at)].pop() ?? "";
+const after = (text: string, at: number) => String.fromCodePoint(text.codePointAt(at) ?? 0);
+function joinerStays(text: string, joiner: string, at: number): boolean {
+  const [b, a] = [before(text, at), after(text, at + 1)];
+  if (JOINING_SCRIPTS.some((script) => script.test(b) && script.test(a))) return true;
+  return joiner === "\u200d" && JOINS_AFTER.test(b) && PICTOGRAPHIC.test(a);
+}
+function demoVisible(raw: string): string {
+  const kept = raw.replace(INVISIBLE, (_, flag: string | undefined) => flag ?? "");
+  return /[\u200c\u200d]/.test(kept) ? kept.replace(/[\u200c\u200d]/g, (joiner: string, at: number) => (joinerStays(kept, joiner, at) ? joiner : "")) : kept;
+}
 
-/** `format::capped`: at most `max` characters (not UTF-16 units), the end trimmed; a cut through a flag drops the tags it leaves. */
+/** `format::capped`: at most `max` characters (not UTF-16 units), the end trimmed; a cut through a flag or an emoji drops what it leaves unjoined. */
 function demoCapped(text: string, max: number): string | null {
   const chars = [...text];
   const cut = chars.length > max ? demoVisible(chars.slice(0, max).join("")) : text;
@@ -1008,13 +1026,13 @@ function demoCapped(text: string, max: number): string | null {
 /** `format::line`: invisible and control characters dropped, white space collapsed, at most `max` characters; none when empty. */
 export function demoLine(raw: string, max: number): string | null {
   // The invisible ones first: JavaScript counts U+FEFF as white space, Rust does not; Rust counts U+0085 as white space, JavaScript does not.
-  const kept = [...demoVisible(raw)].map((c) => (/[\s\u0085]/.test(c) ? " " : /\p{Cc}/u.test(c) ? "" : c)).join("");
+  const kept = demoVisible(raw).replace(/[\s\u0085]/g, " ").replace(/\p{Cc}/gu, "");
   return demoCapped(kept.split(" ").filter(Boolean).join(" "), max);
 }
 
 /** `format::paragraph`: as `demoLine`, but line breaks stay (CRLF becomes LF) and only the ends are trimmed. */
 export function demoParagraph(raw: string, max: number): string | null {
-  const kept = [...demoVisible(raw.replace(/\r\n/g, "\n"))].filter((c) => c === "\n" || !/\p{Cc}/u.test(c)).join("");
+  const kept = demoVisible(raw.replace(/\r\n/g, "\n")).replace(/(?!\n)\p{Cc}/gu, "");
   return demoCapped(kept.trim(), max);
 }
 

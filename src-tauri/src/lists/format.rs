@@ -7,6 +7,8 @@
 use super::{ListError, ListMeta};
 use crate::import::SkipReason;
 use serde_json::{Map, Value};
+use icu_properties::props::{ExtendedPictographic, Script};
+use icu_properties::{CodePointMapData, CodePointSetData};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use url::Url;
@@ -153,12 +155,18 @@ const FLAGS: [&str; 3] = [
     "\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F}",
 ];
 
-/// The text without its [`is_invisible`] characters, except the tags of the
-/// three subdivision [`FLAGS`], kept whole. Text without any is returned as it is.
+const ZWNJ: char = '\u{200C}';
+const ZWJ: char = '\u{200D}';
+
+/// The text without its [`is_invisible`] characters, except those that are
+/// seen: the tags of the three subdivision [`FLAGS`], kept whole, and a zero
+/// width joiner or non-joiner where it changes what is drawn ([`joiner_stays`]).
+/// Text without any is returned as it is.
 pub(crate) fn without_invisible(raw: &str) -> Cow<'_, str> {
     if !raw.chars().any(is_invisible) {
         return Cow::Borrowed(raw);
     }
+    // First everything but the joiners, so that what stands around a joiner is what a person sees.
     let mut kept = String::with_capacity(raw.len());
     let mut rest = raw;
     while let Some(c) = rest.chars().next() {
@@ -167,12 +175,63 @@ pub(crate) fn without_invisible(raw: &str) -> Cow<'_, str> {
             rest = &rest[flag.len()..];
             continue;
         }
-        if !is_invisible(c) {
+        if c == ZWJ || c == ZWNJ || !is_invisible(c) {
             kept.push(c);
         }
         rest = &rest[c.len_utf8()..];
     }
-    Cow::Owned(kept)
+    if !kept.contains([ZWJ, ZWNJ]) {
+        return Cow::Owned(kept);
+    }
+    let chars: Vec<char> = kept.chars().collect();
+    let stays = |at: usize, c: char| c != ZWJ && c != ZWNJ || joiner_stays(c, at.checked_sub(1).map(|b| chars[b]), chars.get(at + 1).copied());
+    Cow::Owned(chars.iter().enumerate().filter(|&(at, &c)| stays(at, c)).map(|(_, c)| c).collect())
+}
+
+/// The scripts where a zero width joiner or non-joiner changes how letters
+/// are drawn and spelled: the joining scripts (Persian `می` U+200C `خواهم` keeps its
+/// non-joiner) and the Brahmic ones of India and Sri Lanka (Sinhala `ශ්` U+200D `රී` keeps its joiner).
+/// keeps its joiner). In Latin, Cyrillic, Greek and the rest they draw
+/// nothing and only make one word pass for another, so they go.
+const JOINING_SCRIPTS: [Script; 18] = [
+    Script::Arabic,
+    Script::Syriac,
+    Script::Nko,
+    Script::Mongolian,
+    Script::Mandaic,
+    Script::Manichaean,
+    Script::Adlam,
+    Script::HanifiRohingya,
+    Script::Devanagari,
+    Script::Bengali,
+    Script::Gurmukhi,
+    Script::Gujarati,
+    Script::Oriya,
+    Script::Tamil,
+    Script::Telugu,
+    Script::Kannada,
+    Script::Malayalam,
+    Script::Sinhala,
+];
+
+/// Whether a zero width joiner or non-joiner stays between `before` and
+/// `after` (judged once the other invisible characters are gone):
+/// - either between two characters of one of the [`JOINING_SCRIPTS`];
+/// - or, a joiner, between two emoji, as in 👩‍💻 or 🏳️‍🌈: after an
+///   Extended_Pictographic character, U+FE0F or a skin tone
+///   (U+1F3FB–U+1F3FF), and before an Extended_Pictographic character.
+///
+/// Anywhere else it goes. Two in a row are never between two such
+/// characters, so none of them carries anything a person does not see.
+fn joiner_stays(joiner: char, before: Option<char>, after: Option<char>) -> bool {
+    let (Some(before), Some(after)) = (before, after) else { return false };
+    let script = |c: char| CodePointMapData::<Script>::new().get(c);
+    if script(before) == script(after) && JOINING_SCRIPTS.contains(&script(before)) {
+        return true;
+    }
+    let pictographic = |c: char| CodePointSetData::new::<ExtendedPictographic>().contains(c);
+    let joins_after = pictographic(before) || before == '\u{FE0F}' || ('\u{1F3FB}'..='\u{1F3FF}').contains(&before);
+    joiner == ZWJ && joins_after && pictographic(after)
 }
 
 /// Characters that are not seen but hide, reorder or join the text around
@@ -183,8 +242,11 @@ pub(crate) fn without_invisible(raw: &str) -> Cow<'_, str> {
 /// characters (which can carry a whole hidden sentence). A title or a tag
 /// could hide what it says, or pass for another. The Cf characters that show
 /// a sign of their own (Arabic and Syriac number signs, Kaithi, Egyptian and
-/// musical controls) stay, and so do the tags of the three subdivision
-/// [`FLAGS`] ([`without_invisible`], which the suggested file name uses too).
+/// musical controls) stay. Text is cleaned by [`without_invisible`] (the
+/// suggested file name too), which keeps three uses of these that are seen:
+/// the tags of the three subdivision [`FLAGS`], and a zero width joiner or
+/// non-joiner inside an emoji or a word of a joining or Brahmic script
+/// ([`joiner_stays`]). Filter with this set alone and those break.
 pub(crate) fn is_invisible(c: char) -> bool {
     matches!(
         c,

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Bookmark } from "../types";
 import { clutter, groupsOf, mergedFields, urlKey } from "./duplicates";
 import cases from "../../tests/fixtures/url-keys.json";
-import { vectors } from "./kpinConformance";
+import { vectors } from "../../tests/kpin-conformance";
 
 /** The same cases as `dedupe::tests` in Rust: the demo groups as the app does. */
 describe("urlKey", () => {

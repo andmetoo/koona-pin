@@ -15,6 +15,18 @@
     { "rule": "line", "max": 100, "in": "a\u00a0b\u3000c\u2028d\u0085e", "out": "a b c d e", "why": "every Unicode white space character is a space, U+0085 included" },
     { "rule": "line", "max": 100, "in": "\u0600١٢", "out": "\u0600١٢", "why": "a format character that shows a sign of its own stays" },
     { "rule": "line", "max": 100, "in": "Edinburgh 🏴\udb40\udc67\udb40\udc62\udb40\udc73\udb40\udc63\udb40\udc74\udb40\udc7f", "out": "Edinburgh 🏴\udb40\udc67\udb40\udc62\udb40\udc73\udb40\udc63\udb40\udc74\udb40\udc7f", "why": "the flags of England, Scotland and Wales keep their tags: black flag, the tags of gbeng, gbsct or gbwls, cancel tag" },
+    { "rule": "line", "max": 100, "in": "Dev blogs 👩\u200d💻", "out": "Dev blogs 👩\u200d💻", "why": "a zero width joiner between two emoji stays" },
+    { "rule": "line", "max": 100, "in": "🏳️\u200d🌈 👩🏽\u200d🔬", "out": "🏳️\u200d🌈 👩🏽\u200d🔬", "why": "after U+FE0F or a skin tone too" },
+    { "rule": "line", "max": 100, "in": "👩\u200d\u200d💻", "out": "👩💻", "why": "two joiners in a row are not between two emoji: both go" },
+    { "rule": "line", "max": 100, "in": "👩\u200b\u200d💻", "out": "👩\u200d💻", "why": "judged once the other invisible characters are gone" },
+    { "rule": "line", "max": 100, "in": "a\u200db 👩\u200dc", "out": "ab 👩c", "why": "a joiner next to a letter goes" },
+    { "rule": "line", "max": 100, "in": "می\u200cخواهم", "out": "می\u200cخواهم", "why": "a non-joiner inside a word of a joining script stays: Persian" },
+    { "rule": "line", "max": 100, "in": "ශ්\u200dරී", "out": "ශ්\u200dරී", "why": "a joiner inside a word of a Brahmic script stays: Sinhala" },
+    { "rule": "line", "max": 100, "in": "क्\u200dष क्\u200cष", "out": "क्\u200dष क्\u200cष", "why": "Devanagari, a joiner and a non-joiner" },
+    { "rule": "line", "max": 100, "in": "pay\u200cpal пе\u200dр", "out": "paypal пер", "why": "in Latin and Cyrillic they draw nothing and go" },
+    { "rule": "line", "max": 100, "in": "می\u200ca", "out": "میa", "why": "between two scripts it goes" },
+    { "rule": "line", "max": 100, "in": "می\u200c\u200cخواهم", "out": "میخواهم", "why": "two in a row both go" },
+    { "rule": "line", "max": 4, "in": "ab👩\u200d💻", "out": "ab👩", "why": "a cut that ends right after a joiner drops it" },
     { "rule": "line", "max": 100, "in": "🏴\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f and 🏴\udb40\udc67\udb40\udc62\udb40\udc77\udb40\udc6c\udb40\udc73\udb40\udc7f", "out": "🏴\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f and 🏴\udb40\udc67\udb40\udc62\udb40\udc77\udb40\udc6c\udb40\udc73\udb40\udc7f" },
     { "rule": "line", "max": 100, "in": "Go 🏴\udb40\udc69\udb40\udc67\udb40\udc6e\udb40\udc6f\udb40\udc72\udb40\udc65\udb40\udc61\udb40\udc6c\udb40\udc6c\udb40\udc72\udb40\udc75\udb40\udc6c\udb40\udc65\udb40\udc73\udb40\udc7f", "out": "Go 🏴", "why": "more than 6 tags is not a flag: the tags go, the black flag stays" },
     { "rule": "line", "max": 100, "in": "🏴\udb40\udc75\udb40\udc73\udb40\udc63\udb40\udc61\udb40\udc7f", "out": "🏴", "why": "only the three recommended subdivision flags keep their tags" },
@@ -32,6 +44,7 @@
     { "rule": "description", "max": 100, "in": "\u200b\u200b", "out": null },
     { "rule": "description", "max": 3, "in": "abcdef", "out": "abc" },
     { "rule": "description", "max": 100, "in": "Made in 🏴\udb40\udc67\udb40\udc62\udb40\udc73\udb40\udc63\udb40\udc74\udb40\udc7f\nby hand", "out": "Made in 🏴\udb40\udc67\udb40\udc62\udb40\udc73\udb40\udc63\udb40\udc74\udb40\udc7f\nby hand" },
+    { "rule": "description", "max": 100, "in": "Notes by 👩\u200d💻\nand می\u200cخواهم", "out": "Notes by 👩\u200d💻\nand می\u200cخواهم" },
 
     { "rule": "tag", "max": 64, "in": " Rust ", "out": "rust" },
     { "rule": "tag", "max": 64, "in": "\u200brust\ufeff", "out": "rust" },
@@ -40,6 +53,8 @@
     { "rule": "tag", "max": 64, "in": "ÄÖ Straße", "out": "äö straße", "why": "Unicode lowercase, not ASCII only" },
     { "rule": "tag", "max": 64, "in": "İstanbul", "out": "i̇stanbul", "why": "the default Unicode lowercase of U+0130 is two characters" },
     { "rule": "tag", "max": 64, "in": "ЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖ", "out": "жжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжжж", "why": "80 characters cut to 64" },
-    { "rule": "tag", "max": 64, "in": "🏴\udb40\udc67\udb40\udc62\udb40\udc73\udb40\udc63\udb40\udc74\udb40\udc7f Scotland", "out": "🏴\udb40\udc67\udb40\udc62\udb40\udc73\udb40\udc63\udb40\udc74\udb40\udc7f scotland" }
+    { "rule": "tag", "max": 64, "in": "🏴\udb40\udc67\udb40\udc62\udb40\udc73\udb40\udc63\udb40\udc74\udb40\udc7f Scotland", "out": "🏴\udb40\udc67\udb40\udc62\udb40\udc73\udb40\udc63\udb40\udc74\udb40\udc7f scotland" },
+    { "rule": "tag", "max": 64, "in": "👩\u200d💻 Dev", "out": "👩\u200d💻 dev" },
+    { "rule": "tag", "max": 64, "in": "می\u200cخواهم", "out": "می\u200cخواهم" }
   ]
 }

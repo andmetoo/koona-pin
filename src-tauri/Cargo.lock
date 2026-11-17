@@ -2429,6 +2429,7 @@ dependencies = [
  "gtk",
  "icu_collator",
  "icu_locale_core",
+ "icu_properties",
  "image",
  "koona-sync",
  "libc",

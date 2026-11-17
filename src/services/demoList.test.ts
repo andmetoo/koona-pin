@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { demoLine, demoList, demoParagraph, demoTag } from "./demo";
-import { caseName, caseText, cases, vectors } from "./kpinConformance";
+import { caseName, caseText, cases, vectors } from "../../tests/kpin-conformance";
 
 // The browser preview reads lists with a TypeScript stand-in for `lists/format.rs`. It answers
 // every case of the format's conformance suite as the Rust reader does (`cases.json`, column

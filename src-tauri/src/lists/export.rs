@@ -302,7 +302,8 @@ mod tests {
         let england = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}";
         assert_eq!(safe_file_name(&format!("{england} notes")), format!("{england} notes.kpin"));
         assert_eq!(safe_file_name("\u{1F3F4}\u{E0075}\u{E0073}\u{E0063}\u{E0061}\u{E007F} notes"), "\u{1F3F4} notes.kpin");
-        // Other characters around them stay.
-        assert_eq!(safe_file_name("👩\u{200D}💻 notes"), "👩💻 notes.kpin");
+        // A joiner inside an emoji stays, as a reader keeps it; one between letters goes.
+        assert_eq!(safe_file_name("👩\u{200D}💻 notes"), "👩\u{200D}💻 notes.kpin");
+        assert_eq!(safe_file_name("no\u{200D}tes"), "notes.kpin");
     }
 }

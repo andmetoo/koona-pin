@@ -10,7 +10,7 @@ use super::{ExistingLinks, ListCollection, ListImportOptions, ListImportReport};
 use crate::db;
 use crate::feeds::{self, FeedDestination};
 use rusqlite::{params, Connection};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use url::Url;
 
 /// Where the new bookmarks go, decided once the first one needs it.
@@ -73,8 +73,10 @@ pub fn apply(
         }
     };
 
-    for link in &list.links {
-        let tags = link.tags_with(options.sections_as_tags);
+    let list_tags: Vec<Vec<String>> = list.links.iter().map(|link| link.tags_with(options.sections_as_tags)).collect();
+    let library_names = library_names_for(&tx, &list_tags.iter().flatten().map(String::as_str).collect())?;
+    for (link, tags) in list.links.iter().zip(list_tags) {
+        let tags: Vec<String> = tags.into_iter().map(|t| library_names.get(&t).cloned().unwrap_or(t)).collect();
         match saved(&tx, &link.url)? {
             Some(true) => report.in_trash += 1,
             Some(false) => {
@@ -152,6 +154,34 @@ pub fn apply(
     Ok(applied)
 }
 
+/// For the list's tags (`wanted`), the library's own name for each where it
+/// differs only by what a reader drops (`format::tag` without its length cut):
+/// a tag saved before readers dropped some invisible characters
+/// (`co\u{AD}op`, by an older list or typed with them) gets a list's `coop`
+/// instead of a second tag that looks the same. The stored tags keep their
+/// names: tags sync by name, so renaming them here would make devices disagree.
+fn library_names_for(tx: &Connection, wanted: &HashSet<&str>) -> rusqlite::Result<HashMap<String, String>> {
+    let mut by_clean = HashMap::new();
+    if wanted.is_empty() {
+        return Ok(by_clean);
+    }
+    // A library tag is trimmed and lowercased; cleaning changes only one with a character
+    // outside printable ASCII, or two spaces in a row. Most libraries have few or none.
+    let mut statement = tx.prepare_cached("SELECT name FROM tags WHERE name GLOB '*[^ -~]*' OR instr(name, '  ') > 0 ORDER BY id")?;
+    for name in statement.query_map([], |r| r.get::<_, String>(0))? {
+        let name = name?;
+        let clean = super::format::line(&name.to_lowercase(), usize::MAX);
+        if let Some(clean) = clean.filter(|clean| *clean != name && wanted.contains(clean.as_str())) {
+            // The oldest tag wins when two clean to one name.
+            by_clean.entry(clean).or_insert(name);
+        }
+    }
+    // A tag already named as a reader names it is that tag: no other is put in its place.
+    let mut exact = tx.prepare_cached("SELECT 1 FROM tags WHERE name = ?1")?;
+    by_clean.retain(|clean, _| !exact.exists([clean.as_str()]).unwrap_or(false));
+    Ok(by_clean)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -225,6 +255,25 @@ mod tests {
             ]
         );
         assert_eq!(applied.named.len(), 2, "the list's names for the cache");
+    }
+
+    #[test]
+    fn a_tag_the_library_has_with_invisible_characters_is_reused_not_doubled() {
+        let c = database();
+        let tag = |name: &str| {
+            c.execute("INSERT INTO tags (uid, name, created_at) VALUES (?1, ?2, '2026-01-01T00:00:00Z')", params![db::new_uid(), name]).unwrap();
+        };
+        // Saved before readers dropped the soft hyphen: by an older list, or typed with it.
+        tag("un\u{AD}safe");
+        apply(&c, &parse(VALID).unwrap(), &options(ListCollection::None), |_, _| {}).unwrap();
+        assert_eq!(tags_of(&c, "https://doc.rust-lang.org/nomicon/"), ["book", "compiler and language", "un\u{AD}safe"]);
+        assert_eq!(count(&c, "SELECT count(*) FROM tags WHERE name = 'unsafe'"), 0, "no second tag that looks the same");
+        // A tag named as a reader names it stays the one tag of that name.
+        tag("we\u{200B}b");
+        tag("web");
+        let by_clean = library_names_for(&c, &["web", "unsafe"].into()).unwrap();
+        assert!(!by_clean.contains_key("web"));
+        assert_eq!(by_clean.get("unsafe").map(String::as_str), Some("un\u{AD}safe"));
     }
 
     #[test]

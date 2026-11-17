@@ -1,11 +1,16 @@
-// Tests only: the public conformance suite of `.kpin` (`docs/kpin/conformance`, CC0, its README says
-// how to read it), as `lists/conformance.rs` reads it for the Rust reader's tests.
+// For Vitest only, and outside src/ so that no app module can bring node:fs into the browser build:
+// the public conformance suite of `.kpin` (`docs/kpin/conformance`, CC0, its README says how to read it),
+// as `lists/conformance.rs` reads it for the Rust reader's tests.
 import { readFileSync } from "node:fs";
 
-const dir = new URL("../../docs/kpin/conformance/", import.meta.url);
+/** The spec's folder: the schema, the examples and the suite are read from here. */
+export const kpinDir = new URL("../docs/kpin/", import.meta.url);
+
+/** A file of the spec's folder, by its path there (`schema-1.json`, `examples/minimal.kpin`). */
+export const kpinText = (path: string) => readFileSync(new URL(path, kpinDir), "utf8");
 
 /** A file of the suite, by its path in the suite. */
-export const suiteText = (name: string) => readFileSync(new URL(name, dir), "utf8");
+export const suiteText = (name: string) => kpinText(`conformance/${name}`);
 
 export type Generate = { from: string; pad_to_bytes?: number; add_links?: number; add_sections?: number };
 export type Case = { file?: string; name?: string; generate?: Generate; schema_valid: boolean; reader: string; schema_cannot_see?: string };

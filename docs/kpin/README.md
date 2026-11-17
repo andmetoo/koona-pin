@@ -254,7 +254,16 @@ Every text field is plain text: no HTML or Markdown is interpreted, and readers 
 
 **Invisible characters** are removed because they can make a title hide what it says, pass for another, or carry text a person never sees: U+00AD (soft hyphen), U+061C, U+180E, U+200B–U+200F, U+202A–U+202E, U+2060–U+2064, U+2066–U+206F, U+FEFF, U+FFF9–U+FFFB, U+E0001 and U+E0020–U+E007F (tag characters). These are the format characters (Unicode Cf) that show nothing; those that show a sign of their own, such as U+0600 ARABIC NUMBER SIGN, stay.
 
-One use of tag characters stays too, because it is seen: the three **subdivision flags** Unicode recommends for general interchange, England, Scotland and Wales. Each is U+1F3F4 WAVING BLACK FLAG, then the tag characters of `gbeng`, `gbsct` or `gbwls`, then U+E007F CANCEL TAG, and a reader keeps it as it is. Any other tag character goes, and so do the tags of any other sequence, even one in the same form (such as `usca`): the black flag itself stays. Accepting a form rather than these three would let one black flag after another carry hidden text a few characters at a time. A cut that ends inside a flag drops the tags it leaves without their end.
+One use of tag characters stays too, because it is seen: the three **subdivision flags** Unicode recommends for general interchange, England, Scotland and Wales. Each is U+1F3F4 WAVING BLACK FLAG, then the tag characters of `gbeng`, `gbsct` or `gbwls`, then U+E007F CANCEL TAG, and a reader keeps it as it is. Any other tag character goes, and so do the tags of any other sequence, even one in the same form (such as `usca`): the black flag itself stays. Accepting a form rather than these three would let one black flag after another carry hidden text a few characters at a time.
+
+A **zero width joiner** (U+200D) or **non-joiner** (U+200C) stays where it changes what is drawn, judged once the other invisible characters are gone:
+
+- inside a word of a script where it shapes the letters: the character before it and the one after it have the same Unicode Script, and that script is Arabic, Syriac, Nko, Mongolian, Mandaic, Manichaean, Adlam, Hanifi_Rohingya, Devanagari, Bengali, Gurmukhi, Gujarati, Oriya, Tamil, Telugu, Kannada, Malayalam or Sinhala. A Persian word keeps its non-joiner and a Sinhala conjunct its joiner.
+- a joiner between two emoji, as in 👩‍💻 or 🏳️‍🌈: the character before it is Extended_Pictographic, U+FE0F or a skin tone (U+1F3FB–U+1F3FF), and the one after it is Extended_Pictographic.
+
+Anywhere else it goes: in Latin, Cyrillic, Greek and the other scripts it draws nothing and only lets one word pass for another (`pay`, U+200C, `pal` reads as `paypal`). Two in a row are never between two such characters, so both go.
+
+A cut that ends inside a flag, or right after a joiner, drops what it leaves without its end.
 
 The schema names the invisible characters of the Basic Multilingual Plane, but not the tag characters, which lie outside it, where patterns differ between validators. A title made only of tag characters passes the schema, and a reader finds it empty; see [Schema and readers](#schema-and-readers).
 
@@ -326,6 +335,7 @@ A list reaches Koona Pin in one of four ways, and every one opens the same dialo
 Only **Accept** writes, in one transaction: an error leaves the library as it was. Then:
 
 - A link is already saved when the library has a bookmark with exactly the same address. It is left as it is: its tags and its collection never change. A link in Trash stays there and is only counted.
+- A tag of the list that the library already has under a name that differs only by what a reader drops from text (a tag saved before readers dropped the soft hyphen, say) is given the library's name, so the import does not make a second tag that looks the same. The library's tags keep their names.
 - A variant of a saved address (another spelling with the same key) is saved as a new bookmark and shows up among duplicates, as after any import.
 - New links are marked as coming from the list and named after its title.
 - Feeds the person kept checked are followed; feeds already followed are not touched. Feeds are fetched later, on the usual schedule, never during import.
@@ -382,7 +392,15 @@ npx -p ajv-cli@5 -p ajv-formats@3 ajv validate --spec=draft2020 -c ajv-formats -
 
 ### Reader rules, November 2026 (after Koona Pin 2.24.1)
 
-No change to files: every 1.0 file means what it meant. Readers now remove a wider set of [invisible characters](#text) from text (the soft hyphen, U+180E, the invisible operators U+2061–U+2064, the deprecated controls U+206A–U+206F, U+FFF9–U+FFFB and the tag characters, except those of the flags of England, Scotland and Wales, which a reader keeps), and the schema's text pattern names the same set within the Basic Multilingual Plane. A title made only of tag characters is the one file the schema accepts and a reader refuses for its content. The spec now says what readers already did: U+0085 is white space, a cut trims the space it leaves, and tracking parameters match in any case. The [conformance suite](#conformance) is published with the spec.
+No change to the format: writers write what they wrote, and the version stays 1.0. Readers now remove a wider set of [invisible characters](#text) from text (the soft hyphen, U+180E, the invisible operators U+2061–U+2064, the deprecated controls U+206A–U+206F, U+FFF9–U+FFFB and the tag characters, except those of the flags of England, Scotland and Wales, which a reader keeps), and the schema's text pattern names the same set within the Basic Multilingual Plane. A zero width joiner between two emoji, and a joiner or non-joiner inside a word of a joining or Brahmic script, now stay, where readers used to drop every one.
+
+So some files read differently than in Koona Pin 2.24.1:
+
+- A list whose title is only tag characters was imported, under a title that looked empty; it is now not a list. It is the one file the schema accepts and a reader refuses for its content.
+- Text that differed only by one of these characters is now the same text: a tag `co`, U+00AD, `op` and the tag `coop` are one tag, and two links whose titles differed that way show the same title.
+- Emoji joined by U+200D (👩‍💻, 🏳️‍🌈) keep their joiner and show as one emoji, and Persian, Hindi or Sinhala words keep the joiners and non-joiners they are spelled with.
+
+Koona Pin also reuses a tag the library already has when it differs only by these characters ([How Koona Pin imports a list](#how-koona-pin-imports-a-list)). The spec now says what readers already did: U+0085 is white space, a cut trims the space it leaves, and tracking parameters match in any case. The [conformance suite](#conformance) is published with the spec.
 
 ### 1.0 (October 2026, Koona Pin 2.4.0)
 
