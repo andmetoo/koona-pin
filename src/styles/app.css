@@ -59,6 +59,17 @@
   --np-ink-btn: #24251f;
   --np-on-ink-btn: #fbfaf6;
   --np-ink-btn-hover: #383a33;
+  /* The key (2026-11-17): the sidebar's main button, «New link» / «Follow a site». A board of the
+     accent's green ink with a lit top edge and a 1 px base it travels into when pressed; the
+     shortcut sits in a cap pressed into it. A step deeper than the logo's green. */
+  --np-key: #32714f;
+  --np-key-2: #295f45;
+  --np-on-key: #f7fbf8;
+  --np-key-hi: rgb(255 255 255 / 0.16);
+  --np-key-skirt: #1c4130;
+  --np-key-cast: rgb(25 35 25 / 0.4);
+  --np-key-cap: rgb(10 30 20 / 0.28);
+  --np-on-key-cap: rgb(247 251 248 / 0.8);
   /* The row «Update available» (NP-038, sheet 42): collection blue, apart from the green of the
      browser status; a failed update in ochre, never red. */
   --np-update: #5c77a8;
@@ -145,6 +156,15 @@
   --np-ink-btn: #ecebe6;
   --np-on-ink-btn: #161615;
   --np-ink-btn-hover: #ffffff;
+  /* One step lighter than by day and still dark: never the brightest thing in the window. */
+  --np-key: #3a7a5a;
+  --np-key-2: #31694d;
+  --np-on-key: #eef6f0;
+  --np-key-hi: rgb(255 255 255 / 0.12);
+  --np-key-skirt: #1d3a2c;
+  --np-key-cast: rgb(0 0 0 / 0.6);
+  --np-key-cap: rgb(0 0 0 / 0.25);
+  --np-on-key-cap: rgb(238 246 240 / 0.78);
   --np-update: #8aa3d0;
   --np-update-soft: #1f2636;
   --np-on-update-soft: #afc1e3;
@@ -559,6 +579,42 @@
 /* The glass of a menu (2026-10-16): the card at 82 % over a blur of what lies under it, saturated
    so a cover behind keeps its colour without its detail; a hairline inside and a deep soft shadow.
    Where the blur is not drawn the card is opaque, so the text never sits on a sharp picture. */
+/* The key: the sidebar's main button (tokens --np-key*). Hover lifts the tone, a press travels
+   1 px into the base; nothing changes size. */
+@utility key {
+  color: var(--np-on-key);
+  background: linear-gradient(170deg, var(--np-key), var(--np-key-2));
+  box-shadow:
+    inset 0 1px 0 var(--np-key-hi),
+    inset -1px -1px 0 rgb(0 0 0 / 0.12),
+    0.5px 1px 0 var(--np-key-skirt),
+    1px 3px 6px -2px var(--np-key-cast);
+  transition:
+    box-shadow 120ms var(--ease-standard),
+    transform 120ms var(--ease-standard);
+  &:hover {
+    background: linear-gradient(170deg, color-mix(in oklab, var(--np-key), white 7%), var(--np-key-2));
+  }
+  &:active {
+    transform: translateY(1px);
+    box-shadow:
+      inset 0 1px 0 var(--np-key-hi),
+      inset -1px -1px 0 rgb(0 0 0 / 0.12);
+    transition-duration: 70ms;
+  }
+}
+
+/* A shortcut's cap pressed into the key. */
+@utility key-cap {
+  border-radius: 5px;
+  padding: 2px 6px;
+  color: var(--np-on-key-cap);
+  background: var(--np-key-cap);
+  box-shadow:
+    inset 0 1px 1px rgb(0 0 0 / 0.25),
+    0 1px 0 rgb(255 255 255 / 0.1);
+}
+
 @utility menu-glass {
   background: var(--np-menu-glass);
   -webkit-backdrop-filter: blur(24px) saturate(170%);

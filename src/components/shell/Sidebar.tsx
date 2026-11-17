@@ -395,7 +395,8 @@ export function Sidebar(props: SidebarProps) {
               data-new-link={feedsMode ? undefined : true}
               data-follow-site={feedsMode || undefined}
               onClick={primary.onClick}
-              className="flex size-9 items-center justify-center rounded-full bg-ink-btn text-on-ink-btn shadow-[0_1px_2px_rgb(0_0_0/0.2),inset_0_1px_0_rgb(255_255_255/0.12)] transition-colors duration-150 hover:bg-ink-btn-hover"
+              // The same key, round; it keeps the «+»: the mode button above shows the other mode's icon.
+              className="key flex size-9 items-center justify-center rounded-full"
             >
               <Icon icon={Plus} size={17} strokeWidth={2} />
             </button>
@@ -552,13 +553,14 @@ export function Sidebar(props: SidebarProps) {
         data-new-link={feedsMode ? undefined : true}
         data-follow-site={feedsMode || undefined}
         onClick={primary.onClick}
-        className="mb-2.5 flex h-9 w-full shrink-0 items-center justify-between gap-2 rounded-[10px] bg-ink-btn pr-2 pl-3 text-left text-sm font-semibold text-on-ink-btn shadow-[0_1px_2px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.1)] transition-colors duration-150 hover:bg-ink-btn-hover"
+        // The key (2026-11-17): green ink, the app's own clip (a feed's arcs in Feeds) for a «+».
+        className="key mb-2.5 flex h-9 w-full shrink-0 items-center justify-between gap-2 rounded-[10px] pr-[7px] pl-3 text-left text-sm font-semibold"
       >
         <span className="flex min-w-0 items-center gap-2">
-          <Icon icon={Plus} size={15} strokeWidth={2} className="shrink-0" />
+          <Icon icon={feedsMode ? Rss : ClipIcon} size={15} strokeWidth={1.75} className="shrink-0" />
           <span className="truncate">{primary.label}</span>
         </span>
-        <kbd aria-hidden className="shrink-0 font-sans text-2xs font-semibold opacity-60">
+        <kbd aria-hidden className="key-cap shrink-0 font-sans text-2xs font-semibold">
           {shortcut("N")}
         </kbd>
       </button>
@@ -1103,11 +1105,24 @@ function ModeSwitch({ mode, unread, onMode, strip = false }: { mode: Mode; unrea
                 strip ? "size-[34px]" : "h-7 w-full min-w-0 gap-1.5 px-2 text-[13px]"
               } ${on ? "bg-raised font-semibold text-ink shadow-segment" : "font-medium text-muted hover:text-ink"}`}
             >
-              {/* Text alone in the sidebar: an icon beside «Обележивачи» left no room; the strip has only icons. */}
-              {strip ? <Icon icon={tab.icon} size={16} className={on ? "shrink-0 text-accent" : "shrink-0 text-icon"} /> : <span className="truncate">{tab.label}</span>}
-              {/* New posts: a dot, as in the strip; the number is in the hint and on Feeds' «All». A count
-                  pill left no room for «Обележивачи» or «ブックマーク» beside it. */}
-              {waiting && <span data-mode-new className={strip ? "absolute top-1.5 right-1.5 size-1.5 rounded-full bg-ink" : "size-1.5 shrink-0 rounded-full bg-ink"} />}
+              {/* Text alone in the sidebar: an icon beside «Обележивачи» left no room; the strip has only icons.
+                  The label never moves when the mode changes (2026-11-17): it always takes its semibold
+                  width (a hidden semibold copy under it), and the dot sits beside it out of the flow, so
+                  neither tab's share of the well depends on which one is chosen. */}
+              {strip ? (
+                <Icon icon={tab.icon} size={16} className={on ? "shrink-0 text-accent" : "shrink-0 text-icon"} />
+              ) : (
+                <span className="relative grid min-w-0 text-center">
+                  <span aria-hidden className="invisible col-start-1 row-start-1 truncate font-semibold">
+                    {tab.label}
+                  </span>
+                  <span className="col-start-1 row-start-1 truncate">{tab.label}</span>
+                  {/* New posts: a dot, as in the strip; the number is in the hint and on Feeds' «All». A count
+                      pill left no room for «Обележивачи» or «ブックマーク» beside it. */}
+                  {waiting && <span data-mode-new className="absolute top-1/2 left-full ml-1.5 size-1.5 -translate-y-1/2 rounded-full bg-ink" />}
+                </span>
+              )}
+              {strip && waiting && <span data-mode-new className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-ink" />}
             </button>
           </Hint>
         );
