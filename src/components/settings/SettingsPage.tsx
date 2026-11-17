@@ -30,7 +30,8 @@ import { Kbd } from "../ui/Hint";
 import { ConfirmDialog } from "../library/Dialogs";
 import { Menu } from "../ui/Menu";
 import { helpUrl } from "../../services/help";
-import { cleanedDetails, moment } from "./cleanedTags";
+import { cleanedDetails } from "./cleanedTags";
+import { moment } from "./time";
 
 /** The groups that fold (sheet S1–S3); General is always open. */
 type GroupId = "connections" | "reading" | "feeds" | "backups" | "storage" | "support";

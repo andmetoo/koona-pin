@@ -1,6 +1,9 @@
 import { test, expect, type Page } from "@playwright/test";
 import { openApp, settingsGroup } from "../fixtures/app";
 
+// The times below are UTC; read in UTC, they fall on the dates the test names wherever it runs.
+test.use({ timezoneId: "UTC" });
+
 // Settings → Storage → «Cleaned tag names»: what the cleaning of stored tag names did on this
 // device (db::cleaned_tags), read only, newest first, the invisible characters shown by their code.
 const row = (page: Page) => page.locator("[data-settings-cleaned-tags]");

@@ -117,25 +117,67 @@ pub struct ParsedList {
 /// One line of text: control and invisible characters dropped, white
 /// space collapsed, at most `max` characters. Empty: none.
 pub fn line(raw: &str, max: usize) -> Option<String> {
-    let kept: String = without_invisible(raw)
-        .chars()
-        .filter_map(|c| match c {
-            c if c.is_whitespace() => Some(' '),
-            c if c.is_control() => None,
-            c => Some(c),
+    let kept: String = line_marks(raw)
+        .into_iter()
+        .filter_map(|(c, mark)| match mark {
+            Mark::Kept => Some(c),
+            Mark::Space => Some(' '),
+            Mark::Dropped => None,
         })
         .collect();
-    let joined = kept.split_whitespace().collect::<Vec<_>>().join(" ");
-    capped(&joined, max)
+    capped(&kept, max)
 }
 
-/// Each character of `raw` and whether [`line`] keeps it as it is: false for
-/// one it drops (an [`is_invisible`] one that is not seen, a control, white
-/// space at either end or after other white space) or changes (white space
-/// other than the plain space, which becomes one). The same rule as [`line`],
-/// so what a person is shown as taken out is what was taken out.
-pub(crate) fn kept_by_line(raw: &str) -> Vec<(char, bool)> {
-    // As `without_invisible`: the flags whole, everything but the joiners, then the joiners judged by what stands around them.
+/// What [`line`] does with one character of the text it is given.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Mark {
+    Kept,
+    /// White space other than the plain space, alone between two words: it becomes the plain space.
+    Space,
+    /// An [`is_invisible`] character that is not seen, a control, or white space
+    /// at either end or more than one between two words.
+    Dropped,
+}
+
+/// Each character of `raw` and what [`line`] does with it; [`line`] is built
+/// from this, so what Settings shows as taken out of a tag's name is exactly
+/// what was. Between two words one character of the white space stays: the
+/// first plain space, or else the first of them, as a plain space.
+pub(crate) fn line_marks(raw: &str) -> Vec<(char, Mark)> {
+    let mut marks: Vec<(char, Mark)> =
+        seen_marks(raw).into_iter().map(|(c, seen)| (c, if seen { Mark::Kept } else { Mark::Dropped })).collect();
+    let mut run: Vec<usize> = Vec::new();
+    let mut word_before = false;
+    for i in 0..marks.len() {
+        let (c, mark) = marks[i];
+        if mark == Mark::Dropped {
+            continue;
+        }
+        if c.is_whitespace() {
+            marks[i].1 = Mark::Dropped;
+            run.push(i);
+        } else if c.is_control() {
+            marks[i].1 = Mark::Dropped;
+        } else {
+            if word_before && !run.is_empty() {
+                match run.iter().find(|&&j| marks[j].0 == ' ') {
+                    Some(&j) => marks[j].1 = Mark::Kept,
+                    None => marks[run[0]].1 = Mark::Space,
+                }
+            }
+            run.clear();
+            word_before = true;
+        }
+    }
+    marks
+}
+
+/// Each character of `raw` and whether it is seen: an [`is_invisible`] one is
+/// not, except the tags of the three subdivision [`FLAGS`], kept whole, and a
+/// zero width joiner or non-joiner where it changes what is drawn
+/// ([`joiner_stays`]). [`without_invisible`] keeps those that are.
+fn seen_marks(raw: &str) -> Vec<(char, bool)> {
+    // The flags whole, everything but the joiners, then the joiners judged by what stands around them.
     let mut marks: Vec<(char, bool)> = Vec::new();
     let mut rest = raw;
     while let Some(c) = rest.chars().next() {
@@ -160,29 +202,6 @@ pub(crate) fn kept_by_line(raw: &str) -> Vec<(char, bool)> {
         .collect();
     for (i, stays) in judged {
         marks[i].1 = stays;
-    }
-    // As `line`: controls go, white space becomes one plain space between words.
-    let mut space_before = true;
-    let mut pending: Option<usize> = None;
-    for i in 0..marks.len() {
-        let (c, kept) = marks[i];
-        if !kept {
-            continue;
-        }
-        if c.is_whitespace() {
-            marks[i].1 = false;
-            if !space_before && c == ' ' {
-                pending = Some(i);
-            }
-            space_before = true;
-        } else if c.is_control() {
-            marks[i].1 = false;
-        } else {
-            if let Some(space) = pending.take() {
-                marks[space].1 = true;
-            }
-            space_before = false;
-        }
     }
     marks
 }
@@ -224,26 +243,7 @@ pub(crate) fn without_invisible(raw: &str) -> Cow<'_, str> {
     if !raw.chars().any(is_invisible) {
         return Cow::Borrowed(raw);
     }
-    // First everything but the joiners, so that what stands around a joiner is what a person sees.
-    let mut kept = String::with_capacity(raw.len());
-    let mut rest = raw;
-    while let Some(c) = rest.chars().next() {
-        if let Some(flag) = FLAGS.iter().find(|flag| rest.starts_with(**flag)) {
-            kept.push_str(flag);
-            rest = &rest[flag.len()..];
-            continue;
-        }
-        if c == ZWJ || c == ZWNJ || !is_invisible(c) {
-            kept.push(c);
-        }
-        rest = &rest[c.len_utf8()..];
-    }
-    if !kept.contains([ZWJ, ZWNJ]) {
-        return Cow::Owned(kept);
-    }
-    let chars: Vec<char> = kept.chars().collect();
-    let stays = |at: usize, c: char| c != ZWJ && c != ZWNJ || joiner_stays(c, at.checked_sub(1).map(|b| chars[b]), chars.get(at + 1).copied());
-    Cow::Owned(chars.iter().enumerate().filter(|&(at, &c)| stays(at, c)).map(|(_, c)| c).collect())
+    Cow::Owned(seen_marks(raw).into_iter().filter(|&(_, seen)| seen).map(|(c, _)| c).collect())
 }
 
 /// The scripts where a zero width joiner or non-joiner changes how letters
@@ -631,13 +631,21 @@ mod tests {
     use crate::lists::conformance::{self as suite, case_text, padded};
     use serde_json::json;
 
-    /// What `kept_by_line` keeps is exactly what `line` gives, and it marks the rest.
+    /// `line`, built from `line_marks`, gives what it gave as a filter over
+    /// `without_invisible`; and the marks say what went, what stayed and which
+    /// white space became the plain space.
     #[test]
-    fn kept_by_line_marks_what_line_takes_out() {
+    fn line_marks_say_what_line_takes_out() {
+        let before = |raw: &str| {
+            let kept: String = without_invisible(raw).chars().filter_map(|c| if c.is_whitespace() { Some(' ') } else if c.is_control() { None } else { Some(c) }).collect();
+            capped(&kept.split_whitespace().collect::<Vec<_>>().join(" "), usize::MAX)
+        };
         let samples = [
             "co\u{AD}op",
             " coop ",
             "to  read\tlater",
+            "to\t read",
+            "to\tread",
             "\u{200B}",
             "\u{1F4DA}\u{200D}",
             "\u{1F469}\u{200D}\u{1F4BB}",
@@ -646,25 +654,23 @@ mod tests {
             "x\u{202E}y\u{E0041}",
             "\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F} wales",
             "a \u{200B} b",
+            "a\u{1} b",
             "to read\u{A0}later",
         ];
         for raw in samples {
-            let marks = kept_by_line(raw);
+            let marks = line_marks(raw);
             assert_eq!(marks.iter().map(|m| m.0).collect::<String>(), raw);
-            // White space that is marked became the plain space or went: either way it reads as a gap.
-            let kept: String = marks.iter().filter_map(|&(c, kept)| if kept { Some(c) } else if c.is_whitespace() { Some(' ') } else { None }).collect();
-            let kept = kept.split_whitespace().collect::<Vec<_>>().join(" ");
-            assert_eq!(Some(kept), line(raw, usize::MAX).or(Some(String::new())), "{raw:?}");
-            // And no space that stays is one `line` would not keep.
-            let spaces = marks.iter().filter(|m| m.1 && m.0 == ' ').count();
-            assert!(spaces <= line(raw, usize::MAX).unwrap_or_default().matches(' ').count(), "{raw:?}");
+            assert_eq!(line(raw, usize::MAX), before(raw), "{raw:?}");
         }
-        let dropped = |raw: &str| kept_by_line(raw).into_iter().filter(|m| !m.1).map(|m| m.0).collect::<String>();
-        assert_eq!(dropped("\u{1F4DA}\u{200D}"), "\u{200D}", "a joiner after an emoji and before nothing goes");
-        assert_eq!(dropped("\u{1F469}\u{200D}\u{1F4BB}"), "", "one between two emoji stays");
-        assert_eq!(dropped("\u{DCB}\u{DCA}\u{200D}\u{DBB}\u{DD3}"), "", "a Sinhala joiner stays");
-        assert_eq!(dropped(" coop "), "  ");
-        assert_eq!(dropped("to  read"), " ");
+        let marked = |raw: &str, wanted: Mark| line_marks(raw).into_iter().filter(|m| m.1 == wanted).map(|m| m.0).collect::<String>();
+        assert_eq!(marked("\u{1F4DA}\u{200D}", Mark::Dropped), "\u{200D}", "a joiner after an emoji and before nothing goes");
+        assert_eq!(marked("\u{1F469}\u{200D}\u{1F4BB}", Mark::Dropped), "", "one between two emoji stays");
+        assert_eq!(marked("\u{DCB}\u{DCA}\u{200D}\u{DBB}\u{DD3}", Mark::Dropped), "", "a Sinhala joiner stays");
+        assert_eq!(marked(" coop ", Mark::Dropped), "  ");
+        assert_eq!(marked("to  read", Mark::Dropped), " ");
+        // The plain space of a run stays wherever it stands; without one, the first becomes it.
+        assert_eq!((marked("to\t read", Mark::Dropped), marked("to\t read", Mark::Space)), ("\t".into(), String::new()));
+        assert_eq!((marked("to\tread", Mark::Dropped), marked("to\tread", Mark::Space)), (String::new(), "\t".into()));
     }
 
     macro_rules! fixture {

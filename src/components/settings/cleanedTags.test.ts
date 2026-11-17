@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import i18n from "../../i18n";
 import type { CleanedTag } from "../../types";
-import { cleanedDetails, moment } from "./cleanedTags";
+import { cleanedDetails } from "./cleanedTags";
+import { moment } from "./time";
 
 const entry = (over: Partial<CleanedTag>): CleanedTag => ({
   at: "2026-11-01T14:05:00.000Z",
