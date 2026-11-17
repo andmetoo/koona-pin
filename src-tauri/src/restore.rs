@@ -368,11 +368,13 @@ pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, back
 
     // Tags: by name; a new one keeps the copy's uid unless another tag has it.
     let tags_before: i64 = tx.query_row("SELECT count(*) FROM tags", [], |r| r.get(0))?;
+    // Named as tags are read now (`db::tag_name`), as the bookmarks' links below are.
     for t in &library.tags {
+        let Some(name) = db::tag_name(&t.name) else { continue };
         let taken = tx.query_row("SELECT 1 FROM tags WHERE uid = ?1", [&t.uid], |_| Ok(())).optional()?.is_some();
         tx.execute(
             "INSERT INTO tags (uid, name, created_at) VALUES (?1, ?2, ?3) ON CONFLICT(name) DO NOTHING",
-            params![if taken { db::new_uid() } else { fresh_uid(&tx, &t.uid)? }, t.name, t.created_at],
+            params![if taken { db::new_uid() } else { fresh_uid(&tx, &t.uid)? }, name, t.created_at],
         )?;
     }
 

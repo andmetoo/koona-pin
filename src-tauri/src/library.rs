@@ -170,7 +170,21 @@ pub fn open_with(
     )?;
     // New sort keys in the language of the stored ones (NP-114).
     crate::sorting::apply_stored_language(&conn).map_err(|e| OpenFailure::sqlite(e, paths))?;
+    // Tag names as they are read now, every time: no schema step, since names
+    // keep coming from older devices and backups, and an older build still
+    // opens the library. A failure leaves the names as they were.
+    if let Err(error) = clean_tag_names(&conn) {
+        eprintln!("The tag names were not cleaned: {error}");
+    }
     Ok(Opened { conn, moved_aside })
+}
+
+/// [`db::clean_tag_names`] in a transaction of its own.
+fn clean_tag_names(conn: &Connection) -> rusqlite::Result<usize> {
+    let tx = conn.unchecked_transaction()?;
+    let changed = db::clean_tag_names(&tx)?;
+    tx.commit()?;
+    Ok(changed)
 }
 
 pub fn configure(conn: &Connection) -> rusqlite::Result<()> {
@@ -546,6 +560,11 @@ pub fn restore_into(
                 eprintln!("Sync stays off after the restore: {error}");
                 let _ = crate::sync_library::register(conn);
             }
+        }
+        // An older copy may bring back tag names as they were read then;
+        // with sync on, after the baseline, so the cleaning is a change of its own.
+        if let Err(error) = clean_tag_names(conn) {
+            eprintln!("The tag names of the restored library were not cleaned: {error}");
         }
         Ok(Restored { bookmarks, previous })
     })();

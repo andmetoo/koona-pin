@@ -301,6 +301,91 @@ pub fn db_path() -> PathBuf {
     }
 }
 
+/// A tag's name as the library stores it: lower case, read as a line of a
+/// `.kpin` list is (`lists::format::line`): control and invisible characters
+/// dropped except where they are seen (emoji sequences, the three
+/// subdivision flags, joiners in joining and Brahmic scripts), white space
+/// collapsed and trimmed. None: nothing visible is left, no tag.
+/// `co`+U+00AD+`op` is `coop`, so typing `coop` finds it.
+pub fn tag_name(raw: &str) -> Option<String> {
+    crate::lists::format::line(&raw.to_lowercase(), usize::MAX)
+}
+
+/// Gives every stored tag the name [`tag_name`] gives it, in the caller's
+/// transaction; returns how many tags were renamed or merged away. Tags
+/// saved before names were read this way, synced from a device of an older
+/// version or brought back by an older backup may hold characters nobody
+/// sees: a `co`+U+00AD+`op` that looks like `coop` and is not found by it.
+/// It runs where such names come in (`library::open`, a sync batch, a
+/// restore) and finds nothing to do the second time.
+///
+/// With sync on (Р-68) every step is a change the engine already knows, made
+/// as the engine makes it, so devices of any version end the same:
+///
+/// - a rename is a change of the tag's name, the latest one wins;
+/// - tags that clean to one name merge as records with one name merge in
+///   `koona_sync` (`unique.rs`): the smallest uid survives and gets the
+///   others' bookmarks, the others get a tombstone `merged_into` it. A device
+///   that applies the merge folds into the survivor what it had on them
+///   meanwhile; one that merges them itself picks the same survivor; a chain
+///   of merges ends, since survivors only ever have smaller uids.
+///
+/// Nothing goes back and forth: a clean name stays clean, and an older
+/// device writes a dirty one only when a person or an older list gives it.
+/// A tag left with no visible name stays: it looks like no other, and
+/// deleting a person's tags is not this function's to do.
+pub fn clean_tag_names(conn: &Connection) -> Result<usize> {
+    // Stored names are trimmed and lowercased; cleaning changes only one with
+    // a character outside printable ASCII or two spaces in a row, unless it
+    // came in some other way. Most libraries have few or none.
+    let dirty: Vec<(i64, String, String)> = conn
+        .prepare_cached(
+            "SELECT id, uid, name FROM tags
+             WHERE name GLOB '*[^ -~]*' OR instr(name, '  ') > 0 OR name <> trim(name) OR name <> lower(name)
+             ORDER BY id",
+        )?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+        .collect::<Result<_>>()?;
+    let mut groups: std::collections::BTreeMap<String, Vec<(i64, String)>> = Default::default();
+    for (id, uid, name) in dirty {
+        if let Some(clean) = tag_name(&name).filter(|clean| *clean != name) {
+            groups.entry(clean).or_default().push((id, uid));
+        }
+    }
+    let mut changed = 0;
+    for (clean, mut tags) in groups {
+        let exact: Option<(i64, String)> = conn
+            .prepare_cached("SELECT id, uid FROM tags WHERE name = ?1")?
+            .query_row([&clean], |r| Ok((r.get(0)?, r.get(1)?)))
+            .optional()?;
+        tags.extend(exact);
+        // The order of `koona_sync`: uids compared as UUIDs, by their bytes
+        // (one that is no UUID, which the engine would refuse, last).
+        tags.sort_by_cached_key(|(_, uid)| {
+            let parsed = uuid::Uuid::parse_str(uid).ok();
+            (parsed.is_none(), parsed, uid.clone())
+        });
+        let (survivor, survivor_uid) = tags[0].clone();
+        for (loser, loser_uid) in &tags[1..] {
+            conn.prepare_cached(
+                "INSERT INTO bookmark_tags (bookmark_id, tag_id) SELECT bookmark_id, ?2 FROM bookmark_tags WHERE tag_id = ?1
+                 ON CONFLICT DO NOTHING",
+            )?
+            .execute(params![loser, survivor])?;
+            // Its links go with it and record nothing: the tombstone says it all.
+            conn.prepare_cached("DELETE FROM tags WHERE id = ?1")?.execute([loser])?;
+            // With sync on the delete left a tombstone of this device; it says where the tag went.
+            conn.prepare_cached("UPDATE tombstones SET merged_into = ?2 WHERE uid = ?1 AND kind = 'tag'")?
+                .execute(params![loser_uid, survivor_uid])?;
+            changed += 1;
+        }
+        changed += conn
+            .prepare_cached("UPDATE tags SET name = ?1 WHERE id = ?2 AND name <> ?1")?
+            .execute(params![clean, survivor])?;
+    }
+    Ok(changed)
+}
+
 fn tag_id(conn: &Connection, name: &str, now: &str) -> Result<i64> {
     conn.execute(
         "INSERT INTO tags (uid, name, created_at) VALUES (?1, ?2, ?3) ON CONFLICT(name) DO NOTHING",
@@ -315,15 +400,12 @@ pub(crate) fn link_tags(
     tags: &[String],
     now: &str,
 ) -> Result<()> {
-    for tag_name in tags {
-        let clean = tag_name.trim().to_lowercase();
-        if !clean.is_empty() {
-            let tag_id = tag_id(conn, &clean, now)?;
-            conn.execute(
-                "INSERT INTO bookmark_tags (bookmark_id, tag_id) VALUES (?1, ?2) ON CONFLICT DO NOTHING",
-                params![bookmark_id, tag_id],
-            )?;
-        }
+    for clean in tags.iter().filter_map(|raw| tag_name(raw)) {
+        let tag_id = tag_id(conn, &clean, now)?;
+        conn.execute(
+            "INSERT INTO bookmark_tags (bookmark_id, tag_id) VALUES (?1, ?2) ON CONFLICT DO NOTHING",
+            params![bookmark_id, tag_id],
+        )?;
     }
     Ok(())
 }
@@ -333,11 +415,8 @@ pub(crate) fn link_tags(
 /// written once per link added or taken off, not for every tag again.
 pub(crate) fn set_tags(conn: &Connection, bookmark_id: i64, tags: &[String], now: &str) -> Result<()> {
     let mut wanted = Vec::new();
-    for tag_name in tags {
-        let clean = tag_name.trim().to_lowercase();
-        if !clean.is_empty() {
-            wanted.push(tag_id(conn, &clean, now)?);
-        }
+    for clean in tags.iter().filter_map(|raw| tag_name(raw)) {
+        wanted.push(tag_id(conn, &clean, now)?);
     }
     conn.execute(
         "DELETE FROM bookmark_tags WHERE bookmark_id = ?1 AND tag_id NOT IN (SELECT value FROM json_each(?2))",
@@ -1208,8 +1287,8 @@ pub fn assistant_update(conn: &Connection, id: i64, change: &AssistantChange) ->
             let had = before.tags.clone().unwrap_or_default();
             let new: Vec<String> = tags
                 .iter()
-                .map(|t| t.trim().to_lowercase())
-                .filter(|t| !t.is_empty() && !had.contains(t))
+                .filter_map(|t| tag_name(t))
+                .filter(|t| !had.contains(t))
                 .collect();
             link_tags(&tx, id, &new, &now)?;
             !new.is_empty()
@@ -1402,7 +1481,11 @@ pub(crate) fn bulk_in(conn: &Connection, ids: &[i64], bulk: &Bulk) -> Result<(us
     // A new tag is only looked up here and created below, once a bookmark
     // gets it: an action that changes nothing leaves no empty tag behind.
     let tag_name = match bulk {
-        Bulk::Tag(name) => Some(name.trim().to_lowercase()),
+        // A name with nothing visible in it tags nothing.
+        Bulk::Tag(name) => match tag_name(name) {
+            None => return Ok((count as usize, Vec::new())),
+            clean => clean,
+        },
         _ => None,
     };
     let tag: Option<i64> = match &tag_name {
@@ -2825,6 +2908,89 @@ mod tests {
         let names = ["Development", "Design & UI", "Articles / To read"].map(String::from);
         create_starter_collections(&conn, &names).unwrap();
         conn
+    }
+
+    /// A tag as an older version stored it, with a uid of `n`: the smaller survives a merge.
+    fn old_tag(conn: &Connection, n: u128, name: &str) -> i64 {
+        conn.execute(
+            "INSERT INTO tags (uid, name, created_at) VALUES (?1, ?2, '2025-01-01T00:00:00.000Z')",
+            params![uuid::Uuid::from_u128(n).to_string(), name],
+        )
+        .unwrap();
+        conn.last_insert_rowid()
+    }
+
+    fn tag_rows(conn: &Connection) -> Vec<(String, String)> {
+        conn.prepare("SELECT uid, name FROM tags ORDER BY name")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect()
+    }
+
+    #[test]
+    fn tag_names_are_read_as_a_list_reads_them() {
+        assert_eq!(tag_name("  Co\u{AD}Op  "), Some("coop".into()));
+        assert_eq!(tag_name("open\u{200B}  source\t"), Some("open source".into()));
+        assert_eq!(tag_name("\u{E0041}x\u{2060}"), Some("x".into()), "tag characters and word joiners go");
+        // What is seen stays: an emoji sequence, a subdivision flag, a Sinhala joiner.
+        for kept in ["👩\u{200D}💻", "\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F}", "ශ්\u{200D}රී"] {
+            assert_eq!(tag_name(kept).as_deref(), Some(kept));
+        }
+        assert_eq!(tag_name("\u{200B}\u{AD} "), None);
+    }
+
+    #[test]
+    fn new_tags_are_written_clean() {
+        let conn = setup_test_db();
+        let b = insert_or_update_bookmark(&conn, "https://a.example/", "A", None, None, None, "a.example", None,
+            Some(&["Co\u{AD}op".into(), "\u{200B}".into()]), Source::App).unwrap();
+        assert_eq!(b.tags.unwrap(), ["coop"]);
+        set_tags(&conn, b.id, &["co\u{200B}op".into(), "we\u{AD}b".into()], &now()).unwrap();
+        bulk_in(&conn, &[b.id], &Bulk::Tag("Ru\u{AD}st ".into())).unwrap();
+        bulk_in(&conn, &[b.id], &Bulk::Tag("\u{AD}".into())).unwrap();
+        assert_eq!(get_bookmark_by_id(&conn, b.id).unwrap().tags.unwrap(), ["coop", "web", "rust"]);
+        let names: Vec<String> = tag_rows(&conn).into_iter().map(|(_, name)| name).collect();
+        assert_eq!(names, ["coop", "rust", "web"]);
+    }
+
+    #[test]
+    fn stored_tags_are_renamed_and_look_alikes_merged() {
+        let conn = setup_test_db();
+        let ids: Vec<i64> = ["https://a.example/", "https://b.example/", "https://c.example/"]
+            .iter()
+            .map(|url| insert_or_update_bookmark(&conn, url, "T", None, None, None, "x", None, None, Source::App).unwrap().id)
+            .collect();
+        let link = |bookmark: i64, tag: i64| {
+            conn.execute("INSERT INTO bookmark_tags (bookmark_id, tag_id) VALUES (?1, ?2)", [bookmark, tag]).unwrap();
+        };
+        // Three that look like «coop»; the dirty one has the smallest uid and survives, renamed.
+        let (soft, clean, zero) = (old_tag(&conn, 1, "co\u{AD}op"), old_tag(&conn, 2, "coop"), old_tag(&conn, 3, "co\u{200B}op"));
+        link(ids[0], soft);
+        link(ids[1], clean);
+        link(ids[2], zero);
+        link(ids[2], clean);
+        // Only a rename; and what has nothing visible left, or is clean, stays.
+        let spaced = old_tag(&conn, 4, "open  source");
+        link(ids[0], spaced);
+        old_tag(&conn, 5, "\u{200B}");
+        old_tag(&conn, 6, "👩\u{200D}💻");
+        assert!(found(&conn, "coop").len() < 3);
+
+        assert_eq!(clean_tag_names(&conn).unwrap(), 4, "two merged away, two renamed");
+        let uid = |n: u128| uuid::Uuid::from_u128(n).to_string();
+        assert_eq!(
+            tag_rows(&conn),
+            [(uid(1), "coop".into()), (uid(4), "open source".into()), (uid(5), "\u{200B}".into()), (uid(6), "👩\u{200D}💻".into())]
+        );
+        let mut coop = found(&conn, "coop");
+        coop.sort();
+        assert_eq!(coop, ids, "search finds every one by the name typed");
+        for id in &ids {
+            assert_eq!(get_bookmark_by_id(&conn, *id).unwrap().tags.unwrap().iter().filter(|t| *t == "coop").count(), 1);
+        }
+        assert_eq!(clean_tag_names(&conn).unwrap(), 0, "the second time finds nothing");
     }
 
     /// The whole list in one page.
