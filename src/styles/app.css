@@ -576,30 +576,36 @@
   }
 }
 
-/* The glass of a menu (2026-10-16): the card at 82 % over a blur of what lies under it, saturated
-   so a cover behind keeps its colour without its detail; a hairline inside and a deep soft shadow.
-   Where the blur is not drawn the card is opaque, so the text never sits on a sharp picture. */
-/* The key: the sidebar's main button (tokens --np-key*). Hover lifts the tone, a press travels
-   1 px into the base; nothing changes size. */
-@utility key {
+/* The key: the sidebar's main button (tokens --np-key*); named `sidebar-key`, as a bare `key` is matched by
+   `!key` in code and printed again as an !important copy. Hover lights it through an inset wash,
+   so the tone eases like every other control's (a gradient cannot be transitioned); a press travels
+   1 px into the base; nothing changes size. Hover only where there is a pointer that hovers. */
+@utility sidebar-key {
+  --key-lit: transparent;
   color: var(--np-on-key);
   background: linear-gradient(170deg, var(--np-key), var(--np-key-2));
   box-shadow:
     inset 0 1px 0 var(--np-key-hi),
     inset -1px -1px 0 rgb(0 0 0 / 0.12),
+    inset 0 0 0 100px var(--key-lit),
     0.5px 1px 0 var(--np-key-skirt),
     1px 3px 6px -2px var(--np-key-cast);
   transition:
-    box-shadow 120ms var(--ease-standard),
+    box-shadow 150ms var(--ease-standard),
     transform 120ms var(--ease-standard);
   &:hover {
-    background: linear-gradient(170deg, color-mix(in oklab, var(--np-key), white 7%), var(--np-key-2));
+    @media (hover: hover) {
+      --key-lit: rgb(255 255 255 / 0.07);
+    }
   }
   &:active {
     transform: translateY(1px);
     box-shadow:
       inset 0 1px 0 var(--np-key-hi),
-      inset -1px -1px 0 rgb(0 0 0 / 0.12);
+      inset -1px -1px 0 rgb(0 0 0 / 0.12),
+      inset 0 0 0 100px var(--key-lit),
+      0 0 0 transparent,
+      0 0 0 0 transparent;
     transition-duration: 70ms;
   }
 }
@@ -615,6 +621,9 @@
     0 1px 0 rgb(255 255 255 / 0.1);
 }
 
+/* The glass of a menu (2026-10-16): the card at 82 % over a blur of what lies under it, saturated
+   so a cover behind keeps its colour without its detail; a hairline inside and a deep soft shadow.
+   Where the blur is not drawn the card is opaque, so the text never sits on a sharp picture. */
 @utility menu-glass {
   background: var(--np-menu-glass);
   -webkit-backdrop-filter: blur(24px) saturate(170%);
