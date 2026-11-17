@@ -48,6 +48,7 @@ import { Banner, Toast } from "../../components/ui/Notices";
 import { DropZone } from "../../components/shell/DropZone";
 import { Sidebar } from "../../components/shell/Sidebar";
 import { Toolbar } from "../../components/shell/Toolbar";
+import { PageTitle, pageInset, pageRow, pageTop } from "../../components/shell/PageTitle";
 import { HelpLink } from "../../components/ui/HelpLink";
 
 /**
@@ -455,7 +456,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
       announce={setAnnouncement}
     />
   );
-  const padding = narrow ? "px-6" : "px-8";
+  const padding = pageInset(narrow);
   /** The second paragraph of «Delete collection?» when it has children (2.19.0, frame N6): they move up. */
   const deleteChildren = (c: Collection) =>
     childrenMoveUp(t, i18n.language, (findNode(collectionTree, c.id)?.children ?? []).map((n) => n.item.name));
@@ -547,8 +548,10 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
           <main ref={mainRef} className="relative flex min-w-0 flex-1 flex-col">
             {page === "settings" ? (
               <>
-                <div data-drop-head className={`${padding} pt-2 pb-1.5`}>
-                  <h1 className="flex h-9 items-center text-2xl font-semibold">{t("nav.settings")}</h1>
+                <div data-drop-head className={`${padding} ${pageTop} pb-1.5`}>
+                  <div className={pageRow}>
+                    <PageTitle title={t("nav.settings")} />
+                  </div>
                 </div>
                 {/* The groups fade in under the title as the sidebar's middle does (2.17.1), not cut at a hard edge. */}
                 <div data-drop-area className={`scroll-fade pane-scroll min-h-0 flex-1 overflow-y-auto pt-3.5 ${padding}`}>
@@ -670,7 +673,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
             ) : (
               <>
                 {/* The toolbar is glass over the list (2026-10-16); 13 + 7 px under it: room for the selection ring of the first row. */}
-                <div ref={headRef} data-drop-head className={`toolbar-glass absolute inset-x-0 top-0 z-20 flex flex-col gap-4 ${padding} pt-2 pb-[13px]`}>
+                <div ref={headRef} data-drop-head className={`toolbar-glass absolute inset-x-0 top-0 z-20 flex flex-col gap-4 ${padding} ${pageTop} pb-[13px]`}>
                   <Toolbar
                     ref={searchRef}
                     title={section}

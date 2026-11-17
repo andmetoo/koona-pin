@@ -22,6 +22,7 @@ import { Icon } from "../icons";
 import { Button } from "../ui/Button";
 import { Hint } from "../ui/Hint";
 import { SearchField } from "./SearchField";
+import { PageTitle, pageRow } from "./PageTitle";
 import { Menu } from "../ui/Menu";
 
 export interface ToolbarProps {
@@ -87,18 +88,11 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
     </Hint>
   );
   return (
-    <div className={`@container flex h-9 items-center ${props.narrow ? "gap-1.5" : "gap-2.5"}`} data-tauri-drag-region>
+    <div className={`@container ${pageRow} ${props.narrow ? "gap-1.5" : "gap-2.5"}`} data-tauri-drag-region>
       {/* The title takes the free room; when the row runs short the search field gives way
           first, so much faster that the title loses not even a pixel, down to 104 px (NP-089: «Todos os marcadores» at
           800 px, with room for WebKitGTK drawing it a few pixels wider), and only then is the title cut. The buttons never shrink. */}
-      <h1 className="flex min-w-0 flex-auto items-baseline gap-2">
-        <span className="truncate text-2xl font-semibold">{props.title}</span>
-        {props.count !== undefined && (
-          <span className="shrink-0 text-md text-subtle" aria-live={props.countLive ? "polite" : undefined}>
-            {props.count}
-          </span>
-        )}
-      </h1>
+      <PageTitle title={props.title} count={props.count} countLive={props.countLive} className="flex-auto" />
       {/* One search in every window (2026-10-16): the sidebar keeps its room for «New link», feeds and collections. */}
       <SearchField
         ref={searchRef}

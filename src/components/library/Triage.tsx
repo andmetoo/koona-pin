@@ -11,6 +11,7 @@ import { Bookmark, BookmarkPage, Changed, Collection, PageCursor, Suggestion } f
 import { Icon } from "../icons";
 import { Hint } from "../ui/Hint";
 import { BookmarkChanges } from "./BookmarkEditor";
+import { PageTitle, pageRow, pageTop } from "../shell/PageTitle";
 import { Preview, SiteMark } from "./Bookmarks";
 import { TagField } from "./Fields";
 
@@ -530,35 +531,49 @@ export function Triage({
 
   return (
     <section aria-label={t("triage.title")} className="relative flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto pane-scroll px-8 pt-3 pb-24">
+      <div className={`min-h-0 flex-1 overflow-x-hidden overflow-y-auto pane-scroll px-8 ${pageTop} pb-24`}>
         <div className="sort-col flex flex-col gap-[18px]">
-          <header className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
-            <h1 className="flex min-w-0 items-baseline gap-2 text-xl font-semibold tracking-[-0.015em]">
-              {t("triage.title")}
-              <span className="text-sm font-medium text-subtle tabular-nums" aria-live="polite">
-                {t("triage.progress", { current: number, total })}
-              </span>
-              {queue.fresh > 0 && <span className="text-xs font-medium text-accent">{t("triage.fresh", { count: queue.fresh })}</span>}
-            </h1>
-            <div role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done ? total : number} aria-label={t("triage.title")}>
-              {total <= DOTS ? (
-                <div className="sort-steps">
-                  {queue.ids.map((id, i) => (
-                    <i key={id} className={i < queue.position ? "ok" : i === queue.position ? "now" : ""} />
-                  ))}
-                </div>
-              ) : (
-                <div className="sort-bar">
-                  <span className="ok" style={{ width: `${(Math.min(queue.position, total) / total) * 100}%` }} />
-                  {!done && <span className="now" style={{ left: `${(queue.position / total) * 100}%`, width: `max(8px, ${100 / total}%)` }} />}
-                </div>
-              )}
+          {/* The column stays centred, but its title stands on the line and in the type of every page's (PageTitle).
+              The steps and Finish go together: when the row runs short the steps narrow first; when even narrowed
+              they don't fit beside «Clasificar la Bandeja de entrada», both move under the title, whole, and the
+              title keeps its words and its line. */}
+          <header className="flex flex-wrap items-center gap-x-3.5 gap-y-1">
+            <div className={`${pageRow} min-w-0`}>
+              <PageTitle title={t("triage.title")}>
+                <span className="shrink-0 text-sm font-medium text-subtle tabular-nums" aria-live="polite">
+                  {t("triage.progress", { current: number, total })}
+                </span>
+                {queue.fresh > 0 && <span className="shrink-0 text-xs font-medium text-accent">{t("triage.fresh", { count: queue.fresh })}</span>}
+              </PageTitle>
             </div>
-            <span className="flex-1" />
-            <button type="button" onClick={onFinish} className="sort-btn">
-              {t("triage.finish")}
-              <kbd className="sort-cap font-sans">Esc</kbd>
-            </button>
+            {/* 14 rem: twelve dots at their narrowest and the widest Finish (Spanish «Terminar»). */}
+            <div className="flex min-w-0 grow basis-56 items-center gap-x-3.5">
+              <div
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={total}
+                aria-valuenow={done ? total : number}
+                aria-label={t("triage.title")}
+                className="min-w-0 shrink-[100000]"
+              >
+                {total <= DOTS ? (
+                  <div className="sort-steps">
+                    {queue.ids.map((id, i) => (
+                      <i key={id} className={i < queue.position ? "ok" : i === queue.position ? "now" : ""} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="sort-bar">
+                    <span className="ok" style={{ width: `${(Math.min(queue.position, total) / total) * 100}%` }} />
+                    {!done && <span className="now" style={{ left: `${(queue.position / total) * 100}%`, width: `max(8px, ${100 / total}%)` }} />}
+                  </div>
+                )}
+              </div>
+              <button type="button" onClick={onFinish} className="sort-btn ml-auto">
+                {t("triage.finish")}
+                <kbd className="sort-cap font-sans">Esc</kbd>
+              </button>
+            </div>
           </header>
 
           {current ? (
