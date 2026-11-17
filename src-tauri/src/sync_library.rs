@@ -42,23 +42,35 @@ pub fn turn_on(conn: &Connection, replica: uuid::Uuid) -> koona_sync::Result<()>
 /// triggers on every write: a snapshot writes a bookmark, then each of its
 /// tags, and the search row was written again for each.
 pub fn apply(conn: &Connection, groups: &[koona_sync::model::Group]) -> koona_sync::Result<koona_sync::Applied> {
-    let tx = conn.unchecked_transaction()?;
+    let mut tx = conn.unchecked_transaction()?;
     let deferred = db::IndexDeferred::new(&tx)?;
-    let mut applied = koona_sync::apply(&tx, groups)?;
+    let applied = koona_sync::apply(&tx, groups)?;
     deferred.finish()?;
     // A device of an older version may send a tag named as it read it
     // (`co`+U+00AD+`op`): it gets the name this one reads, or merges into the
     // tag that has it, as changes of this replica (`db::clean_tag_names`).
     // Only a batch that wrote a tag can bring such a name; one that only
-    // links bookmarks to tags here finds the names clean already.
+    // links bookmarks to tags here finds the names clean already. Such a
+    // batch has `structure_changed`, which makes the interface read
+    // everything again, so what the cleaning changed needs no word of its own.
     if applied.structure_changed {
-        // Their tags read otherwise now: the interface shows them again.
-        let written: std::collections::HashSet<i64> = applied.bookmark_ids.iter().copied().collect();
-        let cleaned = db::clean_tag_names(&tx)?;
-        applied.bookmark_ids.extend(cleaned.bookmarks.into_iter().filter(|id| !written.contains(id)));
+        clean_tag_names_or_leave(&mut tx);
     }
     tx.commit()?;
     Ok(applied)
+}
+
+/// [`db::clean_tag_names`] in a savepoint: a failure takes back only the
+/// cleaning, and the batch the engine applied stays. Sync must not stop on
+/// a tag it could not rename; the next batch, or the next open, tries again.
+fn clean_tag_names_or_leave(tx: &mut rusqlite::Transaction) {
+    let cleaned = tx.savepoint().and_then(|savepoint| {
+        db::clean_tag_names(&savepoint)?;
+        savepoint.commit()
+    });
+    if let Err(error) = cleaned {
+        eprintln!("The tag names of a sync batch were not cleaned: {error}");
+    }
 }
 
 /// The chunks of one answer applied in fewer, larger transactions. Each
@@ -887,16 +899,13 @@ mod tests {
         // The look-alike has the smaller uid: the clean name goes to it.
         let look_alike = old_tag(&old, 5, "we\u{AD}b");
         link(&old, X, look_alike);
-        // Y was not in the batch, but its tag is another one now: the interface hears of it.
-        let shown = std::cell::RefCell::new(Vec::new());
+        // Y was not in the batch, but its tag is another one now: the
+        // interface reads everything again, as after any batch that writes a tag.
         send(&old, &new, |conn, groups| {
             let applied = apply_now(conn, groups);
             assert!(applied.structure_changed);
-            shown.borrow_mut().extend(applied.bookmark_ids.clone());
             applied
         });
-        let y: i64 = new.query_row("SELECT id FROM bookmarks WHERE url = ?1", [Y], |r| r.get(0)).unwrap();
-        assert!(shown.borrow().contains(&y), "{:?}", shown.borrow());
         let expected = vec![(uuid::Uuid::from_u128(5).to_string(), "web".to_string(), format!("{X} {Y}"))];
         assert_eq!(tag_state(&new), expected);
         settle(&new, apply_now, &old, apply_as_before);
@@ -916,6 +925,52 @@ mod tests {
         settle(&c, apply_now, &d, apply_now);
         let expected = vec![(uuid::Uuid::from_u128(40).to_string(), "rust".to_string(), format!("{X} {Y}"))];
         assert_eq!((tag_state(&c), tag_state(&d)), (expected.clone(), expected));
+    }
+
+    /// A tag with no visible name goes on a device of this version while one
+    /// of the version before puts a bookmark on it: the removal wins on both,
+    /// and one the older device makes again goes again, without end.
+    #[test]
+    fn a_tag_with_nothing_visible_goes_everywhere_and_stays_gone() {
+        let (new, old) = (synced(1), synced(2));
+        save(&new, X, &[]);
+        save(&new, Y, &[]);
+        let invisible = old_tag(&new, 7, "\u{200B}");
+        link(&new, X, invisible);
+        send(&new, &old, apply_as_before);
+        let gone = uuid::Uuid::from_u128(7).to_string();
+
+        // At once, offline: `new` removes it, `old` puts Y on it as well.
+        let (_, tombstones) = recorded(&new, |new| {
+            assert_eq!(db::clean_tag_names(new).unwrap().tags, 1);
+        });
+        assert_eq!(tombstones, [(format!("tag {gone}"), None)].into(), "a purge, not a merge");
+        let theirs: i64 = old.query_row("SELECT id FROM tags WHERE uid = ?1", [&gone], |r| r.get(0)).unwrap();
+        link(&old, Y, theirs);
+        settle(&new, apply_now, &old, apply_as_before);
+        assert_eq!((tag_state(&new), tag_state(&old)), (vec![], vec![]));
+        assert!(db::is_purged(&old, &gone).unwrap());
+
+        // The older device makes one again (a name pasted with it, say): it goes on arrival.
+        let again = old_tag(&old, 8, "\u{200B}\u{AD}");
+        link(&old, X, again);
+        settle(&new, apply_now, &old, apply_as_before);
+        assert_eq!((tag_state(&new), tag_state(&old)), (vec![], vec![]));
+    }
+
+    /// A cleaning that fails takes back only itself: the batch the engine
+    /// applied stays, and sync goes on with the name as it came.
+    #[test]
+    fn a_failed_cleaning_does_not_stop_sync() {
+        let (old, new) = (synced(1), synced(2));
+        save(&old, X, &[]);
+        link(&old, X, old_tag(&old, 3, "co\u{AD}op"));
+        new.execute_batch("CREATE TEMP TRIGGER refuse_rename BEFORE UPDATE OF name ON tags BEGIN SELECT RAISE(ABORT, 'refused'); END;")
+            .unwrap();
+        send(&old, &new, apply_now);
+        assert_eq!(tag_state(&new), tag_state(&old), "the batch is applied, the name left as it came");
+        new.execute_batch("DROP TRIGGER refuse_rename;").unwrap();
+        assert_eq!(db::clean_tag_names(&new).unwrap().tags, 1, "a later try cleans it");
     }
 
     /// The library of `koona-sync/tests/measure.rs`, which SPIKE.md measured:

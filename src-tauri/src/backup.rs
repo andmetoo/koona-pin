@@ -50,6 +50,22 @@ pub fn before_migration(conn: &Connection, folder: &Path, version: i64) -> Resul
     Ok(target)
 }
 
+/// `koonapin.before-v<schema>-tag-names.db`: the library before Koona Pin
+/// renamed, merged or removed tags at open (`db::clean_tag_names`). Merges
+/// and removals are final for sync, so the person can go back to this the
+/// way they go back to a copy before an update, as which it is listed. One
+/// file, replaced the next time (one of an earlier schema goes): in between
+/// the library is clean.
+pub fn before_tag_cleanup(conn: &Connection, folder: &Path, version: i64) -> Result<PathBuf, String> {
+    let name = |version: i64| folder.join(format!("{BEFORE_MIGRATION}{version}-tag-names.db"));
+    let target = name(version);
+    write_copy(conn, &target)?;
+    for old in 1..version {
+        let _ = fs::remove_file(name(old));
+    }
+    Ok(target)
+}
+
 /// Keeps the copies before the last two migrations.
 pub fn prune_before_migration(folder: &Path, version: i64) {
     for old in 1..version - 1 {

@@ -311,6 +311,34 @@ pub fn tag_name(raw: &str) -> Option<String> {
     crate::lists::format::line(&raw.to_lowercase(), usize::MAX)
 }
 
+/// The tags whose name [`tag_name`] changes: id, uid and the clean name
+/// (none: nothing visible is left).
+fn tags_to_clean(conn: &Connection) -> Result<Vec<(i64, String, Option<String>)>> {
+    // Stored names are trimmed and lowercased; cleaning changes only one with
+    // a character outside printable ASCII or two spaces in a row, unless it
+    // came in some other way. Most libraries have few or none.
+    let mut statement = conn.prepare_cached(
+        "SELECT id, uid, name FROM tags
+         WHERE name GLOB '*[^ -~]*' OR instr(name, '  ') > 0 OR name <> trim(name) OR name <> lower(name)
+         ORDER BY id",
+    )?;
+    let mut dirty = Vec::new();
+    for row in statement.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?)))? {
+        let (id, uid, name) = row?;
+        let clean = tag_name(&name);
+        if clean.as_deref() != Some(name.as_str()) {
+            dirty.push((id, uid, clean));
+        }
+    }
+    Ok(dirty)
+}
+
+/// Whether [`clean_tag_names`] would change anything: the library is copied
+/// first then (`library::open`), as before a migration.
+pub fn has_tags_to_clean(conn: &Connection) -> Result<bool> {
+    Ok(!tags_to_clean(conn)?.is_empty())
+}
+
 /// What [`clean_tag_names`] changed.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct CleanedTags {
@@ -347,17 +375,7 @@ pub struct CleanedTags {
 /// taken off its bookmarks, a deleted tag for sync like any other (a purge
 /// that comes again from an older device goes again on arrival).
 pub fn clean_tag_names(conn: &Connection) -> Result<CleanedTags> {
-    // Stored names are trimmed and lowercased; cleaning changes only one with
-    // a character outside printable ASCII or two spaces in a row, unless it
-    // came in some other way. Most libraries have few or none.
-    let dirty: Vec<(i64, String, String)> = conn
-        .prepare_cached(
-            "SELECT id, uid, name FROM tags
-             WHERE name GLOB '*[^ -~]*' OR instr(name, '  ') > 0 OR name <> trim(name) OR name <> lower(name)
-             ORDER BY id",
-        )?
-        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
-        .collect::<Result<_>>()?;
+    let dirty = tags_to_clean(conn)?;
     let mut cleaned = CleanedTags::default();
     if dirty.is_empty() {
         return Ok(cleaned);
@@ -371,9 +389,8 @@ pub fn clean_tag_names(conn: &Connection) -> Result<CleanedTags> {
         Ok(())
     };
     let mut groups: std::collections::BTreeMap<String, Vec<(i64, String)>> = Default::default();
-    for (id, uid, name) in dirty {
-        match tag_name(&name) {
-            Some(clean) if clean == name => {}
+    for (id, uid, clean) in dirty {
+        match clean {
             Some(clean) => groups.entry(clean).or_default().push((id, uid)),
             None => {
                 note_bookmarks(id)?;

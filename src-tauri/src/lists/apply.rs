@@ -74,13 +74,9 @@ pub fn apply(
     };
 
     let list_tags: Vec<Vec<String>> = list.links.iter().map(|link| link.tags_with(options.sections_as_tags)).collect();
-    // A tag saved under a name read the older way (`co`+U+00AD+`op`) is the
-    // list's `coop`, not a second tag that looks the same. The library is
-    // cleaned at open and after sync already; this only finds what came in
-    // since, usually nothing.
-    if list_tags.iter().any(|tags| !tags.is_empty()) {
-        db::clean_tag_names(&tx)?;
-    }
+    // A list's `coop` is the library's `coop`: stored names are cleaned at
+    // open and after sync (`db::clean_tag_names`). Should a look-alike still
+    // be there (a cleaning that failed), the next cleaning merges the two.
     for (link, tags) in list.links.iter().zip(list_tags) {
         match saved(&tx, &link.url)? {
             Some(true) => report.in_trash += 1,
@@ -241,15 +237,18 @@ mod tests {
             c.execute("INSERT INTO tags (uid, name, created_at) VALUES (?1, ?2, '2026-01-01T00:00:00Z')", params![db::new_uid(), name]).unwrap();
         };
         // Saved before readers dropped the soft hyphen (by an older list, or
-        // typed with it), and not cleaned since: synced in a moment ago.
+        // typed with it), and left as it was by a cleaning that failed.
         tag("un\u{AD}safe");
         let uid: String = c.query_row("SELECT uid FROM tags", [], |r| r.get(0)).unwrap();
         apply(&c, &parse(VALID).unwrap(), &options(ListCollection::None), |_, _| {}).unwrap();
         assert_eq!(tags_of(&c, "https://doc.rust-lang.org/nomicon/"), ["book", "compiler and language", "unsafe"]);
+        // The next cleaning (an open, a sync batch) makes the two one: the older survives.
+        db::clean_tag_names(&c).unwrap();
+        assert_eq!(tags_of(&c, "https://doc.rust-lang.org/nomicon/"), ["book", "compiler and language", "unsafe"]);
         assert_eq!(
             c.query_row("SELECT uid FROM tags WHERE name = 'unsafe'", [], |r| r.get::<_, String>(0)).unwrap(),
             uid,
-            "the tag itself, renamed: no second tag that looks the same"
+            "no second tag that looks the same"
         );
         assert_eq!(count(&c, "SELECT count(*) FROM tags WHERE name GLOB '*[^ -~]*'"), 0);
     }

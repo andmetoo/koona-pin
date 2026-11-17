@@ -172,9 +172,20 @@ pub fn open_with(
     crate::sorting::apply_stored_language(&conn).map_err(|e| OpenFailure::sqlite(e, paths))?;
     // Tag names as they are read now, every time: no schema step, since names
     // keep coming from older devices and backups, and an older build still
-    // opens the library. A failure leaves the names as they were.
-    if let Err(error) = clean_tag_names(&conn) {
-        eprintln!("The tag names were not cleaned: {error}");
+    // opens the library. Merges and removals are final for sync, so a copy
+    // comes first, as before a migration; without it nothing is cleaned. A
+    // failure leaves the names as they were.
+    match db::has_tags_to_clean(&conn) {
+        Ok(false) => {}
+        Ok(true) => match backup::before_tag_cleanup(&conn, &paths.backups, target) {
+            Ok(_) => {
+                if let Err(error) = clean_tag_names(&conn) {
+                    eprintln!("The tag names were not cleaned: {error}");
+                }
+            }
+            Err(error) => eprintln!("The tag names were not cleaned, no copy was made first: {error}"),
+        },
+        Err(error) => eprintln!("The tag names were not read: {error}"),
     }
     Ok(Opened { conn, moved_aside })
 }
@@ -933,9 +944,16 @@ mod tests {
 
         dirty_tag(&conn, "co\u{200B}op");
         assert_eq!(tag_names(&conn), ["coop", "co\u{200B}op"]);
+        let before = paths.backups.join(format!("koonapin.before-v{}-tag-names.db", migrations::SCHEMA_VERSION));
+        assert!(!before.exists(), "an open with nothing to clean copies nothing");
         drop(conn);
         let reopened = open(&paths).unwrap().conn;
         assert_eq!(tag_names(&reopened), ["coop"], "the next open merges the look-alike");
+        // The library as it was is kept first, listed as a copy before an update.
+        let copy = Connection::open(&before).unwrap();
+        assert_eq!(tag_names(&copy), ["coop", "co\u{200B}op"]);
+        let listed = backup::list(&paths.backups).into_iter().find(|c| before.ends_with(&c.file_name)).unwrap();
+        assert_eq!(listed.kind, backup::CopyKind::BeforeUpdate);
     }
 
     #[test]

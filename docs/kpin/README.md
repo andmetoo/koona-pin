@@ -335,7 +335,7 @@ A list reaches Koona Pin in one of four ways, and every one opens the same dialo
 Only **Accept** writes, in one transaction: an error leaves the library as it was. Then:
 
 - A link is already saved when the library has a bookmark with exactly the same address. It is left as it is: its tags and its collection never change. A link in Trash stays there and is only counted.
-- Koona Pin names tags the way a list reads them: lowercase, and cleaned as text is. This holds for new tags and for the ones the library already has, so a tag of the list and a library tag that differ only by what a reader drops (a tag saved before readers dropped the soft hyphen, say) are one tag. A stored tag like that gets the clean name, or merges into the tag that already has it.
+- Koona Pin names tags the way a list reads them: lowercase, and cleaned as text is. This holds for new tags and for the ones the library already has, so a tag of the list and a library tag that differ only by what a reader drops (a tag saved before readers dropped the soft hyphen, say) are one tag. A stored tag like that gets the clean name, or merges into the tag that already has it. A tag whose name has nothing visible left, such as one made only of U+200B, is no tag: a list's tag like that is dropped, and a stored one is removed from the library.
 - A variant of a saved address (another spelling with the same key) is saved as a new bookmark and shows up among duplicates, as after any import.
 - New links are marked as coming from the list and named after its title.
 - Feeds the person kept checked are followed; feeds already followed are not touched. Feeds are fetched later, on the usual schedule, never during import.
