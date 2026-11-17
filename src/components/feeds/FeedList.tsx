@@ -9,6 +9,7 @@ import { usePicture } from "../../hooks/usePicture";
 import { shiftShortcut, shortcut } from "../../services/keys";
 import { Icon } from "../icons";
 import { Hint } from "../ui/Hint";
+import { PageTitle, pageInsetStart, pageRow, pageTop } from "../shell/PageTitle";
 import { FeedIcon } from "./FeedIcon";
 import type { FeedShow } from "./FeedsPage";
 
@@ -139,9 +140,11 @@ export function FeedList({
 
   return (
     <section aria-label={title} data-feed-list className={`flex min-h-0 flex-col ${narrow ? "flex-1" : "w-[380px] shrink-0"}`}>
-      <header data-drop-head className="mb-3 shrink-0 pt-[22px] pr-5 pl-[26px]">
-        <div className="flex items-start gap-2">
-          <h1 className="min-w-0 flex-1 truncate text-[26px] leading-[30px] font-bold tracking-[-0.01em]">{title}</h1>
+      {/* The title stands where every page's does (PageTitle), so «Reading» and «All feeds» don't jump when the
+          mode changes; the far side stays 20 px in, where the rows below end. */}
+      <header data-drop-head className={`mb-3 shrink-0 ${pageTop} pr-5 ${pageInsetStart(narrow)}`}>
+        <div className={`${pageRow} gap-2`}>
+          <PageTitle title={title} className="flex-1" />
           <div className="flex shrink-0 items-center gap-1">
             <Hint label={t("feeds.menu.markRead")} keys={shiftShortcut("A")}>
               <button

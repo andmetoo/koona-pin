@@ -1800,12 +1800,15 @@
     opacity: 0.6;
   }
 
-  /* The steps in the header: a dot per card, the current one wider; a long queue gets a bar. */
+  /* The steps in the header: a dot per card, the current one wider; a long queue gets a bar.
+     When the header runs short the dots and the bar narrow, so the row never wraps (2.25.1). */
   .sort-steps {
     display: flex;
     gap: 4px;
   }
   .sort-steps i {
+    flex-shrink: 1;
+    min-width: 4px;
     width: 18px;
     height: 5px;
     border-radius: 3px;
@@ -1827,6 +1830,7 @@
   .sort-bar {
     position: relative;
     width: 132px;
+    max-width: 100%;
     height: 5px;
     border-radius: 3px;
     background: var(--np-well);

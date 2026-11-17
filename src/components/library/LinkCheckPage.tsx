@@ -11,6 +11,7 @@ import { checkedWhen, etaText, finishedLine, FIRST_ROWS, replacedNotice, resultL
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
 import { Dot } from "../ui/Controls";
+import { PageTitle, pageRow, pageTop } from "../shell/PageTitle";
 import { Preview } from "./Bookmarks";
 
 type Group = "gone" | "moved" | "failed";
@@ -183,11 +184,10 @@ export function LinkCheckPage({
 
   return (
     <>
-      <div className={`${padding} pt-2 pb-4`}>
-        <h1 className="flex h-9 items-baseline gap-2 pt-1.5">
-          <span className="text-2xl font-semibold">{t("links.title")}</span>
-          {report && count > 0 && <span className="text-md text-subtle">{count}</span>}
-        </h1>
+      <div className={`${padding} ${pageTop} pb-4`}>
+        <div className={pageRow}>
+          <PageTitle title={t("links.title")} count={report && count > 0 ? count : undefined} />
+        </div>
       </div>
       <div className={`min-h-0 flex-1 overflow-y-auto pane-scroll pb-8 ${padding}`}>
         {report === null ? (
