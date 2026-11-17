@@ -200,6 +200,61 @@ test("the strip of a narrow window has one button to Feeds, with a dot for new p
   await expect(page.locator("[data-bookmark-id]").first()).toBeVisible();
 });
 
+test("the mode tabs hold still: neither the chosen label nor the dot moves them; ← → Home End move as tabs do (2.25.0)", async ({ page }) => {
+  await open(page, {}, { feeds: false });
+  const bookmarks = page.getByRole("tab", { name: "Bookmarks" });
+  const feeds = page.getByRole("tab", { name: "Feeds" });
+  /** Each tab's box and the centre of its visible words (not the hidden semibold copy). */
+  const places = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>('[role="tablist"] [role="tab"]')].map((tab) => {
+        const range = document.createRange();
+        range.selectNodeContents(tab.querySelector("span > span:not([aria-hidden]):not([data-mode-new])")!);
+        const box = tab.getBoundingClientRect();
+        const words = range.getBoundingClientRect();
+        return { left: box.left, width: box.width, centre: words.left + words.width / 2 };
+      }),
+    );
+  await expect(feeds.locator("[data-mode-new]")).toBeVisible();
+  const before = await places();
+  // One tab in the Tab order; → chooses Feeds and takes the focus with it, and the dot goes.
+  await expect(bookmarks).toHaveAttribute("tabindex", "0");
+  await expect(feeds).toHaveAttribute("tabindex", "-1");
+  await bookmarks.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(feeds).toHaveAttribute("aria-selected", "true");
+  await expect(feeds).toBeFocused();
+  await expect(feeds.locator("[data-mode-new]")).toHaveCount(0);
+  const after = await places();
+  for (const [i, place] of before.entries()) {
+    expect(Math.abs(after[i].left - place.left)).toBeLessThan(0.1);
+    expect(Math.abs(after[i].width - place.width)).toBeLessThan(0.1);
+    expect(Math.abs(after[i].centre - place.centre)).toBeLessThan(0.5);
+  }
+  await page.keyboard.press("Home");
+  await expect(bookmarks).toHaveAttribute("aria-selected", "true");
+  await expect(bookmarks).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(feeds).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("ArrowRight");
+  await expect(bookmarks).toHaveAttribute("aria-selected", "true");
+  // Chords keep their own meaning: no mode change.
+  await page.keyboard.press("Alt+ArrowRight");
+  await page.keyboard.press("ControlOrMeta+ArrowRight");
+  await expect(bookmarks).toHaveAttribute("aria-selected", "true");
+  // The tabs control the mode's sections.
+  const panel = page.getByRole("tabpanel");
+  await expect(panel).toHaveAttribute("id", (await bookmarks.getAttribute("aria-controls"))!);
+  await expect(panel.getByRole("navigation", { name: "Sections" })).toBeVisible();
+  // Home on the chosen tab chooses nothing: Settings stays open.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.locator("section[data-settings-group]").first()).toBeVisible();
+  await bookmarks.focus();
+  await page.keyboard.press("Home");
+  await expect(bookmarks).toBeFocused();
+  await expect(page.locator("section[data-settings-group]").first()).toBeVisible();
+});
+
 test("the card spreads over the list with E; at the end of a post Next story and Previous story move on and back", async ({ page }) => {
   await open(page);
   await openFeeds(page);

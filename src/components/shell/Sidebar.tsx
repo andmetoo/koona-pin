@@ -19,7 +19,7 @@ import { capabilities } from "../../platform/capabilities";
 import { shortcut } from "../../services/keys";
 import { savePreference, storedValue } from "../../services/preferences";
 import { ClipIcon, Icon, InboxTray, Mascot } from "../icons";
-import { Dot } from "../ui/Controls";
+import { Dot, rovingKey } from "../ui/Controls";
 import { Hint } from "../ui/Hint";
 import { AppNotification, NotificationCenter } from "./NotificationCenter";
 import { Menu } from "../ui/Menu";
@@ -293,6 +293,8 @@ export function Sidebar(props: SidebarProps) {
   const tagsFolded = folds.isFolded("tags");
   const feedsId = useId();
   const feedsFolded = folds.isFolded("feeds");
+  /** The mode's sections, the tab panel of the mode switch. */
+  const sectionsPanel = useId();
   const feeds = props.feeds ?? [];
   const unread = feeds.reduce((sum, f) => sum + f.unread, 0);
   /** A feed's row menu, from its «…» only: the sidebar has no right-click menus (share-bundle.md, M6). */
@@ -395,7 +397,8 @@ export function Sidebar(props: SidebarProps) {
               data-new-link={feedsMode ? undefined : true}
               data-follow-site={feedsMode || undefined}
               onClick={primary.onClick}
-              className="flex size-9 items-center justify-center rounded-full bg-ink-btn text-on-ink-btn shadow-[0_1px_2px_rgb(0_0_0/0.2),inset_0_1px_0_rgb(255_255_255/0.12)] transition-colors duration-150 hover:bg-ink-btn-hover"
+              // The same key, round; it keeps the «+»: the mode button above shows the other mode's icon.
+              className="sidebar-key flex size-9 items-center justify-center rounded-full"
             >
               <Icon icon={Plus} size={17} strokeWidth={2} />
             </button>
@@ -545,23 +548,28 @@ export function Sidebar(props: SidebarProps) {
         <span className="flex-1 self-stretch" data-tauri-drag-region />
         <NotificationCenter items={props.notifications} place="below" onClearAll={props.onClearNotifications} onOpen={props.onOpenUrl} />
       </div>
-      <ModeSwitch mode={props.mode} unread={unread} onMode={props.onMode} />
+      <ModeSwitch mode={props.mode} unread={unread} onMode={props.onMode} panel={sectionsPanel} />
       <button
         type="button"
         aria-keyshortcuts="Control+N Meta+N"
         data-new-link={feedsMode ? undefined : true}
         data-follow-site={feedsMode || undefined}
         onClick={primary.onClick}
-        className="mb-2.5 flex h-9 w-full shrink-0 items-center justify-between gap-2 rounded-[10px] bg-ink-btn pr-2 pl-3 text-left text-sm font-semibold text-on-ink-btn shadow-[0_1px_2px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.1)] transition-colors duration-150 hover:bg-ink-btn-hover"
+        // The key (2026-11-17): green ink, the app's own clip (a feed's arcs in Feeds) for a «+».
+        className="sidebar-key mb-2.5 flex h-9 w-full shrink-0 items-center justify-between gap-2 rounded-[10px] pr-[7px] pl-3 text-left text-sm font-semibold"
       >
         <span className="flex min-w-0 items-center gap-2">
-          <Icon icon={Plus} size={15} strokeWidth={2} className="shrink-0" />
+          <Icon icon={feedsMode ? Rss : ClipIcon} size={15} className="shrink-0" />
           <span className="truncate">{primary.label}</span>
         </span>
-        <kbd aria-hidden className="shrink-0 font-sans text-2xs font-semibold opacity-60">
+        <kbd aria-hidden className="key-cap shrink-0 font-sans text-2xs font-semibold">
           {shortcut("N")}
         </kbd>
       </button>
+      {/* The panel the mode's tab controls: its sections and, in the scroll under them, its feeds or its
+          collections and tags. A box of its own (a `contents` panel drops out of older WebKit's tree)
+          that takes the column's rest as the scroll did. */}
+      <div role="tabpanel" id={sectionsPanel} aria-labelledby={`${sectionsPanel}-${props.mode}`} className="flex min-h-0 flex-1 flex-col gap-0.5">
       {feedsMode ? (
         <nav aria-label={t("sidebar.sections")} className="flex flex-col gap-0.5">
           <NavRow
@@ -822,6 +830,7 @@ export function Sidebar(props: SidebarProps) {
       <NavRow icon={<Icon icon={Settings} />} label={t("nav.settings")} active={settingsOpen} onClick={props.onSettings} plain />
       </div>
       </div>
+      </div>
     </aside>
   );
 }
@@ -1046,10 +1055,24 @@ function NameField({ suggested, count, color, onCreate, onCancel }: NewCollectio
 
 /**
  * The mode switch (2.24.0): Bookmarks and Feeds as two tabs in a well under the logo, the chosen one
- * raised; in the narrow strip, two icons. The Feeds tab has a dot for new posts while Bookmarks is shown.
- * `Ctrl 1` and `Ctrl 2` press them (app/shortcuts.ts).
+ * raised; in the narrow strip, one button to the other mode. The Feeds tab has a dot for new posts while
+ * Bookmarks is shown. `Ctrl 1` and `Ctrl 2` press them (app/shortcuts.ts); in the tablist ← → Home End
+ * move between them as tabs do (2026-11-17), with one tab in the Tab order.
  */
-function ModeSwitch({ mode, unread, onMode, strip = false }: { mode: Mode; unread: number; onMode: (mode: Mode) => void; strip?: boolean }) {
+function ModeSwitch({
+  mode,
+  unread,
+  onMode,
+  strip = false,
+  panel,
+}: {
+  mode: Mode;
+  unread: number;
+  onMode: (mode: Mode) => void;
+  strip?: boolean;
+  /** The id of the mode's sections, the panel the tabs control (`${panel}-${mode}` names each tab). */
+  panel?: string;
+}) {
   const { t } = useTranslation();
   const tabs = [
     { id: "bookmarks" as const, icon: ClipIcon, label: t("nav.all"), key: "1" },
@@ -1085,29 +1108,49 @@ function ModeSwitch({ mode, unread, onMode, strip = false }: { mode: Mode; unrea
       data-mode-switch={mode}
       // The tabs share the well by their labels' length («Bookmarks» is the longer); each sits in its
       // Hint's wrapper, so the wrappers grow and the buttons fill them.
-      className={strip ? "mb-2 flex flex-col gap-0.5 rounded-xl bg-well p-[3px]" : "mb-2.5 flex shrink-0 gap-0.5 rounded-[10px] bg-well p-[3px] [&>span]:min-w-0 [&>span]:flex-auto"}
+      className="mb-2.5 flex shrink-0 gap-0.5 rounded-[10px] bg-well p-[3px] [&>span]:min-w-0 [&>span]:flex-auto"
     >
-      {tabs.map((tab) => {
+      {tabs.map((tab, index) => {
         const on = mode === tab.id;
         const waiting = tab.id === "feeds" && !on && unread > 0;
         return (
-          <Hint key={tab.id} label={waiting ? `${tab.label}: ${t("feeds.newCount", { count: unread })}` : tab.label} keys={shortcut(tab.key)} side={strip ? "right" : "bottom"}>
+          <Hint key={tab.id} label={waiting ? `${tab.label}: ${t("feeds.newCount", { count: unread })}` : tab.label} keys={shortcut(tab.key)} side="bottom">
             <button
               type="button"
               role="tab"
+              id={panel && `${panel}-${tab.id}`}
               aria-selected={on}
-              aria-label={strip ? tab.label : undefined}
+              aria-controls={panel}
               aria-keyshortcuts={`Control+${tab.key} Meta+${tab.key}`}
+              tabIndex={on ? 0 : -1}
               onClick={() => onMode(tab.id)}
-              className={`relative flex items-center justify-center rounded-[7px] transition-[background-color,color,box-shadow] duration-150 ${
-                strip ? "size-[34px]" : "h-7 w-full min-w-0 gap-1.5 px-2 text-[13px]"
-              } ${on ? "bg-raised font-semibold text-ink shadow-segment" : "font-medium text-muted hover:text-ink"}`}
+              onKeyDown={(e) => {
+                const to = rovingKey(e, index, tabs.length);
+                // Home on the first tab, End on the last: nothing to choose. Choosing the chosen mode
+                // would take Settings or Duplicates back to the library (switchMode).
+                if (to === null || to === index) return;
+                onMode(tabs[to].id);
+                e.currentTarget.closest('[role="tablist"]')?.querySelectorAll<HTMLElement>('[role="tab"]')[to]?.focus();
+              }}
+              className={`relative flex h-7 w-full min-w-0 items-center justify-center rounded-[7px] px-2 text-[13px] transition-[background-color,color,box-shadow] duration-150 ${
+                on ? "bg-raised font-semibold text-ink shadow-segment" : "font-medium text-muted hover:text-ink"
+              }`}
             >
-              {/* Text alone in the sidebar: an icon beside «Обележивачи» left no room; the strip has only icons. */}
-              {strip ? <Icon icon={tab.icon} size={16} className={on ? "shrink-0 text-accent" : "shrink-0 text-icon"} /> : <span className="truncate">{tab.label}</span>}
-              {/* New posts: a dot, as in the strip; the number is in the hint and on Feeds' «All». A count
-                  pill left no room for «Обележивачи» or «ブックマーク» beside it. */}
-              {waiting && <span data-mode-new className={strip ? "absolute top-1.5 right-1.5 size-1.5 rounded-full bg-ink" : "size-1.5 shrink-0 rounded-full bg-ink"} />}
+              {/* Text alone: an icon beside «Обележивачи» left no room. The label never moves when the
+                  mode changes (2026-11-17): it always takes its semibold width (a hidden semibold copy
+                  under it), and the dot sits beside it out of the flow, so neither tab's share of the
+                  well depends on which one is chosen. The Feeds label keeps 12 px on each side in both
+                  states, counted in its tab's share, and the dot lies in the right one: it never leaves
+                  the tab and never cuts «フィード» or «Фидови» short. */}
+              <span className={`relative grid min-w-0 text-center ${tab.id === "feeds" ? "px-3" : ""}`}>
+                <span aria-hidden className="invisible col-start-1 row-start-1 truncate font-semibold">
+                  {tab.label}
+                </span>
+                <span className="col-start-1 row-start-1 truncate">{tab.label}</span>
+                {/* New posts: a dot, as in the strip; the number is in the hint and on Feeds' «All». A count
+                    pill left no room for «Обележивачи» or «ブックマーク» beside it. */}
+                {waiting && <span data-mode-new className="absolute top-1/2 right-0 size-1.5 -translate-y-1/2 rounded-full bg-ink" />}
+              </span>
             </button>
           </Hint>
         );
