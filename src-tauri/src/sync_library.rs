@@ -44,12 +44,19 @@ pub fn turn_on(conn: &Connection, replica: uuid::Uuid) -> koona_sync::Result<()>
 pub fn apply(conn: &Connection, groups: &[koona_sync::model::Group]) -> koona_sync::Result<koona_sync::Applied> {
     let tx = conn.unchecked_transaction()?;
     let deferred = db::IndexDeferred::new(&tx)?;
-    let applied = koona_sync::apply(&tx, groups)?;
+    let mut applied = koona_sync::apply(&tx, groups)?;
     deferred.finish()?;
     // A device of an older version may send a tag named as it read it
     // (`co`+U+00AD+`op`): it gets the name this one reads, or merges into the
     // tag that has it, as changes of this replica (`db::clean_tag_names`).
-    db::clean_tag_names(&tx)?;
+    // Only a batch that wrote a tag can bring such a name; one that only
+    // links bookmarks to tags here finds the names clean already.
+    if applied.structure_changed {
+        // Their tags read otherwise now: the interface shows them again.
+        let written: std::collections::HashSet<i64> = applied.bookmark_ids.iter().copied().collect();
+        let cleaned = db::clean_tag_names(&tx)?;
+        applied.bookmark_ids.extend(cleaned.bookmarks.into_iter().filter(|id| !written.contains(id)));
+    }
     tx.commit()?;
     Ok(applied)
 }
@@ -849,7 +856,7 @@ mod tests {
         assert_eq!(tag_state(&a), tag_state(&b));
 
         // At once, offline: `a` cleans, `b` tags Z with the «coop» that goes.
-        let (merged, tombstones) = recorded(&a, |a| assert_eq!(db::clean_tag_names(a).unwrap(), 3));
+        let (merged, tombstones) = recorded(&a, |a| assert_eq!(db::clean_tag_names(a).unwrap().tags, 3));
         let tag_uid = |n: u128| uuid::Uuid::from_u128(n).to_string();
         assert_eq!(tombstones, [(format!("tag {}", tag_uid(20)), Some(tag_uid(10)))].into());
         assert!(merged.contains(&(TAG, soft, 0)) && merged.contains(&(TAG, spaced, 0)), "the renames: {merged:?}");
@@ -880,7 +887,16 @@ mod tests {
         // The look-alike has the smaller uid: the clean name goes to it.
         let look_alike = old_tag(&old, 5, "we\u{AD}b");
         link(&old, X, look_alike);
-        send(&old, &new, apply_now);
+        // Y was not in the batch, but its tag is another one now: the interface hears of it.
+        let shown = std::cell::RefCell::new(Vec::new());
+        send(&old, &new, |conn, groups| {
+            let applied = apply_now(conn, groups);
+            assert!(applied.structure_changed);
+            shown.borrow_mut().extend(applied.bookmark_ids.clone());
+            applied
+        });
+        let y: i64 = new.query_row("SELECT id FROM bookmarks WHERE url = ?1", [Y], |r| r.get(0)).unwrap();
+        assert!(shown.borrow().contains(&y), "{:?}", shown.borrow());
         let expected = vec![(uuid::Uuid::from_u128(5).to_string(), "web".to_string(), format!("{X} {Y}"))];
         assert_eq!(tag_state(&new), expected);
         settle(&new, apply_now, &old, apply_as_before);
@@ -895,8 +911,8 @@ mod tests {
         link(&c, X, dirty);
         link(&c, Y, clean);
         send(&c, &d, apply_as_before);
-        assert_eq!(db::clean_tag_names(&c).unwrap(), 2);
-        assert_eq!(db::clean_tag_names(&d).unwrap(), 2);
+        assert_eq!(db::clean_tag_names(&c).unwrap().tags, 2);
+        assert_eq!(db::clean_tag_names(&d).unwrap().tags, 2);
         settle(&c, apply_now, &d, apply_now);
         let expected = vec![(uuid::Uuid::from_u128(40).to_string(), "rust".to_string(), format!("{X} {Y}"))];
         assert_eq!((tag_state(&c), tag_state(&d)), (expected.clone(), expected));

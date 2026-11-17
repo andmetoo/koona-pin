@@ -473,6 +473,28 @@ mod tests {
         copy_of(c)
     }
 
+    /// A copy made by an older version may name tags as it read them: a
+    /// merge restore names them as they are read now, a name with nothing
+    /// visible makes no tag, and a look-alike is the tag the library has.
+    #[test]
+    fn a_merge_restore_names_tags_as_they_are_read_now() {
+        let source = library();
+        let tokio: i64 = source.query_row("SELECT id FROM bookmarks WHERE url = 'https://tokio.rs/'", [], |r| r.get(0)).unwrap();
+        source.execute("UPDATE tags SET name = 'ru\u{AD}st' WHERE name = 'rust'", []).unwrap();
+        source.execute("INSERT INTO tags (uid, name, created_at) VALUES (?1, '\u{200B}', '2025-01-01T00:00:00.000Z')", [db::new_uid()]).unwrap();
+        source.execute("INSERT INTO bookmark_tags (bookmark_id, tag_id) VALUES (?1, ?2)", [tokio, source.last_insert_rowid()]).unwrap();
+        let text = copy_of(&source);
+        let target = database();
+        db::insert_or_update_bookmark(&target, "https://other.example/", "Other", None, None, None, "other.example", None, Some(&["rust".into()]), db::Source::App)
+            .unwrap();
+        restore(&target, &check(&text).unwrap(), RestoreMode::Merge, &folder()).unwrap();
+        let names: Vec<String> =
+            target.prepare("SELECT name FROM tags ORDER BY name").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+        assert_eq!(names, ["async", "rust"]);
+        let tokio = db::get_bookmarks(&target, &db::BookmarkQuery { search: Some("tokio".into()), ..Default::default() }).unwrap().items.remove(0);
+        assert_eq!(tokio.tags.unwrap(), ["rust", "async"]);
+    }
+
     #[test]
     fn export_then_restore_into_an_empty_library_gives_the_same_library() {
         let source = library();

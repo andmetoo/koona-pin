@@ -311,8 +311,17 @@ pub fn tag_name(raw: &str) -> Option<String> {
     crate::lists::format::line(&raw.to_lowercase(), usize::MAX)
 }
 
+/// What [`clean_tag_names`] changed.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct CleanedTags {
+    /// Tags renamed, merged away or removed.
+    pub tags: usize,
+    /// The bookmarks that had any of them, in id order: their tags read differently now.
+    pub bookmarks: Vec<i64>,
+}
+
 /// Gives every stored tag the name [`tag_name`] gives it, in the caller's
-/// transaction; returns how many tags were renamed or merged away. Tags
+/// transaction. Tags
 /// saved before names were read this way, synced from a device of an older
 /// version or brought back by an older backup may hold characters nobody
 /// sees: a `co`+U+00AD+`op` that looks like `coop` and is not found by it.
@@ -332,9 +341,12 @@ pub fn tag_name(raw: &str) -> Option<String> {
 ///
 /// Nothing goes back and forth: a clean name stays clean, and an older
 /// device writes a dirty one only when a person or an older list gives it.
-/// A tag left with no visible name stays: it looks like no other, and
-/// deleting a person's tags is not this function's to do.
-pub fn clean_tag_names(conn: &Connection) -> Result<usize> {
+///
+/// A tag with no visible name left (only U+200B, say) is no tag, as a new
+/// write of that name makes none and a restore brings none back: it goes,
+/// taken off its bookmarks, a deleted tag for sync like any other (a purge
+/// that comes again from an older device goes again on arrival).
+pub fn clean_tag_names(conn: &Connection) -> Result<CleanedTags> {
     // Stored names are trimmed and lowercased; cleaning changes only one with
     // a character outside printable ASCII or two spaces in a row, unless it
     // came in some other way. Most libraries have few or none.
@@ -346,13 +358,30 @@ pub fn clean_tag_names(conn: &Connection) -> Result<usize> {
         )?
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
         .collect::<Result<_>>()?;
+    let mut cleaned = CleanedTags::default();
+    if dirty.is_empty() {
+        return Ok(cleaned);
+    }
+    let mut bookmarks = std::collections::BTreeSet::new();
+    let mut note_bookmarks = |tag: i64| -> Result<()> {
+        let mut statement = conn.prepare_cached("SELECT bookmark_id FROM bookmark_tags WHERE tag_id = ?1")?;
+        for id in statement.query_map([tag], |r| r.get::<_, i64>(0))? {
+            bookmarks.insert(id?);
+        }
+        Ok(())
+    };
     let mut groups: std::collections::BTreeMap<String, Vec<(i64, String)>> = Default::default();
     for (id, uid, name) in dirty {
-        if let Some(clean) = tag_name(&name).filter(|clean| *clean != name) {
-            groups.entry(clean).or_default().push((id, uid));
+        match tag_name(&name) {
+            Some(clean) if clean == name => {}
+            Some(clean) => groups.entry(clean).or_default().push((id, uid)),
+            None => {
+                note_bookmarks(id)?;
+                conn.prepare_cached("DELETE FROM tags WHERE id = ?1")?.execute([id])?;
+                cleaned.tags += 1;
+            }
         }
     }
-    let mut changed = 0;
     for (clean, mut tags) in groups {
         let exact: Option<(i64, String)> = conn
             .prepare_cached("SELECT id, uid FROM tags WHERE name = ?1")?
@@ -365,6 +394,9 @@ pub fn clean_tag_names(conn: &Connection) -> Result<usize> {
             let parsed = uuid::Uuid::parse_str(uid).ok();
             (parsed.is_none(), parsed, uid.clone())
         });
+        for (tag, _) in &tags {
+            note_bookmarks(*tag)?;
+        }
         let (survivor, survivor_uid) = tags[0].clone();
         for (loser, loser_uid) in &tags[1..] {
             conn.prepare_cached(
@@ -377,13 +409,14 @@ pub fn clean_tag_names(conn: &Connection) -> Result<usize> {
             // With sync on the delete left a tombstone of this device; it says where the tag went.
             conn.prepare_cached("UPDATE tombstones SET merged_into = ?2 WHERE uid = ?1 AND kind = 'tag'")?
                 .execute(params![loser_uid, survivor_uid])?;
-            changed += 1;
+            cleaned.tags += 1;
         }
-        changed += conn
+        cleaned.tags += conn
             .prepare_cached("UPDATE tags SET name = ?1 WHERE id = ?2 AND name <> ?1")?
             .execute(params![clean, survivor])?;
     }
-    Ok(changed)
+    cleaned.bookmarks = bookmarks.into_iter().collect();
+    Ok(cleaned)
 }
 
 fn tag_id(conn: &Connection, name: &str, now: &str) -> Result<i64> {
@@ -1481,9 +1514,9 @@ pub(crate) fn bulk_in(conn: &Connection, ids: &[i64], bulk: &Bulk) -> Result<(us
     // A new tag is only looked up here and created below, once a bookmark
     // gets it: an action that changes nothing leaves no empty tag behind.
     let tag_name = match bulk {
-        // A name with nothing visible in it tags nothing.
+        // A name with nothing visible in it tags nothing: the action applies to none.
         Bulk::Tag(name) => match tag_name(name) {
-            None => return Ok((count as usize, Vec::new())),
+            None => return Ok((0, Vec::new())),
             clean => clean,
         },
         _ => None,
@@ -2949,7 +2982,8 @@ mod tests {
         assert_eq!(b.tags.unwrap(), ["coop"]);
         set_tags(&conn, b.id, &["co\u{200B}op".into(), "we\u{AD}b".into()], &now()).unwrap();
         bulk_in(&conn, &[b.id], &Bulk::Tag("Ru\u{AD}st ".into())).unwrap();
-        bulk_in(&conn, &[b.id], &Bulk::Tag("\u{AD}".into())).unwrap();
+        let (count, changed) = bulk_in(&conn, &[b.id], &Bulk::Tag("\u{AD}".into())).unwrap();
+        assert_eq!((count, changed.len()), (0, 0), "applies to none");
         assert_eq!(get_bookmark_by_id(&conn, b.id).unwrap().tags.unwrap(), ["coop", "web", "rust"]);
         let names: Vec<String> = tag_rows(&conn).into_iter().map(|(_, name)| name).collect();
         assert_eq!(names, ["coop", "rust", "web"]);
@@ -2971,26 +3005,26 @@ mod tests {
         link(ids[1], clean);
         link(ids[2], zero);
         link(ids[2], clean);
-        // Only a rename; and what has nothing visible left, or is clean, stays.
+        // Only a rename; what has nothing visible left goes; what is clean stays.
         let spaced = old_tag(&conn, 4, "open  source");
         link(ids[0], spaced);
-        old_tag(&conn, 5, "\u{200B}");
+        let invisible = old_tag(&conn, 5, "\u{200B}");
+        link(ids[1], invisible);
         old_tag(&conn, 6, "👩\u{200D}💻");
         assert!(found(&conn, "coop").len() < 3);
 
-        assert_eq!(clean_tag_names(&conn).unwrap(), 4, "two merged away, two renamed");
+        let cleaned = clean_tag_names(&conn).unwrap();
+        assert_eq!(cleaned, CleanedTags { tags: 5, bookmarks: ids.clone() }, "two merged away, two renamed, one gone");
         let uid = |n: u128| uuid::Uuid::from_u128(n).to_string();
-        assert_eq!(
-            tag_rows(&conn),
-            [(uid(1), "coop".into()), (uid(4), "open source".into()), (uid(5), "\u{200B}".into()), (uid(6), "👩\u{200D}💻".into())]
-        );
+        assert_eq!(tag_rows(&conn), [(uid(1), "coop".into()), (uid(4), "open source".into()), (uid(6), "👩\u{200D}💻".into())]);
+        assert_eq!(get_bookmark_by_id(&conn, ids[1]).unwrap().tags.unwrap(), ["coop"]);
         let mut coop = found(&conn, "coop");
         coop.sort();
         assert_eq!(coop, ids, "search finds every one by the name typed");
         for id in &ids {
             assert_eq!(get_bookmark_by_id(&conn, *id).unwrap().tags.unwrap().iter().filter(|t| *t == "coop").count(), 1);
         }
-        assert_eq!(clean_tag_names(&conn).unwrap(), 0, "the second time finds nothing");
+        assert_eq!(clean_tag_names(&conn).unwrap(), CleanedTags::default(), "the second time finds nothing");
     }
 
     /// The whole list in one page.
