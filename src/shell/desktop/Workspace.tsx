@@ -48,7 +48,7 @@ import { Banner, Toast } from "../../components/ui/Notices";
 import { DropZone } from "../../components/shell/DropZone";
 import { Sidebar } from "../../components/shell/Sidebar";
 import { Toolbar } from "../../components/shell/Toolbar";
-import { PageTitle, pageInset, pageRow, pageTop } from "../../components/shell/PageTitle";
+import { PageTitle, pageInset, pageRow, pageScrollInset, pageTop, panelScrollInset } from "../../components/shell/PageTitle";
 import { HelpLink } from "../../components/ui/HelpLink";
 
 /**
@@ -457,6 +457,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     />
   );
   const padding = pageInset(narrow);
+  const scrollPadding = pageScrollInset(narrow);
   /** The second paragraph of «Delete collection?» when it has children (2.19.0, frame N6): they move up. */
   const deleteChildren = (c: Collection) =>
     childrenMoveUp(t, i18n.language, (findNode(collectionTree, c.id)?.children ?? []).map((n) => n.item.name));
@@ -554,7 +555,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
                   </div>
                 </div>
                 {/* The groups fade in under the title as the sidebar's middle does (2.17.1), not cut at a hard edge. */}
-                <div data-drop-area className={`scroll-fade pane-scroll min-h-0 flex-1 overflow-y-auto pt-3.5 ${padding}`}>
+                <div data-drop-area className={`scroll-fade pane-scroll min-h-0 flex-1 overflow-y-auto pt-3.5 ${scrollPadding}`}>
                   <SettingsPage
                     theme={theme}
                     onTheme={setTheme}
@@ -633,7 +634,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
             ) : page === "duplicates" ? (
               <DuplicatesPage
                 collections={library.collections}
-                padding={padding}
+                narrow={narrow}
                 onMerged={(merged) => setNotice({ text: mergedNotice(t, merged), alert: false, undo: undoing(merged.command) })}
                 onHidden={(key, ids) =>
                   setNotice({
@@ -650,7 +651,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
             ) : page === "links" ? (
               <LinkCheckPage
                 collections={library.collections}
-                padding={padding}
+                narrow={narrow}
                 onOpen={actions.open}
                 onDone={(text, alert, command) => setNotice({ text, alert, undo: alert ? undefined : undoing(command) })}
                 onFailed={sayAlert}
@@ -658,6 +659,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
             ) : triage ? (
               <Triage
                 collections={library.collections}
+                narrow={narrow}
                 blocked={!!editing || surface !== null || !!purging || !!deletingCollection}
                 notify={(next) => setNotice(next && { alert: false, ...next })}
                 onOpen={actions.open}
@@ -821,7 +823,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
                   data-scroll="main"
                   data-drop-area
                   style={{ paddingTop: headHeight + 7, scrollPaddingTop: headHeight + 8 }}
-                  className={`min-h-0 flex-1 overflow-y-auto pane-scroll ${padding} ${selecting ? "pb-[120px]" : "pb-8"}`}
+                  className={`min-h-0 flex-1 overflow-y-auto pane-scroll ${scrollPadding} ${selecting ? "pb-[120px]" : "pb-8"}`}
                 >
                   {content}
                 </div>
@@ -852,7 +854,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
             )}
           </main>
           {editing && wide && (
-            <aside className="w-[380px] shrink-0 animate-appear overflow-y-auto pane-scroll border-l border-border bg-card p-6" aria-label={t("editor.label")}>
+            <aside className={`w-[380px] shrink-0 animate-appear overflow-y-auto pane-scroll border-l border-border bg-card py-6 ${panelScrollInset}`} aria-label={t("editor.label")}>
               <header className="mb-5 flex items-center justify-between">
                 <h2 className="text-lg font-semibold">{t("editor.label")}</h2>
                 <span className="flex items-center gap-1.5">

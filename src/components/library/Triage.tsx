@@ -11,7 +11,7 @@ import { Bookmark, BookmarkPage, Changed, Collection, PageCursor, Suggestion } f
 import { Icon } from "../icons";
 import { Hint } from "../ui/Hint";
 import { BookmarkChanges } from "./BookmarkEditor";
-import { PageTitle, pageRow, pageTop } from "../shell/PageTitle";
+import { PageTitle, pageRow, pageScrollInset, pageTop } from "../shell/PageTitle";
 import { Preview, SiteMark } from "./Bookmarks";
 import { TagField } from "./Fields";
 
@@ -123,6 +123,7 @@ export function Triage({
   onFinish,
   onLibrary,
   noticeUp = false,
+  narrow = false,
 }: {
   collections: Collection[];
   /** The editor, a dialog or a menu is open: the keys wait. */
@@ -136,6 +137,8 @@ export function Triage({
   onLibrary: () => void;
   /** The app's own notice is at the bottom: the undo toast steps aside for it. */
   noticeUp?: boolean;
+  /** A narrow window: the page's inset of 24 px, not 32. */
+  narrow?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const [queue, setQueue] = useState<Queue | null>(null);
@@ -531,7 +534,7 @@ export function Triage({
 
   return (
     <section aria-label={t("triage.title")} className="relative flex min-h-0 flex-1 flex-col">
-      <div className={`min-h-0 flex-1 overflow-x-hidden overflow-y-auto pane-scroll px-8 ${pageTop} pb-24`}>
+      <div className={`min-h-0 flex-1 overflow-x-hidden overflow-y-auto pane-scroll ${pageScrollInset(narrow)} ${pageTop} pb-24`}>
         <div className="sort-col flex flex-col gap-[18px]">
           {/* The column stays centred, but its title stands on the line and in the type of every page's (PageTitle).
               The steps and Finish go together: when the row runs short the steps narrow first; when even narrowed

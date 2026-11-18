@@ -11,17 +11,29 @@ import type { ReactNode } from "react";
 export const pageInset = (narrow: boolean) => (narrow ? "px-6" : "px-8");
 /** The start side alone, for a column whose far edge follows its own rows (the feed list). */
 export const pageInsetStart = (narrow: boolean) => (narrow ? "pl-6" : "pl-8");
+/*
+ * On a pane that scrolls (`.pane-scroll`) the far side gives up what the scrollbar keeps there,
+ * `--scrollbar-room` (2.25.3, measured by services/scrollbarRoom.ts: 8 px on Windows and Linux, none for a
+ * Mac's overlay bars, about 15 for its classic ones), so the content ends where the toolbar above it does and
+ * a centred column stays centred. Whole class names, for Tailwind to find.
+ */
+const END_20 = "pr-[max(0px,calc(1.25rem_-_var(--scrollbar-room)))]";
+const END_24 = "pr-[max(0px,calc(1.5rem_-_var(--scrollbar-room)))]";
+const END_32 = "pr-[max(0px,calc(2rem_-_var(--scrollbar-room)))]";
+/** The page's inset on a pane that scrolls: the library, Settings, Duplicates, Link check, Sort inbox, reading mode. */
+export const pageScrollInset = (narrow: boolean) => (narrow ? `pl-6 ${END_24}` : `pl-8 ${END_32}`);
+/** 24 px on both sides of a pane that scrolls: the bookmark editor, the reading sheet. */
+export const panelScrollInset = `pl-6 ${END_24}`;
+/** The feed article's column: 24 px, 64 from the `sm` width up. */
+export const articleScrollInset = `pl-6 ${END_24} sm:pl-16 sm:pr-[max(0px,calc(4rem_-_var(--scrollbar-room)))]`;
 /**
  * A list whose rows are cards reaching 12 px past their text (the feed list, 2.25.2): its start side stands
  * 12 px less far in than the page's, so the text under the title starts where the title does and the card's
  * edge hangs out. Kept beside `pageInsetStart`: change one, change the other.
  */
 export const listInsetStart = (narrow: boolean) => (narrow ? "pl-3" : "pl-5");
-/**
- * The far side of such a list, scrolled in a `.pane-scroll`: 12 px, and the 8 px the scrollbar keeps make the
- * header's 20. A Mac's overlay scrollbar keeps none (app.css), so there the list takes all 20 itself.
- */
-export const listInsetEnd = "pr-3 [[data-mac]_&]:pr-5";
+/** The far side of such a list, scrolled in a `.pane-scroll`: the header's 20 px, the scrollbar's room included. */
+export const listInsetEnd = END_20;
 /** From the window bar to the title row. */
 export const pageTop = "pt-2";
 /** The title row: the title and whatever stands beside it, centred in 36 px. */

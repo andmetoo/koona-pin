@@ -1,4 +1,5 @@
 import { createContext, KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { pageScrollInset } from "../shell/PageTitle";
 import { ArrowUpRight, BookOpen, BookX, Check, ChevronDown, LucideIcon, Menu as MenuIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Bookmark, OfflineCopy } from "../../types";
@@ -395,7 +396,7 @@ export function ReadingMode({
             e.preventDefault();
             focusQueue();
           }}
-          className={`min-h-0 flex-1 overflow-y-auto pane-scroll outline-offset-[-2px] ${narrow ? "scroll-pt-[72px] px-6 pt-20" : "scroll-pt-[74px] px-8 pt-24"} pb-24`}
+          className={`min-h-0 flex-1 overflow-y-auto pane-scroll outline-offset-[-2px] ${pageScrollInset(narrow)} ${narrow ? "scroll-pt-[72px] pt-20" : "scroll-pt-[74px] pt-24"} pb-24`}
         >
           {current ? (
             <ArticleView
