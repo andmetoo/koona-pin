@@ -8,7 +8,7 @@ publish = false
 
 [dependencies]
 # The same rusqlite as the app: one bundled SQLite links into the binary.
-rusqlite = { version = "0.32", features = ["bundled", "functions"] }
+rusqlite = { version = "0.41", features = ["bundled", "functions"] }
 # X25519, Ed25519, HKDF and ChaCha20-Poly1305; already in the tree through rustls and the app.
 ring = "0.17"
 serde = { version = "1.0", features = ["derive"] }

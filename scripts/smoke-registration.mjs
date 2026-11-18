@@ -142,10 +142,12 @@ try {
   await cp(built.unpacked.firefox, extension, { recursive: true });
   await appendFile(path.join(extension, "worker.js"), "\next.runtime.openOptionsPage();\n");
   let output = "";
+  // BiDi's `webExtension.install` needs system access: the flag up to Firefox 159, the variable since
+  // Firefox 160 (Fedora's); both, so ESR and the newest take them.
   firefox = spawn(
     firefoxPath,
     ["--headless", "--no-remote", "--profile", profile, "--remote-debugging-port", "0", "--remote-allow-system-access"],
-    { env, stdio: ["ignore", "pipe", "pipe"] },
+    { env: { ...env, MOZ_REMOTE_ALLOW_SYSTEM_ACCESS: "1" }, stdio: ["ignore", "pipe", "pipe"] },
   );
   firefox.stdout.on("data", (chunk) => (output += chunk));
   firefox.stderr.on("data", (chunk) => (output += chunk));

@@ -1,4 +1,5 @@
 import { MutableRefObject, useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import type { TFunction } from "i18next";
 import { failureText } from "../components/reader/ArticleView";
 import type { ReadingSource } from "../components/reader/ReadingMode";
@@ -113,10 +114,15 @@ export function useReading(
     return rect && rect.width ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : null;
   }, []);
   const closeReading = useCallback(() => {
-    setReading(null);
-    setReadingCovers(false);
+    // Committed at once, so the library is no longer inert or hidden when it takes the focus: this runs
+    // from the drop's `onfinish`, outside React, and a frame later is not enough (Chromium 159 runs that
+    // frame before React's own task).
+    flushSync(() => {
+      setReading(null);
+      setReadingCovers(false);
+    });
     // Back where the person was: the toolbar's «Read» or the card a link was followed from.
-    requestAnimationFrame(() => (readingFocus.current?.isConnected ? readingFocus.current : readButton.current)?.focus({ preventScroll: true }));
+    (readingFocus.current?.isConnected ? readingFocus.current : readButton.current)?.focus({ preventScroll: true });
   }, []);
 
   /** The sheet's bookmarks as the list has them now: a heart set in the sheet shows there too. */

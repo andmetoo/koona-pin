@@ -121,8 +121,16 @@ function checkWryClient() {
   const watch = readFileSync(path.join(root, "src-tauri", "plugins", "koona-mobile", "android", "src", "main", "java",
     "app", "koona", "pin", "mobile", "KoonaMobilePlugin.kt"), "utf8");
   const overrides = (text) => new Set([...text.matchAll(/override fun (\w+)\(/g)].map((m) => m[1]));
-  const forwarded = overrides(watch.slice(watch.indexOf("class RendererWatch")));
-  const missing = [...overrides(client)].filter((name) => !forwarded.has(name));
+  // One class's body, up to its closing brace at the start of a line: wry 0.57.2 put an InputStream
+  // of its own (`SkippedPrefixInputStream`, with its `read` and `skip`) after the client in the same file.
+  const body = (text, name) => {
+    const start = text.indexOf(`class ${name}`);
+    if (start < 0) throw new Error(`No class ${name}`);
+    const end = text.indexOf("\n}", start);
+    return text.slice(start, end < 0 ? undefined : end);
+  };
+  const forwarded = overrides(body(watch, "RendererWatch"));
+  const missing = [...overrides(body(client, "RustWebViewClient"))].filter((name) => !forwarded.has(name));
   if (missing.length) throw new Error(`wry ${wry.version}'s RustWebViewClient overrides ${missing.join(", ")}, which RendererWatch does not forward`);
   console.log(`RendererWatch forwards every override of wry ${wry.version}'s RustWebViewClient`);
 }

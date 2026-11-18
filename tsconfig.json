@@ -2,9 +2,11 @@
   "compilerOptions": {
     "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "ES2022.Intl", "DOM", "DOM.Iterable"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
+    /* The tests read files with node:fs; tsconfig.app.json checks the app itself without Node. */
+    "types": ["node"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",

@@ -4,7 +4,7 @@
 FROM debian:13
 
 # The Playwright of bun.lock (images.mjs fails when they differ): Chrome for Testing's system libraries.
-ENV PLAYWRIGHT_VERSION=1.63.0
+ENV PLAYWRIGHT_VERSION=1.65.1
 
 COPY .bun-version /ci/
 COPY scripts/linux/ci-runtime.sh scripts/linux/ci-webkitgtk.sh scripts/linux/bun.sh /ci/scripts/linux/

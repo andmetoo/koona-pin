@@ -17,8 +17,7 @@ export const TERMS_URL = "https://koona.app/pin/terms";
 export const PRIVACY_URL = "https://koona.app/pin/privacy";
 
 /** The sheet's words that name the store: the App Store build has its own for these. */
-const STORE_WORDS = new Set(["renews", "notAvailable", "offerFailed", "emailText", "pending", "pendingText", "alreadyText", "otherText", "ownerText", "suspendedText", "suspendedTerms"]);
-const storeKey = (channel: StoreChannel, key: string) => `phone.supporter.${channel === "appstore" && STORE_WORDS.has(key) ? "appstore" : "play"}.${key}`;
+type StoreWord = "renews" | "notAvailable" | "offerFailed" | "emailText" | "pending" | "pendingText" | "alreadyText" | "otherText" | "ownerText" | "suspendedText" | "suspendedTerms";
 
 export type SupporterSheetProps = Record<string, never>;
 
@@ -265,7 +264,7 @@ function PlaySheet({ channel }: { channel: StoreChannel }) {
   const formId = useId();
   const purchase = usePlayPurchase(supporter, channel);
   const { step, error, busy, offer, offerFailed, askOffer, last, kept, retry, buy, email, setEmail, claim, code, setCode, verify, resend, wait, anotherEmail, codeReady, suspended, fixPayment, restore } = purchase;
-  const words = (key: string, options?: Record<string, string>) => t(storeKey(channel, key) as "phone.supporter.play.renews", options);
+  const words = (key: StoreWord) => (channel === "appstore" ? t(`phone.supporter.appstore.${key}`) : t(`phone.supporter.play.${key}`));
   const apple = channel === "appstore";
   const signIn = () => setSurface("signIn");
 
