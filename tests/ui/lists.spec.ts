@@ -8,7 +8,7 @@ import { dropPoint, openApp } from "../fixtures/app";
 // through openRequests as the entry points send it; the demo previews and imports, and tests
 // replace the download, which the preview cannot do.
 const here = path.dirname(fileURLToPath(import.meta.url));
-const kpin = (name: string) => readFileSync(path.join(here, "..", "..", "src-tauri", "tests", "fixtures", "kpin", name), "utf8");
+const kpin = (name: string) => readFileSync(path.join(here, "..", "..", "docs", "kpin", "conformance", "lists", name), "utf8");
 const dialog = (page: Page) => page.getByRole("dialog", { name: "Import list" });
 
 /** Hands the dialog a request, as a drop, a file the system opened or a link would; whether it was taken. */

@@ -551,7 +551,8 @@ fn bookmarks_of_tag(conn: &Connection, tag: i64) -> Result<(Vec<String>, usize)>
         .prepare_cached("SELECT b.uid FROM bookmark_tags bt JOIN bookmarks b ON b.id = bt.bookmark_id WHERE bt.tag_id = ?1 ORDER BY b.id LIMIT ?2")?
         .query_map(params![tag, TAG_CLEANUP_BOOKMARKS as i64], |r| r.get(0))?
         .collect::<Result<_>>()?;
-    let all: usize = conn.prepare_cached("SELECT count(*) FROM bookmark_tags WHERE tag_id = ?1")?.query_row([tag], |r| r.get(0))?;
+    let all: i64 = conn.prepare_cached("SELECT count(*) FROM bookmark_tags WHERE tag_id = ?1")?.query_row([tag], |r| r.get(0))?;
+    let all = usize::try_from(all).unwrap_or(0);
     let more = all - named.len();
     Ok((named, more))
 }
