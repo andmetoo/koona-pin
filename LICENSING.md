@@ -14,7 +14,7 @@ This licensing change applies to revisions carrying these notices. It does not w
 
 ## The `.kpin` list format: CC0
 
-The specification of the `.kpin` list format, its JSON Schema and its examples in [`docs/kpin/`](docs/kpin/README.md) are dedicated to the public domain under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/), so that any tool can implement the format. The app's code that reads and writes it stays under the GPL.
+Everything in [`docs/kpin/`](docs/kpin/README.md) (the specification of the `.kpin` list format, its JSON Schema, its examples and its conformance suite of files and test vectors) is dedicated to the public domain under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/), so that any tool can implement the format; [`docs/kpin/LICENSE.md`](docs/kpin/LICENSE.md) says so in the folder. The app's code that reads and writes the format, and the tests that run the suite (`src-tauri/src/lists/conformance.rs`, `tests/kpin-conformance.ts`), stay under the GPL.
 
 ## Commercial code
 

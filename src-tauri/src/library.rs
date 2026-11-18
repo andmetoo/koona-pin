@@ -170,7 +170,23 @@ pub fn open_with(
     )?;
     // New sort keys in the language of the stored ones (NP-114).
     crate::sorting::apply_stored_language(&conn).map_err(|e| OpenFailure::sqlite(e, paths))?;
+    // Tag names as they are read now, every time: no schema step, since names
+    // keep coming from older devices and backups, and an older build still
+    // opens the library. What a merge or a removal did is kept in the
+    // library's own record (`db::TAG_CLEANUP_LOG`), as wherever the cleaning
+    // runs. A failure leaves the names as they were.
+    if let Err(error) = clean_tag_names(&conn) {
+        eprintln!("The tag names were not cleaned: {error}");
+    }
     Ok(Opened { conn, moved_aside })
+}
+
+/// [`db::clean_tag_names`] in a transaction of its own.
+fn clean_tag_names(conn: &Connection) -> rusqlite::Result<usize> {
+    let tx = conn.unchecked_transaction()?;
+    let changed = db::clean_tag_names(&tx)?;
+    tx.commit()?;
+    Ok(changed)
 }
 
 pub fn configure(conn: &Connection) -> rusqlite::Result<()> {
@@ -547,6 +563,11 @@ pub fn restore_into(
                 let _ = crate::sync_library::register(conn);
             }
         }
+        // An older copy may bring back tag names as they were read then;
+        // with sync on, after the baseline, so the cleaning is a change of its own.
+        if let Err(error) = clean_tag_names(conn) {
+            eprintln!("The tag names of the restored library were not cleaned: {error}");
+        }
         Ok(Restored { bookmarks, previous })
     })();
     discard(&prepared);
@@ -880,6 +901,50 @@ mod tests {
                     .collect()
             })
             .unwrap_or_default()
+    }
+
+    /// A tag named as an older version read it, on the first bookmark.
+    fn dirty_tag(conn: &Connection, name: &str) {
+        conn.execute("INSERT INTO tags (uid, name, created_at) VALUES (?1, ?2, '2025-01-01T00:00:00.000Z')", [db::new_uid(), name.to_string()])
+            .unwrap();
+        conn.execute("INSERT INTO bookmark_tags (bookmark_id, tag_id) SELECT min(id), ?1 FROM bookmarks", [conn.last_insert_rowid()])
+            .unwrap();
+    }
+
+    fn tag_names(conn: &Connection) -> Vec<String> {
+        conn.prepare("SELECT t.name FROM tags t JOIN bookmark_tags bt ON bt.tag_id = t.id WHERE t.name LIKE 'co%op' ORDER BY t.name")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect()
+    }
+
+    /// Tag names come clean out of an open and out of a restore of a copy
+    /// made while they were not (`db::clean_tag_names`).
+    #[test]
+    fn tag_names_are_cleaned_at_open_and_after_a_restore() {
+        let paths = library("clean-tags");
+        build(&paths, 5);
+        let mut conn = open(&paths).unwrap().conn;
+        dirty_tag(&conn, "co\u{AD}op");
+        let copy = back_up_now(&paths, Utc::now()).unwrap();
+        assert_eq!(tag_names(&conn), ["co\u{AD}op"]);
+        restore_into(&mut conn, &paths, &copy).unwrap();
+        assert_eq!(tag_names(&conn), ["coop"], "the restore cleans what the copy brought");
+
+        dirty_tag(&conn, "co\u{200B}op");
+        assert_eq!(tag_names(&conn), ["coop", "co\u{200B}op"]);
+        let copies = backup::list(&paths.backups).len();
+        drop(conn);
+        let reopened = open(&paths).unwrap().conn;
+        assert_eq!(tag_names(&reopened), ["coop"], "the next open merges the look-alike");
+        assert_eq!(backup::list(&paths.backups).len(), copies, "no copy of the whole library at open");
+        // What was done is in the library's record: the restore's rename, then the open's merge.
+        let record = db::tag_cleanup_log(&reopened).unwrap();
+        let actions: Vec<(db::TagCleanupAction, &str)> = record.iter().map(|e| (e.action, e.name.as_str())).collect();
+        assert_eq!(actions, [(db::TagCleanupAction::Renamed, "co\u{AD}op"), (db::TagCleanupAction::Merged, "co\u{200B}op")]);
+        assert_eq!(record[1].bookmarks.len(), 1, "the bookmark it was on, to put it back by hand");
     }
 
     #[test]

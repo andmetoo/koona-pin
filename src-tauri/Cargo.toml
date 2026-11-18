@@ -1,6 +1,6 @@
 [package]
 name = "koonapin"
-version = "2.26.0"
+version = "2.27.0"
 description = "Koona Pin desktop bookmark library"
 license = "GPL-3.0-only"
 edition = "2021"
@@ -60,6 +60,9 @@ tauri-plugin-dialog = "2"
 # The other ICU4X crates are already in the tree through `url`.
 icu_collator = "2.3"
 icu_locale_core = "2.3"
+# Extended_Pictographic for a `.kpin` reader: a zero-width joiner between two emoji stays.
+# Already in the tree through `icu_collator`.
+icu_properties = "2.3"
 # The MCP server `koonapin-mcp` (NP-091): the official SDK over stdio, server side only.
 rmcp = { version = "3.4", default-features = false, features = ["server", "transport-io"] }
 # The one-click package for Claude Desktop (`.mcpb`, a zip). Both already in the tree.

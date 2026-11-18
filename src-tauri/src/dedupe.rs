@@ -273,19 +273,18 @@ mod tests {
 
     #[test]
     fn the_key_sets_aside_what_does_not_change_the_page() {
-        // The same cases as duplicates.test.ts, so the demo groups as the app does.
+        // When two addresses are the same page: the public suite of `.kpin` says, for lists and the
+        // library alike (duplicates.test.ts runs it too).
+        for v in crate::lists::conformance::vectors("same-page.json") {
+            let (a, b) = (v["a"].as_str().unwrap(), v["b"].as_str().unwrap());
+            assert_eq!(url_key(a) == url_key(b), v["same"] == true, "{v}");
+        }
+        // The exact keys, the same as duplicates.test.ts, so the demo groups as the app does.
         let cases: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/url-keys.json")).unwrap();
         let list = |name: &str| cases[name].as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect::<Vec<_>>();
         let page = cases["key"].as_str().map(String::from);
         for same in list("same") {
             assert_eq!(url_key(&same), page, "{same}");
-        }
-        for different in list("different") {
-            assert_ne!(url_key(&different), page, "{different}");
-        }
-        // Other parameters stay and their order does not matter.
-        for pair in cases["equal"].as_array().unwrap() {
-            assert_eq!(url_key(pair[0].as_str().unwrap()), url_key(pair[1].as_str().unwrap()), "{pair}");
         }
         for (url, key) in cases["keys"].as_object().unwrap() {
             assert_eq!(url_key(url).as_deref(), key.as_str(), "{url}");

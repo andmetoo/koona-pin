@@ -1,0 +1,34 @@
+{
+  "$comment": "Which koonapin://import links a reader accepts (spec: The one-click link), and the list address it then offers to download. url: the address, when the link is accepted; null when it is ignored. pad: before reading, append `with` to `link` until it is at least `to_bytes` bytes long in UTF-8; ok: true when such a link is accepted. Dedicated to the public domain under CC0 1.0.",
+  "revision": "2026-11",
+  "vectors": [
+    { "link": "koonapin://import?url=https%3A%2F%2Fexample.org%2Flists%2Fsmall-web.kpin", "url": "https://example.org/lists/small-web.kpin" },
+    { "link": "KOONAPIN://IMPORT?url=https%3A%2F%2Fexample.org%2Fa.kpin", "url": "https://example.org/a.kpin", "why": "the scheme and the host in any case" },
+    { "link": "koonapin://import/?url=https%3A%2F%2Fexample.org%2Fa.kpin", "url": "https://example.org/a.kpin", "why": "the path may be /" },
+    { "link": "koonapin://import?from=page&url=https%3A%2F%2Fexample.org%2Fa.kpin&utm_source=x", "url": "https://example.org/a.kpin", "why": "other parameters are ignored" },
+    { "link": "koonapin://import?url=https://example.org/a.kpin", "url": "https://example.org/a.kpin", "why": "not encoded, but with no ? & or # in it" },
+    { "link": "koonapin://import?url=https%3A%2F%2Fexample.org%2Fa.kpin%3Fv%3D2%26lang%3Den", "url": "https://example.org/a.kpin?v=2&lang=en" },
+    { "link": "koonapin://import?url=https%3A%2F%2FExample.org", "url": "https://example.org/", "why": "the address in its parsed form" },
+    { "link": "koonapin://import?url=https://example.org/c++.kpin", "url": "https://example.org/c%20%20.kpin", "why": "the value is read as a form value: an unencoded + is a space" },
+    { "link": "koonapin://import?url=https://example.org/a%2Fb.kpin", "url": "https://example.org/a/b.kpin", "why": "and an unencoded % escape is decoded" },
+
+    { "link": "koonapin://import?url=http%3A%2F%2Fexample.org%2Fa.kpin", "url": null, "why": "not https" },
+    { "link": "koonapin://import?url=https%3A%2F%2Fuser%3Apw%40example.org%2Fa.kpin", "url": null, "why": "a user name and password" },
+    { "link": "koonapin://import?url=https%3A%2F%2Fuser%40example.org%2Fa.kpin", "url": null, "why": "a user name" },
+    { "link": "koonapin://import?url=https%3A%2F%2Fexample.org%2Fa.kpin#top", "url": null, "why": "a fragment" },
+    { "link": "koonapin://import?url=https://example.org/a.kpin#part", "url": null, "why": "an unencoded # makes a fragment of the link" },
+    { "link": "koonapin://import?url=https%3A%2F%2Fexample.org%2Fa.kpin&url=https%3A%2F%2Fexample.org%2Fb.kpin", "url": null, "why": "two url parameters" },
+    { "link": "koonapin://import", "url": null, "why": "no url" },
+    { "link": "koonapin://import?url=", "url": null },
+    { "link": "koonapin://import?url=https%3A%2F%2F", "url": null, "why": "no host" },
+    { "link": "koonapin://import?url=file%3A%2F%2F%2Fetc%2Fpasswd", "url": null },
+    { "link": "koonapin://export?url=https%3A%2F%2Fexample.org%2Fa.kpin", "url": null, "why": "another host" },
+    { "link": "koonapin://import/list?url=https%3A%2F%2Fexample.org%2Fa.kpin", "url": null, "why": "a path" },
+    { "link": "otherapp://import?url=https%3A%2F%2Fexample.org%2Fa.kpin", "url": null, "why": "another scheme" },
+    { "link": "koonapin://user@import?url=https%3A%2F%2Fexample.org%2Fa.kpin", "url": null, "why": "a user name on the link" },
+    { "link": "koonapin://import:8080?url=https%3A%2F%2Fexample.org%2Fa.kpin", "url": null, "why": "a port on the link" },
+
+    { "link": "koonapin://import?url=https%3A%2F%2Fexample.org%2F", "pad": { "with": "a", "to_bytes": 4096 }, "ok": true, "why": "4,096 bytes is the limit" },
+    { "link": "koonapin://import?url=https%3A%2F%2Fexample.org%2F", "pad": { "with": "a", "to_bytes": 4097 }, "ok": false }
+  ]
+}

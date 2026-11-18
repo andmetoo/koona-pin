@@ -163,7 +163,7 @@ mod tests {
     #[test]
     fn the_preview_counts_what_is_here_and_writes_nothing() {
         let c = database();
-        let list = parse(include_str!("../../tests/fixtures/kpin/valid.kpin")).unwrap();
+        let list = parse(include_str!("../../../docs/kpin/conformance/lists/valid.kpin")).unwrap();
         c.execute_batch(
             "INSERT INTO bookmarks (uid, url, title, domain, created_at, updated_at) VALUES ('a', 'https://tokio.rs/', 'Tokio', 'tokio.rs', 'x', 'x');
              INSERT INTO bookmarks (uid, url, title, domain, created_at, updated_at, deleted_at) VALUES ('b', 'https://this-week-in-rust.org/', 'TWiR', 'this-week-in-rust.org', 'x', 'x', 'x');
@@ -190,10 +190,10 @@ mod tests {
     #[test]
     fn the_preview_reports_repeats_and_skips() {
         let c = database();
-        let list = parse(include_str!("../../tests/fixtures/kpin/repeats.kpin")).unwrap();
+        let list = parse(include_str!("../../../docs/kpin/conformance/lists/repeats.kpin")).unwrap();
         let p = preview(&c, &list, "").unwrap();
         assert_eq!((p.links, p.repeated, p.existing_collection), (1, 2, None));
-        let list = parse(include_str!("../../tests/fixtures/kpin/unknown-type.kpin")).unwrap();
+        let list = parse(include_str!("../../../docs/kpin/conformance/lists/unknown-type.kpin")).unwrap();
         let p = preview(&c, &list, "example.com").unwrap();
         assert_eq!((p.newer, p.skipped_items, p.skipped_details), (true, 1, 4));
         // The skipped items are in no group; the rest are.
@@ -209,7 +209,7 @@ mod tests {
     #[test]
     fn the_rows_are_grouped_by_first_section_in_the_files_order() {
         let c = database();
-        let list = parse(include_str!("../../tests/fixtures/kpin/groups.kpin")).unwrap();
+        let list = parse(include_str!("../../../docs/kpin/conformance/lists/groups.kpin")).unwrap();
         let p = preview(&c, &list, "groups.kpin").unwrap();
         assert_eq!(
             shape(&p),
@@ -229,7 +229,7 @@ mod tests {
         let tools = &p.groups[1].items[1];
         assert_eq!((tools.kind, tools.site.as_deref(), tools.host.as_str()), (ListPreviewKind::Feed, Some("https://tools.example.com/"), "tools.example.com"));
         // The top level first, wherever the file has it.
-        let list = parse(include_str!("../../tests/fixtures/kpin/valid.kpin")).unwrap();
+        let list = parse(include_str!("../../../docs/kpin/conformance/lists/valid.kpin")).unwrap();
         let p = preview(&c, &list, "").unwrap();
         assert_eq!(p.groups.iter().map(|g| g.name.as_deref()).collect::<Vec<_>>(), [None, Some("Compiler and language"), Some("Async")]);
     }
@@ -237,7 +237,7 @@ mod tests {
     #[test]
     fn the_new_feeds_keep_the_files_order_without_the_followed() {
         let c = database();
-        let list = parse(include_str!("../../tests/fixtures/kpin/groups.kpin")).unwrap();
+        let list = parse(include_str!("../../../docs/kpin/conformance/lists/groups.kpin")).unwrap();
         let urls = |p: &ListPreview| p.new_feeds.iter().map(|f| f.url.clone()).collect::<Vec<_>>();
         let p = preview(&c, &list, "").unwrap();
         assert_eq!(
@@ -262,7 +262,7 @@ mod tests {
         .unwrap();
         let saved_id: i64 = c.query_row("SELECT id FROM bookmarks WHERE uid = 'a'", [], |r| r.get(0)).unwrap();
         let trashed_id: i64 = c.query_row("SELECT id FROM bookmarks WHERE uid = 'b'", [], |r| r.get(0)).unwrap();
-        let list = parse(include_str!("../../tests/fixtures/kpin/groups.kpin")).unwrap();
+        let list = parse(include_str!("../../../docs/kpin/conformance/lists/groups.kpin")).unwrap();
         let p = preview(&c, &list, "").unwrap();
         let row = |url: &str| p.groups.iter().flat_map(|g| &g.items).find(|i| i.url == url).unwrap().clone();
         let fd = row("https://fd.example.com/");
@@ -285,7 +285,7 @@ mod tests {
     #[test]
     fn five_thousand_items_preview_under_one_and_a_half_megabytes() {
         let c = database();
-        let list = parse(include_str!("../../tests/fixtures/kpin/max-items.kpin")).unwrap();
+        let list = parse(include_str!("../../../docs/kpin/conformance/lists/max-items.kpin")).unwrap();
         assert_eq!(list.links.len() + list.feeds.len(), format::MAX_ITEMS);
         let p = preview(&c, &list, "max-items.kpin").unwrap();
         assert_eq!(p.groups.len(), 14, "the top level, 12 topics and the feeds");

@@ -38,7 +38,7 @@ for (const width of [800, 1200, 1600]) {
 // The bundle, the drop zone and the list preview (share-bundle.md, K5–K10) at 1200×800; compare
 // with frames K5, K6a, K6b, K7a, K7b, K9a and K10a.
 const here = path.dirname(fileURLToPath(import.meta.url));
-const validList = readFileSync(path.join(here, "..", "..", "src-tauri", "tests", "fixtures", "kpin", "valid.kpin"), "utf8");
+const validList = readFileSync(path.join(here, "..", "..", "docs", "kpin", "conformance", "lists", "valid.kpin"), "utf8");
 const selectionBar = (page: Page) => page.getByRole("toolbar", { name: "Selected bookmarks" });
 
 async function openLibrary(page: Page, theme: string) {

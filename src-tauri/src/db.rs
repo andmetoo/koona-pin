@@ -301,6 +301,359 @@ pub fn db_path() -> PathBuf {
     }
 }
 
+/// A tag's name as the library stores it: lower case, read as a line of a
+/// `.kpin` list is (`lists::format::line`): control and invisible characters
+/// dropped except where they are seen (emoji sequences, the three
+/// subdivision flags, joiners in joining and Brahmic scripts), white space
+/// collapsed and trimmed. None: nothing visible is left, no tag.
+/// `co`+U+00AD+`op` is `coop`, so typing `coop` finds it.
+pub fn tag_name(raw: &str) -> Option<String> {
+    crate::lists::format::line(&raw.to_lowercase(), usize::MAX)
+}
+
+/// A tag whose name [`tag_name`] changes.
+struct DirtyTag {
+    id: i64,
+    uid: String,
+    name: String,
+    /// None: nothing visible is left.
+    clean: Option<String>,
+}
+
+/// The tags whose name [`tag_name`] changes.
+fn tags_to_clean(conn: &Connection) -> Result<Vec<DirtyTag>> {
+    // Stored names are trimmed and lowercased; cleaning changes only one with
+    // a character outside printable ASCII or two spaces in a row, unless it
+    // came in some other way. Most libraries have few or none.
+    let mut statement = conn.prepare_cached(
+        "SELECT id, uid, name FROM tags
+         WHERE name GLOB '*[^ -~]*' OR instr(name, '  ') > 0 OR name <> trim(name) OR name <> lower(name)
+         ORDER BY id",
+    )?;
+    let mut dirty = Vec::new();
+    for row in statement.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?)))? {
+        let (id, uid, name) = row?;
+        let clean = tag_name(&name);
+        if clean.as_deref() != Some(name.as_str()) {
+            dirty.push(DirtyTag { id, uid, name, clean });
+        }
+    }
+    Ok(dirty)
+}
+
+/// The prefix of the `app_settings` keys of [`clean_tag_names`]'s record: one
+/// row per entry, `tag_cleanup/<when>/<place>/<tag uid>`, so a cleaning writes only
+/// its own entries and an entry that does not read hides no other.
+pub const TAG_CLEANUP_LOG: &str = "tag_cleanup/";
+/// The record keeps this many of its latest entries.
+const TAG_CLEANUP_LOG_LEN: usize = 1000;
+/// An entry names at most this many bookmarks and counts the rest: a tag on
+/// many thousands of bookmarks must not make the record large.
+const TAG_CLEANUP_BOOKMARKS: usize = 200;
+
+/// What a cleaning did to a tag.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "lowercase")]
+#[ts(export)]
+pub enum TagCleanupAction {
+    /// Its name lost what nobody sees.
+    Renamed,
+    /// It went into the tag with its clean name.
+    Merged,
+    /// Nothing visible was left of its name.
+    Removed,
+}
+
+/// One entry of the record ([`TAG_CLEANUP_LOG`]): what a cleaning did to one
+/// tag, enough to put it back by hand. Merges and removals are final for
+/// sync, and a copy of the whole library cannot be taken inside the
+/// transaction of a sync batch, so the record is kept in the library itself,
+/// in the same transaction, wherever the library's tags are cleaned.
+/// `app_settings` does not sync: each device keeps what it did. Fields have
+/// defaults, so an entry written by another version still reads.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TagCleanup {
+    #[serde(default)]
+    pub at: String,
+    pub action: TagCleanupAction,
+    #[serde(default)]
+    pub uid: String,
+    /// The name it had.
+    #[serde(default)]
+    pub name: String,
+    /// For `renamed`, the name it has now; for `merged`, the name of the tag it went into.
+    #[serde(default)]
+    pub now_named: Option<String>,
+    /// For `merged`, the uid of the tag it went into.
+    #[serde(default)]
+    pub into: Option<String>,
+    /// For `merged` and `removed`, the uids of the bookmarks it was on, the first [`TAG_CLEANUP_BOOKMARKS`].
+    #[serde(default)]
+    pub bookmarks: Vec<String>,
+    /// How many more bookmarks it was on than `bookmarks` names.
+    #[serde(default)]
+    pub more_bookmarks: usize,
+}
+
+/// The record's entries with their row keys, read as `T`, oldest first: the
+/// keys (`tag_cleanup/<at>/<place>/<uid>`) order them by time, and one
+/// cleaning's in the order they were done. An entry that does not read is
+/// left where it is and skipped.
+fn tag_cleanup_entries<T: serde::de::DeserializeOwned>(conn: &Connection) -> Result<Vec<(String, T)>> {
+    let mut statement = conn.prepare_cached("SELECT key, value FROM app_settings WHERE key GLOB ?1 ORDER BY key")?;
+    let rows = statement.query_map([format!("{TAG_CLEANUP_LOG}*")], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
+    Ok(rows
+        .filter_map(|row| {
+            let (key, raw) = row.ok()?;
+            serde_json::from_str(&raw).ok().map(|entry| (key, entry))
+        })
+        .collect())
+}
+
+/// The record of [`clean_tag_names`] in full, every bookmark uid included,
+/// oldest first: for tests. Settings reads [`cleaned_tags`], which skips the uids.
+#[cfg(test)]
+pub fn tag_cleanup_log(conn: &Connection) -> Result<Vec<TagCleanup>> {
+    Ok(tag_cleanup_entries(conn)?.into_iter().map(|(_, entry)| entry).collect())
+}
+
+/// A piece of a tag's old name as Settings shows it: visible text, or one
+/// character the cleaning took out or changed, given by its code (`U+00AD`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[ts(export)]
+pub struct NamePart {
+    pub text: String,
+    /// `text` is the code of a character nobody saw, an extra space or one that became a plain space.
+    pub unseen: bool,
+}
+
+/// The old name in [`NamePart`]s, marked by the rule that cleaned it
+/// (`lists::format::line_marks`, which `line` is built from), so what is shown
+/// as taken out is exactly what was: a joiner inside an emoji or a Sinhala word
+/// stays text, one after an emoji and before nothing is shown. White space that
+/// became the plain space shows by its code and then the space it became, so
+/// the words do not read as joined.
+fn name_parts(name: &str) -> Vec<NamePart> {
+    use crate::lists::format::Mark;
+    let mut parts: Vec<NamePart> = Vec::new();
+    let text = |parts: &mut Vec<NamePart>, c: char| match parts.last_mut() {
+        Some(last) if !last.unseen => last.text.push(c),
+        _ => parts.push(NamePart { text: c.to_string(), unseen: false }),
+    };
+    for (c, mark) in crate::lists::format::line_marks(name) {
+        match mark {
+            Mark::Kept => text(&mut parts, c),
+            Mark::Dropped => parts.push(NamePart { text: format!("U+{:04X}", u32::from(c)), unseen: true }),
+            Mark::Space => {
+                parts.push(NamePart { text: format!("U+{:04X}", u32::from(c)), unseen: true });
+                text(&mut parts, ' ');
+            }
+        }
+    }
+    parts
+}
+
+/// One entry of the record as Settings shows it (Storage → «Cleaned tag names»): its
+/// bookmarks counted, not named, so a record of a thousand entries stays small to send.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[ts(export)]
+pub struct CleanedTag {
+    /// The entry's row in the record, one of its own: the interface's key for it.
+    pub key: String,
+    /// When, UTC; empty when an entry of another version did not say.
+    pub at: String,
+    pub action: TagCleanupAction,
+    /// The name it had, with what the cleaning took out or changed marked.
+    pub parts: Vec<NamePart>,
+    /// For `renamed` and `merged`, the name it has now or went into.
+    pub now_named: Option<String>,
+    /// For `merged` and `removed`, how many bookmarks it was on; for `renamed`, 0 (it is still the same tag).
+    pub bookmarks: u32,
+}
+
+/// An entry read for [`CleanedTag`]: the bookmark uids counted as they are
+/// read, never kept, so reading a full record costs no strings for them.
+#[derive(Deserialize)]
+struct CleanedEntry {
+    #[serde(default)]
+    at: String,
+    action: TagCleanupAction,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    now_named: Option<String>,
+    #[serde(default, deserialize_with = "count_of")]
+    bookmarks: usize,
+    #[serde(default)]
+    more_bookmarks: usize,
+}
+
+/// The length of a JSON list, its items skipped.
+fn count_of<'de, D: serde::Deserializer<'de>>(list: D) -> std::result::Result<usize, D::Error> {
+    struct Count;
+    impl<'de> serde::de::Visitor<'de> for Count {
+        type Value = usize;
+        fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            f.write_str("a list")
+        }
+        fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> std::result::Result<usize, A::Error> {
+            let mut n = 0;
+            while seq.next_element::<serde::de::IgnoredAny>()?.is_some() {
+                n += 1;
+            }
+            Ok(n)
+        }
+    }
+    list.deserialize_seq(Count)
+}
+
+/// The record of [`clean_tag_names`] for Settings, newest first.
+pub fn cleaned_tags(conn: &Connection) -> Result<Vec<CleanedTag>> {
+    let mut record: Vec<CleanedTag> = tag_cleanup_entries::<CleanedEntry>(conn)?
+        .into_iter()
+        .map(|(key, entry)| CleanedTag {
+            key,
+            bookmarks: u32::try_from(entry.bookmarks + entry.more_bookmarks).unwrap_or(u32::MAX),
+            parts: name_parts(&entry.name),
+            at: entry.at,
+            action: entry.action,
+            now_named: entry.now_named,
+        })
+        .collect();
+    record.reverse();
+    Ok(record)
+}
+
+/// Writes entries as rows, each cleaning's in the order they were done.
+fn write_rows(conn: &Connection, entries: &[TagCleanup]) -> Result<()> {
+    for (n, entry) in entries.iter().enumerate() {
+        let value = serde_json::to_string(entry).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+        // In the order they were done: the time, then the entry's place in its cleaning.
+        set_setting(conn, &format!("{TAG_CLEANUP_LOG}{}/{n:06}/{}", entry.at, entry.uid), &value)?;
+    }
+    Ok(())
+}
+
+/// Writes the entries of one cleaning and keeps the latest [`TAG_CLEANUP_LOG_LEN`].
+fn write_tag_cleanups(conn: &Connection, entries: &[TagCleanup]) -> Result<()> {
+    write_rows(conn, entries)?;
+    conn.prepare_cached(
+        "DELETE FROM app_settings WHERE key GLOB ?1 AND key NOT IN
+           (SELECT key FROM app_settings WHERE key GLOB ?1 ORDER BY key DESC LIMIT ?2)",
+    )?
+    .execute(params![format!("{TAG_CLEANUP_LOG}*"), TAG_CLEANUP_LOG_LEN as i64])?;
+    Ok(())
+}
+
+/// The first [`TAG_CLEANUP_BOOKMARKS`] bookmarks of a tag by uid, and how many more it has.
+fn bookmarks_of_tag(conn: &Connection, tag: i64) -> Result<(Vec<String>, usize)> {
+    let named: Vec<String> = conn
+        .prepare_cached("SELECT b.uid FROM bookmark_tags bt JOIN bookmarks b ON b.id = bt.bookmark_id WHERE bt.tag_id = ?1 ORDER BY b.id LIMIT ?2")?
+        .query_map(params![tag, TAG_CLEANUP_BOOKMARKS as i64], |r| r.get(0))?
+        .collect::<Result<_>>()?;
+    let all: i64 = conn.prepare_cached("SELECT count(*) FROM bookmark_tags WHERE tag_id = ?1")?.query_row([tag], |r| r.get(0))?;
+    let all = usize::try_from(all).unwrap_or(0);
+    let more = all - named.len();
+    Ok((named, more))
+}
+
+/// Gives every stored tag the name [`tag_name`] gives it, in the caller's
+/// transaction, and returns how many tags were renamed, merged away or
+/// removed; each is written to the record [`TAG_CLEANUP_LOG`] first. Tags
+/// saved before names were read this way, synced from a device of an older
+/// version or brought back by an older backup may hold characters nobody
+/// sees: a `co`+U+00AD+`op` that looks like `coop` and is not found by it.
+/// It runs where such names come in (`library::open`, a sync batch, a
+/// restore, a list import) and finds nothing to do the second time.
+///
+/// With sync on (Р-68) every step is a change the engine already knows, made
+/// as the engine makes it, so devices of any version end the same:
+///
+/// - a rename is a change of the tag's name, the latest one wins;
+/// - tags that clean to one name merge as records with one name merge in
+///   `koona_sync` (`unique.rs`): the smallest uid survives and gets the
+///   others' bookmarks, the others get a tombstone `merged_into` it. A device
+///   that applies the merge folds into the survivor what it had on them
+///   meanwhile; one that merges them itself picks the same survivor; a chain
+///   of merges ends, since survivors only ever have smaller uids.
+///
+/// Nothing goes back and forth: a clean name stays clean, and an older
+/// device writes a dirty one only when a person or an older list gives it.
+///
+/// A tag with no visible name left (only U+200B, say) is no tag, as a new
+/// write of that name makes none and a restore brings none back: it goes,
+/// taken off its bookmarks, a deleted tag for sync like any other (a purge
+/// that comes again from an older device goes again on arrival).
+pub fn clean_tag_names(conn: &Connection) -> Result<usize> {
+    let dirty = tags_to_clean(conn)?;
+    if dirty.is_empty() {
+        return Ok(0);
+    }
+    let at = now();
+    let mut log = Vec::new();
+    let entry = |action: TagCleanupAction, tag: &DirtyTag| TagCleanup {
+        at: at.clone(),
+        action,
+        uid: tag.uid.clone(),
+        name: tag.name.clone(),
+        now_named: None,
+        into: None,
+        bookmarks: Vec::new(),
+        more_bookmarks: 0,
+    };
+    let mut groups: std::collections::BTreeMap<String, Vec<DirtyTag>> = Default::default();
+    for tag in dirty {
+        match tag.clean.clone() {
+            Some(clean) => groups.entry(clean).or_default().push(tag),
+            None => {
+                let (bookmarks, more_bookmarks) = bookmarks_of_tag(conn, tag.id)?;
+                log.push(TagCleanup { bookmarks, more_bookmarks, ..entry(TagCleanupAction::Removed, &tag) });
+                conn.prepare_cached("DELETE FROM tags WHERE id = ?1")?.execute([tag.id])?;
+            }
+        }
+    }
+    for (clean, mut tags) in groups {
+        let exact: Option<(i64, String)> = conn
+            .prepare_cached("SELECT id, uid FROM tags WHERE name = ?1")?
+            .query_row([&clean], |r| Ok((r.get(0)?, r.get(1)?)))
+            .optional()?;
+        tags.extend(exact.map(|(id, uid)| DirtyTag { id, uid, name: clean.clone(), clean: Some(clean.clone()) }));
+        // The order of `koona_sync`: uids compared as UUIDs, by their bytes
+        // (one that is no UUID, which the engine would refuse, last).
+        tags.sort_by_cached_key(|tag| {
+            let parsed = uuid::Uuid::parse_str(&tag.uid).ok();
+            (parsed.is_none(), parsed, tag.uid.clone())
+        });
+        let survivor = &tags[0];
+        for loser in &tags[1..] {
+            let (bookmarks, more_bookmarks) = bookmarks_of_tag(conn, loser.id)?;
+            log.push(TagCleanup {
+                now_named: Some(clean.clone()),
+                into: Some(survivor.uid.clone()),
+                bookmarks,
+                more_bookmarks,
+                ..entry(TagCleanupAction::Merged, loser)
+            });
+            conn.prepare_cached(
+                "INSERT INTO bookmark_tags (bookmark_id, tag_id) SELECT bookmark_id, ?2 FROM bookmark_tags WHERE tag_id = ?1
+                 ON CONFLICT DO NOTHING",
+            )?
+            .execute(params![loser.id, survivor.id])?;
+            // Its links go with it and record nothing: the tombstone says it all.
+            conn.prepare_cached("DELETE FROM tags WHERE id = ?1")?.execute([loser.id])?;
+            // With sync on the delete left a tombstone of this device; it says where the tag went.
+            conn.prepare_cached("UPDATE tombstones SET merged_into = ?2 WHERE uid = ?1 AND kind = 'tag'")?
+                .execute(params![loser.uid, survivor.uid])?;
+        }
+        if survivor.name != clean {
+            log.push(TagCleanup { now_named: Some(clean.clone()), ..entry(TagCleanupAction::Renamed, survivor) });
+            conn.prepare_cached("UPDATE tags SET name = ?1 WHERE id = ?2")?.execute(params![clean, survivor.id])?;
+        }
+    }
+    write_tag_cleanups(conn, &log)?;
+    Ok(log.len())
+}
+
 fn tag_id(conn: &Connection, name: &str, now: &str) -> Result<i64> {
     conn.execute(
         "INSERT INTO tags (uid, name, created_at) VALUES (?1, ?2, ?3) ON CONFLICT(name) DO NOTHING",
@@ -315,15 +668,12 @@ pub(crate) fn link_tags(
     tags: &[String],
     now: &str,
 ) -> Result<()> {
-    for tag_name in tags {
-        let clean = tag_name.trim().to_lowercase();
-        if !clean.is_empty() {
-            let tag_id = tag_id(conn, &clean, now)?;
-            conn.execute(
-                "INSERT INTO bookmark_tags (bookmark_id, tag_id) VALUES (?1, ?2) ON CONFLICT DO NOTHING",
-                params![bookmark_id, tag_id],
-            )?;
-        }
+    for clean in tags.iter().filter_map(|raw| tag_name(raw)) {
+        let tag_id = tag_id(conn, &clean, now)?;
+        conn.execute(
+            "INSERT INTO bookmark_tags (bookmark_id, tag_id) VALUES (?1, ?2) ON CONFLICT DO NOTHING",
+            params![bookmark_id, tag_id],
+        )?;
     }
     Ok(())
 }
@@ -333,11 +683,8 @@ pub(crate) fn link_tags(
 /// written once per link added or taken off, not for every tag again.
 pub(crate) fn set_tags(conn: &Connection, bookmark_id: i64, tags: &[String], now: &str) -> Result<()> {
     let mut wanted = Vec::new();
-    for tag_name in tags {
-        let clean = tag_name.trim().to_lowercase();
-        if !clean.is_empty() {
-            wanted.push(tag_id(conn, &clean, now)?);
-        }
+    for clean in tags.iter().filter_map(|raw| tag_name(raw)) {
+        wanted.push(tag_id(conn, &clean, now)?);
     }
     conn.execute(
         "DELETE FROM bookmark_tags WHERE bookmark_id = ?1 AND tag_id NOT IN (SELECT value FROM json_each(?2))",
@@ -1208,8 +1555,8 @@ pub fn assistant_update(conn: &Connection, id: i64, change: &AssistantChange) ->
             let had = before.tags.clone().unwrap_or_default();
             let new: Vec<String> = tags
                 .iter()
-                .map(|t| t.trim().to_lowercase())
-                .filter(|t| !t.is_empty() && !had.contains(t))
+                .filter_map(|t| tag_name(t))
+                .filter(|t| !had.contains(t))
                 .collect();
             link_tags(&tx, id, &new, &now)?;
             !new.is_empty()
@@ -1402,7 +1749,11 @@ pub(crate) fn bulk_in(conn: &Connection, ids: &[i64], bulk: &Bulk) -> Result<(us
     // A new tag is only looked up here and created below, once a bookmark
     // gets it: an action that changes nothing leaves no empty tag behind.
     let tag_name = match bulk {
-        Bulk::Tag(name) => Some(name.trim().to_lowercase()),
+        // A name with nothing visible in it tags nothing: the action applies to none.
+        Bulk::Tag(name) => match tag_name(name) {
+            None => return Ok((0, Vec::new())),
+            clean => clean,
+        },
         _ => None,
     };
     let tag: Option<i64> = match &tag_name {
@@ -2825,6 +3176,212 @@ mod tests {
         let names = ["Development", "Design & UI", "Articles / To read"].map(String::from);
         create_starter_collections(&conn, &names).unwrap();
         conn
+    }
+
+    /// A tag as an older version stored it, with a uid of `n`: the smaller survives a merge.
+    fn old_tag(conn: &Connection, n: u128, name: &str) -> i64 {
+        conn.execute(
+            "INSERT INTO tags (uid, name, created_at) VALUES (?1, ?2, '2025-01-01T00:00:00.000Z')",
+            params![uuid::Uuid::from_u128(n).to_string(), name],
+        )
+        .unwrap();
+        conn.last_insert_rowid()
+    }
+
+    fn tag_rows(conn: &Connection) -> Vec<(String, String)> {
+        conn.prepare("SELECT uid, name FROM tags ORDER BY name")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect()
+    }
+
+    #[test]
+    fn tag_names_are_read_as_a_list_reads_them() {
+        assert_eq!(tag_name("  Co\u{AD}Op  "), Some("coop".into()));
+        assert_eq!(tag_name("open\u{200B}  source\t"), Some("open source".into()));
+        assert_eq!(tag_name("\u{E0041}x\u{2060}"), Some("x".into()), "tag characters and word joiners go");
+        // What is seen stays: an emoji sequence, a subdivision flag, a Sinhala joiner.
+        for kept in ["👩\u{200D}💻", "\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F}", "ශ්\u{200D}රී"] {
+            assert_eq!(tag_name(kept).as_deref(), Some(kept));
+        }
+        assert_eq!(tag_name("\u{200B}\u{AD} "), None);
+    }
+
+    #[test]
+    fn new_tags_are_written_clean() {
+        let conn = setup_test_db();
+        let b = insert_or_update_bookmark(&conn, "https://a.example/", "A", None, None, None, "a.example", None,
+            Some(&["Co\u{AD}op".into(), "\u{200B}".into()]), Source::App).unwrap();
+        assert_eq!(b.tags.unwrap(), ["coop"]);
+        set_tags(&conn, b.id, &["co\u{200B}op".into(), "we\u{AD}b".into()], &now()).unwrap();
+        bulk_in(&conn, &[b.id], &Bulk::Tag("Ru\u{AD}st ".into())).unwrap();
+        let (count, changed) = bulk_in(&conn, &[b.id], &Bulk::Tag("\u{AD}".into())).unwrap();
+        assert_eq!((count, changed.len()), (0, 0), "applies to none");
+        assert_eq!(get_bookmark_by_id(&conn, b.id).unwrap().tags.unwrap(), ["coop", "web", "rust"]);
+        let names: Vec<String> = tag_rows(&conn).into_iter().map(|(_, name)| name).collect();
+        assert_eq!(names, ["coop", "rust", "web"]);
+    }
+
+    #[test]
+    fn stored_tags_are_renamed_and_look_alikes_merged() {
+        let conn = setup_test_db();
+        let ids: Vec<i64> = ["https://a.example/", "https://b.example/", "https://c.example/"]
+            .iter()
+            .map(|url| insert_or_update_bookmark(&conn, url, "T", None, None, None, "x", None, None, Source::App).unwrap().id)
+            .collect();
+        let link = |bookmark: i64, tag: i64| {
+            conn.execute("INSERT INTO bookmark_tags (bookmark_id, tag_id) VALUES (?1, ?2)", [bookmark, tag]).unwrap();
+        };
+        // Three that look like «coop»; the dirty one has the smallest uid and survives, renamed.
+        let (soft, clean, zero) = (old_tag(&conn, 1, "co\u{AD}op"), old_tag(&conn, 2, "coop"), old_tag(&conn, 3, "co\u{200B}op"));
+        link(ids[0], soft);
+        link(ids[1], clean);
+        link(ids[2], zero);
+        link(ids[2], clean);
+        // Only a rename; what has nothing visible left goes; what is clean stays.
+        let spaced = old_tag(&conn, 4, "open  source");
+        link(ids[0], spaced);
+        let invisible = old_tag(&conn, 5, "\u{200B}");
+        link(ids[1], invisible);
+        old_tag(&conn, 6, "👩\u{200D}💻");
+        assert!(found(&conn, "coop").len() < 3);
+
+        let cleaned = clean_tag_names(&conn).unwrap();
+        assert_eq!(cleaned, 5, "two merged away, two renamed, one gone");
+        let uid = |n: u128| uuid::Uuid::from_u128(n).to_string();
+        assert_eq!(tag_rows(&conn), [(uid(1), "coop".into()), (uid(4), "open source".into()), (uid(6), "👩\u{200D}💻".into())]);
+        assert_eq!(get_bookmark_by_id(&conn, ids[1]).unwrap().tags.unwrap(), ["coop"]);
+        let mut coop = found(&conn, "coop");
+        coop.sort();
+        assert_eq!(coop, ids, "search finds every one by the name typed");
+        for id in &ids {
+            assert_eq!(get_bookmark_by_id(&conn, *id).unwrap().tags.unwrap().iter().filter(|t| *t == "coop").count(), 1);
+        }
+        assert_eq!(clean_tag_names(&conn).unwrap(), 0, "the second time finds nothing");
+    }
+
+    /// The record: one row per entry, a long list of bookmarks counted rather
+    /// than named, the latest entries kept, and one that does not read skipped.
+    #[test]
+    fn the_cleaning_record_stays_small_and_keeps_what_reads() {
+        let conn = setup_test_db();
+        let bookmarks = TAG_CLEANUP_BOOKMARKS + 5;
+        let look_alike = old_tag(&conn, 1, "re\u{AD}ad");
+        for n in 0..bookmarks {
+            let b = insert_or_update_bookmark(&conn, &format!("https://a.example/{n}"), "T", None, None, None, "a.example", None, None, Source::App).unwrap();
+            conn.execute("INSERT INTO bookmark_tags (bookmark_id, tag_id) VALUES (?1, ?2)", [b.id, look_alike]).unwrap();
+        }
+        old_tag(&conn, 2, "read");
+        // One the other way round: the look-alike survives, its clean twin goes in.
+        assert_eq!(clean_tag_names(&conn).unwrap(), 2);
+        let record = tag_cleanup_log(&conn).unwrap();
+        let merged = record.iter().find(|e| e.action == TagCleanupAction::Merged).unwrap();
+        assert_eq!((merged.bookmarks.len(), merged.more_bookmarks), (0, 0), "the clean twin was on none");
+        let renamed = record.iter().find(|e| e.action == TagCleanupAction::Renamed).unwrap();
+        assert_eq!(renamed.name, "re\u{AD}ad");
+
+        // A removal of a tag on many bookmarks names the first and counts the rest.
+        let invisible = old_tag(&conn, 3, "\u{200B}");
+        conn.execute("INSERT INTO bookmark_tags (bookmark_id, tag_id) SELECT id, ?1 FROM bookmarks", [invisible]).unwrap();
+        clean_tag_names(&conn).unwrap();
+        let removed = tag_cleanup_log(&conn).unwrap().into_iter().find(|e| e.action == TagCleanupAction::Removed).unwrap();
+        assert_eq!((removed.bookmarks.len(), removed.more_bookmarks), (TAG_CLEANUP_BOOKMARKS, 5));
+
+        // An entry another version wrote that does not read hides nothing and is not overwritten.
+        set_setting(&conn, &format!("{TAG_CLEANUP_LOG}0000/000000/x"), "{not json").unwrap();
+        assert_eq!(tag_cleanup_log(&conn).unwrap().len(), 3);
+        assert_eq!(setting(&conn, &format!("{TAG_CLEANUP_LOG}0000/000000/x")).unwrap(), "{not json");
+
+        // The latest entries are kept, as many as the record holds.
+        let entry = |n: usize| TagCleanup {
+            at: format!("2027-01-01T00:00:00.{n:06}Z"),
+            action: TagCleanupAction::Renamed,
+            uid: format!("u{n}"),
+            name: "x".into(),
+            now_named: None,
+            into: None,
+            bookmarks: Vec::new(),
+            more_bookmarks: 0,
+        };
+        let many: Vec<TagCleanup> = (0..TAG_CLEANUP_LOG_LEN + 10).map(entry).collect();
+        write_tag_cleanups(&conn, &many).unwrap();
+        let kept = tag_cleanup_log(&conn).unwrap();
+        assert_eq!(kept.len(), TAG_CLEANUP_LOG_LEN);
+        assert_eq!(kept.last().unwrap().uid, format!("u{}", TAG_CLEANUP_LOG_LEN + 9));
+    }
+
+    /// Settings' view of the record: newest first, bookmarks counted with the ones not named.
+    #[test]
+    fn cleaned_tags_are_newest_first_with_their_bookmarks_counted() {
+        let conn = setup_test_db();
+        assert!(cleaned_tags(&conn).unwrap().is_empty(), "nothing cleaned, nothing to show");
+        let entry = |at: &str, action, bookmarks: usize, more_bookmarks| TagCleanup {
+            at: at.into(),
+            action,
+            uid: format!("u-{at}"),
+            name: "co\u{AD}op".into(),
+            now_named: Some("coop".into()),
+            into: None,
+            bookmarks: (0..bookmarks).map(|n| format!("b{n}")).collect(),
+            more_bookmarks,
+        };
+        write_tag_cleanups(&conn, &[entry("2026-01-01T00:00:00Z", TagCleanupAction::Merged, 3, 0)]).unwrap();
+        write_tag_cleanups(&conn, &[entry("2026-02-01T00:00:00Z", TagCleanupAction::Removed, TAG_CLEANUP_BOOKMARKS, 7)]).unwrap();
+        let shown = cleaned_tags(&conn).unwrap();
+        assert_eq!(shown.len(), 2);
+        assert_eq!((shown[0].action, shown[0].bookmarks), (TagCleanupAction::Removed, TAG_CLEANUP_BOOKMARKS as u32 + 7));
+        assert_eq!((shown[1].action, shown[1].bookmarks), (TagCleanupAction::Merged, 3));
+        let part = |text: &str, unseen| NamePart { text: text.into(), unseen };
+        assert_eq!(shown[1].parts, [part("co", false), part("U+00AD", true), part("op", false)], "what the cleaning took out, by its code");
+        assert_eq!(serde_json::to_value(&shown[1]).unwrap()["action"], "merged");
+
+        // An entry of another version without a time still shows, its time empty.
+        set_setting(&conn, &format!("{TAG_CLEANUP_LOG}0000/000000/y"), &serde_json::json!({"action": "removed", "name": "\u{200B}"}).to_string()).unwrap();
+        let oldest = cleaned_tags(&conn).unwrap().pop().unwrap();
+        assert_eq!((oldest.at.as_str(), oldest.bookmarks), ("", 0));
+        assert_eq!(oldest.parts, [part("U+200B", true)]);
+    }
+
+    /// The parts follow the cleaning's own rule: extra spaces are shown, a
+    /// joiner after an emoji and before nothing is shown, one inside an emoji is not.
+    #[test]
+    fn name_parts_show_what_the_cleaning_took_out() {
+        let shown = |name: &str| name_parts(name).iter().map(|p| if p.unseen { format!("[{}]", p.text) } else { p.text.clone() }).collect::<String>();
+        assert_eq!(shown(" coop "), "[U+0020]coop[U+0020]");
+        // A tab alone between two words became the space: its code, then the space, so they do not read as joined.
+        assert_eq!(shown("to  read\tlater"), "to [U+0020]read[U+0009] later");
+        assert_eq!(shown("to\t read"), "to[U+0009] read", "the plain space of the run stays, the tab went");
+        assert_eq!(shown("\u{1F4DA}\u{200D}"), "\u{1F4DA}[U+200D]");
+        assert_eq!(shown("\u{1F469}\u{200D}\u{1F4BB}"), "\u{1F469}\u{200D}\u{1F4BB}");
+        assert_eq!(shown("Coop"), "Coop", "a capital is seen: no mark, the new name shows the change");
+    }
+
+    /// The record reads in the order of its time, one cleaning's in the order
+    /// they were done, and Settings gets each with a key of its own.
+    #[test]
+    fn the_record_is_in_the_order_of_its_time_each_with_its_key() {
+        let conn = setup_test_db();
+        let entry = |at: &str, uid: &str| TagCleanup {
+            at: at.into(),
+            action: TagCleanupAction::Renamed,
+            uid: uid.into(),
+            name: "x".into(),
+            now_named: None,
+            into: None,
+            bookmarks: Vec::new(),
+            more_bookmarks: 0,
+        };
+        write_tag_cleanups(&conn, &[entry("2026-10-03T00:00:00.000Z", "late")]).unwrap();
+        // One cleaning: its uids out of order, its entries in the order they were done.
+        write_tag_cleanups(&conn, &[entry("2026-10-01T00:00:00.000Z", "z-first"), entry("2026-10-01T00:00:00.000Z", "a-second")]).unwrap();
+        let order = tag_cleanup_log(&conn).unwrap().into_iter().map(|e| e.uid).collect::<Vec<_>>();
+        assert_eq!(order, ["z-first", "a-second", "late"]);
+        let keys: Vec<String> = cleaned_tags(&conn).unwrap().into_iter().map(|e| e.key).collect();
+        assert_eq!(keys.len(), 3);
+        assert_eq!(keys.iter().collect::<std::collections::HashSet<_>>().len(), 3, "one key each");
+        assert!(keys[0].ends_with("/late"), "newest first: {keys:?}");
     }
 
     /// The whole list in one page.

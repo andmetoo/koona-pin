@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { AppSettings, CaptureStatus, DataSummary, Desktop, McpAccess, McpStatus, OfflineStats, PreviewCounts, PreviewRefresh, PreviewScope, SupporterStatus, SyncStatus, UpdateStatus } from "../../types";
+import { AppSettings, CaptureStatus, CleanedTag, DataSummary, Desktop, McpAccess, McpStatus, OfflineStats, PreviewCounts, PreviewRefresh, PreviewScope, SupporterStatus, SyncStatus, UpdateStatus } from "../../types";
 import { useSyncSettingsLine } from "../commercial/SyncRows";
 import { api, desktopApi, desktopOnly } from "../../services/api";
 import { capabilities } from "../../platform/capabilities";
@@ -30,6 +30,8 @@ import { Kbd } from "../ui/Hint";
 import { ConfirmDialog } from "../library/Dialogs";
 import { Menu } from "../ui/Menu";
 import { helpUrl } from "../../services/help";
+import { cleanedDetails } from "./cleanedTags";
+import { moment } from "./time";
 
 /** The groups that fold (sheet S1–S3); General is always open. */
 type GroupId = "connections" | "reading" | "feeds" | "backups" | "storage" | "support";
@@ -509,6 +511,7 @@ export function SettingsPage({
           </Button>
         </Row>
         <PreviewsRow run={previews} onStart={onRefreshPreviews} onStop={onStopPreviews} />
+        <CleanedTagsRow dataVersion={dataVersion} />
       </Group>
       {removingCopies && (
         <ConfirmDialog
@@ -799,16 +802,6 @@ function lastRequest(status: McpStatus | null, t: TFunction, language: string) {
   return at.today ? t("assistants.lastToday", at) : t("assistants.lastOn", at);
 }
 
-/** When something happened, for «… today at 14:05» or «… on 3 October at 14:05». */
-function moment(iso: string, language: string) {
-  const at = new Date(iso);
-  return {
-    today: at.toDateString() === new Date().toDateString(),
-    time: at.toLocaleTimeString(language, { hour: "2-digit", minute: "2-digit" }),
-    date: at.toLocaleDateString(language, { day: "numeric", month: "long" }),
-  };
-}
-
 /** «Check for new posts» (NP-132): minutes, 0 only on refresh. */
 const FEED_CHECKS = [30, 60, 180, 720, 0];
 function checkLabel(minutes: number, t: TFunction, language: string): string {
@@ -874,6 +867,85 @@ function PreviewsRow({ run, onStart, onStop }: { run: PreviewRefresh | null; onS
           ]}
           onClose={() => setMenu(null)}
         />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Storage → «Cleaned tag names»: what the cleaning of tag names (`db::clean_tag_names`) did in this
+ * library on this device, newest first: the old name with what nobody saw in it shown by its code,
+ * what it became, and how many bookmarks it was on. Only when there is something in the record.
+ *
+ * Read only, with no undo. A removed tag had no visible name to give back, and a merged one looked
+ * exactly like the tag it went into; putting either back means a new tag under a new name, which is
+ * what tagging those bookmarks by hand gives, while the record names at most 200 of a tag's
+ * bookmarks, so an undo of a larger one would quietly leave the rest out.
+ */
+function CleanedTagsRow({ dataVersion }: { dataVersion: number }) {
+  const { t, i18n } = useTranslation();
+  const [record, setRecord] = useState<CleanedTag[] | null>(null);
+  const [shown, setShown] = useState(false);
+  const listId = useId();
+  useEffect(() => {
+    // Only the latest read counts: an earlier, slower one must not put back an older record,
+    // and none lands once the row is gone.
+    let latest = 0;
+    let gone = false;
+    const read = () => {
+      const asked = ++latest;
+      void api
+        .getCleanedTags()
+        .then((got) => {
+          if (!gone && asked === latest) setRecord(got);
+        })
+        .catch(() => {});
+    };
+    read();
+    // A sync batch, a restore and a list import clean names too.
+    const off = api.onLibraryInvalidated(read);
+    return () => {
+      gone = true;
+      off();
+    };
+  }, [dataVersion]);
+  if (!record?.length) return null;
+  return (
+    <div data-settings-cleaned-tags={shown ? "shown" : "folded"}>
+      <Row title={t("settings.cleanedTags")} description={t("settings.cleanedTagsHint", { count: record.length })}>
+        <Button aria-expanded={shown} aria-controls={listId} onClick={() => setShown((now) => !now)}>
+          {t(shown ? "settings.cleanedTagsHide" : "settings.cleanedTagsShow")}
+        </Button>
+      </Row>
+      {shown && (
+        <ul id={listId} aria-label={t("settings.cleanedTags")} className="max-h-[320px] divide-y divide-divider overflow-y-auto border-t border-divider">
+          {record.map((entry) => (
+            <li key={entry.key} data-cleaned={entry.action} className="px-3 py-2">
+              <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-sm [overflow-wrap:anywhere]">
+                {/* The marks come from the rule that cleaned the name (`db::name_parts`); spaces as they were. */}
+                <span data-cleaned-name className="whitespace-pre-wrap">
+                  {entry.parts.map((part, i) =>
+                    part.unseen ? (
+                      <span key={i} className="mx-px rounded-[3px] bg-well px-1 align-[1px] text-[11px] text-meta tabular-nums">
+                        {part.text}
+                      </span>
+                    ) : (
+                      <span key={i}>{part.text}</span>
+                    ),
+                  )}
+                </span>
+                <span aria-hidden className="text-muted">→</span>
+                <span className="sr-only">{t("settings.cleanedBecame")}</span>
+                {entry.now_named ? (
+                  <span data-cleaned-now>{entry.now_named}</span>
+                ) : (
+                  <span data-cleaned-now className="text-muted">{t("settings.cleanedNothingLeft")}</span>
+                )}
+              </div>
+              <div className="mt-0.5 text-xs text-muted">{cleanedDetails(entry, t, i18n.language)}</div>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

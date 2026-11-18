@@ -218,7 +218,7 @@ for (const code of ["en", "de", "ru"]) {
         const { api } = await import("/src/services/api.ts");
         let attempt = 0;
         api.downloadList = async (url: string) => (attempt++ === 0 ? { outcome: "status", status: 404 } : { outcome: "done", text, url });
-      }, readFileSync(path.join(here, "..", "..", "src-tauri", "tests", "fixtures", "kpin", "valid.kpin"), "utf8"));
+      }, readFileSync(path.join(here, "..", "..", "docs", "kpin", "conformance", "lists", "valid.kpin"), "utf8"));
       await page.evaluate(async () => {
         const { openRequests } = await import("/src/services/openRequests.ts");
         openRequests.push({ kind: "kpin-url", url: "https://koona.app/pin/lists/rust-blogs.kpin" });

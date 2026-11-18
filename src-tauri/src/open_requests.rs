@@ -123,6 +123,10 @@ fn import_link(arg: &str) -> Option<String> {
     if link.scheme() != SCHEME || !link.host_str()?.eq_ignore_ascii_case("import") {
         return None;
     }
+    // `import` alone: no user name, password or port on the link itself.
+    if !link.username().is_empty() || link.password().is_some() || link.port().is_some() {
+        return None;
+    }
     if !matches!(link.path(), "" | "/") || link.fragment().is_some() {
         return None;
     }
@@ -204,6 +208,19 @@ mod tests {
             Some(OpenRequest::KpinUrl { url }) => Some(url),
             Some(other) => panic!("not a link: {other:?}"),
             None => None,
+        }
+    }
+
+    /// `one-click.json` of the format's public conformance suite (`docs/kpin/conformance`).
+    #[test]
+    fn links_are_taken_as_the_conformance_suite_says() {
+        use crate::lists::conformance;
+        for v in conformance::vectors("one-click.json") {
+            let link = conformance::padded(v["link"].as_str().unwrap(), &v["pad"]);
+            match v["ok"].as_bool() {
+                Some(ok) => assert_eq!(url(&link).is_some(), ok, "{v}"),
+                None => assert_eq!(url(&link).as_deref(), v["url"].as_str(), "{v}"),
+            }
         }
     }
 

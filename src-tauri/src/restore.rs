@@ -368,11 +368,16 @@ pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, back
 
     // Tags: by name; a new one keeps the copy's uid unless another tag has it.
     let tags_before: i64 = tx.query_row("SELECT count(*) FROM tags", [], |r| r.get(0))?;
+    // Named as tags are read now (`db::tag_name`), as the bookmarks' links below are.
+    // This changes only what the copy brings, which stays as it is on disk; the
+    // library's own tags are neither merged nor removed here, so nothing goes in
+    // the cleaning record (`db::TAG_CLEANUP_LOG`), which is for those.
     for t in &library.tags {
+        let Some(name) = db::tag_name(&t.name) else { continue };
         let taken = tx.query_row("SELECT 1 FROM tags WHERE uid = ?1", [&t.uid], |_| Ok(())).optional()?.is_some();
         tx.execute(
             "INSERT INTO tags (uid, name, created_at) VALUES (?1, ?2, ?3) ON CONFLICT(name) DO NOTHING",
-            params![if taken { db::new_uid() } else { fresh_uid(&tx, &t.uid)? }, t.name, t.created_at],
+            params![if taken { db::new_uid() } else { fresh_uid(&tx, &t.uid)? }, name, t.created_at],
         )?;
     }
 
@@ -469,6 +474,28 @@ mod tests {
     }
     fn everything(c: &Connection) -> String {
         copy_of(c)
+    }
+
+    /// A copy made by an older version may name tags as it read them: a
+    /// merge restore names them as they are read now, a name with nothing
+    /// visible makes no tag, and a look-alike is the tag the library has.
+    #[test]
+    fn a_merge_restore_names_tags_as_they_are_read_now() {
+        let source = library();
+        let tokio: i64 = source.query_row("SELECT id FROM bookmarks WHERE url = 'https://tokio.rs/'", [], |r| r.get(0)).unwrap();
+        source.execute("UPDATE tags SET name = 'ru\u{AD}st' WHERE name = 'rust'", []).unwrap();
+        source.execute("INSERT INTO tags (uid, name, created_at) VALUES (?1, '\u{200B}', '2025-01-01T00:00:00.000Z')", [db::new_uid()]).unwrap();
+        source.execute("INSERT INTO bookmark_tags (bookmark_id, tag_id) VALUES (?1, ?2)", [tokio, source.last_insert_rowid()]).unwrap();
+        let text = copy_of(&source);
+        let target = database();
+        db::insert_or_update_bookmark(&target, "https://other.example/", "Other", None, None, None, "other.example", None, Some(&["rust".into()]), db::Source::App)
+            .unwrap();
+        restore(&target, &check(&text).unwrap(), RestoreMode::Merge, &folder()).unwrap();
+        let names: Vec<String> =
+            target.prepare("SELECT name FROM tags ORDER BY name").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+        assert_eq!(names, ["async", "rust"]);
+        let tokio = db::get_bookmarks(&target, &db::BookmarkQuery { search: Some("tokio".into()), ..Default::default() }).unwrap().items.remove(0);
+        assert_eq!(tokio.tags.unwrap(), ["rust", "async"]);
     }
 
     #[test]

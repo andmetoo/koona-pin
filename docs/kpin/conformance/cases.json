@@ -1,0 +1,959 @@
+{
+  "$comment": "Conformance cases of the .kpin list format 1.x: what every reader must answer for each file, and what it reads out of it. See README.md in this folder. Dedicated to the public domain under CC0 1.0.",
+  "spec": "1.0",
+  "revision": "2026-11",
+  "cases": [
+    {
+      "file": "lists/valid.kpin",
+      "schema_valid": true,
+      "reader": "ready",
+      "list": {
+        "title": "Rust blogs worth following",
+        "version": "1.0",
+        "newer": false,
+        "sections": 2,
+        "meta": {
+          "description": "Personal and team blogs about Rust, checked October 2026.",
+          "author": {
+            "name": "Koona",
+            "url": "https://koona.app"
+          },
+          "license": "CC0-1.0",
+          "language": "en",
+          "updated": "2026-10-18",
+          "homepage": "https://koona.app/pin/lists/rust-blogs",
+          "id": "rust-blogs",
+          "generator": "Koona Pin 2.4.0"
+        },
+        "counts": {
+          "links": 3,
+          "feeds": 2,
+          "repeated": 0,
+          "not_web": 0,
+          "invalid": 0,
+          "skipped_items": 0,
+          "skipped_details": 0
+        },
+        "links": [
+          {
+            "url": "https://doc.rust-lang.org/nomicon/",
+            "title": "The Rustonomicon",
+            "description": "The dark arts of unsafe Rust.",
+            "tags": [
+              "unsafe",
+              "book"
+            ],
+            "sections": [
+              "Compiler and language"
+            ]
+          },
+          {
+            "url": "https://tokio.rs/",
+            "title": "Tokio",
+            "description": null,
+            "tags": [
+              "runtime"
+            ],
+            "sections": [
+              "Async"
+            ]
+          },
+          {
+            "url": "https://this-week-in-rust.org/",
+            "title": "This Week in Rust",
+            "description": null,
+            "tags": [],
+            "sections": []
+          }
+        ],
+        "feeds": [
+          {
+            "url": "https://blog.rust-lang.org/feed.xml",
+            "title": "Rust Blog",
+            "site": "https://blog.rust-lang.org",
+            "section": "Compiler and language"
+          },
+          {
+            "url": "https://without.boats/index.xml",
+            "title": "Without boats",
+            "site": null,
+            "section": "Async"
+          }
+        ]
+      }
+    },
+    {
+      "file": "lists/unknown-type.kpin",
+      "schema_valid": true,
+      "reader": "ready",
+      "list": {
+        "title": "From a newer writer",
+        "version": "1.1",
+        "newer": true,
+        "sections": 0,
+        "meta": {
+          "description": null,
+          "author": {
+            "name": "Someone",
+            "url": null
+          },
+          "license": null,
+          "language": null,
+          "updated": null,
+          "homepage": null,
+          "id": null,
+          "generator": null
+        },
+        "counts": {
+          "links": 1,
+          "feeds": 1,
+          "repeated": 0,
+          "not_web": 0,
+          "invalid": 0,
+          "skipped_items": 1,
+          "skipped_details": 4
+        },
+        "links": [
+          {
+            "url": "https://example.com/a",
+            "title": "A",
+            "description": null,
+            "tags": [],
+            "sections": []
+          }
+        ],
+        "feeds": [
+          {
+            "url": "https://example.com/feed.xml",
+            "title": null,
+            "site": null,
+            "section": null
+          }
+        ]
+      }
+    },
+    {
+      "file": "lists/url-without-host.kpin",
+      "schema_valid": false,
+      "reader": "ready",
+      "list": {
+        "title": "One address has no host",
+        "version": "1.0",
+        "newer": false,
+        "sections": 0,
+        "counts": {
+          "links": 1,
+          "feeds": 0,
+          "repeated": 0,
+          "not_web": 0,
+          "invalid": 1,
+          "skipped_items": 0,
+          "skipped_details": 0
+        },
+        "links": [
+          {
+            "url": "https://example.com/kept",
+            "title": null,
+            "description": null,
+            "tags": [],
+            "sections": []
+          }
+        ],
+        "feeds": []
+      }
+    },
+    {
+      "file": "lists/title-of-spaces.kpin",
+      "schema_valid": false,
+      "reader": "not_a_list"
+    },
+    {
+      "file": "lists/title-of-tag-characters.kpin",
+      "schema_valid": true,
+      "reader": "not_a_list",
+      "schema_cannot_see": "The title is only tag characters (U+E0020 to U+E007F), which lie outside the Basic Multilingual Plane, where the schema's pattern cannot name them; a reader finds the title empty."
+    },
+    {
+      "file": "lists/repeated-tags.kpin",
+      "schema_valid": false,
+      "reader": "ready",
+      "list": {
+        "title": "Repeated tags",
+        "version": "1.0",
+        "newer": false,
+        "sections": 0,
+        "counts": {
+          "links": 1,
+          "feeds": 0,
+          "repeated": 0,
+          "not_web": 0,
+          "invalid": 0,
+          "skipped_items": 0,
+          "skipped_details": 0
+        },
+        "links": [
+          {
+            "url": "https://example.com/",
+            "title": null,
+            "description": null,
+            "tags": [
+              "rust"
+            ],
+            "sections": []
+          }
+        ],
+        "feeds": []
+      }
+    },
+    {
+      "file": "lists/no-items.kpin",
+      "schema_valid": false,
+      "reader": "empty"
+    },
+    {
+      "file": "lists/version-2.kpin",
+      "schema_valid": false,
+      "reader": "needs_newer_app"
+    },
+    {
+      "file": "lists/ftp.kpin",
+      "schema_valid": false,
+      "reader": "ready",
+      "list": {
+        "title": "One address is not on the web",
+        "version": "1.0",
+        "newer": false,
+        "sections": 0,
+        "counts": {
+          "links": 1,
+          "feeds": 0,
+          "repeated": 0,
+          "not_web": 1,
+          "invalid": 0,
+          "skipped_items": 0,
+          "skipped_details": 0
+        },
+        "links": [
+          {
+            "url": "https://example.com/kept",
+            "title": null,
+            "description": null,
+            "tags": [],
+            "sections": []
+          }
+        ],
+        "feeds": []
+      }
+    },
+    {
+      "file": "lists/other-app.kpin",
+      "schema_valid": true,
+      "reader": "other_app",
+      "app": "note"
+    },
+    {
+      "file": "lists/unknown-kind.kpin",
+      "schema_valid": true,
+      "reader": "needs_newer_app"
+    },
+    {
+      "file": "lists/wrong-format.kpin",
+      "schema_valid": false,
+      "reader": "not_a_list"
+    },
+    {
+      "file": "lists/cut-off.kpin",
+      "schema_valid": false,
+      "reader": "not_a_list"
+    },
+    {
+      "file": "lists/repeats.kpin",
+      "schema_valid": true,
+      "reader": "ready",
+      "list": {
+        "title": "Rust Blogs",
+        "version": "1.0",
+        "newer": false,
+        "sections": 2,
+        "counts": {
+          "links": 1,
+          "feeds": 1,
+          "repeated": 2,
+          "not_web": 0,
+          "invalid": 0,
+          "skipped_items": 0,
+          "skipped_details": 0
+        },
+        "links": [
+          {
+            "url": "https://doc.rust-lang.org/book/",
+            "title": "The Book",
+            "description": null,
+            "tags": [
+              "book",
+              "beginner"
+            ],
+            "sections": [
+              "Books",
+              "Learning"
+            ]
+          }
+        ],
+        "feeds": [
+          {
+            "url": "https://blog.rust-lang.org/feed.xml",
+            "title": null,
+            "site": null,
+            "section": "Learning"
+          }
+        ]
+      }
+    },
+    {
+      "file": "lists/groups.kpin",
+      "schema_valid": true,
+      "reader": "ready",
+      "list": {
+        "title": "Groups of the preview",
+        "version": "1.0",
+        "newer": false,
+        "sections": 4,
+        "counts": {
+          "links": 6,
+          "feeds": 3,
+          "repeated": 1,
+          "not_web": 0,
+          "invalid": 0,
+          "skipped_items": 0,
+          "skipped_details": 0
+        },
+        "links": [
+          {
+            "url": "https://www.ripgrep.dev/",
+            "title": "ripgrep",
+            "description": null,
+            "tags": [],
+            "sections": [
+              "Tools",
+              "Reading"
+            ]
+          },
+          {
+            "url": "https://fd.example.com/",
+            "title": "fd",
+            "description": null,
+            "tags": [],
+            "sections": [
+              "Tools"
+            ]
+          },
+          {
+            "url": "https://books.example.com/",
+            "title": "Books",
+            "description": null,
+            "tags": [],
+            "sections": [
+              "Reading"
+            ]
+          },
+          {
+            "url": "https://jq.example.com/",
+            "title": "jq",
+            "description": null,
+            "tags": [],
+            "sections": [
+              "Tools"
+            ]
+          },
+          {
+            "url": "https://top-one.example.com/",
+            "title": "Top one",
+            "description": null,
+            "tags": [],
+            "sections": []
+          },
+          {
+            "url": "https://top-two.example.com/",
+            "title": null,
+            "description": null,
+            "tags": [],
+            "sections": []
+          }
+        ],
+        "feeds": [
+          {
+            "url": "https://tools.example.com/feed.xml",
+            "title": "Tools weekly",
+            "site": "https://tools.example.com/",
+            "section": "Tools"
+          },
+          {
+            "url": "https://followed.example.com/rss",
+            "title": "Already followed",
+            "site": null,
+            "section": "Feeds"
+          },
+          {
+            "url": "https://new.example.com/atom.xml",
+            "title": null,
+            "site": null,
+            "section": "Feeds"
+          }
+        ]
+      }
+    },
+    {
+      "file": "lists/max-items.kpin",
+      "schema_valid": true,
+      "reader": "ready",
+      "list": {
+        "title": "Five thousand items",
+        "version": "1.0",
+        "newer": false,
+        "sections": 13,
+        "counts": {
+          "links": 4900,
+          "feeds": 100,
+          "repeated": 0,
+          "not_web": 0,
+          "invalid": 0,
+          "skipped_items": 0,
+          "skipped_details": 0
+        }
+      }
+    },
+    {
+      "file": "lists/byte-order-mark.kpin",
+      "schema_valid": true,
+      "reader": "ready",
+      "list": {
+        "title": "Starts with a byte order mark",
+        "counts": {
+          "links": 1,
+          "feeds": 0,
+          "repeated": 0,
+          "not_web": 0,
+          "invalid": 0,
+          "skipped_items": 0,
+          "skipped_details": 0
+        }
+      }
+    },
+    {
+      "file": "lists/odd-items.kpin",
+      "schema_valid": false,
+      "reader": "ready",
+      "list": {
+        "counts": {
+          "links": 1,
+          "feeds": 0,
+          "repeated": 0,
+          "not_web": 0,
+          "invalid": 0,
+          "skipped_items": 2,
+          "skipped_details": 0
+        }
+      }
+    },
+    {
+      "file": "lists/metadata.kpin",
+      "schema_valid": false,
+      "reader": "ready",
+      "list": {
+        "meta": {
+          "description": null,
+          "author": {
+            "name": "A Curator",
+            "url": null
+          },
+          "license": "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+          "language": null,
+          "updated": null,
+          "homepage": "https://curator.example/lists",
+          "id": null,
+          "generator": "G"
+        }
+      }
+    },
+    {
+      "file": "lists/tags.kpin",
+      "schema_valid": false,
+      "reader": "ready",
+      "list": {
+        "links": [
+          {
+            "url": "https://example.com/a",
+            "title": null,
+            "description": null,
+            "tags": [
+              "rust",
+              "web design"
+            ],
+            "sections": []
+          },
+          {
+            "url": "https://example.com/b",
+            "title": null,
+            "description": null,
+            "tags": [],
+            "sections": []
+          },
+          {
+            "url": "https://example.com/c",
+            "title": null,
+            "description": null,
+            "tags": [
+              "t0",
+              "t1",
+              "t2",
+              "t3",
+              "t4",
+              "t5",
+              "t6",
+              "t7",
+              "t8",
+              "t9",
+              "t10",
+              "t11",
+              "t12",
+              "t13",
+              "t14",
+              "t15",
+              "t16",
+              "t17",
+              "t18",
+              "t19"
+            ],
+            "sections": []
+          }
+        ]
+      }
+    },
+    {
+      "file": "lists/credentials-and-feeds.kpin",
+      "schema_valid": true,
+      "reader": "ready",
+      "list": {
+        "counts": {
+          "links": 2,
+          "feeds": 2,
+          "repeated": 2,
+          "not_web": 0,
+          "invalid": 1,
+          "skipped_items": 0,
+          "skipped_details": 0
+        },
+        "links": [
+          {
+            "url": "https://example.com/page",
+            "title": null,
+            "description": null,
+            "tags": [],
+            "sections": []
+          },
+          {
+            "url": "https://example.net/feed.xml",
+            "title": null,
+            "description": null,
+            "tags": [],
+            "sections": []
+          }
+        ],
+        "feeds": [
+          {
+            "url": "https://example.org/",
+            "title": null,
+            "site": null,
+            "section": null
+          },
+          {
+            "url": "https://example.net/feed.xml",
+            "title": null,
+            "site": null,
+            "section": null
+          }
+        ]
+      }
+    },
+    {
+      "file": "lists/unknown-fields-1.0.kpin",
+      "schema_valid": true,
+      "reader": "ready",
+      "list": {
+        "newer": false,
+        "counts": {
+          "links": 1,
+          "feeds": 0,
+          "repeated": 0,
+          "not_web": 0,
+          "invalid": 0,
+          "skipped_items": 0,
+          "skipped_details": 0
+        }
+      }
+    },
+    {
+      "file": "lists/nameless-section.kpin",
+      "schema_valid": false,
+      "reader": "ready",
+      "list": {
+        "sections": 2,
+        "counts": {
+          "links": 4,
+          "feeds": 0,
+          "repeated": 1,
+          "not_web": 0,
+          "invalid": 0,
+          "skipped_items": 0,
+          "skipped_details": 0
+        },
+        "links": [
+          {
+            "url": "https://example.com/x",
+            "title": null,
+            "description": null,
+            "tags": [],
+            "sections": [
+              "First"
+            ]
+          },
+          {
+            "url": "https://example.com/y",
+            "title": null,
+            "description": null,
+            "tags": [],
+            "sections": []
+          },
+          {
+            "url": "https://example.com/z",
+            "title": null,
+            "description": null,
+            "tags": [],
+            "sections": [
+              "Last"
+            ]
+          },
+          {
+            "url": "https://example.com/w",
+            "title": null,
+            "description": null,
+            "tags": [],
+            "sections": []
+          }
+        ]
+      }
+    },
+    {
+      "file": "lists/lone-surrogate.kpin",
+      "schema_valid": true,
+      "reader": "not_a_list",
+      "schema_cannot_see": "An item title holds an escaped surrogate without its pair (U+D800, escaped): JSON allows the escape, but it is no Unicode text, and a reader refuses the file as it refuses any text that is not UTF-8."
+    },
+    {
+      "name": "exactly 2 MB",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "pad_to_bytes": 2097152
+      },
+      "schema_valid": true,
+      "reader": "ready"
+    },
+    {
+      "name": "one byte over 2 MB",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "pad_to_bytes": 2097153
+      },
+      "schema_valid": true,
+      "reader": "too_big"
+    },
+    {
+      "name": "5,001 items across sections and the top level",
+      "generate": {
+        "from": "lists/max-items.kpin",
+        "add_links": 1
+      },
+      "schema_valid": true,
+      "reader": "too_big"
+    },
+    {
+      "name": "200 sections",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "add_sections": 198
+      },
+      "schema_valid": true,
+      "reader": "ready",
+      "list": {
+        "title": "Rust blogs worth following",
+        "version": "1.0",
+        "newer": false,
+        "sections": 200,
+        "counts": {
+          "links": 201,
+          "feeds": 2,
+          "repeated": 0,
+          "not_web": 0,
+          "invalid": 0,
+          "skipped_items": 0,
+          "skipped_details": 0
+        }
+      }
+    },
+    {
+      "name": "201 sections",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "add_sections": 199
+      },
+      "schema_valid": false,
+      "reader": "too_big"
+    },
+    {
+      "name": "version 1.10, newer than 1.1",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "set": {
+          "version": "1.10"
+        }
+      },
+      "schema_valid": true,
+      "reader": "ready",
+      "list": {
+        "version": "1.10",
+        "newer": true
+      }
+    },
+    {
+      "name": "version 1.9999",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "set": {
+          "version": "1.9999"
+        }
+      },
+      "schema_valid": true,
+      "reader": "ready",
+      "list": {
+        "version": "1.9999",
+        "newer": true
+      }
+    },
+    {
+      "name": "version 1.01: a leading zero",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "set": {
+          "version": "1.01"
+        }
+      },
+      "schema_valid": false,
+      "reader": "not_a_list"
+    },
+    {
+      "name": "version 1.10000: a MINOR of five digits",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "set": {
+          "version": "1.10000"
+        }
+      },
+      "schema_valid": false,
+      "reader": "not_a_list"
+    },
+    {
+      "name": "version 0.9: there is no MAJOR 0",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "set": {
+          "version": "0.9"
+        }
+      },
+      "schema_valid": false,
+      "reader": "not_a_list"
+    },
+    {
+      "name": "version 1: no MINOR",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "set": {
+          "version": "1"
+        }
+      },
+      "schema_valid": false,
+      "reader": "not_a_list"
+    },
+    {
+      "name": "version 2.x",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "set": {
+          "version": "2.x"
+        }
+      },
+      "schema_valid": false,
+      "reader": "not_a_list"
+    },
+    {
+      "name": "version 2.123456: another MAJOR's MINOR is its own",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "set": {
+          "version": "2.123456"
+        }
+      },
+      "schema_valid": false,
+      "reader": "needs_newer_app"
+    },
+    {
+      "name": "version 12345678901.0: a long MAJOR is still a later one",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "set": {
+          "version": "12345678901.0"
+        }
+      },
+      "schema_valid": false,
+      "reader": "needs_newer_app"
+    },
+    {
+      "name": "version as a number",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "set": {
+          "version": 1
+        }
+      },
+      "schema_valid": false,
+      "reader": "not_a_list"
+    },
+    {
+      "name": "app not a valid name",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "set": {
+          "app": "Pin"
+        }
+      },
+      "schema_valid": false,
+      "reader": "not_a_list"
+    },
+    {
+      "name": "another app with an unknown kind",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "set": {
+          "app": "note",
+          "kind": "template"
+        }
+      },
+      "schema_valid": true,
+      "reader": "other_app",
+      "app": "note"
+    },
+    {
+      "name": "kind not a valid name",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "set": {
+          "kind": "List"
+        }
+      },
+      "schema_valid": false,
+      "reader": "not_a_list"
+    },
+    {
+      "name": "an unknown kind is judged before the version",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "set": {
+          "kind": "template",
+          "version": "x"
+        }
+      },
+      "schema_valid": false,
+      "reader": "needs_newer_app"
+    },
+    {
+      "name": "no title",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "remove": [
+          "title"
+        ]
+      },
+      "schema_valid": false,
+      "reader": "not_a_list"
+    },
+    {
+      "name": "a title of 130 characters is cut to 120",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "set": {
+          "title": "tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt"
+        }
+      },
+      "schema_valid": false,
+      "reader": "ready",
+      "list": {
+        "title": "tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt"
+      }
+    },
+    {
+      "name": "sections and items null",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "set": {
+          "sections": null,
+          "items": null
+        }
+      },
+      "schema_valid": false,
+      "reader": "empty"
+    },
+    {
+      "name": "sections not an array",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "set": {
+          "sections": 5
+        }
+      },
+      "schema_valid": false,
+      "reader": "not_a_list"
+    },
+    {
+      "name": "a section that is not an object",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "set": {
+          "sections": [
+            5
+          ]
+        }
+      },
+      "schema_valid": false,
+      "reader": "not_a_list"
+    },
+    {
+      "name": "items not an array",
+      "generate": {
+        "from": "lists/valid.kpin",
+        "set": {
+          "items": "x"
+        }
+      },
+      "schema_valid": false,
+      "reader": "not_a_list"
+    },
+    {
+      "name": "201 entries in sections, one without a name",
+      "generate": {
+        "from": "lists/nameless-section.kpin",
+        "add_sections": 198
+      },
+      "schema_valid": false,
+      "reader": "too_big"
+    }
+  ]
+}

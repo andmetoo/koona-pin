@@ -603,7 +603,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("kpin-file-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
         let list = dir.join("Rust blogs.kpin");
-        std::fs::write(&list, include_str!("../../tests/fixtures/kpin/valid.kpin")).unwrap();
+        std::fs::write(&list, include_str!("../../../docs/kpin/conformance/lists/valid.kpin")).unwrap();
         match read_list_file(list.to_string_lossy().into()).await {
             ListFile::Read { name, text } => {
                 assert_eq!(name, "Rust blogs.kpin");

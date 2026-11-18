@@ -2416,7 +2416,7 @@ dependencies = [
 
 [[package]]
 name = "koonapin"
-version = "2.26.0"
+version = "2.27.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -2429,6 +2429,7 @@ dependencies = [
  "gtk",
  "icu_collator",
  "icu_locale_core",
+ "icu_properties",
  "image",
  "koona-sync",
  "libc",

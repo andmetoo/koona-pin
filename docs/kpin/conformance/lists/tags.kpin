@@ -1,0 +1,57 @@
+{
+  "format": "koona",
+  "app": "pin",
+  "kind": "list",
+  "version": "1.0",
+  "title": "Tags a reader cleans",
+  "items": [
+    {
+      "type": "link",
+      "url": "https://example.com/a",
+      "tags": [
+        "Rust",
+        5,
+        "",
+        " rust ",
+        null,
+        "Web  Design"
+      ]
+    },
+    {
+      "type": "link",
+      "url": "https://example.com/b",
+      "tags": "rust"
+    },
+    {
+      "type": "link",
+      "url": "https://example.com/c",
+      "tags": [
+        "t0",
+        "t1",
+        "t2",
+        "t3",
+        "t4",
+        "t5",
+        "t6",
+        "t7",
+        "t8",
+        "t9",
+        "t10",
+        "t11",
+        "t12",
+        "t13",
+        "t14",
+        "t15",
+        "t16",
+        "t17",
+        "t18",
+        "t19",
+        "t20",
+        "t21",
+        "t22",
+        "t23",
+        "t24"
+      ]
+    }
+  ]
+}

@@ -63,6 +63,7 @@ import {
   OfflineCopy,
   OfflineCopyContent,
   OfflineStats,
+  CleanedTag,
   SupporterStatus,
   SupporterPrices,
   PlanInterval,
@@ -909,26 +910,36 @@ export function demoList(text: string): DemoList | Exclude<ListCheck, { outcome:
   if (new TextEncoder().encode(text).length > 2 * 1024 * 1024) return { outcome: "too_big" };
   let raw: Record<string, unknown>;
   try {
-    raw = JSON.parse(text);
+    // A byte order mark at the start is allowed and ignored.
+    raw = JSON.parse(text.replace(/^\u{feff}/u, ""));
   } catch {
     return { outcome: "not_a_list" };
   }
-  if (!raw || typeof raw !== "object" || Array.isArray(raw) || raw.format !== "koona") return { outcome: "not_a_list" };
-  if (raw.app !== "pin") return typeof raw.app === "string" ? { outcome: "other_app", app: raw.app } : { outcome: "not_a_list" };
-  const version = /^(\d+)\.(\d+)$/.exec(String(raw.version ?? ""));
-  if (!version) return { outcome: "not_a_list" };
-  const [major, minor] = [Number(version[1]), Number(version[2])];
-  if (raw.kind !== "list" || major > 1) return { outcome: "needs_newer_app" };
-  const title = typeof raw.title === "string" ? raw.title.replace(/\s+/g, " ").trim().slice(0, 120) : "";
-  if (major !== 1 || !title) return { outcome: "not_a_list" };
-  const sections = Array.isArray(raw.sections) ? (raw.sections as Record<string, unknown>[]) : [];
+  // As serde_json: an escaped surrogate without its pair is no text, and the file is no list.
+  if (!raw || typeof raw !== "object" || Array.isArray(raw) || !wellFormed(raw) || raw.format !== "koona") return { outcome: "not_a_list" };
+  const isName = (value: unknown): value is string => typeof value === "string" && /^[a-z][a-z0-9-]{0,31}$/.test(value);
+  if (!isName(raw.app)) return { outcome: "not_a_list" };
+  if (raw.app !== "pin") return { outcome: "other_app", app: raw.app };
+  if (!isName(raw.kind)) return { outcome: "not_a_list" };
+  if (raw.kind !== "list") return { outcome: "needs_newer_app" };
+  // `format::version`: plain numbers; MAJOR 1 with a MINOR of at most 4 digits, any later MAJOR needs a newer app.
+  const version = typeof raw.version === "string" ? /^(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(raw.version) : null;
+  if (!version || version[1] === "0") return { outcome: "not_a_list" };
+  if (version[1] !== "1") return { outcome: "needs_newer_app" };
+  if (version[2].length > 4) return { outcome: "not_a_list" };
+  const [major, minor] = [1, Number(version[2])];
+  const title = typeof raw.title === "string" ? (demoLine(raw.title, 120) ?? "") : "";
+  if (!title) return { outcome: "not_a_list" };
+  const isObject = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
+  if (raw.sections != null && (!Array.isArray(raw.sections) || !raw.sections.every(isObject))) return { outcome: "not_a_list" };
+  const sections = (raw.sections ?? []) as Record<string, unknown>[];
   if (sections.length > 200) return { outcome: "too_big" };
+  const itemsOf = (holder: Record<string, unknown>) => (holder.items == null ? [] : Array.isArray(holder.items) ? (holder.items as Record<string, unknown>[]) : null);
+  const lists = [...sections.map(itemsOf), itemsOf(raw)];
+  if (lists.some((items) => items === null)) return { outcome: "not_a_list" };
   const groups: [string | null, Record<string, unknown>[]][] = [
-    ...sections.map((section): [string | null, Record<string, unknown>[]] => [
-      typeof section?.name === "string" && section.name.trim() ? section.name.trim().slice(0, 120) : null,
-      Array.isArray(section?.items) ? section.items : [],
-    ]),
-    [null, Array.isArray(raw.items) ? (raw.items as Record<string, unknown>[]) : []],
+    ...sections.map((section, i): [string | null, Record<string, unknown>[]] => [typeof section.name === "string" ? demoLine(section.name, 120) : null, lists[i]!]),
+    [null, lists[lists.length - 1]!],
   ];
   const total = groups.reduce((sum, [, items]) => sum + items.length, 0);
   if (total > 5000) return { outcome: "too_big" };
@@ -937,7 +948,7 @@ export function demoList(text: string): DemoList | Exclude<ListCheck, { outcome:
   const links = new Map<string, DemoListItem>();
   const feeds = new Set<string>();
   const tagsOf = (item: Record<string, unknown>) =>
-    [...new Set((Array.isArray(item.tags) ? item.tags : []).filter((tag): tag is string => typeof tag === "string").map((tag) => tag.trim().toLowerCase().slice(0, 64)).filter(Boolean))].slice(0, 20);
+    [...new Set((Array.isArray(item.tags) ? item.tags : []).filter((tag): tag is string => typeof tag === "string").map(demoTag).filter((tag): tag is string => tag !== null))].slice(0, 20);
   for (const [section, items] of groups) {
     for (const item of items) {
       if (item?.type !== "link" && item?.type !== "feed") {
@@ -960,8 +971,8 @@ export function demoList(text: string): DemoList | Exclude<ListCheck, { outcome:
       }
       const entry = {
         url,
-        title: typeof item.title === "string" ? item.title.trim().slice(0, 300) || null : null,
-        description: typeof item.description === "string" ? item.description.trim().slice(0, 1000) || null : null,
+        title: typeof item.title === "string" ? demoLine(item.title, 500) : null,
+        description: typeof item.description === "string" ? demoParagraph(item.description, 2000) : null,
         tags: tagsOf(item),
         sections: section ? [section] : [],
         site: item.type === "feed" ? demoWebUrl(item.site) : null,
@@ -990,15 +1001,87 @@ export function demoList(text: string): DemoList | Exclude<ListCheck, { outcome:
   }
   return list;
 }
-/** `format::tag`: lowercased, control and invisible characters dropped, white space collapsed, at most 64 characters; none when empty. */
-function demoTag(raw: string): string | null {
-  const kept = [...raw.toLowerCase()]
-    // The invisible ones first: JavaScript counts U+FEFF as white space, Rust does not.
-    .map((c) => (/[\u061c\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]/.test(c) ? "" : /\s/.test(c) ? " " : /\p{Cc}/u.test(c) ? "" : c))
-    .join("");
-  const capped = [...kept.split(/\s+/).filter(Boolean).join(" ")].slice(0, 64).join("").trimEnd();
-  return capped || null;
+/**
+ * `format::without_invisible`: the invisible characters of the spec's Text dropped, except the tags
+ * of the flags of England, Scotland and Wales (U+1F3F4, the tags of gbeng, gbsct or gbwls, CANCEL TAG), kept whole,
+ * and a zero width joiner or non-joiner where it changes what is drawn, judged once the others are gone (`format::joiner_stays`).
+ */
+const INVISIBLE =
+  /(\u{1f3f4}\u{e0067}\u{e0062}(?:\u{e0065}\u{e006e}\u{e0067}|\u{e0073}\u{e0063}\u{e0074}|\u{e0077}\u{e006c}\u{e0073})\u{e007f})|[\u00ad\u061c\u180e\u200b\u200e\u200f\u202a-\u202e\u2060-\u2064\u2066-\u206f\ufeff\ufff9-\ufffb\u{e0001}\u{e0020}-\u{e007f}]/gu;
+const JOINS_AFTER = /^[\p{Extended_Pictographic}\ufe0f\u{1f3fb}-\u{1f3ff}]$/u;
+const PICTOGRAPHIC = /^\p{Extended_Pictographic}$/u;
+/** `format::JOINING_SCRIPTS`: where a joiner or non-joiner changes how letters are drawn and spelled. */
+const JOINING_SCRIPTS = ["Arabic", "Syriac", "Nko", "Mongolian", "Mandaic", "Manichaean", "Adlam", "Hanifi_Rohingya", "Devanagari", "Bengali", "Gurmukhi", "Gujarati", "Oriya", "Tamil", "Telugu", "Kannada", "Malayalam", "Sinhala"].map(
+  (script) => new RegExp(`^\\p{Script=${script}}$`, "u"),
+);
+/**
+ * A control character that is not white space, which every field drops: a joiner's neighbour is
+ * judged without it. A white space control (a tab, a line break) stays a neighbour, as in `format::seen_marks`.
+ */
+const dropped = (c: string) => /\p{Cc}/u.test(c) && !/[\s\u{85}]/u.test(c);
+/** The character that ends at UTF-16 index `at`, a pair of surrogates as one. */
+function charEndingAt(text: string, at: number): string {
+  const low = text.charCodeAt(at - 1);
+  const high = at >= 2 ? text.charCodeAt(at - 2) : 0;
+  return low >= 0xdc00 && low <= 0xdfff && high >= 0xd800 && high <= 0xdbff ? text.slice(at - 2, at) : text.slice(at - 1, at);
 }
+/** The character before UTF-16 index `at`, skipping dropped controls; walked back, nothing copied. */
+function before(text: string, at: number): string {
+  for (let i = at; i > 0; ) {
+    const c = charEndingAt(text, i);
+    if (!dropped(c)) return c;
+    i -= c.length;
+  }
+  return "";
+}
+/** The character from UTF-16 index `at` on, skipping dropped controls. */
+function after(text: string, at: number): string {
+  for (let i = at; i < text.length; ) {
+    const c = String.fromCodePoint(text.codePointAt(i)!);
+    if (!dropped(c)) return c;
+    i += c.length;
+  }
+  return "";
+}
+/** Every string in a JSON value (keys too) is well formed: no surrogate without its pair. */
+function wellFormed(value: unknown): boolean {
+  if (typeof value === "string") return !/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/.test(value);
+  if (Array.isArray(value)) return value.every(wellFormed);
+  if (value && typeof value === "object") return Object.entries(value).every(([key, v]) => wellFormed(key) && wellFormed(v));
+  return true;
+}
+function joinerStays(text: string, joiner: string, at: number): boolean {
+  const [b, a] = [before(text, at), after(text, at + 1)];
+  if (JOINING_SCRIPTS.some((script) => script.test(b) && script.test(a))) return true;
+  return joiner === "\u200d" && JOINS_AFTER.test(b) && PICTOGRAPHIC.test(a);
+}
+function demoVisible(raw: string): string {
+  const kept = raw.replace(INVISIBLE, (_, flag: string | undefined) => flag ?? "");
+  return /[\u200c\u200d]/.test(kept) ? kept.replace(/[\u200c\u200d]/g, (joiner: string, at: number) => (joinerStays(kept, joiner, at) ? joiner : "")) : kept;
+}
+
+/** `format::capped`: at most `max` characters (not UTF-16 units), the end trimmed; a cut through a flag or an emoji drops what it leaves unjoined. */
+function demoCapped(text: string, max: number): string | null {
+  const chars = [...text];
+  const cut = chars.length > max ? demoVisible(chars.slice(0, max).join("")) : text;
+  return cut.trimEnd() || null;
+}
+
+/** `format::line`: invisible and control characters dropped, white space collapsed, at most `max` characters; none when empty. */
+export function demoLine(raw: string, max: number): string | null {
+  // The invisible ones first: JavaScript counts U+FEFF as white space, Rust does not; Rust counts U+0085 as white space, JavaScript does not.
+  const kept = demoVisible(raw).replace(/[\s\u0085]/g, " ").replace(/\p{Cc}/gu, "");
+  return demoCapped(kept.split(" ").filter(Boolean).join(" "), max);
+}
+
+/** `format::paragraph`: as `demoLine`, but line breaks stay (CRLF becomes LF) and only the ends are trimmed. */
+export function demoParagraph(raw: string, max: number): string | null {
+  const kept = demoVisible(raw.replace(/\r\n/g, "\n")).replace(/(?!\n)\p{Cc}/gu, "");
+  return demoCapped(kept.trim(), max);
+}
+
+/** `format::tag`: a line of at most 64 characters, lowercased. */
+export const demoTag = (raw: string) => demoLine(raw.toLowerCase(), 64);
 /** `ListPreview.groups` as `lists/preview.rs` makes them: the top level first, then each section where it first appears, a link under its first section. */
 function demoGroups(list: DemoList, bookmarkAt: (url: string) => Bookmark | undefined, feedAt: Map<string, string>): ListPreviewGroup[] {
   const rows = [...list.links.map((entry) => ({ entry, kind: "link" as const })), ...list.feeds.map((entry) => ({ entry, kind: "feed" as const }))].sort((a, b) => a.entry.at - b.entry.at);
@@ -1092,7 +1175,7 @@ type Copy = {
 function readCopy(content: string): Copy | RestoreProblem {
   let value: Record<string, unknown>;
   try {
-    value = JSON.parse(content.replace(/^﻿/, ""));
+    value = JSON.parse(content.replace(/^\u{feff}/u, ""));
   } catch {
     return { problem: "not_json" };
   }
@@ -1635,6 +1718,18 @@ export const demo = {
         count: live().filter((b) => b.tags?.includes(name)).length,
       }),
     );
+  },
+  /**
+   * get_cleaned_tags: the preview cleans no stored names, so the record is empty unless a test
+   * lays one in `koonapin.demo.tagCleanups` (JSON, newest first, as the command gives it).
+   */
+  async getCleanedTags(): Promise<CleanedTag[]> {
+    try {
+      const record: unknown = JSON.parse(localStorage.getItem("koonapin.demo.tagCleanups") ?? "[]");
+      return Array.isArray(record) ? (record as CleanedTag[]) : [];
+    } catch {
+      return [];
+    }
   },
   async getDomains() {
     return [...new Set(live().map((b) => b.domain))].map((domain) => ({

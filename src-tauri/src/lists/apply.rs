@@ -73,8 +73,15 @@ pub fn apply(
         }
     };
 
-    for link in &list.links {
-        let tags = link.tags_with(options.sections_as_tags);
+    let list_tags: Vec<Vec<String>> = list.links.iter().map(|link| link.tags_with(options.sections_as_tags)).collect();
+    // A list's `coop` is the library's `coop`: stored names are cleaned at
+    // open and after sync (`db::clean_tag_names`), and again here, where a
+    // look-alike left by a cleaning that failed would otherwise get a twin.
+    // With nothing to clean it is one query.
+    if list_tags.iter().any(|tags| !tags.is_empty()) {
+        db::clean_tag_names(&tx)?;
+    }
+    for (link, tags) in list.links.iter().zip(list_tags) {
         match saved(&tx, &link.url)? {
             Some(true) => report.in_trash += 1,
             Some(false) => {
@@ -158,8 +165,8 @@ mod tests {
     use crate::lists::format::parse;
     use crate::lists::tests::database;
 
-    const VALID: &str = include_str!("../../tests/fixtures/kpin/valid.kpin");
-    const REPEATS: &str = include_str!("../../tests/fixtures/kpin/repeats.kpin");
+    const VALID: &str = include_str!("../../../docs/kpin/conformance/lists/valid.kpin");
+    const REPEATS: &str = include_str!("../../../docs/kpin/conformance/lists/repeats.kpin");
 
     fn options(collection: ListCollection) -> ListImportOptions {
         ListImportOptions {
@@ -225,6 +232,28 @@ mod tests {
             ]
         );
         assert_eq!(applied.named.len(), 2, "the list's names for the cache");
+    }
+
+    #[test]
+    fn a_tag_the_library_has_with_invisible_characters_is_reused_not_doubled() {
+        let c = database();
+        let tag = |name: &str| {
+            c.execute("INSERT INTO tags (uid, name, created_at) VALUES (?1, ?2, '2026-01-01T00:00:00Z')", params![db::new_uid(), name]).unwrap();
+        };
+        // Saved before readers dropped the soft hyphen (by an older list, or
+        // typed with it), and left as it was by a cleaning that failed.
+        tag("un\u{AD}safe");
+        let uid: String = c.query_row("SELECT uid FROM tags", [], |r| r.get(0)).unwrap();
+        apply(&c, &parse(VALID).unwrap(), &options(ListCollection::None), |_, _| {}).unwrap();
+        assert_eq!(tags_of(&c, "https://doc.rust-lang.org/nomicon/"), ["book", "compiler and language", "unsafe"]);
+        // The import cleaned first: the stored tag itself is the list's `unsafe`, no twin was made.
+        assert_eq!(
+            c.query_row("SELECT uid FROM tags WHERE name = 'unsafe'", [], |r| r.get::<_, String>(0)).unwrap(),
+            uid,
+            "no second tag that looks the same"
+        );
+        assert_eq!(count(&c, "SELECT count(*) FROM tags WHERE name GLOB '*[^ -~]*'"), 0);
+        assert_eq!(db::tag_cleanup_log(&c).unwrap().len(), 1, "the rename is in the record");
     }
 
     #[test]

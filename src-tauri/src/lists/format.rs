@@ -7,6 +7,9 @@
 use super::{ListError, ListMeta};
 use crate::import::SkipReason;
 use serde_json::{Map, Value};
+use icu_properties::props::{ExtendedPictographic, Script};
+use icu_properties::{CodePointMapData, CodePointSetData};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use url::Url;
 
@@ -114,39 +117,239 @@ pub struct ParsedList {
 /// One line of text: control and invisible characters dropped, white
 /// space collapsed, at most `max` characters. Empty: none.
 pub fn line(raw: &str, max: usize) -> Option<String> {
-    let kept: String = raw
-        .chars()
-        .filter_map(|c| match c {
-            c if c.is_whitespace() => Some(' '),
-            c if c.is_control() || is_invisible(c) => None,
-            c => Some(c),
+    // Most text is already a line (every title and tag of an import goes through
+    // here): nothing the marks would change, so it is not marked at all.
+    if is_a_line(raw) {
+        return capped(raw, max);
+    }
+    let kept: String = line_marks(raw)
+        .into_iter()
+        .filter_map(|(c, mark)| match mark {
+            Mark::Kept => Some(c),
+            Mark::Space => Some(' '),
+            Mark::Dropped => None,
         })
         .collect();
-    let joined = kept.split_whitespace().collect::<Vec<_>>().join(" ");
-    let capped: String = joined.chars().take(max).collect();
-    let capped = capped.trim_end();
-    (!capped.is_empty()).then(|| capped.to_owned())
+    capped(&kept, max)
+}
+
+/// Text that [`line_marks`] keeps whole: no invisible character, control or
+/// white space other than single plain spaces between words.
+fn is_a_line(raw: &str) -> bool {
+    let mut space_before = true;
+    for c in raw.chars() {
+        if c == ' ' {
+            if space_before {
+                return false;
+            }
+            space_before = true;
+        } else if c.is_whitespace() || c.is_control() || is_invisible(c) {
+            return false;
+        } else {
+            space_before = false;
+        }
+    }
+    !space_before || raw.is_empty()
+}
+
+/// What [`line`] does with one character of the text it is given.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Mark {
+    Kept,
+    /// White space other than the plain space, alone between two words: it becomes the plain space.
+    Space,
+    /// An [`is_invisible`] character that is not seen, a control, or white space
+    /// at either end or more than one between two words.
+    Dropped,
+}
+
+/// Each character of `raw` and what [`line`] does with it; [`line`] is built
+/// from this, so what Settings shows as taken out of a tag's name is exactly
+/// what was. Between two words one character of the white space stays: the
+/// first plain space, or else the first of them, as a plain space.
+pub(crate) fn line_marks(raw: &str) -> Vec<(char, Mark)> {
+    let mut marks: Vec<(char, Mark)> =
+        seen_marks(raw).into_iter().map(|(c, seen)| (c, if seen { Mark::Kept } else { Mark::Dropped })).collect();
+    let mut run: Vec<usize> = Vec::new();
+    let mut word_before = false;
+    for i in 0..marks.len() {
+        let (c, mark) = marks[i];
+        if mark == Mark::Dropped {
+            continue;
+        }
+        if c.is_whitespace() {
+            marks[i].1 = Mark::Dropped;
+            run.push(i);
+        } else if c.is_control() {
+            marks[i].1 = Mark::Dropped;
+        } else {
+            if word_before && !run.is_empty() {
+                match run.iter().find(|&&j| marks[j].0 == ' ') {
+                    Some(&j) => marks[j].1 = Mark::Kept,
+                    None => marks[run[0]].1 = Mark::Space,
+                }
+            }
+            run.clear();
+            word_before = true;
+        }
+    }
+    marks
+}
+
+/// Each character of `raw` and whether it is seen: an [`is_invisible`] one is
+/// not, except the tags of the three subdivision [`FLAGS`], kept whole, and a
+/// zero width joiner or non-joiner where it changes what is drawn
+/// ([`joiner_stays`]). [`without_invisible`] keeps those that are.
+fn seen_marks(raw: &str) -> Vec<(char, bool)> {
+    if !raw.chars().any(is_invisible) {
+        return raw.chars().map(|c| (c, true)).collect();
+    }
+    // The flags whole, everything but the joiners, then the joiners judged by what stands around them.
+    let mut marks: Vec<(char, bool)> = Vec::new();
+    let mut rest = raw;
+    while let Some(c) = rest.chars().next() {
+        if let Some(flag) = FLAGS.iter().find(|flag| rest.starts_with(**flag)) {
+            marks.extend(flag.chars().map(|c| (c, true)));
+            rest = &rest[flag.len()..];
+            continue;
+        }
+        marks.push((c, c == ZWJ || c == ZWNJ || !is_invisible(c)));
+        rest = &rest[c.len_utf8()..];
+    }
+    // A joiner is judged by its neighbours once what goes in every field is gone: the other
+    // invisible characters, and the control characters that are not white space. A white space
+    // control (a tab, a line break) stays a neighbour: a one-line field turns it into a space, and
+    // a joiner beside a space joins nothing.
+    let kept: Vec<usize> = (0..marks.len()).filter(|&i| marks[i].1 && !(marks[i].0.is_control() && !marks[i].0.is_whitespace())).collect();
+    let judged: Vec<(usize, bool)> = kept
+        .iter()
+        .enumerate()
+        .filter(|&(_, &i)| marks[i].0 == ZWJ || marks[i].0 == ZWNJ)
+        .map(|(at, &i)| {
+            let before = at.checked_sub(1).map(|b| marks[kept[b]].0);
+            let after = kept.get(at + 1).map(|&a| marks[a].0);
+            (i, joiner_stays(marks[i].0, before, after))
+        })
+        .collect();
+    for (i, stays) in judged {
+        marks[i].1 = stays;
+    }
+    marks
 }
 
 /// A description: as [`line`], but its line breaks stay.
 pub(crate) fn paragraph(raw: &str, max: usize) -> Option<String> {
-    let kept: String = raw
-        .replace("\r\n", "\n")
-        .chars()
-        .filter(|&c| c == '\n' || !(c.is_control() || is_invisible(c)))
-        .collect();
-    let capped: String = kept.trim().chars().take(max).collect();
-    let capped = capped.trim_end();
-    (!capped.is_empty()).then(|| capped.to_owned())
+    let kept: String = without_invisible(&raw.replace("\r\n", "\n")).chars().filter(|&c| c == '\n' || !c.is_control()).collect();
+    capped(kept.trim(), max)
 }
 
-/// Characters that are not seen but reorder or join the text around them
-/// (bidi marks and overrides, zero-width ones, a byte order mark anywhere):
-/// a title or a tag could hide what it says, or pass for another.
+/// At most `max` characters, the end trimmed; empty: none. A cut through a
+/// flag leaves its tags without their end, and they go too.
+fn capped(text: &str, max: usize) -> Option<String> {
+    let cut: String = text.chars().take(max).collect();
+    let cut = if cut.len() < text.len() { without_invisible(&cut).into_owned() } else { cut };
+    let cut = cut.trim_end();
+    (!cut.is_empty()).then(|| cut.to_owned())
+}
+
+/// The three subdivision flags Unicode recommends for general interchange
+/// (England, Scotland, Wales): U+1F3F4, the tags of `gbeng`, `gbsct` or
+/// `gbwls`, then CANCEL TAG. Only these keep their tag characters: any form
+/// a reader would accept beyond a fixed few could carry hidden text a few
+/// characters at a time, one black flag after another.
+const FLAGS: [&str; 3] = [
+    "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}",
+    "\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}",
+    "\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F}",
+];
+
+const ZWNJ: char = '\u{200C}';
+const ZWJ: char = '\u{200D}';
+
+/// The text without its [`is_invisible`] characters, except those that are
+/// seen: the tags of the three subdivision [`FLAGS`], kept whole, and a zero
+/// width joiner or non-joiner where it changes what is drawn ([`joiner_stays`]).
+/// Text without any is returned as it is.
+pub(crate) fn without_invisible(raw: &str) -> Cow<'_, str> {
+    if !raw.chars().any(is_invisible) {
+        return Cow::Borrowed(raw);
+    }
+    Cow::Owned(seen_marks(raw).into_iter().filter(|&(_, seen)| seen).map(|(c, _)| c).collect())
+}
+
+/// The scripts where a zero width joiner or non-joiner changes how letters
+/// are drawn and spelled: the joining scripts (Persian `می` U+200C `خواهم` keeps its
+/// non-joiner) and the Brahmic ones of India and Sri Lanka (Sinhala `ශ්` U+200D `රී` keeps its joiner).
+/// keeps its joiner). In Latin, Cyrillic, Greek and the rest they draw
+/// nothing and only make one word pass for another, so they go.
+const JOINING_SCRIPTS: [Script; 18] = [
+    Script::Arabic,
+    Script::Syriac,
+    Script::Nko,
+    Script::Mongolian,
+    Script::Mandaic,
+    Script::Manichaean,
+    Script::Adlam,
+    Script::HanifiRohingya,
+    Script::Devanagari,
+    Script::Bengali,
+    Script::Gurmukhi,
+    Script::Gujarati,
+    Script::Oriya,
+    Script::Tamil,
+    Script::Telugu,
+    Script::Kannada,
+    Script::Malayalam,
+    Script::Sinhala,
+];
+
+/// Whether a zero width joiner or non-joiner stays between `before` and
+/// `after` (judged once the other invisible characters are gone):
+/// - either between two characters of one of the [`JOINING_SCRIPTS`];
+/// - or, a joiner, between two emoji, as in 👩‍💻 or 🏳️‍🌈: after an
+///   Extended_Pictographic character, U+FE0F or a skin tone
+///   (U+1F3FB–U+1F3FF), and before an Extended_Pictographic character.
+///
+/// Anywhere else it goes. Two in a row are never between two such
+/// characters, so none of them carries anything a person does not see.
+fn joiner_stays(joiner: char, before: Option<char>, after: Option<char>) -> bool {
+    let (Some(before), Some(after)) = (before, after) else { return false };
+    let script = |c: char| CodePointMapData::<Script>::new().get(c);
+    if script(before) == script(after) && JOINING_SCRIPTS.contains(&script(before)) {
+        return true;
+    }
+    let pictographic = |c: char| CodePointSetData::new::<ExtendedPictographic>().contains(c);
+    let joins_after = pictographic(before) || before == '\u{FE0F}' || ('\u{1F3FB}'..='\u{1F3FF}').contains(&before);
+    joiner == ZWJ && joins_after && pictographic(after)
+}
+
+/// Characters that are not seen but hide, reorder or join the text around
+/// them, the invisible format characters (Unicode Cf) of the spec's Text: the
+/// soft hyphen, zero-width ones, bidi marks, embeddings, overrides and
+/// isolates, word joiners and invisible operators, the deprecated shaping
+/// controls, a byte order mark anywhere, interlinear annotation marks and tag
+/// characters (which can carry a whole hidden sentence). A title or a tag
+/// could hide what it says, or pass for another. The Cf characters that show
+/// a sign of their own (Arabic and Syriac number signs, Kaithi, Egyptian and
+/// musical controls) stay. Text is cleaned by [`without_invisible`] (the
+/// suggested file name too), which keeps three uses of these that are seen:
+/// the tags of the three subdivision [`FLAGS`], and a zero width joiner or
+/// non-joiner inside an emoji or a word of a joining or Brahmic script
+/// ([`joiner_stays`]). Filter with this set alone and those break.
 pub(crate) fn is_invisible(c: char) -> bool {
     matches!(
         c,
-        '\u{061c}' | '\u{200b}'..='\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2060}' | '\u{2066}'..='\u{2069}' | '\u{feff}'
+        '\u{00AD}'
+            | '\u{061C}'
+            | '\u{180E}'
+            | '\u{200B}'..='\u{200F}'
+            | '\u{202A}'..='\u{202E}'
+            | '\u{2060}'..='\u{2064}'
+            | '\u{2066}'..='\u{206F}'
+            | '\u{FEFF}'
+            | '\u{FFF9}'..='\u{FFFB}'
+            | '\u{E0001}'
+            | '\u{E0020}'..='\u{E007F}'
     )
 }
 
@@ -234,11 +437,18 @@ fn version(raw: &str) -> Result<(u32, u32), ListError> {
             && (s == "0" || !s.starts_with('0'));
         plain.then(|| s.parse::<u32>().ok()).flatten()
     };
+    // A plain number of any length, as a later MAJOR or its MINOR may be.
+    let plain = |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_digit()) && (s == "0" || !s.starts_with('0'));
     let (major, minor) = raw.split_once('.').ok_or(ListError::NotAList)?;
-    match (number(major, 9), number(minor, 9)) {
-        (Some(READER_MAJOR), _) => number(minor, 4).map(|minor| (READER_MAJOR, minor)).ok_or(ListError::NotAList),
-        (Some(major), Some(_)) if major > READER_MAJOR => Err(ListError::NeedsNewerApp),
-        _ => Err(ListError::NotAList),
+    if !plain(major) || !plain(minor) {
+        return Err(ListError::NotAList);
+    }
+    match number(major, 9) {
+        Some(READER_MAJOR) => number(minor, 4).map(|minor| (READER_MAJOR, minor)).ok_or(ListError::NotAList),
+        // There is no MAJOR 0.
+        Some(0) => Err(ListError::NotAList),
+        // Any other plain MAJOR is a later one, however long.
+        _ => Err(ListError::NeedsNewerApp),
     }
 }
 
@@ -261,8 +471,14 @@ pub(crate) fn language(raw: &str) -> Option<String> {
     ok.then(|| raw.to_owned())
 }
 
-/// `YYYY-MM-DD`, a real date.
+/// `YYYY-MM-DD` exactly (four digits, two, two), a real date. The parser
+/// alone would also take `2026-1-5`, a sign or white space before a number.
 pub(crate) fn date(raw: &str) -> Option<String> {
+    let b = raw.as_bytes();
+    let shaped = b.len() == 10 && b[4] == b'-' && b[7] == b'-' && b.iter().enumerate().all(|(i, c)| i == 4 || i == 7 || c.is_ascii_digit());
+    if !shaped {
+        return None;
+    }
     chrono::NaiveDate::parse_from_str(raw, "%Y-%m-%d").ok().map(|d| d.format("%Y-%m-%d").to_string())
 }
 
@@ -456,40 +672,91 @@ fn read_feed(list: &mut ParsedList, seen: &mut HashMap<String, usize>, object: &
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde::Deserialize;
+    use crate::lists::conformance::{self as suite, case_text, padded};
+    use serde_json::json;
+
+    /// `line` gives the lines written out here (what it gave before it was built
+    /// from `line_marks`), its fast path agrees with the marks, and the marks
+    /// say what went, what stayed and which white space became the plain space.
+    #[test]
+    fn line_marks_say_what_line_takes_out() {
+        let flag = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F}";
+        let samples: [(&str, Option<&str>); 18] = [
+            ("co\u{AD}op", Some("coop")),
+            (" coop ", Some("coop")),
+            ("to  read\tlater", Some("to read later")),
+            ("to\t read", Some("to read")),
+            ("to\tread", Some("to read")),
+            ("\u{200B}", None),
+            ("  ", None),
+            ("", None),
+            ("\u{1F4DA}\u{200D}", Some("\u{1F4DA}")),
+            ("\u{1F469}\u{200D}\u{1F4BB}", Some("\u{1F469}\u{200D}\u{1F4BB}")),
+            ("\u{DCB}\u{DCA}\u{200D}\u{DBB}\u{DD3}", Some("\u{DCB}\u{DCA}\u{200D}\u{DBB}\u{DD3}")),
+            ("a\u{200D}b", Some("ab")),
+            ("x\u{202E}y\u{E0041}", Some("xy")),
+            ("\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F} wales", Some("\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F} wales")),
+            ("a \u{200B} b", Some("a b")),
+            ("a\u{1} b", Some("a b")),
+            ("to read\u{A0}later", Some("to read later")),
+            ("to read later", Some("to read later")),
+        ];
+        assert!(samples[13].0.starts_with(flag));
+        for (raw, wanted) in samples {
+            let marks = line_marks(raw);
+            assert_eq!(marks.iter().map(|m| m.0).collect::<String>(), raw);
+            assert_eq!(line(raw, usize::MAX).as_deref(), wanted, "{raw:?}");
+            // What the fast path takes as a line is one the marks leave whole.
+            if is_a_line(raw) {
+                assert!(marks.iter().all(|m| m.1 == Mark::Kept), "{raw:?}");
+            }
+        }
+        assert!(is_a_line("to read later") && !is_a_line(" coop") && !is_a_line("coop ") && !is_a_line("to  read") && !is_a_line("co\u{AD}op"));
+        let marked = |raw: &str, wanted: Mark| line_marks(raw).into_iter().filter(|m| m.1 == wanted).map(|m| m.0).collect::<String>();
+        assert_eq!(marked("\u{1F4DA}\u{200D}", Mark::Dropped), "\u{200D}", "a joiner after an emoji and before nothing goes");
+        assert_eq!(marked("\u{1F469}\u{200D}\u{1F4BB}", Mark::Dropped), "", "one between two emoji stays");
+        assert_eq!(marked("\u{DCB}\u{DCA}\u{200D}\u{DBB}\u{DD3}", Mark::Dropped), "", "a Sinhala joiner stays");
+        assert_eq!(marked(" coop ", Mark::Dropped), "  ");
+        assert_eq!(marked("to  read", Mark::Dropped), " ");
+        // The plain space of a run stays wherever it stands; without one, the first becomes it.
+        assert_eq!((marked("to\t read", Mark::Dropped), marked("to\t read", Mark::Space)), ("\t".into(), String::new()));
+        assert_eq!((marked("to\tread", Mark::Dropped), marked("to\tread", Mark::Space)), (String::new(), "\t".into()));
+    }
 
     macro_rules! fixture {
         ($name:literal) => {
-            include_str!(concat!("../../tests/fixtures/kpin/", $name))
+            include_str!(concat!("../../../docs/kpin/conformance/lists/", $name))
         };
     }
 
-    /// Every fixture of `tests/fixtures/kpin`, by name.
-    fn fixtures() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("valid.kpin", fixture!("valid.kpin")),
-            ("unknown-type.kpin", fixture!("unknown-type.kpin")),
-            ("url-without-host.kpin", fixture!("url-without-host.kpin")),
-            ("title-of-spaces.kpin", fixture!("title-of-spaces.kpin")),
-            ("repeated-tags.kpin", fixture!("repeated-tags.kpin")),
-            ("no-items.kpin", fixture!("no-items.kpin")),
-            ("version-2.kpin", fixture!("version-2.kpin")),
-            ("ftp.kpin", fixture!("ftp.kpin")),
-            ("other-app.kpin", fixture!("other-app.kpin")),
-            ("unknown-kind.kpin", fixture!("unknown-kind.kpin")),
-            ("wrong-format.kpin", fixture!("wrong-format.kpin")),
-            ("cut-off.kpin", fixture!("cut-off.kpin")),
-            ("repeats.kpin", fixture!("repeats.kpin")),
-            ("groups.kpin", fixture!("groups.kpin")),
-            ("max-items.kpin", fixture!("max-items.kpin")),
-        ]
+    /// What the reader read, in the suite's words (`list` of a case).
+    fn as_suite(list: &ParsedList) -> Value {
+        let meta = &list.meta;
+        let author = (meta.author_name.is_some() || meta.author_url.is_some()).then(|| json!({ "name": meta.author_name, "url": meta.author_url }));
+        json!({
+            "title": meta.title,
+            "version": meta.version,
+            "newer": list.newer,
+            "sections": list.sections,
+            "meta": {
+                "description": meta.description, "author": author, "license": meta.license, "language": meta.language,
+                "updated": meta.updated, "homepage": meta.homepage, "id": meta.id, "generator": meta.generator,
+            },
+            "counts": {
+                "links": list.links.len(), "feeds": list.feeds.len(), "repeated": list.repeated, "not_web": list.not_web,
+                "invalid": list.invalid, "skipped_items": list.skipped_items, "skipped_details": list.skipped_details,
+            },
+            "links": list.links.iter().map(|l| json!({ "url": l.url, "title": l.title, "description": l.description, "tags": l.tags, "sections": l.sections })).collect::<Vec<_>>(),
+            "feeds": list.feeds.iter().map(|f| json!({ "url": f.url, "title": f.title, "site": f.site, "section": f.section })).collect::<Vec<_>>(),
+        })
     }
 
-    #[derive(Deserialize)]
-    struct Case {
-        file: String,
-        schema_valid: bool,
-        reader: String,
+    fn skip_reason(name: &str) -> SkipReason {
+        match name {
+            "invalid" => SkipReason::Invalid,
+            "not_web" => SkipReason::NotWeb,
+            other => panic!("no skip reason {other}"),
+        }
     }
 
     fn outcome(result: &Result<ParsedList, ListError>) -> &'static str {
@@ -505,36 +772,92 @@ mod tests {
     }
 
     fn parsed(name: &str) -> ParsedList {
-        let text = fixtures().into_iter().find(|(n, _)| *n == name).unwrap().1;
-        parse(text).unwrap()
+        parse(&suite::text(&format!("lists/{name}"))).unwrap()
     }
 
-    /// `cases.json` says, for every fixture, whether the public schema
-    /// (`docs/kpin/schema-1.json`) accepts it and what this reader
-    /// answers. The schema column was checked with a JSON Schema 2020-12
-    /// validator when the fixtures were written; the reader column is checked
-    /// here. A schema-valid file is never refused for its content, only for
-    /// what it is (another app, an unknown kind); a schema-invalid one may
-    /// still be read, its bad items skipped and counted.
+    /// `cases.json` of the suite says, for every file, whether the public
+    /// schema accepts it (checked by Vitest with a JSON Schema 2020-12
+    /// validator, `kpinSchema.test.ts`), what a reader answers and what it
+    /// reads out of it. A schema-valid file is never refused for its content,
+    /// only for what it is (another app, an unknown kind) or for its size,
+    /// unless the case names what the schema cannot see (`schema_cannot_see`);
+    /// a schema-invalid one may still be read, its bad items skipped and counted.
     #[test]
-    fn every_fixture_has_a_case_and_the_reader_answers_it() {
-        let cases: Vec<Case> = serde_json::from_str(fixture!("cases.json")).unwrap();
-        let files = fixtures();
-        assert_eq!(cases.len(), files.len(), "a case for every fixture");
-        for case in &cases {
-            let text = files.iter().find(|(n, _)| *n == case.file).unwrap_or_else(|| panic!("no fixture {}", case.file)).1;
-            let result = parse(text);
-            assert_eq!(outcome(&result), case.reader, "{}", case.file);
-            if case.schema_valid {
+    fn the_reader_answers_every_case_of_the_conformance_suite() {
+        let doc: Value = serde_json::from_str(&suite::text("cases.json")).unwrap();
+        let cases = doc["cases"].as_array().unwrap();
+        for case in cases {
+            let name = case["file"].as_str().or(case["name"].as_str()).unwrap();
+            let result = parse(&case_text(case));
+            assert_eq!(outcome(&result), case["reader"], "{name}");
+            if let Err(ListError::OtherApp(app)) = &result {
+                assert_eq!(case["app"], app.as_str(), "{name}");
+            }
+            if case["schema_valid"] == true && case["schema_cannot_see"].is_null() {
                 assert!(
-                    matches!(result, Ok(_) | Err(ListError::OtherApp(_)) | Err(ListError::NeedsNewerApp)),
-                    "{}: a valid file is refused only for its app or kind",
-                    case.file
+                    matches!(result, Ok(_) | Err(ListError::OtherApp(_) | ListError::NeedsNewerApp | ListError::TooBig)),
+                    "{name}: a valid file is refused only for its app, its kind or its size"
                 );
             }
+            if let Some(expected) = case["list"].as_object() {
+                let read = as_suite(result.as_ref().unwrap());
+                for (key, want) in expected {
+                    assert_eq!(&read[key], want, "{name}: {key}");
+                }
+            }
         }
-        let schema: Value = serde_json::from_str(include_str!("../../../docs/kpin/schema-1.json")).unwrap();
-        assert_eq!(schema["properties"]["format"]["const"], "koona");
+        // Every file of the suite has its case.
+        for file in suite::list_files() {
+            assert!(cases.iter().any(|c| c["file"] == file.as_str()), "no case for {file}");
+        }
+    }
+
+    #[test]
+    fn text_is_cleaned_as_the_conformance_suite_says() {
+        for v in suite::vectors("text.json") {
+            let (input, max) = (v["in"].as_str().unwrap(), v["max"].as_u64().unwrap() as usize);
+            let out = match v["rule"].as_str().unwrap() {
+                "line" => line(input, max),
+                "description" => paragraph(input, max),
+                "tag" => {
+                    assert_eq!(max, TAG_LEN);
+                    tag(input)
+                }
+                other => panic!("no rule {other}"),
+            };
+            assert_eq!(json!(out), v["out"], "{v}");
+        }
+    }
+
+    #[test]
+    fn addresses_are_taken_as_the_conformance_suite_says() {
+        for v in suite::vectors("addresses.json") {
+            let input = padded(v["in"].as_str().unwrap(), &v["pad"]);
+            let result = match v["rule"].as_str().unwrap() {
+                "link" => link_url(&input),
+                "feed" => feed_url(&input).map(|u| u.to_string()),
+                "web" => {
+                    assert_eq!(json!(link_url(&input).ok()), v["out"], "{v}");
+                    continue;
+                }
+                other => panic!("no rule {other}"),
+            };
+            match (v["out"].as_str(), v["skip"].as_str(), v["ok"].as_bool()) {
+                (Some(out), _, _) => assert_eq!(result.as_deref(), Ok(out), "{v}"),
+                (_, Some(skip), _) => assert_eq!(result, Err(skip_reason(skip)), "{v}"),
+                (_, _, Some(ok)) => assert_eq!(result.is_ok(), ok, "{v}"),
+                _ => panic!("{v}: no out, skip or ok"),
+            }
+        }
+    }
+
+    #[test]
+    fn repeats_are_found_as_the_conformance_suite_says() {
+        let key = |raw: &str| crate::dedupe::url_key(&link_url(raw).unwrap());
+        for v in suite::vectors("same-page.json") {
+            let (a, b) = (v["a"].as_str().unwrap(), v["b"].as_str().unwrap());
+            assert_eq!(key(a) == key(b), v["same"] == true, "{v}");
+        }
     }
 
     /// The examples of the public spec (`docs/kpin/examples`) read as it says they do.

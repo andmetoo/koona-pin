@@ -42,12 +42,35 @@ pub fn turn_on(conn: &Connection, replica: uuid::Uuid) -> koona_sync::Result<()>
 /// triggers on every write: a snapshot writes a bookmark, then each of its
 /// tags, and the search row was written again for each.
 pub fn apply(conn: &Connection, groups: &[koona_sync::model::Group]) -> koona_sync::Result<koona_sync::Applied> {
-    let tx = conn.unchecked_transaction()?;
+    let mut tx = conn.unchecked_transaction()?;
     let deferred = db::IndexDeferred::new(&tx)?;
     let applied = koona_sync::apply(&tx, groups)?;
     deferred.finish()?;
+    // A device of an older version may send a tag named as it read it
+    // (`co`+U+00AD+`op`): it gets the name this one reads, or merges into the
+    // tag that has it, as changes of this replica (`db::clean_tag_names`).
+    // Only a batch that wrote a tag can bring such a name; one that only
+    // links bookmarks to tags here finds the names clean already. Such a
+    // batch has `structure_changed`, which makes the interface read
+    // everything again, so what the cleaning changed needs no word of its own.
+    if applied.structure_changed {
+        clean_tag_names_or_leave(&mut tx);
+    }
     tx.commit()?;
     Ok(applied)
+}
+
+/// [`db::clean_tag_names`] in a savepoint: a failure takes back only the
+/// cleaning, and the batch the engine applied stays. Sync must not stop on
+/// a tag it could not rename; the next batch, or the next open, tries again.
+fn clean_tag_names_or_leave(tx: &mut rusqlite::Transaction) {
+    let cleaned = tx.savepoint().and_then(|savepoint| {
+        db::clean_tag_names(&savepoint)?;
+        savepoint.commit()
+    });
+    if let Err(error) = cleaned {
+        eprintln!("The tag names of a sync batch were not cleaned: {error}");
+    }
 }
 
 /// The chunks of one answer applied in fewer, larger transactions. Each
@@ -767,6 +790,192 @@ mod tests {
         db::update_bookmark(&b, 9, Some("уникальное слово".into()), None, None, None, None).unwrap();
         let search = db::BookmarkQuery { search: Some("уникальное".into()), ..Default::default() };
         assert_eq!(db::get_bookmarks(&b, &search).unwrap().total, Some(1));
+    }
+
+    /// A device of the version before the cleaning: the engine's batch as it
+    /// is, names as they come.
+    fn apply_as_before(conn: &Connection, groups: &[koona_sync::model::Group]) -> koona_sync::Applied {
+        let tx = conn.unchecked_transaction().unwrap();
+        let applied = koona_sync::apply(&tx, groups).unwrap();
+        tx.commit().unwrap();
+        applied
+    }
+
+    fn apply_now(conn: &Connection, groups: &[koona_sync::model::Group]) -> koona_sync::Applied {
+        apply(conn, groups).unwrap()
+    }
+
+    /// A tag as an older version stored it, with a uid of `n`: the smaller survives a merge.
+    fn old_tag(conn: &Connection, n: u128, name: &str) -> i64 {
+        conn.execute(
+            "INSERT INTO tags (uid, name, created_at) VALUES (?1, ?2, '2025-01-01T00:00:00.000Z')",
+            params![uuid::Uuid::from_u128(n).to_string(), name],
+        )
+        .unwrap();
+        conn.last_insert_rowid()
+    }
+
+    fn link(conn: &Connection, url: &str, tag: i64) {
+        conn.execute("INSERT INTO bookmark_tags (bookmark_id, tag_id) SELECT id, ?2 FROM bookmarks WHERE url = ?1", params![url, tag])
+            .unwrap();
+    }
+
+    /// What two devices must agree on: each tag by uid, its name, the addresses it is on.
+    fn tag_state(conn: &Connection) -> Vec<(String, String, String)> {
+        conn.prepare(
+            "SELECT t.uid, t.name, COALESCE((SELECT group_concat(b.url, ' ' ORDER BY b.url) FROM bookmark_tags bt
+                 JOIN bookmarks b ON b.id = bt.bookmark_id WHERE bt.tag_id = t.id), '')
+             FROM tags t ORDER BY t.uid",
+        )
+        .unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect()
+    }
+
+    /// Both ways until neither has anything new: it must settle, not go back and forth.
+    fn settle(a: &Connection, apply_a: fn(&Connection, &[koona_sync::model::Group]) -> koona_sync::Applied, b: &Connection, apply_b: fn(&Connection, &[koona_sync::model::Group]) -> koona_sync::Applied) {
+        for _ in 0..4 {
+            let before = (counter(a), counter(b));
+            send(a, b, apply_b);
+            send(b, a, apply_a);
+            if (counter(a), counter(b)) == before {
+                return;
+            }
+        }
+        panic!("the devices write to each other without end");
+    }
+
+    const X: &str = "https://x.example/";
+    const Y: &str = "https://y.example/";
+    const Z: &str = "https://z.example/";
+
+    /// One device cleans its tags while the other, of the version before, puts
+    /// a bookmark on the tag being merged away: both end with the survivor
+    /// (the smallest uid) under the clean name, on every bookmark.
+    #[test]
+    fn cleaned_tags_end_the_same_on_a_device_of_the_version_before() {
+        let (a, b) = (synced(1), synced(2));
+        for url in [X, Y, Z] {
+            save(&a, url, &[]);
+        }
+        let (soft, clean, spaced) = (old_tag(&a, 10, "co\u{AD}op"), old_tag(&a, 20, "coop"), old_tag(&a, 30, "open  source"));
+        link(&a, X, soft);
+        link(&a, Y, clean);
+        link(&a, X, spaced);
+        send(&a, &b, apply_as_before);
+        assert_eq!(tag_state(&a), tag_state(&b));
+
+        // At once, offline: `a` cleans, `b` tags Z with the «coop» that goes.
+        let (merged, tombstones) = recorded(&a, |a| assert_eq!(db::clean_tag_names(a).unwrap(), 3));
+        let tag_uid = |n: u128| uuid::Uuid::from_u128(n).to_string();
+        assert_eq!(tombstones, [(format!("tag {}", tag_uid(20)), Some(tag_uid(10)))].into());
+        assert!(merged.contains(&(TAG, soft, 0)) && merged.contains(&(TAG, spaced, 0)), "the renames: {merged:?}");
+        link(&b, Z, tag(&b, "coop"));
+
+        settle(&a, apply_now, &b, apply_as_before);
+        let expected = [
+            (tag_uid(10), "coop".to_string(), format!("{X} {Y} {Z}")),
+            (tag_uid(30), "open source".to_string(), X.to_string()),
+        ];
+        assert_eq!(tag_state(&a), expected);
+        assert_eq!(tag_state(&b), expected);
+        let search = db::BookmarkQuery { search: Some("coop".into()), ..Default::default() };
+        assert_eq!(db::get_bookmarks(&b, &search).unwrap().total, Some(3));
+    }
+
+    /// A device of the version before sends a look-alike it was given (an
+    /// older list, a name typed with a soft hyphen): one of this version merges
+    /// it on arrival; two of this version that clean the same tags at once
+    /// agree without a word.
+    #[test]
+    fn look_alikes_from_a_device_of_the_version_before_merge_on_arrival() {
+        let (old, new) = (synced(1), synced(2));
+        save(&old, X, &[]);
+        save(&new, Y, &["web"]);
+        let web: String = new.query_row("SELECT uid FROM tags WHERE name = 'web'", [], |r| r.get(0)).unwrap();
+        send(&new, &old, apply_as_before);
+        // The look-alike has the smaller uid: the clean name goes to it.
+        let look_alike = old_tag(&old, 5, "we\u{AD}b");
+        link(&old, X, look_alike);
+        // Y was not in the batch, but its tag is another one now: the
+        // interface reads everything again, as after any batch that writes a tag.
+        send(&old, &new, |conn, groups| {
+            let applied = apply_now(conn, groups);
+            assert!(applied.structure_changed);
+            applied
+        });
+        let expected = vec![(uuid::Uuid::from_u128(5).to_string(), "web".to_string(), format!("{X} {Y}"))];
+        assert_eq!(tag_state(&new), expected);
+        // The cleaning in the batch kept its record, as one at open does: the merge, with where it went.
+        let record = db::tag_cleanup_log(&new).unwrap();
+        let done: Vec<(db::TagCleanupAction, &str, Option<&str>)> = record.iter().map(|e| (e.action, e.uid.as_str(), e.into.as_deref())).collect();
+        let look_alike_uid = uuid::Uuid::from_u128(5).to_string();
+        assert_eq!(done, [(db::TagCleanupAction::Merged, web.as_str(), Some(look_alike_uid.as_str())), (db::TagCleanupAction::Renamed, look_alike_uid.as_str(), None)]);
+        settle(&new, apply_now, &old, apply_as_before);
+        assert_eq!(tag_state(&old), expected);
+        assert!(db::is_purged(&old, &web).unwrap());
+
+        // Two of this version, each cleaning the same tags before they meet.
+        let (c, d) = (synced(3), synced(4));
+        save(&c, X, &[]);
+        save(&c, Y, &[]);
+        let (dirty, clean) = (old_tag(&c, 40, "ru\u{200B}st"), old_tag(&c, 50, "rust"));
+        link(&c, X, dirty);
+        link(&c, Y, clean);
+        send(&c, &d, apply_as_before);
+        assert_eq!(db::clean_tag_names(&c).unwrap(), 2);
+        assert_eq!(db::clean_tag_names(&d).unwrap(), 2);
+        settle(&c, apply_now, &d, apply_now);
+        let expected = vec![(uuid::Uuid::from_u128(40).to_string(), "rust".to_string(), format!("{X} {Y}"))];
+        assert_eq!((tag_state(&c), tag_state(&d)), (expected.clone(), expected));
+    }
+
+    /// A tag with no visible name goes on a device of this version while one
+    /// of the version before puts a bookmark on it: the removal wins on both,
+    /// and one the older device makes again goes again, without end.
+    #[test]
+    fn a_tag_with_nothing_visible_goes_everywhere_and_stays_gone() {
+        let (new, old) = (synced(1), synced(2));
+        save(&new, X, &[]);
+        save(&new, Y, &[]);
+        let invisible = old_tag(&new, 7, "\u{200B}");
+        link(&new, X, invisible);
+        send(&new, &old, apply_as_before);
+        let gone = uuid::Uuid::from_u128(7).to_string();
+
+        // At once, offline: `new` removes it, `old` puts Y on it as well.
+        let (_, tombstones) = recorded(&new, |new| {
+            assert_eq!(db::clean_tag_names(new).unwrap(), 1);
+        });
+        assert_eq!(tombstones, [(format!("tag {gone}"), None)].into(), "a purge, not a merge");
+        let theirs: i64 = old.query_row("SELECT id FROM tags WHERE uid = ?1", [&gone], |r| r.get(0)).unwrap();
+        link(&old, Y, theirs);
+        settle(&new, apply_now, &old, apply_as_before);
+        assert_eq!((tag_state(&new), tag_state(&old)), (vec![], vec![]));
+        assert!(db::is_purged(&old, &gone).unwrap());
+
+        // The older device makes one again (a name pasted with it, say): it goes on arrival.
+        let again = old_tag(&old, 8, "\u{200B}\u{AD}");
+        link(&old, X, again);
+        settle(&new, apply_now, &old, apply_as_before);
+        assert_eq!((tag_state(&new), tag_state(&old)), (vec![], vec![]));
+    }
+
+    /// A cleaning that fails takes back only itself: the batch the engine
+    /// applied stays, and sync goes on with the name as it came.
+    #[test]
+    fn a_failed_cleaning_does_not_stop_sync() {
+        let (old, new) = (synced(1), synced(2));
+        save(&old, X, &[]);
+        link(&old, X, old_tag(&old, 3, "co\u{AD}op"));
+        new.execute_batch("CREATE TEMP TRIGGER refuse_rename BEFORE UPDATE OF name ON tags BEGIN SELECT RAISE(ABORT, 'refused'); END;")
+            .unwrap();
+        send(&old, &new, apply_now);
+        assert_eq!(tag_state(&new), tag_state(&old), "the batch is applied, the name left as it came");
+        new.execute_batch("DROP TRIGGER refuse_rename;").unwrap();
+        assert_eq!(db::clean_tag_names(&new).unwrap(), 1, "a later try cleans it");
     }
 
     /// The library of `koona-sync/tests/measure.rs`, which SPIKE.md measured:
