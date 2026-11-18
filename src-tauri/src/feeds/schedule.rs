@@ -243,7 +243,7 @@ pub fn states(conn: &Connection) -> rusqlite::Result<HashMap<String, FetchState>
                 failing_since: time(r.get(7)?),
                 last_error: r.get(8)?,
                 ttl_minutes: r.get(9)?,
-                max_age_secs: r.get(10)?,
+                max_age_secs: r.get::<_, Option<i64>>(10)?.and_then(|s| u64::try_from(s).ok()),
             },
         ))
     })?

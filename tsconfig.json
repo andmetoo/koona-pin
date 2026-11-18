@@ -2,9 +2,11 @@
   "compilerOptions": {
     "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "ES2022.Intl", "DOM", "DOM.Iterable"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
+    /* Tests read files with node:fs; TypeScript 6+ no longer includes every @types package by default. */
+    "types": ["node"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",

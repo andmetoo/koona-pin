@@ -1,4 +1,5 @@
 import { MutableRefObject, useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import type { TFunction } from "i18next";
 import { failureText } from "../components/reader/ArticleView";
 import type { ReadingSource } from "../components/reader/ReadingMode";
@@ -113,8 +114,12 @@ export function useReading(
     return rect && rect.width ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : null;
   }, []);
   const closeReading = useCallback(() => {
-    setReading(null);
-    setReadingCovers(false);
+    // Committed at once: this runs from the drop's `onfinish`, outside React, and Chromium 159 runs the
+    // frame below before React's own task, while the library is still inert and hidden.
+    flushSync(() => {
+      setReading(null);
+      setReadingCovers(false);
+    });
     // Back where the person was: the toolbar's «Read» or the card a link was followed from.
     requestAnimationFrame(() => (readingFocus.current?.isConnected ? readingFocus.current : readButton.current)?.focus({ preventScroll: true }));
   }, []);

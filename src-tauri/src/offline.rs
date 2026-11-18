@@ -303,7 +303,7 @@ pub fn rewrite(html: &str, base: &str, saved: &HashMap<Url, String>) -> String {
         if name == "source" {
             return false;
         }
-        element.attrs.retain(|k, _| !matches!(&*k.local, "srcset" | "sizes"));
+        element.attrs.retain(|(k, _)| !matches!(&*k.local, "srcset" | "sizes"));
         if name == "img" {
             if let Some(url) = attr(element, "src").and_then(|src| picture_url(src, base.as_ref())) {
                 let src = match saved.get(&url) {
@@ -333,7 +333,7 @@ pub fn inline(html: &str, mut picture: impl FnMut(&str, ImageKind) -> Option<Vec
                 let data = format!("data:{};base64,{}", kind.mime(), base64::engine::general_purpose::STANDARD.encode(bytes));
                 set_attr(element, "src", &data);
             }
-            None => element.attrs.retain(|k, _| &*k.local != "src"),
+            None => element.attrs.retain(|(k, _)| &*k.local != "src"),
         }
         true
     })

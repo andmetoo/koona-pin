@@ -265,7 +265,9 @@ function PlaySheet({ channel }: { channel: StoreChannel }) {
   const formId = useId();
   const purchase = usePlayPurchase(supporter, channel);
   const { step, error, busy, offer, offerFailed, askOffer, last, kept, retry, buy, email, setEmail, claim, code, setCode, verify, resend, wait, anotherEmail, codeReady, suspended, fixPayment, restore } = purchase;
-  const words = (key: string, options?: Record<string, string>) => t(storeKey(channel, key) as "phone.supporter.play.renews", options);
+  // The key is built at run time (`storeKey`), so it is looked up untyped; every key it builds is a string.
+  const words = (key: string, options?: Record<string, string>) =>
+    (t as (key: string, options: Record<string, string>) => string)(storeKey(channel, key), options ?? {});
   const apple = channel === "appstore";
   const signIn = () => setSurface("signIn");
 

@@ -8,6 +8,7 @@
 //! expanded) and its p50 and p95.
 
 use koonapin_lib::{db, dedupe, linkcheck, test_libraries as fixtures};
+use rusqlite::trace::{TraceEvent, TraceEventCodes};
 use rusqlite::Connection;
 use std::{path::PathBuf, sync::Mutex, time::Instant};
 
@@ -15,8 +16,12 @@ const RUNS: usize = 30;
 
 static STATEMENTS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
-fn record(sql: &str) {
-    STATEMENTS.lock().unwrap().push(sql.to_string());
+/// Each statement as it starts, with its bound values written in (as SQLite's old `sqlite3_trace`
+/// gave it), so `plan` can explain it without parameters.
+fn record(event: TraceEvent<'_>) {
+    if let TraceEvent::Stmt(statement, sql) = event {
+        STATEMENTS.lock().unwrap().push(statement.expanded_sql().unwrap_or_else(|| sql.to_string()));
+    }
 }
 
 fn percentile(sorted: &[f64], p: f64) -> f64 {
@@ -49,9 +54,9 @@ fn plan(conn: &Connection, sql: &str) -> Vec<String> {
 
 fn scenario<T>(conn: &mut Connection, label: &str, run: impl Fn(&Connection) -> T) {
     STATEMENTS.lock().unwrap().clear();
-    conn.trace(Some(record));
+    conn.trace_v2(TraceEventCodes::SQLITE_TRACE_STMT, Some(record)).unwrap();
     run(conn);
-    conn.trace(None);
+    conn.trace_v2(TraceEventCodes::empty(), None::<fn(TraceEvent<'_>)>).unwrap();
     let statements = std::mem::take(&mut *STATEMENTS.lock().unwrap());
     let mut times = Vec::with_capacity(RUNS);
     for _ in 0..RUNS {

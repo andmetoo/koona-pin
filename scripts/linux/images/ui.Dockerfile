@@ -1,6 +1,6 @@
 # The «ui» CI image (scripts/linux/images.mjs, plan A1): Playwright UI tests without Rust. The tag must be the
 # Playwright of bun.lock (images.mjs fails when they differ): the browsers in /ms-playwright belong to it.
-FROM mcr.microsoft.com/playwright:v1.63.0-noble
+FROM mcr.microsoft.com/playwright:v1.65.1-noble
 
 COPY .bun-version /ci/
 COPY scripts/linux/bun.sh /ci/scripts/linux/
