@@ -1175,7 +1175,7 @@ type Copy = {
 function readCopy(content: string): Copy | RestoreProblem {
   let value: Record<string, unknown>;
   try {
-    value = JSON.parse(content.replace(/^﻿/, ""));
+    value = JSON.parse(content.replace(/^\u{feff}/u, ""));
   } catch {
     return { problem: "not_json" };
   }
