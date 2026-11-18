@@ -205,7 +205,7 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
           data-read-mode
           onClick={props.onRead}
           aria-label={t("readingMode.read")}
-          className={`!rounded-[9px] !border-line bg-card text-ink shadow-button ${props.narrow ? "w-[34px] !px-0" : "@max-[36rem]:w-[34px] @max-[36rem]:!px-0"}`}
+          className={`rounded-[9px] !border-line bg-card text-ink shadow-button ${props.narrow ? "w-[34px] !px-0" : "@max-[36rem]:w-[34px] @max-[36rem]:!px-0"}`}
         >
           <Icon icon={BookOpen} size={15} className="shrink-0" />
           {!props.narrow && <span className="@max-[36rem]:hidden">{t("readingMode.read")}</span>}

@@ -555,11 +555,12 @@ export function Sidebar(props: SidebarProps) {
         data-new-link={feedsMode ? undefined : true}
         data-follow-site={feedsMode || undefined}
         onClick={primary.onClick}
-        // The key (2026-11-17): green ink, the app's own clip (a feed's arcs in Feeds) for a «+».
-        className="sidebar-key mb-2.5 flex h-9 w-full shrink-0 items-center justify-between gap-2 rounded-[10px] pr-[7px] pl-3 text-left text-sm font-semibold"
+        // The key (2026-11-17): green ink, the app's own clip (a feed's arcs in Feeds) for a «+». Its icon and
+        // label stand in the rows' columns below, 10 px and 36 px in (2.25.2).
+        className="sidebar-key mb-2.5 flex h-9 w-full shrink-0 items-center justify-between gap-2 rounded-[10px] pr-[7px] pl-2.5 text-left text-sm font-semibold"
       >
-        <span className="flex min-w-0 items-center gap-2">
-          <Icon icon={feedsMode ? Rss : ClipIcon} size={15} className="shrink-0" />
+        <span className="flex min-w-0 items-center gap-2.5">
+          <Icon icon={feedsMode ? Rss : ClipIcon} size={16} className="shrink-0" />
           <span className="truncate">{primary.label}</span>
         </span>
         <kbd aria-hidden className="key-cap shrink-0 font-sans text-2xs font-semibold">
