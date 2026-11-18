@@ -14,7 +14,7 @@ This licensing change applies to revisions carrying these notices. It does not w
 
 ## The `.kpin` list format: CC0
 
-Everything in [`docs/kpin/`](docs/kpin/README.md) (the specification of the `.kpin` list format, its JSON Schema, its examples and its conformance suite of files and test vectors) is dedicated to the public domain under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/), so that any tool can implement the format; [`docs/kpin/LICENSE.md`](docs/kpin/LICENSE.md) says so in the folder. The app's code that reads and writes the format, and the tests that run the suite (`src-tauri/src/lists/conformance.rs`, `tests/kpin-conformance.ts`), stay under the GPL.
+Everything in [`docs/kpin/`](docs/kpin/README.md) (the specification of the `.kpin` list format, its JSON Schema, its examples and its conformance suite of files and test vectors) is dedicated to the public domain under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/), so that any tool can implement the format; [`docs/kpin/LICENSE.md`](docs/kpin/LICENSE.md) says so in the folder. The folder is a copy of [koona-project/kpin](https://github.com/koona-project/kpin) at the tag in `docs/kpin.tag`, where the format is changed; CI checks that the copy is that tag's files. The app's code that reads and writes the format, and the tests that run the suite (`src-tauri/src/lists/conformance.rs`, `tests/kpin-conformance.ts`), stay under the GPL.
 
 ## Commercial code
 

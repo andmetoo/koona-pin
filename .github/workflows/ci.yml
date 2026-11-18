@@ -59,7 +59,7 @@ jobs:
             case "$file" in
               # The .kpin spec, schema and conformance suite: the Rust reader's tests and Vitest read them,
               # and run on Linux; nothing in them differs on Windows or macOS.
-              docs/kpin/*) linux=true ;;
+              docs/kpin/* | docs/kpin.tag) linux=true ;;
               docs/* | changelog/* | design/* | *.md | LICENSE* | .github/workflows/cla.yml | .github/workflows/release.yml) ;;
               # src-tauri/* includes the Safari extension's Xcode project (src-tauri/macos/safari).
               src/* | src-tauri/* | scripts/build-macos.mjs | scripts/build-extension.mjs | scripts/build-android.mjs | scripts/check-apk-billing.mjs | scripts/build-ios-sim.mjs | \
@@ -320,10 +320,23 @@ jobs:
   # The one check main requires besides CLA: green when every job above either passed or was not needed
   # (skipped), red when one failed or was cancelled. It always runs, so a pull request of docs only has
   # it too, in seconds.
+  # docs/kpin is a copy of koona-project/kpin at the tag in docs/kpin.tag: the format changes there,
+  # never only here (scripts/check-kpin-copy.mjs). With the Linux pipeline, whose Rust tests and
+  # Vitest run the copy's conformance suite.
+  kpin-copy:
+    name: .kpin copy
+    needs: changes
+    if: needs.changes.outputs.linux == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - run: node scripts/check-kpin-copy.mjs
+
   ci:
     name: CI
     if: ${{ always() }}
-    needs: [changes, linux, windows, macos, android, ios]
+    needs: [changes, linux, windows, macos, android, ios, kpin-copy]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
