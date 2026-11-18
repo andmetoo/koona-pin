@@ -146,10 +146,11 @@ async function connect(url) {
 
 const optionsUrl = `moz-extension://${uuid}/options.html`;
 let output = "";
+// System access for BiDi's `webExtension.install`: the flag up to Firefox 159, the variable since 160.
 const proc = spawn(
   firefox,
   ["--headless", "--no-remote", "--profile", profile, "--remote-debugging-port", "0", "--remote-allow-system-access"],
-  { env, stdio: ["ignore", "pipe", "pipe"] },
+  { env: { ...env, MOZ_REMOTE_ALLOW_SYSTEM_ACCESS: "1" }, stdio: ["ignore", "pipe", "pipe"] },
 );
 proc.stdout.on("data", (chunk) => (output += chunk));
 proc.stderr.on("data", (chunk) => (output += chunk));

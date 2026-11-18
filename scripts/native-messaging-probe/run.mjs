@@ -234,7 +234,9 @@ async function openFirefox(name, setupResult) {
       `user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);`,
     ].join("\n"),
   );
+  // System access: the flag up to Firefox 159, the variable since 160.
   const proc = spawn(browsers[name].exe, ["--headless", "--no-remote", "--profile", profile, "--remote-debugging-port", "0", "--remote-allow-system-access"], {
+    env: { ...process.env, MOZ_REMOTE_ALLOW_SYSTEM_ACCESS: "1" },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let output = "";
