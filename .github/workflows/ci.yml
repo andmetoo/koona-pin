@@ -38,6 +38,7 @@ jobs:
     outputs:
       linux: ${{ steps.paths.outputs.linux }}
       native: ${{ steps.paths.outputs.native }}
+      kpin: ${{ steps.paths.outputs.kpin }}
     steps:
       # The pull request's merge commit with main as its first parent: two commits are enough.
       - uses: actions/checkout@v7
@@ -50,12 +51,17 @@ jobs:
         run: |
           if [ "$EVENT" != pull_request ]; then
             echo "$EVENT: everything runs"
-            printf 'linux=true\nnative=true\n' >> "$GITHUB_OUTPUT"
+            printf 'linux=true\nnative=true\nkpin=true\n' >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          linux=false native=false
+          linux=false native=false kpin=false
           while IFS= read -r file; do
             echo "$file"
+            # The .kpin copy can only drift through these: its check clones koona-project/kpin, so it
+            # runs for them alone, not for every change.
+            case "$file" in
+              docs/kpin/* | docs/kpin.tag | scripts/check-kpin-copy.mjs | .github/workflows/ci.yml) kpin=true ;;
+            esac
             case "$file" in
               # The .kpin spec, schema and conformance suite: the Rust reader's tests and Vitest read them,
               # and run on Linux; nothing in them differs on Windows or macOS.
@@ -69,8 +75,8 @@ jobs:
               *) linux=true ;;
             esac
           done < <(git diff --name-only HEAD^1 HEAD)
-          echo "Linux: $linux, Windows and macOS: $native"
-          printf 'linux=%s\nnative=%s\n' "$linux" "$native" >> "$GITHUB_OUTPUT"
+          echo "Linux: $linux, Windows and macOS: $native, .kpin copy: $kpin"
+          printf 'linux=%s\nnative=%s\nkpin=%s\n' "$linux" "$native" "$kpin" >> "$GITHUB_OUTPUT"
 
   linux:
     name: Linux
@@ -320,13 +326,13 @@ jobs:
   # The one check main requires besides CLA: green when every job above either passed or was not needed
   # (skipped), red when one failed or was cancelled. It always runs, so a pull request of docs only has
   # it too, in seconds.
-  # docs/kpin is a copy of koona-project/kpin at the tag in docs/kpin.tag: the format changes there,
-  # never only here (scripts/check-kpin-copy.mjs). With the Linux pipeline, whose Rust tests and
-  # Vitest run the copy's conformance suite.
+  # docs/kpin is a copy of koona-project/kpin at the release in docs/kpin.tag: the format changes
+  # there, never only here (scripts/check-kpin-copy.mjs). Only when the copy, its pin or the check
+  # change, or on a push to main; the Linux pipeline's Rust tests and Vitest run the copy's suite.
   kpin-copy:
     name: .kpin copy
     needs: changes
-    if: needs.changes.outputs.linux == 'true'
+    if: needs.changes.outputs.kpin == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
