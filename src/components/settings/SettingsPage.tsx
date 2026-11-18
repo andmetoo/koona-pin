@@ -215,7 +215,7 @@ export function SettingsPage({
               setLanguageSetting(e.target.value);
               setLanguage(e.target.value);
             }}
-            className="field h-8 w-[240px] py-1"
+            className="field h-[30px] min-h-0 w-[240px] py-1"
           >
             <option value="system">{t("settings.languageSystem", { name: languageName(systemLanguage()) })}</option>
             {languages.map((l) => (

@@ -49,6 +49,83 @@ test("hover keeps card and preview geometry stable", async ({ page }) => {
   expect(await card.boundingBox()).toEqual(before);
   expect(await card.locator("[data-preview]").boundingBox()).toEqual(image);
 });
+test("the grid ends where the toolbar does; a list row's picture and a group's name start under the title (2.25.3)", async ({ page }) => {
+  const title = (await page.locator("main h1").boundingBox())!.x;
+  const toolbarEnd = await page.getByRole("button", { name: "Reading mode" }).evaluate((b) => b.getBoundingClientRect().right);
+  const cards = await page.locator("article[data-bookmark-id]").evaluateAll((all) => all.map((c) => c.getBoundingClientRect()).map((r) => [r.left, r.right]));
+  expect(Math.abs(Math.min(...cards.map((c) => c[0])) - title)).toBeLessThanOrEqual(1);
+  expect(Math.abs(Math.max(...cards.map((c) => c[1])) - toolbarEnd)).toBeLessThanOrEqual(1);
+  await page.getByRole("button", { name: "List", exact: true }).click();
+  const row = page.locator("article[data-bookmark-row]").first();
+  await expect(row).toBeVisible();
+  const picture = await row.locator("img").first().evaluate((i) => i.getBoundingClientRect().left);
+  expect(Math.abs(picture - title)).toBeLessThanOrEqual(1);
+  // The demo's list is grouped by date: the group's name, not only the rows, starts under the title.
+  const group = page.locator("[data-view=list] h3 span").first();
+  await expect(group).toBeVisible();
+  const words = await group.evaluate((s) => {
+    const r = document.createRange();
+    r.selectNodeContents(s);
+    return r.getBoundingClientRect().left;
+  });
+  expect(Math.abs(words - title)).toBeLessThanOrEqual(1);
+});
+
+/** A pane's inset on each side as it is seen: the padding, and on the far side the room its scrollbar keeps too. */
+const insets = (pane: Locator) =>
+  pane.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    const n = (v: string) => parseFloat(v) || 0;
+    const bar = el.offsetWidth - el.clientWidth - n(cs.borderLeftWidth) - n(cs.borderRightWidth);
+    return { start: n(cs.paddingLeft), end: n(cs.paddingRight) + bar, bar, room: n(getComputedStyle(document.documentElement).getPropertyValue("--scrollbar-room")) };
+  });
+/** As far in on both sides, the scrollbar's room measured as it is: 8 px here, none for a Mac's overlay bars. */
+async function even(pane: Locator, inset: number) {
+  await expect(pane).toBeVisible();
+  const i = await insets(pane);
+  expect(i.room).toBe(i.bar);
+  expect(i.start).toBe(inset);
+  expect(i.end).toBeCloseTo(inset, 1);
+}
+
+test("every pane that scrolls stands as far in on both sides, its scrollbar's room counted; Language is as tall as the buttons (2.25.3)", async ({ page }) => {
+  const sections = page.getByRole("navigation", { name: "Sections" });
+  const more = async (item: string) => {
+    await sections.getByRole("button", { name: /^All/ }).click();
+    await page.getByRole("button", { name: "More", exact: true }).click();
+    await page.getByRole("menuitem", { name: item, exact: true }).click();
+  };
+  await even(page.locator("[data-scroll=main]"), 32);
+  // The bookmark editor beside the grid.
+  await page.locator("article[data-bookmark-id]").first().hover();
+  await page.getByRole("button", { name: /^Actions: / }).first().click();
+  await page.getByRole("menuitem", { name: /^Edit/ }).click();
+  await even(page.getByRole("complementary", { name: "Edit bookmark" }), 24);
+  await page.getByRole("button", { name: "Close editor" }).click();
+  // Duplicates and Link check.
+  await more("Duplicates");
+  await expect(page.locator("main h1")).toContainText("Duplicates");
+  await even(page.locator("main .pane-scroll"), 32);
+  await more("Link check");
+  await expect(page.locator("main h1")).toContainText("Link check");
+  await even(page.locator("main .pane-scroll"), 32);
+  // Settings, and its one list as tall as the buttons around it.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await even(page.locator("main .pane-scroll"), 32);
+  const general = await settingsGroup(page, "general");
+  const language = (await general.getByRole("combobox", { name: "Language" }).boundingBox())!.height;
+  const button = (await general.getByRole("button", { name: "Check for updates" }).boundingBox())!.height;
+  expect(language).toBeCloseTo(button, 0);
+  // Sort inbox, and a narrow window's 24 px.
+  await sections.getByRole("button", { name: /^All/ }).click();
+  await openTriage(page);
+  await even(page.getByRole("region", { name: "Sort inbox" }).locator(".pane-scroll"), 32);
+  await page.setViewportSize({ width: 900, height: 800 });
+  await even(page.getByRole("region", { name: "Sort inbox" }).locator(".pane-scroll"), 24);
+  await page.keyboard.press("Escape");
+  await even(page.locator("[data-scroll=main]"), 24);
+});
+
 test("card menu moves a bookmark to a collection with the keyboard", async ({ page }) => {
   await page.locator('[data-bookmark-id="2"]').hover();
   await page.getByRole("button", { name: /^Actions: The architecture/ }).click();
@@ -564,8 +641,9 @@ test("triage: the decisions keep their words at any width, a longer label goes c
   await page.setViewportSize({ width: 1600, height: 800 });
   await expect(row).toHaveAttribute("data-fit", "0");
   await expect(label).toHaveText("Move this one to the trash");
-  // A narrow window gives up the trash words first; a wider one brings them back.
-  await page.setViewportSize({ width: 640, height: 550 });
+  // A narrow window gives up the trash words first; a wider one brings them back. 600 px: since 2.25.3 a narrow
+  // window's Sort inbox stands 24 px in like every page, and at 640 the long label still fits.
+  await page.setViewportSize({ width: 600, height: 550 });
   await expect(row).not.toHaveAttribute("data-fit", "0");
   await expect(row.getByRole("button", { name: "Move this one to the trash" })).toBeVisible();
   await expect(row.getByRole("button", { name: "Keep" })).toBeVisible();

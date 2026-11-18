@@ -1,4 +1,5 @@
 import { ReactNode, Ref, useEffect, useMemo, useState } from "react";
+import { articleScrollInset } from "../shell/PageTitle";
 import { ArrowDown, ArrowLeft, ArrowUp, BookOpen, Check, ChevronDown, ChevronUp, Heart, Link, Maximize2, Minimize2, Plus, Rss } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Bookmark, Feed, FeedArticle as CachedPost, FeedItem } from "../../types";
@@ -99,7 +100,7 @@ export function FeedArticleSheet({
       style={readerStyle(look)}
       className={`reading-look feed-sheet mx-2.5 mt-2.5 -mb-6 flex min-w-0 flex-1 flex-col overflow-hidden rounded-[18px] bg-sheet text-sheet-ink ${className}`}
     >
-      <header data-drop-head className="feed-toolbar flex h-[76px] shrink-0 items-center gap-[3px] pr-3 pl-[19px]">
+      <header data-drop-head className="feed-toolbar flex h-[76px] shrink-0 items-center gap-[3px] px-3">
         {/* ← where the sheet stands in for the list; beside it the card can spread over the list instead. */}
         {narrow ? (
           <ToolButton label={t("feeds.back")} keys="Esc" onClick={onBack}>
@@ -147,7 +148,7 @@ export function FeedArticleSheet({
         ref={scrollerRef}
         tabIndex={-1}
         data-feed-scroll
-        className={`feed-scroll pane-scroll min-h-0 flex-1 overflow-y-auto px-6 pt-1 outline-none sm:px-16 ${item && next ? "" : "pb-24"}`}
+        className={`feed-scroll pane-scroll min-h-0 flex-1 overflow-y-auto ${articleScrollInset} pt-1 outline-none ${item && next ? "" : "pb-24"}`}
       >
         {item ? (
           <>

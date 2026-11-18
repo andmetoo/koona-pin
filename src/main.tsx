@@ -13,6 +13,7 @@ import { capabilities } from "./platform/capabilities";
 import "./platform/back";
 import { blockBrowserChrome } from "./services/browserChrome";
 import { trackInputMode } from "./services/inputMode";
+import { trackScrollbarRoom } from "./services/scrollbarRoom";
 import { applyTheme, isDark, storedTheme } from "./services/preferences";
 import { applySeason } from "./services/season";
 // Supporter's reading themes and fonts (commercial, NP-124): the only import of them. Without this
@@ -31,6 +32,8 @@ if (/\b(Linux|X11)\b/.test(navigator.userAgent) && !/Android/.test(navigator.use
 if (!isMobile && /Mac/.test(navigator.userAgent)) document.documentElement.dataset.mac = "";
 // A phone (NP-151): the page keeps clear of the system's bars and the keyboard (app.css).
 if (isMobile) document.documentElement.dataset.platform = platform;
+// The room a pane's scrollbar keeps, measured (2.25.3): the far insets take it off (PageTitle.tsx).
+if (!isMobile) trackScrollbarRoom();
 blockBrowserChrome(window);
 // A card's ring of keyboard focus only after a key that moves focus, not after a click and Esc.
 trackInputMode(window, document.documentElement);
