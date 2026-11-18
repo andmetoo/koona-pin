@@ -95,7 +95,7 @@ export function OfflineButton({
           aria-busy={busy || undefined}
           disabled={busy || (!saved && disabled)}
           onClick={() => (saved ? setMenu(menu ? null : button.current!.getBoundingClientRect()) : onSave())}
-          className={`!rounded-lg text-read-text ${saved ? "bg-read-track" : ""} ${narrow ? "w-[34px] !px-0" : ""} ${className}`}
+          className={`rounded-lg text-read-text ${saved ? "bg-read-track" : ""} ${narrow ? "w-[34px] !px-0" : ""} ${className}`}
         >
           <OfflineIcon filled={saved} size={15} cut="[&_path]:stroke-read-track" className="shrink-0" />
           {!narrow && label}

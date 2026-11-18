@@ -9,7 +9,7 @@ import { usePicture } from "../../hooks/usePicture";
 import { shiftShortcut, shortcut } from "../../services/keys";
 import { Icon } from "../icons";
 import { Hint } from "../ui/Hint";
-import { PageTitle, pageInsetStart, pageRow, pageTop } from "../shell/PageTitle";
+import { PageTitle, listInsetEnd, listInsetStart, pageInsetStart, pageRow, pageTop } from "../shell/PageTitle";
 import { FeedIcon } from "./FeedIcon";
 import type { FeedShow } from "./FeedsPage";
 
@@ -17,10 +17,10 @@ import type { FeedShow } from "./FeedsPage";
 export const ROW = 158;
 const DAY = 22;
 /**
- * What a picture adds to a row's guess before it is measured (2.17.0): 12 + 187 (16:9 of the
- * 332 px column) + 12 below the text, less the 23 px a row without one keeps under its excerpt.
+ * What a picture adds to a row's guess before it is measured (2.17.0): 12 + 178 (16:9 of the
+ * 316 px picture, 2.25.2) + 12 below the text, less the 23 px a row without one keeps under its excerpt.
  */
-const PICTURE = 188;
+const PICTURE = 179;
 
 export interface FeedListHandle {
   /** Brings the post's row into view; `focus` also moves the focus to it once drawn. */
@@ -138,9 +138,8 @@ export function FeedList({
     onSelect(item, true);
   };
 
-  /* A row's card reaches 12 px past its text, so the list stands 12 px less far in than the page's inset:
-     the source, the headline and the day labels start under the title, the card's edge hangs out (2.25.2). */
-  const listInset = narrow ? "pl-3" : "pl-5";
+  // The source, the headline and the day labels start under the title; a row's card hangs 12 px out (2.25.2).
+  const listInset = listInsetStart(narrow);
   return (
     <section aria-label={title} data-feed-list className={`flex min-h-0 flex-col ${narrow ? "flex-1" : "w-[380px] shrink-0"}`}>
       {/* The title stands where every page's does (PageTitle), so «Reading» and «All feeds» don't jump when the
@@ -236,7 +235,7 @@ export function FeedList({
           </div>
         </div>
       )}
-      <div ref={scroller} data-feed-scroller className={`pane-scroll min-h-0 flex-1 overflow-y-auto pr-3 pb-6 ${listInset}`}>
+      <div ref={scroller} data-feed-scroller className={`pane-scroll min-h-0 flex-1 overflow-y-auto pb-6 ${listInsetEnd} ${listInset}`}>
         {loaded && items.length === 0 ? (
           empty
         ) : (

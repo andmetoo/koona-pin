@@ -373,6 +373,46 @@ test("a post's picture spans the row at 16:9 under its excerpt; a post without o
   for (let i = 1; i < tops.length; i++) expect(tops[i][0]).toBeGreaterThanOrEqual(tops[i - 1][1]);
 });
 
+test("the list's text starts under «All feeds» and its cards end with the header; the key's icon and label stand in the rows' columns (2.25.2)", async ({ page }) => {
+  await open(page);
+  await openFeeds(page);
+  await page.getByRole("button", { name: "Search posts" }).click();
+  const list = page.locator("[data-feed-list]");
+  const title = (await list.getByRole("heading", { level: 1 }).boundingBox())!.x;
+  const starts = await list.evaluate((l) => {
+    const text = (e: Element) => {
+      const r = document.createRange();
+      r.selectNodeContents(e);
+      return r.getBoundingClientRect().left;
+    };
+    const row = l.querySelector("[data-feed-item]")!;
+    return {
+      day: text(l.querySelector("h2")!),
+      source: row.querySelector(":scope > .flex")!.getBoundingClientRect().left,
+      search: l.querySelector("input[type=search]")!.closest("div")!.querySelector("svg")!.getBoundingClientRect().left,
+      rowEnd: row.getBoundingClientRect().right,
+      headerEnd: l.querySelector("header [aria-label='Search posts']")!.getBoundingClientRect().right,
+      fieldEnd: l.querySelector("input[type=search]")!.closest("div")!.getBoundingClientRect().right,
+    };
+  });
+  // The day label, the post's source icon and the search icon on the title's line (the icon's own 1 px aside).
+  expect(Math.abs(starts.day - title)).toBeLessThanOrEqual(1);
+  expect(Math.abs(starts.source - title)).toBeLessThanOrEqual(1);
+  expect(Math.abs(starts.search - title)).toBeLessThanOrEqual(1.5);
+  // A card hangs out on the left only; on the right it ends where the header's buttons and the field do.
+  expect(Math.abs(starts.rowEnd - starts.headerEnd)).toBeLessThanOrEqual(1);
+  expect(Math.abs(starts.fieldEnd - starts.headerEnd)).toBeLessThanOrEqual(1);
+  // «Follow a site»: its icon and label where «Today»'s are below it («All» draws its icon inside a tile).
+  const columns = (button: Element) => {
+    const label = [...button.querySelectorAll("span")].find((s) => s.children.length === 0 && /\p{L}{2}/u.test(s.textContent ?? ""))!;
+    return [button.querySelector("svg")!.getBoundingClientRect().left, label.getBoundingClientRect().left];
+  };
+  const key = await page.locator("[data-follow-site]").evaluate(columns);
+  const today = await page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: /^Today/ }).evaluate(columns);
+  expect(Math.abs(key[0] - today[0])).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(key[1] - today[1])).toBeLessThanOrEqual(0.5);
+});
+
 test("Settings → Feeds: how often to check, OPML import and export", async ({ page }) => {
   await open(page);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
