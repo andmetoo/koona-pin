@@ -50,6 +50,10 @@
     { "rule": "line", "max": 100, "in": "ب\u064e\u200cب", "out": "ب\u064eب", "why": "a vowel mark is Script=Inherited, not Arabic: a non-joiner after it goes" },
     { "rule": "line", "max": 100, "in": "👩\u200c💻", "out": "👩💻", "why": "a non-joiner between two emoji goes: only a joiner joins them" },
     { "rule": "line", "max": 100, "in": "👩\u0001\u200d💻", "out": "👩\u200d💻", "why": "judged with the control characters gone too" },
+    { "rule": "line", "max": 100, "in": "👩\t\u200d💻", "out": "👩 💻", "why": "a tab is white space: it stays a neighbour, becomes a space, and the joiner beside it goes" },
+
+    { "rule": "description", "max": 100, "in": "👩\t\u200d💻", "out": "👩💻", "why": "a description drops the tab, but the joiner was judged beside it" },
+
     { "rule": "line", "max": 100, "in": "می\u0001\u200cخ", "out": "می\u200cخ", "why": "a control before a non-joiner does not part it from its word" },
     { "rule": "line", "max": 4, "in": "abب\u200cب", "out": "abب", "why": "a cut right after a non-joiner drops it" },
     { "rule": "line", "max": 100, "in": "🏴\u200b\udb40\udc67\udb40\udc62\udb40\udc73\udb40\udc63\udb40\udc74\udb40\udc7f", "out": "🏴", "why": "a flag is matched as written: anything between its parts and it is no flag" },

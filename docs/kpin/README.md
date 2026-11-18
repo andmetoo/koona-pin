@@ -260,7 +260,7 @@ A reader cleans text in this order:
 
 1. **Flags.** The three subdivision flags (below) are found as written, each a run of characters with nothing between them, and kept whole.
 2. **Invisible characters** (below) are dropped, except zero width joiners and non-joiners.
-3. **Joiners.** Each zero width joiner and non-joiner is judged by the character before it and the one after it, once the characters of step 2 and the control characters other than a line break are gone, and stays or goes (below). Two in a row are judged together, so both go.
+3. **Joiners.** Each zero width joiner and non-joiner is judged by the character before it and the one after it, once the characters of step 2 and the control characters that are not white space are gone, and stays or goes (below). A white space control, a tab or a line break, stays a neighbour: a joiner beside it joins nothing and goes. Two in a row are judged together, so both go.
 4. **One-line fields** (titles, names, tags, `author.name`, `license`, `generator`): every white space character becomes a space, control characters go, runs of spaces become one, and the text is trimmed. **Descriptions** keep their line breaks: `\r\n` becomes `\n`, every other control character goes (`\r` and tab included), and the text is trimmed.
 5. **The cut** to the field's limit, in characters. A cut that ends inside a flag, or right after a joiner or non-joiner, drops what it leaves without its end, and white space the cut leaves at the end is trimmed too.
 

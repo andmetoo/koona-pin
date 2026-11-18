@@ -216,10 +216,11 @@ fn seen_marks(raw: &str) -> Vec<(char, bool)> {
         marks.push((c, c == ZWJ || c == ZWNJ || !is_invisible(c)));
         rest = &rest[c.len_utf8()..];
     }
-    // A joiner is judged by its neighbours once everything that goes is gone: the other invisible
-    // characters, and the control characters `line` and `paragraph` drop (a line break stays in a
-    // description, so it stays a neighbour).
-    let kept: Vec<usize> = (0..marks.len()).filter(|&i| marks[i].1 && !(marks[i].0.is_control() && marks[i].0 != '\n')).collect();
+    // A joiner is judged by its neighbours once what goes in every field is gone: the other
+    // invisible characters, and the control characters that are not white space. A white space
+    // control (a tab, a line break) stays a neighbour: a one-line field turns it into a space, and
+    // a joiner beside a space joins nothing.
+    let kept: Vec<usize> = (0..marks.len()).filter(|&i| marks[i].1 && !(marks[i].0.is_control() && !marks[i].0.is_whitespace())).collect();
     let judged: Vec<(usize, bool)> = kept
         .iter()
         .enumerate()

@@ -16,7 +16,7 @@ const validate = ajv.compile(JSON.parse(kpinText("schema-1.json")));
 const json = (text: string): unknown => {
   try {
     // A byte order mark at the start is allowed and ignored (spec: The file).
-    return JSON.parse(text.replace(/^﻿/, ""));
+    return JSON.parse(text.replace(/^\u{feff}/u, ""));
   } catch {
     return undefined;
   }

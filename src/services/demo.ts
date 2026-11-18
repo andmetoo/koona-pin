@@ -911,7 +911,7 @@ export function demoList(text: string): DemoList | Exclude<ListCheck, { outcome:
   let raw: Record<string, unknown>;
   try {
     // A byte order mark at the start is allowed and ignored.
-    raw = JSON.parse(text.replace(/^﻿/, ""));
+    raw = JSON.parse(text.replace(/^\u{feff}/u, ""));
   } catch {
     return { outcome: "not_a_list" };
   }
@@ -1014,16 +1014,33 @@ const PICTOGRAPHIC = /^\p{Extended_Pictographic}$/u;
 const JOINING_SCRIPTS = ["Arabic", "Syriac", "Nko", "Mongolian", "Mandaic", "Manichaean", "Adlam", "Hanifi_Rohingya", "Devanagari", "Bengali", "Gurmukhi", "Gujarati", "Oriya", "Tamil", "Telugu", "Kannada", "Malayalam", "Sinhala"].map(
   (script) => new RegExp(`^\\p{Script=${script}}$`, "u"),
 );
-/** The character before UTF-16 index `at`, a pair of surrogates as one. */
-/** A control character that `line` and `paragraph` drop: a joiner's neighbour is judged without it (a line break stays). */
-const dropped = (c: string) => c !== "\n" && /\p{Cc}/u.test(c);
-function before(text: string, at: number): string {
-  const chars = [...text.slice(0, at)];
-  while (chars.length && dropped(chars[chars.length - 1]!)) chars.pop();
-  return chars.pop() ?? "";
+/**
+ * A control character that is not white space, which every field drops: a joiner's neighbour is
+ * judged without it. A white space control (a tab, a line break) stays a neighbour, as in `format::seen_marks`.
+ */
+const dropped = (c: string) => /\p{Cc}/u.test(c) && !/[\s\u{85}]/u.test(c);
+/** The character that ends at UTF-16 index `at`, a pair of surrogates as one. */
+function charEndingAt(text: string, at: number): string {
+  const low = text.charCodeAt(at - 1);
+  const high = at >= 2 ? text.charCodeAt(at - 2) : 0;
+  return low >= 0xdc00 && low <= 0xdfff && high >= 0xd800 && high <= 0xdbff ? text.slice(at - 2, at) : text.slice(at - 1, at);
 }
+/** The character before UTF-16 index `at`, skipping dropped controls; walked back, nothing copied. */
+function before(text: string, at: number): string {
+  for (let i = at; i > 0; ) {
+    const c = charEndingAt(text, i);
+    if (!dropped(c)) return c;
+    i -= c.length;
+  }
+  return "";
+}
+/** The character from UTF-16 index `at` on, skipping dropped controls. */
 function after(text: string, at: number): string {
-  for (const c of text.slice(at)) if (!dropped(c)) return c;
+  for (let i = at; i < text.length; ) {
+    const c = String.fromCodePoint(text.codePointAt(i)!);
+    if (!dropped(c)) return c;
+    i += c.length;
+  }
   return "";
 }
 /** Every string in a JSON value (keys too) is well formed: no surrogate without its pair. */
