@@ -5,7 +5,7 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
-    /* Tests read files with node:fs; TypeScript 6+ no longer includes every @types package by default. */
+    /* The tests read files with node:fs; tsconfig.app.json checks the app itself without Node. */
     "types": ["node"],
 
     /* Bundler mode */

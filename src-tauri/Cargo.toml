@@ -66,7 +66,7 @@ rmcp = { version = "3.4", default-features = false, features = ["server", "trans
 crc32fast = "1.5"
 flate2 = "1.1"
 # The plan signed by the server (Supporter, billing.rs): Ed25519 from `ring`, already in the tree
-# through rustls; base64 through Tauri.
+# through rustls; base64 0.22 through reqwest 0.12 (Tauri is on 0.23: move with reqwest).
 ring = "0.17"
 base64 = "0.22"
 # Sync (Р-68, NP-059): the engine and its relay client, under the commercial license

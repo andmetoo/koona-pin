@@ -224,6 +224,13 @@ fn time(raw: Option<String>) -> Option<DateTime<Utc>> {
     raw.and_then(|t| DateTime::parse_from_rfc3339(&t).ok()).map(|t| t.with_timezone(&Utc))
 }
 
+/// `max_age_secs` as stored (an INTEGER; rusqlite reads no u64). Written capped at
+/// `fetch::MAX_WAIT_SECS`, so a negative one is a damaged row: it counts as no max-age rather than
+/// failing every feed's plan.
+fn stored_max_age(secs: Option<i64>) -> Option<u64> {
+    secs.and_then(|s| u64::try_from(s).ok())
+}
+
 pub fn states(conn: &Connection) -> rusqlite::Result<HashMap<String, FetchState>> {
     conn.prepare(
         "SELECT feed_uid, etag, last_modified, fetched_at, succeeded_at, next_fetch_at, failures, failing_since, last_error,
@@ -243,7 +250,7 @@ pub fn states(conn: &Connection) -> rusqlite::Result<HashMap<String, FetchState>
                 failing_since: time(r.get(7)?),
                 last_error: r.get(8)?,
                 ttl_minutes: r.get(9)?,
-                max_age_secs: r.get::<_, Option<i64>>(10)?.and_then(|s| u64::try_from(s).ok()),
+                max_age_secs: stored_max_age(r.get(10)?),
             },
         ))
     })?
@@ -616,7 +623,7 @@ fn shorten_waits_with(conn: &Connection, now: DateTime<Utc>, interval: u32, mut 
     let mut moved = 0;
     for (uid, next, ttl, max_age) in waiting {
         let Some(next) = time(next) else { continue };
-        let max_age = max_age.and_then(|s| u64::try_from(s).ok());
+        let max_age = stored_max_age(max_age);
         let sooner = next_after_success(now, interval, ttl, max_age, last_post(&tx, &uid), jitter());
         if sooner < next {
             tx.execute("UPDATE feed_state SET next_fetch_at = ?1 WHERE feed_uid = ?2", params![db::stamp(sooner), uid])?;

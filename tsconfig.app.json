@@ -1,0 +1,11 @@
+{
+  // The interface as it ships, without the tests and without Node's globals: `process` or `Buffer`
+  // in app code would type-check under tsconfig.json and then fail in the webview. Test-only files
+  // are those named `*.test*`, helpers too (docs/testing.md, «Types»).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": []
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test*"]
+}

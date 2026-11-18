@@ -17,10 +17,16 @@ const RUNS: usize = 30;
 static STATEMENTS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
 /// Each statement as it starts, with its bound values written in (as SQLite's old `sqlite3_trace`
-/// gave it), so `plan` can explain it without parameters.
+/// gave it), so `plan` can explain it without parameters. A trigger's program comes as its
+/// `-- TRIGGER name` comment, as before, not as the statement that fired it once more.
 fn record(event: TraceEvent<'_>) {
     if let TraceEvent::Stmt(statement, sql) = event {
-        STATEMENTS.lock().unwrap().push(statement.expanded_sql().unwrap_or_else(|| sql.to_string()));
+        let text = if sql.starts_with("--") {
+            sql.to_string()
+        } else {
+            statement.expanded_sql().unwrap_or_else(|| sql.to_string())
+        };
+        STATEMENTS.lock().unwrap().push(text);
     }
 }
 

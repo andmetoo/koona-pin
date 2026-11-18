@@ -28,6 +28,7 @@ It fails if `src/bindings` differs from the committed files, including new untra
 
 - **Rust** (`src-tauri/src/**` unit tests and `src-tauri/tests/`): storage and migrations on generated libraries, search, inbox, trash and its purge, undo journal, bulk actions, import, export and restore, backups, duplicates, link check against a local test server, the network guard, the capture protocol and receipts, the pipe or socket permissions, host manifests, the updater's status handling. `src-tauri/tests/english_source.rs` keeps user-facing text out of Rust.
 - **Vitest** (`vitest.config.ts`: `src/**/*.test.ts`, `extension/**/*.test.js`, `supabase/**/*.test.ts`): the pure rules in `src/services`, the extension's queue, messages and locales, the locale catalogs (`src/i18n/locales.test.ts`), the feedback function.
+- **Types.** `tsc` checks `src` with Node's types, which the tests need for `node:fs`; then `tsconfig.app.json` checks the app again without them, so `process` or `Buffer` in interface code fails the build instead of the webview. Only files named `*.test*` count as tests there: a helper only tests use is named that way too (`fixtures.test-helpers.ts`), or it is checked as app code.
 
 ## Playwright UI tests
 
