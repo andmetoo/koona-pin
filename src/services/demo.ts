@@ -910,26 +910,36 @@ export function demoList(text: string): DemoList | Exclude<ListCheck, { outcome:
   if (new TextEncoder().encode(text).length > 2 * 1024 * 1024) return { outcome: "too_big" };
   let raw: Record<string, unknown>;
   try {
-    raw = JSON.parse(text);
+    // A byte order mark at the start is allowed and ignored.
+    raw = JSON.parse(text.replace(/^﻿/, ""));
   } catch {
     return { outcome: "not_a_list" };
   }
-  if (!raw || typeof raw !== "object" || Array.isArray(raw) || raw.format !== "koona") return { outcome: "not_a_list" };
-  if (raw.app !== "pin") return typeof raw.app === "string" ? { outcome: "other_app", app: raw.app } : { outcome: "not_a_list" };
-  const version = /^(\d+)\.(\d+)$/.exec(String(raw.version ?? ""));
-  if (!version) return { outcome: "not_a_list" };
-  const [major, minor] = [Number(version[1]), Number(version[2])];
-  if (raw.kind !== "list" || major > 1) return { outcome: "needs_newer_app" };
+  // As serde_json: an escaped surrogate without its pair is no text, and the file is no list.
+  if (!raw || typeof raw !== "object" || Array.isArray(raw) || !wellFormed(raw) || raw.format !== "koona") return { outcome: "not_a_list" };
+  const isName = (value: unknown): value is string => typeof value === "string" && /^[a-z][a-z0-9-]{0,31}$/.test(value);
+  if (!isName(raw.app)) return { outcome: "not_a_list" };
+  if (raw.app !== "pin") return { outcome: "other_app", app: raw.app };
+  if (!isName(raw.kind)) return { outcome: "not_a_list" };
+  if (raw.kind !== "list") return { outcome: "needs_newer_app" };
+  // `format::version`: plain numbers; MAJOR 1 with a MINOR of at most 4 digits, any later MAJOR needs a newer app.
+  const version = typeof raw.version === "string" ? /^(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(raw.version) : null;
+  if (!version || version[1] === "0") return { outcome: "not_a_list" };
+  if (version[1] !== "1") return { outcome: "needs_newer_app" };
+  if (version[2].length > 4) return { outcome: "not_a_list" };
+  const [major, minor] = [1, Number(version[2])];
   const title = typeof raw.title === "string" ? (demoLine(raw.title, 120) ?? "") : "";
-  if (major !== 1 || !title) return { outcome: "not_a_list" };
-  const sections = Array.isArray(raw.sections) ? (raw.sections as Record<string, unknown>[]) : [];
+  if (!title) return { outcome: "not_a_list" };
+  const isObject = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
+  if (raw.sections != null && (!Array.isArray(raw.sections) || !raw.sections.every(isObject))) return { outcome: "not_a_list" };
+  const sections = (raw.sections ?? []) as Record<string, unknown>[];
   if (sections.length > 200) return { outcome: "too_big" };
+  const itemsOf = (holder: Record<string, unknown>) => (holder.items == null ? [] : Array.isArray(holder.items) ? (holder.items as Record<string, unknown>[]) : null);
+  const lists = [...sections.map(itemsOf), itemsOf(raw)];
+  if (lists.some((items) => items === null)) return { outcome: "not_a_list" };
   const groups: [string | null, Record<string, unknown>[]][] = [
-    ...sections.map((section): [string | null, Record<string, unknown>[]] => [
-      typeof section?.name === "string" ? demoLine(section.name, 120) : null,
-      Array.isArray(section?.items) ? section.items : [],
-    ]),
-    [null, Array.isArray(raw.items) ? (raw.items as Record<string, unknown>[]) : []],
+    ...sections.map((section, i): [string | null, Record<string, unknown>[]] => [typeof section.name === "string" ? demoLine(section.name, 120) : null, lists[i]!]),
+    [null, lists[lists.length - 1]!],
   ];
   const total = groups.reduce((sum, [, items]) => sum + items.length, 0);
   if (total > 5000) return { outcome: "too_big" };
@@ -1005,8 +1015,24 @@ const JOINING_SCRIPTS = ["Arabic", "Syriac", "Nko", "Mongolian", "Mandaic", "Man
   (script) => new RegExp(`^\\p{Script=${script}}$`, "u"),
 );
 /** The character before UTF-16 index `at`, a pair of surrogates as one. */
-const before = (text: string, at: number) => [...text.slice(Math.max(0, at - 2), at)].pop() ?? "";
-const after = (text: string, at: number) => String.fromCodePoint(text.codePointAt(at) ?? 0);
+/** A control character that `line` and `paragraph` drop: a joiner's neighbour is judged without it (a line break stays). */
+const dropped = (c: string) => c !== "\n" && /\p{Cc}/u.test(c);
+function before(text: string, at: number): string {
+  const chars = [...text.slice(0, at)];
+  while (chars.length && dropped(chars[chars.length - 1]!)) chars.pop();
+  return chars.pop() ?? "";
+}
+function after(text: string, at: number): string {
+  for (const c of text.slice(at)) if (!dropped(c)) return c;
+  return "";
+}
+/** Every string in a JSON value (keys too) is well formed: no surrogate without its pair. */
+function wellFormed(value: unknown): boolean {
+  if (typeof value === "string") return !/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/.test(value);
+  if (Array.isArray(value)) return value.every(wellFormed);
+  if (value && typeof value === "object") return Object.entries(value).every(([key, v]) => wellFormed(key) && wellFormed(v));
+  return true;
+}
 function joinerStays(text: string, joiner: string, at: number): boolean {
   const [b, a] = [before(text, at), after(text, at + 1)];
   if (JOINING_SCRIPTS.some((script) => script.test(b) && script.test(a))) return true;

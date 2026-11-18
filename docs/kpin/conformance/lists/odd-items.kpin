@@ -1,0 +1,17 @@
+{
+  "format": "koona",
+  "app": "pin",
+  "kind": "list",
+  "version": "1.0",
+  "title": "Items that are not items",
+  "items": [
+    5,
+    {
+      "url": "https://example.com/no-type"
+    },
+    {
+      "type": "link",
+      "url": "https://example.com/a"
+    }
+  ]
+}

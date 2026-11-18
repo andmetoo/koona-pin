@@ -1,0 +1,46 @@
+{
+  "format": "koona",
+  "app": "pin",
+  "kind": "list",
+  "version": "1.0",
+  "title": "A section without a name",
+  "sections": [
+    {
+      "name": "First",
+      "items": [
+        {
+          "type": "link",
+          "url": "https://example.com/x"
+        }
+      ]
+    },
+    {
+      "name": "  ",
+      "items": [
+        {
+          "type": "link",
+          "url": "https://example.com/y"
+        },
+        {
+          "type": "link",
+          "url": "https://example.com/x"
+        }
+      ]
+    },
+    {
+      "name": "Last",
+      "items": [
+        {
+          "type": "link",
+          "url": "https://example.com/z"
+        }
+      ]
+    }
+  ],
+  "items": [
+    {
+      "type": "link",
+      "url": "https://example.com/w"
+    }
+  ]
+}

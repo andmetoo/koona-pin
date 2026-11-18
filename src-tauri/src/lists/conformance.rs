@@ -51,6 +51,12 @@ pub fn case_text(case: &Value) -> String {
     }
     let mut list: Value = serde_json::from_str(&base).unwrap();
     let root = list.as_object_mut().unwrap();
+    for key in generate["remove"].as_array().into_iter().flatten() {
+        root.remove(key.as_str().unwrap());
+    }
+    for (key, value) in generate["set"].as_object().into_iter().flatten() {
+        root.insert(key.clone(), value.clone());
+    }
     for i in 0..generate["add_links"].as_u64().unwrap_or(0) {
         let items = root.entry("items").or_insert(json!([])).as_array_mut().unwrap();
         items.push(json!({ "type": "link", "url": format!("https://example.com/added/{i}") }));

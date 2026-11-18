@@ -1,0 +1,19 @@
+{
+  "format": "koona",
+  "app": "pin",
+  "kind": "list",
+  "version": "1.0",
+  "title": "Unknown fields in 1.0",
+  "cover": "x",
+  "author": {
+    "name": "A",
+    "mastodon": "@a"
+  },
+  "items": [
+    {
+      "type": "link",
+      "url": "https://example.com/",
+      "rating": 5
+    }
+  ]
+}

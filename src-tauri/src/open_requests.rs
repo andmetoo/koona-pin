@@ -123,6 +123,10 @@ fn import_link(arg: &str) -> Option<String> {
     if link.scheme() != SCHEME || !link.host_str()?.eq_ignore_ascii_case("import") {
         return None;
     }
+    // `import` alone: no user name, password or port on the link itself.
+    if !link.username().is_empty() || link.password().is_some() || link.port().is_some() {
+        return None;
+    }
     if !matches!(link.path(), "" | "/") || link.fragment().is_some() {
         return None;
     }

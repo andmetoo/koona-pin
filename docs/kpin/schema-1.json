@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://koona.app/pin/schema/list-1.json",
   "title": "Koona list (.kpin), version 1.x",
-  "description": "A shareable list of links and feeds for Koona Pin: the envelope shared by Koona apps with the payload of app \"pin\", kind \"list\". This schema is what a writer must produce; readers are more tolerant and are described in docs/kpin/README.md. Three rules of a writer cannot be written here: a file of at most 2 MB (2,097,152 bytes), at most 5,000 items across all sections and the top level, and addresses of at most 2,048 bytes in UTF-8 (maxLength counts characters). Dedicated to the public domain under CC0 1.0.",
+  "description": "A shareable list of links and feeds for Koona Pin: the envelope shared by Koona apps with the payload of app \"pin\", kind \"list\". This schema is what a writer must produce; readers are more tolerant and are described in docs/kpin/README.md. Four rules of a writer cannot be written here: a file of at most 2 MB (2,097,152 bytes), at most 5,000 items across all sections and the top level, addresses of at most 2,048 bytes in UTF-8 (maxLength counts characters), and text with a visible character once cleaned, which a text made only of tag characters passes here and fails in a reader. Dedicated to the public domain under CC0 1.0.",
   "type": "object",
   "required": [
     "format",
@@ -152,8 +152,8 @@
     "text": {
       "type": "string",
       "minLength": 1,
-      "pattern": "[^\\s\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u061c\\u180e\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u2064\\u2066-\\u206f\\ufeff\\ufff9-\\ufffb]",
-      "description": "One line of text with at least one visible character: not empty, and not only white space, control or invisible characters. The tag characters (U+E0001, U+E0020 to U+E007F) lie outside the Basic Multilingual Plane, where patterns differ between validators, so they are not named here: a text made only of them passes this pattern and is still empty to a reader."
+      "pattern": "[^\\s\\u0000-\\u001f\\u007f-\\u009f\\u00a0\\u00ad\\u061c\\u1680\\u180e\\u2000-\\u200f\\u2028-\\u202f\\u205f-\\u2064\\u2066-\\u206f\\u3000\\ufeff\\ufff9-\\ufffb]",
+      "description": "One line of text with at least one visible character: not empty, and not only white space, control or invisible characters. The Unicode white space is named, not left to \\s, which some validators read as ASCII only. The tag characters (U+E0001, U+E0020 to U+E007F) lie outside the Basic Multilingual Plane, where patterns differ between validators, so they are not named here: a text made only of them passes this pattern and is still empty to a reader."
     },
     "httpUrl": {
       "type": "string",

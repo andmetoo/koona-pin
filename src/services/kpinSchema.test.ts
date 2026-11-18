@@ -15,7 +15,8 @@ const validate = ajv.compile(JSON.parse(kpinText("schema-1.json")));
 /** The JSON of a text; undefined, which no schema accepts, for a text that is not JSON (a file cut off). */
 const json = (text: string): unknown => {
   try {
-    return JSON.parse(text);
+    // A byte order mark at the start is allowed and ignored (spec: The file).
+    return JSON.parse(text.replace(/^﻿/, ""));
   } catch {
     return undefined;
   }
@@ -36,7 +37,8 @@ describe("the schema of .kpin", () => {
   it("refuses a title made only of invisible characters of the BMP", () => {
     const list = (title: string) => ({ format: "koona", app: "pin", kind: "list", version: "1.0", title, items: [{ type: "link", url: "https://example.com/" }] });
     // The set a reader drops (spec: Text) that the schema can name: U+E0000 tag characters lie outside the BMP.
-    const invisible = String.fromCodePoint(0xad, 0x61c, 0x180e, 0x200b, 0x200f, 0x202a, 0x202e, 0x2060, 0x2064, 0x2066, 0x206f, 0xfeff, 0xfff9, 0xfffb);
+    // With the Unicode white space the pattern names itself rather than leave to \s.
+    const invisible = String.fromCodePoint(0xad, 0x61c, 0x180e, 0x200b, 0x200f, 0x202a, 0x202e, 0x2060, 0x2064, 0x2066, 0x206f, 0xfeff, 0xfff9, 0xfffb, 0xa0, 0x1680, 0x2000, 0x200a, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000);
     for (const c of invisible) expect(validate(list(` ${c} `)), `U+${c.codePointAt(0)!.toString(16)}`).toBe(false);
     expect(validate(list(`${invisible}a`))).toBe(true);
   });

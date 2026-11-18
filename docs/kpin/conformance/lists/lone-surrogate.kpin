@@ -1,0 +1,14 @@
+{
+  "format": "koona",
+  "app": "pin",
+  "kind": "list",
+  "version": "1.0",
+  "title": "A lone surrogate in an item title",
+  "items": [
+    {
+      "type": "link",
+      "url": "https://example.com/",
+      "title": "\ud800"
+    }
+  ]
+}

@@ -216,7 +216,10 @@ fn seen_marks(raw: &str) -> Vec<(char, bool)> {
         marks.push((c, c == ZWJ || c == ZWNJ || !is_invisible(c)));
         rest = &rest[c.len_utf8()..];
     }
-    let kept: Vec<usize> = (0..marks.len()).filter(|&i| marks[i].1).collect();
+    // A joiner is judged by its neighbours once everything that goes is gone: the other invisible
+    // characters, and the control characters `line` and `paragraph` drop (a line break stays in a
+    // description, so it stays a neighbour).
+    let kept: Vec<usize> = (0..marks.len()).filter(|&i| marks[i].1 && !(marks[i].0.is_control() && marks[i].0 != '\n')).collect();
     let judged: Vec<(usize, bool)> = kept
         .iter()
         .enumerate()
@@ -433,11 +436,18 @@ fn version(raw: &str) -> Result<(u32, u32), ListError> {
             && (s == "0" || !s.starts_with('0'));
         plain.then(|| s.parse::<u32>().ok()).flatten()
     };
+    // A plain number of any length, as a later MAJOR or its MINOR may be.
+    let plain = |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_digit()) && (s == "0" || !s.starts_with('0'));
     let (major, minor) = raw.split_once('.').ok_or(ListError::NotAList)?;
-    match (number(major, 9), number(minor, 9)) {
-        (Some(READER_MAJOR), _) => number(minor, 4).map(|minor| (READER_MAJOR, minor)).ok_or(ListError::NotAList),
-        (Some(major), Some(_)) if major > READER_MAJOR => Err(ListError::NeedsNewerApp),
-        _ => Err(ListError::NotAList),
+    if !plain(major) || !plain(minor) {
+        return Err(ListError::NotAList);
+    }
+    match number(major, 9) {
+        Some(READER_MAJOR) => number(minor, 4).map(|minor| (READER_MAJOR, minor)).ok_or(ListError::NotAList),
+        // There is no MAJOR 0.
+        Some(0) => Err(ListError::NotAList),
+        // Any other plain MAJOR is a later one, however long.
+        _ => Err(ListError::NeedsNewerApp),
     }
 }
 
@@ -460,8 +470,14 @@ pub(crate) fn language(raw: &str) -> Option<String> {
     ok.then(|| raw.to_owned())
 }
 
-/// `YYYY-MM-DD`, a real date.
+/// `YYYY-MM-DD` exactly (four digits, two, two), a real date. The parser
+/// alone would also take `2026-1-5`, a sign or white space before a number.
 pub(crate) fn date(raw: &str) -> Option<String> {
+    let b = raw.as_bytes();
+    let shaped = b.len() == 10 && b[4] == b'-' && b[7] == b'-' && b.iter().enumerate().all(|(i, c)| i == 4 || i == 7 || c.is_ascii_digit());
+    if !shaped {
+        return None;
+    }
     chrono::NaiveDate::parse_from_str(raw, "%Y-%m-%d").ok().map(|d| d.format("%Y-%m-%d").to_string())
 }
 

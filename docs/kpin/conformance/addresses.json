@@ -1,5 +1,6 @@
 {
   "$comment": "How a reader takes addresses (spec: Addresses). rule: link (a link's url), feed (a feed's url), web (homepage, author.url, a feed's site). out: the address as the reader keeps it; skip: why a link or feed is skipped and counted (invalid, not_web); for web, out null means the field is dropped. pad: before reading, append the text `with` to `in` until `in` is at least `to_bytes` bytes long in UTF-8. Feeds are checked by their address only: what a name resolves to is checked when the feed is fetched, not here. Dedicated to the public domain under CC0 1.0.",
+  "revision": "2026-11",
   "vectors": [
     { "rule": "link", "in": "https://example.com/x", "out": "https://example.com/x" },
     { "rule": "link", "in": "  https://example.com/x  ", "out": "https://example.com/x", "why": "white space around it is trimmed" },
@@ -43,6 +44,16 @@
     { "rule": "feed", "in": "http://[fe80::1]/feed", "skip": "invalid" },
     { "rule": "feed", "in": "http://[fd00::1]/feed", "skip": "invalid", "why": "unique local" },
     { "rule": "feed", "in": "http://[::ffff:127.0.0.1]/feed", "skip": "invalid", "why": "an IPv4 address mapped into IPv6" },
+    { "rule": "feed", "in": "http://192.0.0.1/feed", "skip": "invalid", "why": "IETF protocol assignments 192.0.0.0/24" },
+    { "rule": "feed", "in": "http://198.18.0.1/feed", "skip": "invalid", "why": "benchmarking 198.18.0.0/15" },
+    { "rule": "feed", "in": "http://240.0.0.1/feed", "skip": "invalid", "why": "reserved 240.0.0.0/4" },
+    { "rule": "feed", "in": "http://192.0.2.1/feed", "out": "http://192.0.2.1/feed", "why": "documentation ranges are not refused" },
+    { "rule": "feed", "in": "http://[64:ff9b::7f00:1]/feed", "skip": "invalid", "why": "NAT64 of a non-public IPv4 address" },
+    { "rule": "feed", "in": "http://[fec0::1]/feed", "skip": "invalid", "why": "old site-local fec0::/10" },
+    { "rule": "feed", "in": "http://2130706433/feed", "skip": "invalid", "why": "a WHATWG parser reads it as 127.0.0.1" },
+    { "rule": "feed", "in": "http://LOCALHOST./feed", "skip": "invalid", "why": "a trailing dot and any case" },
+    { "rule": "feed", "in": "http://printer.local./feed", "skip": "invalid" },
+    { "rule": "feed", "in": "ftp://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "skip": "invalid", "why": "too long is invalid, whatever the scheme" },
 
     { "rule": "web", "in": "https://koona.app", "out": "https://koona.app" },
     { "rule": "web", "in": "https://me:pw@koona.app/", "out": "https://koona.app/" },
