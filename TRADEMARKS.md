@@ -22,6 +22,17 @@ The project-owned artwork listed in [LICENSING.md](LICENSING.md), including the 
 
 These rules do not restrict rights independently granted by an applicable open-source license or uses that applicable law permits without permission, including protected descriptive references. Trademark protection is subject to the rights available under the applicable law; this policy does not claim registration or an exclusive right to every use of a word worldwide.
 
+## The `.kpin` list format
+
+The format is open: its specification, schema and conformance suite are CC0 ([koona-project/kpin](https://github.com/koona-project/kpin)), and anyone may implement it without asking. To that end, and notwithstanding the lists above:
+
+- The format's identifiers are free to use in any tool: the `.kpin` file extension, the `"format": "koona"` value and the other fields of the envelope, and the media type `application/vnd.koona.list+json`. A tool that opens `.kpin` files on macOS may declare the type `app.koona.pin.list` as an imported type (`UTImportedTypeDeclarations`); Koona Pin exports it.
+- A page, a list or a tool may write `koonapin://import?url=…` links that offer a list to Koona Pin.
+- You may call your tool's files ".kpin lists" or "Koona lists", say it "reads and writes .kpin", and name a package or a project `kpin-…` (`kpin-rs`, `kpin-cli`).
+- You may say your tool is **kpin-compatible**, or compatible with a revision of the format (such as 1.0, reader rules 2026-11), when it passes that revision's conformance suite; say which revision.
+
+What stays reserved: "Koona" or "Koona Pin" in a product's own name; anything that suggests your tool is made or endorsed by Koona; and registering another app as the handler of the `koonapin:` scheme, which would catch the links a page means for Koona Pin. A reader that wants one-click links of its own uses a scheme of its own.
+
 ## Questions
 
 For permission or to report misuse, open an issue at <https://github.com/andmetoo/koona-pin/issues> or write through <https://koona.app/pin/feedback>.

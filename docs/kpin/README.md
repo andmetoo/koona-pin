@@ -395,16 +395,16 @@ Pages must percent-encode the `url` value whenever the list's address has a `?`,
 
 [schema-1.json](schema-1.json) describes what a writer must produce. Readers are more tolerant, so that a list with one bad entry still imports: a file the schema refuses may still be read, with its bad items skipped and counted and its bad optional fields dropped. A file the schema accepts is refused only for what it is (another app, an unknown kind), for its size (more than 2 MB, or more than 5,000 items in all), or for one of two things in it the schema cannot see: a list's title made only of [tag characters](#text), which is empty to a reader, and a string with an escaped surrogate without its pair, which is no text (see [The file](#the-file)). Its items can still be skipped: one whose address is longer than 2,048 bytes is invalid to the reader, though the schema, which counts characters, accepts it.
 
-The schema allows any field and any item `type` beyond those of 1.0, so that it accepts files of later 1.x versions; it pins `version` to MAJOR 1. Its `$id`, `https://koona.app/pin/schema/list-1.json`, names the schema; this repository holds its source.
+The schema allows any field and any item `type` beyond those of 1.0, so that it accepts files of later 1.x versions; it pins `version` to MAJOR 1. Its `$id`, `https://koona.app/pin/schema/list-1.json`, names the schema; a validator must not need to fetch it there. The schema's source is the repository [koona-project/kpin](https://github.com/koona-project/kpin), which holds this specification too.
 
-To check a list, use any JSON Schema 2020-12 validator. ajv-cli needs ajv-formats beside it, since the schema uses the `date` format, and picks the parser by the file's extension, so give it a copy named `.json`:
+To check a list, use any JSON Schema 2020-12 validator. ajv-cli needs ajv-formats beside it, since the schema uses the `date` format, and picks the parser by the file's extension, so give it a copy named `.json`. From the folder of this specification:
 
 ```bash
-cp docs/kpin/examples/minimal.kpin /tmp/minimal.json
+cp examples/minimal.kpin /tmp/minimal.json
 ```
 
 ```bash
-npx -p ajv-cli@5 -p ajv-formats@3 ajv validate --spec=draft2020 -c ajv-formats -s docs/kpin/schema-1.json -d /tmp/minimal.json
+npx -p ajv-cli@5 -p ajv-formats@3 ajv validate --spec=draft2020 -c ajv-formats -s schema-1.json -d /tmp/minimal.json
 ```
 
 ## Conformance
@@ -437,4 +437,4 @@ The first version: the envelope (`format`, `app`, `kind`, `version`, `generator`
 
 This specification, [schema-1.json](schema-1.json), the [examples](examples) and the [conformance suite](conformance) are dedicated to the public domain under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/): to the extent possible under law, their authors have waived all copyright and related rights in them. Copy, adapt and implement them in any tool, open or closed, without asking or crediting.
 
-This covers every file in `docs/kpin/` and nothing else; [LICENSE.md](LICENSE.md) there says so for a copy that travels without this document. Koona Pin's code, including its reader and writer of this format and the tests that run the suite, stays under the [GNU GPL 3.0](../../LICENSE); see [LICENSING.md](../../LICENSING.md). "Koona" and "Koona Pin" are trademarks ([TRADEMARKS.md](../../TRADEMARKS.md)); implementing the format does not need permission, but a tool should not present itself as Koona.
+This covers every file of this folder (the repository [koona-project/kpin](https://github.com/koona-project/kpin), and its copy in Koona Pin's `docs/kpin/`) and nothing else; [LICENSE.md](LICENSE.md) says so for a copy that travels without this document. Koona Pin's code, including its reader and writer of this format and the tests that run the suite, stays under the [GNU GPL 3.0](https://github.com/andmetoo/koona-pin/blob/main/LICENSE); see [LICENSING.md](https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md). "Koona" and "Koona Pin" are trademarks ([TRADEMARKS.md](https://github.com/andmetoo/koona-pin/blob/main/TRADEMARKS.md)): implementing the format, naming it and saying a tool passes its conformance suite need no permission, but a tool should not present itself as Koona.
