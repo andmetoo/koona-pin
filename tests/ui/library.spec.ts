@@ -49,6 +49,28 @@ test("hover keeps card and preview geometry stable", async ({ page }) => {
   expect(await card.boundingBox()).toEqual(before);
   expect(await card.locator("[data-preview]").boundingBox()).toEqual(image);
 });
+test("the grid ends where the toolbar does; a list row's picture and a group's name start under the title (2.25.3)", async ({ page }) => {
+  const title = (await page.locator("main h1").boundingBox())!.x;
+  const toolbarEnd = await page.getByRole("button", { name: "Reading mode" }).evaluate((b) => b.getBoundingClientRect().right);
+  const cards = await page.locator("article[data-bookmark-id]").evaluateAll((all) => all.map((c) => c.getBoundingClientRect()).map((r) => [r.left, r.right]));
+  expect(Math.abs(Math.min(...cards.map((c) => c[0])) - title)).toBeLessThanOrEqual(1);
+  expect(Math.abs(Math.max(...cards.map((c) => c[1])) - toolbarEnd)).toBeLessThanOrEqual(1);
+  await page.getByRole("button", { name: "List", exact: true }).click();
+  const row = page.locator("article[data-bookmark-row]").first();
+  await expect(row).toBeVisible();
+  const picture = await row.locator("img").first().evaluate((i) => i.getBoundingClientRect().left);
+  expect(Math.abs(picture - title)).toBeLessThanOrEqual(1);
+  const group = page.locator("[data-view=list] h3 span").first();
+  if (await group.count()) {
+    const words = await group.evaluate((s) => {
+      const r = document.createRange();
+      r.selectNodeContents(s);
+      return r.getBoundingClientRect().left;
+    });
+    expect(Math.abs(words - title)).toBeLessThanOrEqual(1);
+  }
+});
+
 test("card menu moves a bookmark to a collection with the keyboard", async ({ page }) => {
   await page.locator('[data-bookmark-id="2"]').hover();
   await page.getByRole("button", { name: /^Actions: The architecture/ }).click();

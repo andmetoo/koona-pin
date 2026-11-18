@@ -12,6 +12,12 @@ export const pageInset = (narrow: boolean) => (narrow ? "px-6" : "px-8");
 /** The start side alone, for a column whose far edge follows its own rows (the feed list). */
 export const pageInsetStart = (narrow: boolean) => (narrow ? "pl-6" : "pl-8");
 /**
+ * The page's inset on a pane that scrolls (`.pane-scroll`, 2.25.3): the far side 8 px less, since the scrollbar
+ * keeps its 8 px there on Windows and Linux, so the grid ends where the toolbar above it does. A Mac's
+ * overlay scrollbar keeps none (app.css), and there the pane takes the whole inset itself.
+ */
+export const pageScrollInset = (narrow: boolean) => (narrow ? "pl-6 pr-4 [[data-mac]_&]:pr-6" : "pl-8 pr-6 [[data-mac]_&]:pr-8");
+/**
  * A list whose rows are cards reaching 12 px past their text (the feed list, 2.25.2): its start side stands
  * 12 px less far in than the page's, so the text under the title starts where the title does and the card's
  * edge hangs out. Kept beside `pageInsetStart`: change one, change the other.

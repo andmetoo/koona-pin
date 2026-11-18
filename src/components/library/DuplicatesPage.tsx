@@ -10,7 +10,7 @@ import { CommandError, describeError } from "../../services/errors";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
 import { Dot } from "../ui/Controls";
-import { PageTitle, pageRow, pageTop } from "../shell/PageTitle";
+import { PageTitle, pageInset, pageRow, pageScrollInset, pageTop } from "../shell/PageTitle";
 import { Preview } from "./Bookmarks";
 import { ConfirmDialog } from "./Dialogs";
 
@@ -22,13 +22,14 @@ import { ConfirmDialog } from "./Dialogs";
  */
 export function DuplicatesPage({
   collections,
-  padding,
+  narrow,
   onMerged,
   onHidden,
   onFailed,
 }: {
   collections: Collection[];
-  padding: string;
+  /** A narrow window: the page's inset of 24 px, not 32. */
+  narrow: boolean;
   onMerged: (merged: Merged) => void;
   onHidden: (key: string, ids: number[]) => void;
   onFailed: (text: string) => void;
@@ -123,12 +124,12 @@ export function DuplicatesPage({
   const total = groups?.reduce((sum, g) => sum + g.bookmarks.length, 0) ?? 0;
   return (
     <>
-      <div className={`${padding} ${pageTop} pb-4`}>
+      <div className={`${pageInset(narrow)} ${pageTop} pb-4`}>
         <div className={pageRow}>
           <PageTitle title={t("duplicates.title")} count={groups?.length} />
         </div>
       </div>
-      <div className={`min-h-0 flex-1 overflow-y-auto pane-scroll pb-8 ${padding}`}>
+      <div className={`min-h-0 flex-1 overflow-y-auto pane-scroll pb-8 ${pageScrollInset(narrow)}`}>
         {groups === null ? (
           <p role="status" className="text-sm text-muted">
             {t("duplicates.loading")}
