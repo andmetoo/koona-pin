@@ -34,10 +34,15 @@ export function PictureViewer({ img, source, caption, onOpen, onClose }: {
   // card neither jumps nor resizes when that picture arrives. A larger file than promised only
   // lets the zoom go further, and the percentage is always of the pixels on screen.
   const [cap] = useState(() => Math.max(img.naturalWidth, source.largeWidth ?? 0));
+  // Never smaller than the picture stands in the text (2.25.2): a feed's lead is often a small file
+  // that the post stretches across its column, and opening it at its own pixels shrank it. The
+  // percentage still counts the file's pixels, so such a picture opens above 100 %.
+  const [shown] = useState(() => img.getBoundingClientRect().width);
   const pixels = Math.max(cap, natural.width);
   const narrow = window_.width < 640;
   const room = roomFor(window_);
-  const box = useMemo(() => fitSize(natural, room, cap), [natural.width, natural.height, room.width, room.height, cap]);
+  const fitCap = Math.max(cap, shown);
+  const box = useMemo(() => fitSize(natural, room, fitCap), [natural.width, natural.height, room.width, room.height, fitCap]);
   const card = cardFor(box, window_, narrow, !!caption);
   const max = maxScale(box, pixels);
   const middle: Point = { x: box.width / 2, y: box.height / 2 };

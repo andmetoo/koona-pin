@@ -135,6 +135,18 @@ test("the widest picture of the srcset replaces the shown one, and the card and 
   expect((await card(page).boundingBox())!.width).toBeCloseTo(before.width, 0);
 });
 
+test("a small file the text stretches opens at least as large as it stood there, its percentage of its own pixels (2.25.2)", async ({ page }) => {
+  // A feed's lead picture is often like this: 240 px stretched across the column.
+  await page.route("https://pictures.test/**", (route) => route.fulfill({ contentType: "image/svg+xml", body: svgOf(240, 150, "#2c3a5a") }));
+  const img = await readingWithPicture(page, `<figure><img src="https://pictures.test/lead.svg" alt="Lead" style="width:640px;height:auto"></figure>`);
+  const shown = (await img.boundingBox())!.width;
+  await img.click();
+  await settled(page);
+  const box = (await viewer(page).locator("[data-viewer-box]").boundingBox())!;
+  expect(box.width).toBeGreaterThanOrEqual(shown - 1);
+  await expect(viewer(page).getByRole("button", { name: "Fit to window" })).toHaveText(`${Math.round((box.width / 240) * 100)}%`);
+});
+
 test("the card takes the reading theme's colours: Dark", async ({ page }) => {
   const img = await readingWithPicture(page, ARTICLE, "dark");
   await img.click();
