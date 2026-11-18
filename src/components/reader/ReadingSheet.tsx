@@ -1,4 +1,5 @@
 import { CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { panelScrollInset } from "../shell/PageTitle";
 import { ArrowUpRight, Heart } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Bookmark, OfflineCopy } from "../../types";
@@ -295,7 +296,7 @@ export function ReadingSheet({
             }}
           />
         )}
-        <div ref={scroller} tabIndex={-1} data-reader-scroll className={`min-h-0 flex-1 overflow-y-auto px-6 outline-none ${compact ? "py-2" : "pane-scroll pt-10 pb-24"}`}>
+        <div ref={scroller} tabIndex={-1} data-reader-scroll className={`min-h-0 flex-1 overflow-y-auto outline-none ${compact ? "px-6 py-2" : `pane-scroll ${panelScrollInset} pt-10 pb-24`}`}>
           <ArticleView
             key={b.id}
             compact={compact}

@@ -1713,6 +1713,14 @@
   .pane-scroll {
     scrollbar-gutter: stable;
   }
+  /* What that place measures (2.25.3, services/scrollbarRoom.ts), until it is measured: the far insets take it
+     off (PageTitle.tsx), so a pane's content ends where the toolbar above it does on every platform. */
+  :root {
+    --scrollbar-room: 8px;
+  }
+  :root[data-mac] {
+    --scrollbar-room: 0px;
+  }
   /* J and K hand the focus to the article: no ring around the whole page for that. Tab onto it,
      after a blur, rings it as before (ReadingMode's quiet focus). */
   [data-reader-scroll][data-quiet-focus]:focus-visible {

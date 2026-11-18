@@ -48,7 +48,7 @@ import { Banner, Toast } from "../../components/ui/Notices";
 import { DropZone } from "../../components/shell/DropZone";
 import { Sidebar } from "../../components/shell/Sidebar";
 import { Toolbar } from "../../components/shell/Toolbar";
-import { PageTitle, pageInset, pageRow, pageScrollInset, pageTop } from "../../components/shell/PageTitle";
+import { PageTitle, pageInset, pageRow, pageScrollInset, pageTop, panelScrollInset } from "../../components/shell/PageTitle";
 import { HelpLink } from "../../components/ui/HelpLink";
 
 /**
@@ -659,6 +659,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
             ) : triage ? (
               <Triage
                 collections={library.collections}
+                narrow={narrow}
                 blocked={!!editing || surface !== null || !!purging || !!deletingCollection}
                 notify={(next) => setNotice(next && { alert: false, ...next })}
                 onOpen={actions.open}
@@ -853,7 +854,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
             )}
           </main>
           {editing && wide && (
-            <aside className="w-[380px] shrink-0 animate-appear overflow-y-auto pane-scroll border-l border-border bg-card py-6 pl-6 pr-4 [[data-mac]_&]:pr-6" aria-label={t("editor.label")}>
+            <aside className={`w-[380px] shrink-0 animate-appear overflow-y-auto pane-scroll border-l border-border bg-card py-6 ${panelScrollInset}`} aria-label={t("editor.label")}>
               <header className="mb-5 flex items-center justify-between">
                 <h2 className="text-lg font-semibold">{t("editor.label")}</h2>
                 <span className="flex items-center gap-1.5">

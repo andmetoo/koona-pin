@@ -1,4 +1,5 @@
 import { ReactNode, Ref, useEffect, useMemo, useState } from "react";
+import { articleScrollInset } from "../shell/PageTitle";
 import { ArrowDown, ArrowLeft, ArrowUp, BookOpen, Check, ChevronDown, ChevronUp, Heart, Link, Maximize2, Minimize2, Plus, Rss } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Bookmark, Feed, FeedArticle as CachedPost, FeedItem } from "../../types";
@@ -147,7 +148,7 @@ export function FeedArticleSheet({
         ref={scrollerRef}
         tabIndex={-1}
         data-feed-scroll
-        className={`feed-scroll pane-scroll min-h-0 flex-1 overflow-y-auto px-6 pt-1 outline-none sm:px-16 ${item && next ? "" : "pb-24"}`}
+        className={`feed-scroll pane-scroll min-h-0 flex-1 overflow-y-auto ${articleScrollInset} pt-1 outline-none ${item && next ? "" : "pb-24"}`}
       >
         {item ? (
           <>
