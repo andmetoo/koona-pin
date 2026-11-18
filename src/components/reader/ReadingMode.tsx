@@ -526,7 +526,7 @@ export function ReadingMode({
                 </button>
               </Hint>
             ) : (
-              <Button variant="outline" size="lg" onClick={() => onOpen(current.url)} className="rounded-lg text-read-text">
+              <Button variant="outline" size="lg" onClick={() => onOpen(current.url)} className="!rounded-lg text-read-text">
                 {t("reader.openInBrowser")}
                 <Icon icon={ArrowUpRight} size={13} />
               </Button>
@@ -540,7 +540,7 @@ export function ReadingMode({
               aria-pressed
               aria-label={narrow ? t("readingMode.read") : undefined}
               onClick={leave}
-              className={`rounded-lg bg-read-track text-ink ${narrow ? "w-[34px] !px-0" : "ml-6"}`}
+              className={`!rounded-lg bg-read-track text-ink ${narrow ? "w-[34px] !px-0" : "ml-6"}`}
             >
               <Icon icon={BookOpen} size={15} className="shrink-0" />
               {!narrow && t("readingMode.read")}
