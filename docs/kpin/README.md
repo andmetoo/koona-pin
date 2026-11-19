@@ -1,6 +1,6 @@
 # The Koona list format (`.kpin`)
 
-Version 1.0 of app `pin`, kind `list`, with the reader rules of revision **2026-11**. Readers and writers: Koona Pin 2.4.0 and later; the reader rules of this revision: Koona Pin 2.27.0 and later.
+Version 1.0 of app `pin`, kind `list`, with the reader rules of revision **2026-11**. Readers and writers: Koona Pin 2.4.0 and later; the reader rules of this revision: Koona Pin 2.27.0 and later, except that 2.27.0 also refuses a few numbers just below the largest double that are in range (see the [changelog](#changelog)).
 
 A `.kpin` file is a shareable list of links and feeds: "Rust blogs worth following", "design systems", "indie web feeds". Someone makes it in Koona Pin (the bundle, opened from **Share as list…** in the ⋯ menu) or by hand, publishes it anywhere, and anyone who opens it sees what it holds and chooses what to import. This document says what such a file contains, how readers must treat it, and how Koona Pin imports it, so that other tools can write and read `.kpin` files too.
 
@@ -68,13 +68,13 @@ A minimal list:
 
 A web server should serve `.kpin` files as `application/vnd.koona.list+json`. Readers must not rely on it: Koona Pin accepts any content type and reads the body as a list.
 
-Writers must not repeat a key within one object; what a reader does with a repeated key is not defined.
+Writers must not repeat a key within one object; what a reader does with a repeated key is not defined, with one exception. The three refusals below, a surrogate without its pair, a number out of range and nesting too deep, apply to every value written in the file, including one that a repeated key would replace. A reader that keeps only the last value of a key still refuses the file for the first.
 
 JSON lets a string escape a surrogate code point (`"\ud800"`). Writers must not write one without its pair: such a string is not Unicode text, and a reader refuses the whole file as not a list, as it refuses bytes that are not UTF-8. The schema cannot see this.
 
-JSON sets no limit on how large a number is or how deep arrays and objects nest, and RFC 8259 lets a parser set both. This format sets them, so every reader gives a file the same answer. Wherever it stands, even in a field a reader doesn't know, each of these makes the file not a list:
+JSON sets no limit on how large a number is or how deep arrays and objects nest, and RFC 8259 lets a parser set both. This format sets them, so every reader gives a file the same answer. Wherever it stands, even in a field a reader doesn't know or under a key repeated later in its object, each of these makes the file not a list:
 
-- **A number out of range**: one that is infinite once rounded to the nearest IEEE 754 double (binary64), such as `1e400` or `-1e400`. That is a magnitude of 2^1024 − 2^970 (about 1.7976931348623158 × 10^308) or more. A number that rounds to the largest double, 1.7976931348623157 × 10^308, is in range, and so is one too small to be anything but zero (`1e-400`).
+- **A number out of range**: one that is infinite once rounded to the nearest IEEE 754 double (binary64), such as `1e400` or `-1e400`. That is a magnitude of 2^1024 − 2^970 (about 1.797693134862315808 × 10^308) or more. A number that rounds to the largest double, 1.7976931348623157 × 10^308, is in range, and so is one too small to be anything but zero (`1e-400`).
 - **Nesting deeper than 127 levels**: the file's own object is the first level, and each array or object inside another is one more. 127 levels are read; a 128th is refused.
 
 Writers must stay within both. The schema cannot see either.
@@ -435,7 +435,7 @@ So some files read differently than in Koona Pin 2.26.0 and earlier:
 - Emoji joined by U+200D (👩‍💻, 🏳️‍🌈) keep their joiner and show as one emoji, and Persian, Hindi or Sinhala words keep the joiners and non-joiners they are spelled with.
 - An `updated` date such as `2026-1-5` was read as `2026-01-05`; it is now dropped.
 
-Koona Pin also cleans the library's tag names the same way, the stored ones included ([How Koona Pin imports a list](#how-koona-pin-imports-a-list)). The spec now says what readers already did: U+0085 is white space, a cut trims the white space it leaves (in descriptions too), tracking parameters match in any case, the cleaning goes in a set order, how the repeat key reads a query, which addresses a feed may not have, that a section without a name still counts toward the 200, that a string with an escaped surrogate without its pair makes a file not a list, and so do a number out of a double's range and arrays and objects nested more than 127 levels deep (Koona Pin's JSON parser has refused such files from the start). The [conformance suite](#conformance) is published with the spec.
+Koona Pin also cleans the library's tag names the same way, the stored ones included ([How Koona Pin imports a list](#how-koona-pin-imports-a-list)). The spec now says what readers already did: U+0085 is white space, a cut trims the white space it leaves (in descriptions too), tracking parameters match in any case, the cleaning goes in a set order, how the repeat key reads a query, which addresses a feed may not have, that a section without a name still counts toward the 200, that a string with an escaped surrogate without its pair makes a file not a list, and so do a number out of a double's range and arrays and objects nested more than 127 levels deep, even under a key repeated later (Koona Pin's JSON parser has refused such files from the start). Koona Pin 2.27.0 also refuses a few numbers just below the limit that round to the largest double, such as `1.7976931348623158e308`, which are in range; a later release reads them as this revision says. The [conformance suite](#conformance) is published with the spec.
 
 ### 1.0 (October 2026, Koona Pin 2.4.0)
 

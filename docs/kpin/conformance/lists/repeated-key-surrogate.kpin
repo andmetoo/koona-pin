@@ -1,0 +1,12 @@
+{
+  "format": "koona",
+  "app": "pin",
+  "kind": "list",
+  "version": "1.0",
+  "title": "A lone surrogate under a repeated key",
+  "x": "\ud800",
+  "x": 1,
+  "items": [
+    { "type": "link", "url": "https://example.com/" }
+  ]
+}

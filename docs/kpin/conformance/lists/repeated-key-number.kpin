@@ -1,0 +1,12 @@
+{
+  "format": "koona",
+  "app": "pin",
+  "kind": "list",
+  "version": "1.0",
+  "title": "A number out of range under a repeated key",
+  "x": 1e400,
+  "x": 1,
+  "items": [
+    { "type": "link", "url": "https://example.com/" }
+  ]
+}
