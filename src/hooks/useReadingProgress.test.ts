@@ -18,7 +18,6 @@ function scroller(top: number) {
   let height = 1000;
   Object.defineProperty(element, "clientHeight", { get: () => 200 });
   Object.defineProperty(element, "scrollHeight", { get: () => height });
-  element.scrollTop = top;
   Object.defineProperty(element, "scrollTop", { value: top, writable: true });
   return { element, grow: (to: number) => (height = to) };
 }
@@ -42,7 +41,31 @@ beforeEach(() => {
   fake.setReadingProgress.mockClear();
   root = createRoot(document.createElement("div"));
 });
-afterEach(() => act(() => root.unmount()));
+afterEach(() => {
+  act(() => root.unmount());
+  vi.unstubAllGlobals();
+});
+
+/** A ResizeObserver that reports when the test says so, and records what it watches. */
+function stubResizeObserver() {
+  const watched = new Set<Element>();
+  let report: () => void = () => {};
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      constructor(callback: () => void) {
+        report = callback;
+      }
+      observe(element: Element) {
+        watched.add(element);
+      }
+      disconnect() {
+        watched.clear();
+      }
+    },
+  );
+  return { watched, report: () => act(() => report()) };
+}
 
 describe("useReadingProgress, once ready", () => {
   it("counts a scroll to the end made before it was ready", () => {
@@ -54,9 +77,10 @@ describe("useReadingProgress, once ready", () => {
     expect(fake.setReadingProgress).toHaveBeenCalledWith(1, 1);
   });
 
-  it("does not finish an article restored just short of its end", () => {
-    // 0.999 of 800 px of room is 799.2: the end's rounding would make it 1.
-    const { element } = scroller(799.2);
+  it.each([799.2, 800])("does not finish an article restored just short of its end (scrollTop %d)", (top) => {
+    // 0.999 of 800 px of room is 799.2, which a browser may round up to 800: the end's rounding
+    // would make either 1.
+    const { element } = scroller(top);
     render(bookmark(0.999), element, true);
     expect(progress).toBe(0.999);
     expect(fake.setReadingProgress).not.toHaveBeenCalled();
@@ -69,26 +93,28 @@ describe("useReadingProgress, once ready", () => {
   });
 
   it("counts only forward when the article changes size without a scroll", () => {
-    let resized: () => void = () => {};
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        constructor(callback: () => void) {
-          resized = callback;
-        }
-        observe() {}
-        disconnect() {}
-      },
-    );
+    const resize = stubResizeObserver();
     const { element, grow } = scroller(400);
     render(bookmark(0), element, true);
+    resize.report(); // the first report, as an observer gives when it starts watching
     expect(progress).toBe(0.5);
     grow(2000); // grows: 400 of 1,800, less than read; nothing changes
-    act(() => resized());
+    resize.report();
     expect(progress).toBe(0.5);
     grow(600); // shrinks to its end under a scroll that stays put
-    act(() => resized());
+    resize.report();
     expect(progress).toBe(1);
-    vi.unstubAllGlobals();
+  });
+
+  it("watches the article that replaces the one it was watching", async () => {
+    const resize = stubResizeObserver();
+    const { element } = scroller(0);
+    render(bookmark(0), element, true);
+    const first = element.firstElementChild!;
+    expect([...resize.watched]).toEqual([first]);
+    const next = document.createElement("article");
+    element.replaceChild(next, first); // the queue's next article
+    await act(async () => {}); // MutationObserver reports in a microtask
+    expect([...resize.watched]).toEqual([next]);
   });
 });

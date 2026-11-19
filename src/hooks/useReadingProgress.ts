@@ -9,12 +9,18 @@ const SAVE_STEP = 0.01;
 /** A write's own echo comes back in well under this; later, the same value is a change from outside. */
 const ECHO_MS = 10_000;
 
+/** How far the article can scroll and how far it is, in pixels; null when it does not scroll. */
+function scrollOf(element: HTMLElement): { room: number; top: number } | null {
+  const room = element.scrollHeight - element.clientHeight;
+  return room <= 0 ? null : { room, top: element.scrollTop };
+}
+
 /** Where the article is scrolled, 0–1; null when it does not scroll. */
 function positionOf(element: HTMLElement): number | null {
-  const room = element.scrollHeight - element.clientHeight;
-  if (room <= 0) return null;
+  const at = scrollOf(element);
+  if (!at) return null;
   // The last pixels count as the end: a rounding scroll position never quite reaches it.
-  return Math.min(1, element.scrollTop >= room - 2 ? 1 : element.scrollTop / room);
+  return Math.min(1, at.top >= at.room - 2 ? 1 : at.top / at.room);
 }
 
 /**
@@ -100,13 +106,14 @@ export function useReadingProgress(bookmark: Bookmark, scroller: RefObject<HTMLE
     if (!element || !ready) return;
     /** Counts where the article is; `forwardOnly`, only when it is further than read so far. */
     const count = (forwardOnly: boolean) => {
-      const now = positionOf(element);
-      if (now === null) return;
+      const at = scrollOf(element);
+      if (!at) return;
       const s = state.current;
-      // Forward by the exact position, not the end's 2 px of rounding: an article restored to just
-      // short of its end (0.999) is not read to the end by being opened. The restore's own scroll
-      // reads back a hair off what it was given, hence the margin.
-      if (forwardOnly && element.scrollTop / (element.scrollHeight - element.clientHeight) <= s.reached + 1e-6) return;
+      // Forward by more than a pixel past what was read, not by the end's 2 px of rounding: an
+      // article restored to just short of its end (0.999) is not read to the end by being opened,
+      // though the browser rounds the restore's scroll to a whole (device) pixel, either way.
+      if (forwardOnly && at.top <= s.reached * at.room + 1) return;
+      const now = positionOf(element)!;
       setProgress(now);
       if (now <= s.reached || now <= s.floor) return;
       s.reached = now;
@@ -122,9 +129,11 @@ export function useReadingProgress(bookmark: Bookmark, scroller: RefObject<HTMLE
     // and one that grows as it lays out (images, the hero) is not unread: the reader is no longer at
     // its end, and the next scroll shows where they are. The scroller's own box keeps its size, so its
     // children are watched, and watched anew when they are replaced (the next article in the queue).
+    // A ResizeObserver reports each element once as it starts watching it, which is the count on
+    // ready; without one, it is counted here.
     const forward = () => count(true);
-    forward();
     const resized = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(forward);
+    if (!resized) forward();
     const watch = () => {
       if (!resized) return;
       resized.disconnect();
