@@ -650,6 +650,52 @@
       "schema_cannot_see": "An item title holds an escaped surrogate without its pair (U+D800, escaped): JSON allows the escape, but it is no Unicode text, and a reader refuses the file as it refuses any text that is not UTF-8."
     },
     {
+      "file": "lists/nested-127.kpin",
+      "schema_valid": true,
+      "reader": "ready",
+      "list": {
+        "title": "Nested 127 levels deep",
+        "counts": {
+          "links": 1,
+          "feeds": 0,
+          "repeated": 0,
+          "not_web": 0,
+          "invalid": 0,
+          "skipped_items": 0,
+          "skipped_details": 0
+        }
+      }
+    },
+    {
+      "file": "lists/nested-128.kpin",
+      "schema_valid": true,
+      "reader": "not_a_list",
+      "schema_cannot_see": "An unknown field holds arrays nested so deep that, with the file's object, there are 128 levels: more than the 127 a reader parses. JSON sets no limit and the schema allows the field, but the format sets one."
+    },
+    {
+      "file": "lists/largest-numbers.kpin",
+      "schema_valid": true,
+      "reader": "ready",
+      "list": {
+        "title": "The largest numbers",
+        "counts": {
+          "links": 1,
+          "feeds": 0,
+          "repeated": 0,
+          "not_web": 0,
+          "invalid": 0,
+          "skipped_items": 0,
+          "skipped_details": 0
+        }
+      }
+    },
+    {
+      "file": "lists/number-out-of-range.kpin",
+      "schema_valid": true,
+      "reader": "not_a_list",
+      "schema_cannot_see": "An unknown field holds 1e400, a number that rounds to infinity as an IEEE 754 double. JSON sets no range and the schema allows the field, but the format refuses a number out of a double's range."
+    },
+    {
       "name": "exactly 2 MB",
       "generate": {
         "from": "lists/valid.kpin",
