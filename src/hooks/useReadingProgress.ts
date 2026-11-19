@@ -98,34 +98,45 @@ export function useReadingProgress(bookmark: Bookmark, scroller: RefObject<HTMLE
   useEffect(() => {
     const element = scroller.current;
     if (!element || !ready) return;
-    const onScroll = () => {
+    /** Counts where the article is; `forwardOnly`, only when it is further than read so far. */
+    const count = (forwardOnly: boolean) => {
       const now = positionOf(element);
       if (now === null) return;
-      setProgress(now);
       const s = state.current;
+      // Forward by the exact position, not the end's 2 px of rounding: an article restored to just
+      // short of its end (0.999) is not read to the end by being opened. The restore's own scroll
+      // reads back a hair off what it was given, hence the margin.
+      if (forwardOnly && element.scrollTop / (element.scrollHeight - element.clientHeight) <= s.reached + 1e-6) return;
+      setProgress(now);
       if (now <= s.reached || now <= s.floor) return;
       s.reached = now;
       const wait = s.at + SAVE_EVERY - Date.now();
       if (wait <= 0) save();
       else if (!s.timer) s.timer = window.setTimeout(save, wait);
     };
+    const onScroll = () => count(false);
     element.addEventListener("scroll", onScroll, { passive: true });
     // Where the article is now counts too without a scroll, but only forward: one scrolled before the
     // listener was there (while it was getting ready), or an article that shrinks under a scroll that
     // stays put. Only forward, so a finished article opened at its top keeps showing it is finished,
     // and one that grows as it lays out (images, the hero) is not unread: the reader is no longer at
     // its end, and the next scroll shows where they are. The scroller's own box keeps its size, so its
-    // children are watched.
-    const forward = () => {
-      const now = positionOf(element);
-      if (now !== null && now > state.current.reached) onScroll();
-    };
+    // children are watched, and watched anew when they are replaced (the next article in the queue).
+    const forward = () => count(true);
     forward();
-    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(forward);
-    for (const child of Array.from(element.children)) observer?.observe(child);
+    const resized = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(forward);
+    const watch = () => {
+      if (!resized) return;
+      resized.disconnect();
+      for (const child of Array.from(element.children)) resized.observe(child);
+    };
+    watch();
+    const replaced = resized && typeof MutationObserver !== "undefined" ? new MutationObserver(watch) : null;
+    replaced?.observe(element, { childList: true });
     return () => {
       element.removeEventListener("scroll", onScroll);
-      observer?.disconnect();
+      resized?.disconnect();
+      replaced?.disconnect();
     };
   }, [scroller, ready, save]);
 

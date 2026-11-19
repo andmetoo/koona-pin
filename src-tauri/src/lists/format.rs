@@ -496,17 +496,16 @@ const MAX_DEPTH: usize = 127;
 /// Whether arrays and objects in `value` nest more than `max` levels, `value` itself the first.
 /// Without recursion, so a value parsed without serde_json's limit cannot overflow the stack here.
 fn deeper_than(value: &Value, max: usize) -> bool {
-    let mut stack = vec![(value, 1)];
+    // Only arrays and objects go on the stack: scalars cannot nest.
+    let nests = |value: &&Value| matches!(value, Value::Array(_) | Value::Object(_));
+    let mut stack: Vec<(&Value, usize)> = Some(value).filter(nests).map(|v| (v, 1)).into_iter().collect();
     while let Some((value, depth)) = stack.pop() {
-        let nests = matches!(value, Value::Array(_) | Value::Object(_));
-        if nests && depth > max {
+        if depth > max {
             return true;
         }
-        // Only containers go on the stack: scalars cannot nest.
-        let containers = |child: &&Value| matches!(child, Value::Array(_) | Value::Object(_));
         match value {
-            Value::Array(items) => stack.extend(items.iter().filter(containers).map(|child| (child, depth + 1))),
-            Value::Object(fields) => stack.extend(fields.values().filter(containers).map(|child| (child, depth + 1))),
+            Value::Array(items) => stack.extend(items.iter().filter(nests).map(|child| (child, depth + 1))),
+            Value::Object(fields) => stack.extend(fields.values().filter(nests).map(|child| (child, depth + 1))),
             _ => {}
         }
     }
