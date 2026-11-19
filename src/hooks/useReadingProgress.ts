@@ -9,12 +9,22 @@ const SAVE_STEP = 0.01;
 /** A write's own echo comes back in well under this; later, the same value is a change from outside. */
 const ECHO_MS = 10_000;
 
+/** How far the article can scroll and how far it is, in pixels; null when it does not scroll. */
+function scrollOf(element: HTMLElement): { room: number; top: number } | null {
+  const room = element.scrollHeight - element.clientHeight;
+  return room <= 0 ? null : { room, top: element.scrollTop };
+}
+
+/** Where a measured scroll is, 0–1. The last pixels count as the end: a rounding scroll position
+ *  never quite reaches it. */
+function positionAt(at: { room: number; top: number }): number {
+  return Math.min(1, at.top >= at.room - 2 ? 1 : at.top / at.room);
+}
+
 /** Where the article is scrolled, 0–1; null when it does not scroll. */
 function positionOf(element: HTMLElement): number | null {
-  const room = element.scrollHeight - element.clientHeight;
-  if (room <= 0) return null;
-  // The last pixels count as the end: a rounding scroll position never quite reaches it.
-  return Math.min(1, element.scrollTop >= room - 2 ? 1 : element.scrollTop / room);
+  const at = scrollOf(element);
+  return at && positionAt(at);
 }
 
 /**
@@ -98,19 +108,73 @@ export function useReadingProgress(bookmark: Bookmark, scroller: RefObject<HTMLE
   useEffect(() => {
     const element = scroller.current;
     if (!element || !ready) return;
-    const onScroll = () => {
-      const now = positionOf(element);
-      if (now === null) return;
-      setProgress(now);
+    /** Counts where the article is; `forwardOnly`, only when it is further than read so far. */
+    const count = (forwardOnly: boolean) => {
+      const at = scrollOf(element);
+      if (!at) return;
       const s = state.current;
+      // Forward by more than a pixel past what was read (or, after a reset from outside, past where
+      // the article was then), not by the end's 2 px of rounding: an article restored to just
+      // short of its end (0.999) is not read to the end by being opened, though the browser rounds
+      // the restore's scroll to a whole (device) pixel, either way.
+      if (forwardOnly && at.top <= Math.max(s.reached, s.floor) * at.room + 1) return;
+      const now = positionAt(at);
+      setProgress(now);
       if (now <= s.reached || now <= s.floor) return;
       s.reached = now;
       const wait = s.at + SAVE_EVERY - Date.now();
       if (wait <= 0) save();
       else if (!s.timer) s.timer = window.setTimeout(save, wait);
     };
+    const onScroll = () => count(false);
     element.addEventListener("scroll", onScroll, { passive: true });
-    return () => element.removeEventListener("scroll", onScroll);
+    // Counted without a scroll too, only forward: a finished article opened at its top stays
+    // finished, and one that grows as it lays out (images, the hero) is not unread.
+    const forward = () => count(true);
+    // A scroll made before the listener was there, while the reader was getting ready.
+    forward();
+    // An article that shrinks under a scroll that stays put. The scroller's own box keeps its
+    // size, so its children are watched. An observer reports each element once as it starts
+    // watching it (unless it has no size): only a height other than the one it was watched at
+    // counts, so that first report is skipped and a hidden article that appears is not.
+    const heights = new Map<Element, number>();
+    const heightOf = (child: Element) => (child as HTMLElement).offsetHeight;
+    const resized =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver((entries) => {
+            let changed = false;
+            for (const { target } of entries) {
+              const height = heightOf(target);
+              if (heights.get(target) !== height) changed = true;
+              heights.set(target, height);
+            }
+            if (changed) forward();
+          });
+    // Watched anew when they are replaced (the next article in the queue), and counted then.
+    const watch = () => {
+      if (!resized) return;
+      resized.disconnect();
+      heights.clear();
+      for (const child of Array.from(element.children)) {
+        heights.set(child, heightOf(child));
+        resized.observe(child);
+      }
+    };
+    watch();
+    const replaced =
+      resized && typeof MutationObserver !== "undefined"
+        ? new MutationObserver(() => {
+            watch();
+            forward();
+          })
+        : null;
+    replaced?.observe(element, { childList: true });
+    return () => {
+      element.removeEventListener("scroll", onScroll);
+      resized?.disconnect();
+      replaced?.disconnect();
+    };
   }, [scroller, ready, save]);
 
   return progress;

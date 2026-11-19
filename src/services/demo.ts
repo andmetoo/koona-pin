@@ -909,14 +909,14 @@ function demoUrlKey(href: string) {
 export function demoList(text: string): DemoList | Exclude<ListCheck, { outcome: "ready" }> {
   if (new TextEncoder().encode(text).length > 2 * 1024 * 1024) return { outcome: "too_big" };
   let raw: Record<string, unknown>;
+  // A byte order mark at the start is allowed and ignored.
+  const json = text.replace(/^\u{feff}/u, "");
   try {
-    // A byte order mark at the start is allowed and ignored.
-    raw = JSON.parse(text.replace(/^\u{feff}/u, ""));
+    raw = JSON.parse(json);
   } catch {
     return { outcome: "not_a_list" };
   }
-  // As serde_json: an escaped surrogate without its pair is no text, and the file is no list.
-  if (!raw || typeof raw !== "object" || Array.isArray(raw) || !wellFormed(raw) || raw.format !== "koona") return { outcome: "not_a_list" };
+  if (!raw || typeof raw !== "object" || Array.isArray(raw) || !readsAsSerdeJson(json) || raw.format !== "koona") return { outcome: "not_a_list" };
   const isName = (value: unknown): value is string => typeof value === "string" && /^[a-z][a-z0-9-]{0,31}$/.test(value);
   if (!isName(raw.app)) return { outcome: "not_a_list" };
   if (raw.app !== "pin") return { outcome: "other_app", app: raw.app };
@@ -1043,11 +1043,29 @@ function after(text: string, at: number): string {
   }
   return "";
 }
-/** Every string in a JSON value (keys too) is well formed: no surrogate without its pair. */
-function wellFormed(value: unknown): boolean {
-  if (typeof value === "string") return !/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/.test(value);
-  if (Array.isArray(value)) return value.every(wellFormed);
-  if (value && typeof value === "object") return Object.entries(value).every(([key, v]) => wellFormed(key) && wellFormed(v));
+const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
+/** JSON tokens of a text JSON.parse has already accepted: strings (with their quotes), numbers, each
+ *  bracket, and runs of everything else (white space, commas, colons, true/false/null) as one. */
+const TOKEN = /"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|[^"\d\-[\]{}]+|[^]/gu;
+/**
+ * Whether serde_json, as the Rust reader runs it, reads this JSON text (one JSON.parse accepted),
+ * under reader rules 2026-11: every string (keys too) is Unicode text, no escaped surrogate without
+ * its pair; every number is finite once rounded to a double (JSON.parse gives Infinity for `1e400`);
+ * and arrays and objects nest at most 127 levels, the file's object the first. It reads the text, not
+ * the parsed value, because serde_json refuses a value under a repeated key that JSON.parse would
+ * have dropped (`"x": 1e400, "x": 1`).
+ */
+function readsAsSerdeJson(json: string): boolean {
+  let depth = 0;
+  for (const [token] of json.matchAll(TOKEN)) {
+    const c = token[0]!;
+    if (c === "[" || c === "{") {
+      if (++depth > 127) return false;
+    } else if (c === "]" || c === "}") depth--;
+    else if (c === '"') {
+      if (LONE_SURROGATE.test(token.includes("\\u") ? (JSON.parse(token) as string) : token)) return false;
+    } else if ((c === "-" || (c >= "0" && c <= "9")) && !Number.isFinite(Number(token))) return false;
+  }
   return true;
 }
 function joinerStays(text: string, joiner: string, at: number): boolean {

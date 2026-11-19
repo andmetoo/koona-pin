@@ -1,12 +1,13 @@
 # The Koona list format (`.kpin`)
 
-Version 1.0 of app `pin`, kind `list`, with the reader rules of revision **2026-11**. Readers and writers: Koona Pin 2.4.0 and later; the reader rules of this revision: Koona Pin 2.27.0 and later.
+Version 1.0 of app `pin`, kind `list`, with the reader rules of revision **2026-11**. Readers and writers: Koona Pin 2.4.0 and later; the reader rules of this revision: Koona Pin 2.27.0 and later, except that 2.27.0 also refuses a few numbers just below the largest double that are in range (see the [changelog](#changelog)).
 
 A `.kpin` file is a shareable list of links and feeds: "Rust blogs worth following", "design systems", "indie web feeds". Someone makes it in Koona Pin (the bundle, opened from **Share as list…** in the ⋯ menu) or by hand, publishes it anywhere, and anyone who opens it sees what it holds and chooses what to import. This document says what such a file contains, how readers must treat it, and how Koona Pin imports it, so that other tools can write and read `.kpin` files too.
 
 - [schema-1.json](schema-1.json): the JSON Schema (2020-12) of version 1.x.
 - [examples/](examples): a minimal list, a list with sections and feeds, and a file from a newer 1.x.
 - [conformance/](conformance): the conformance suite, files and test vectors that say what a reader must answer and read.
+- [js/](https://github.com/koona-project/kpin/tree/main/js): `kpin`, a reference reader in JavaScript that passes the whole suite, and `kpin validate`, a command that checks files.
 
 The words **must**, **must not**, **should** and **may** are used as in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119). "Character" means a Unicode scalar value (a code point), as JSON Schema counts `maxLength`.
 
@@ -67,9 +68,16 @@ A minimal list:
 
 A web server should serve `.kpin` files as `application/vnd.koona.list+json`. Readers must not rely on it: Koona Pin accepts any content type and reads the body as a list.
 
-Writers must not repeat a key within one object; what a reader does with a repeated key is not defined.
+Writers must not repeat a key within one object; what a reader does with a repeated key is not defined, with one exception. The three refusals below, a surrogate without its pair, a number out of range and nesting too deep, apply to every value written in the file, including one that a repeated key would replace. A reader that keeps only the last value of a key still refuses the file for the first.
 
 JSON lets a string escape a surrogate code point (`"\ud800"`). Writers must not write one without its pair: such a string is not Unicode text, and a reader refuses the whole file as not a list, as it refuses bytes that are not UTF-8. The schema cannot see this.
+
+JSON sets no limit on how large a number is or how deep arrays and objects nest, and RFC 8259 lets a parser set both. This format sets them, so every reader gives a file the same answer. Wherever it stands, even in a field a reader doesn't know or under a key repeated later in its object, each of these makes the file not a list:
+
+- **A number out of range**: one that is infinite once rounded to the nearest IEEE 754 double (binary64), such as `1e400` or `-1e400`. That is a magnitude of 2^1024 − 2^970 (about 1.797693134862315808 × 10^308) or more. A number that rounds to the largest double, 1.7976931348623157 × 10^308, is in range, and so is one too small to be anything but zero (`1e-400`).
+- **Nesting deeper than 127 levels**: the file's own object is the first level, and each array or object inside another is one more. 127 levels are read; a 128th is refused.
+
+Writers must stay within both. The schema cannot see either.
 
 A reader should refuse bytes that are not UTF-8 as not a list. Koona Pin 2.4.0 does so for a downloaded list and for a file the system opens with it. A file dropped on the window or picked in **Import…** is decoded by the web view instead, which replaces each invalid byte sequence with U+FFFD and reads the rest as a list.
 
@@ -119,7 +127,7 @@ Koona Pin 2.4.0 knows MINOR 0 of version 1: it opens every 1.x file, skipping wh
 The checks go in this order, so every file gets exactly one answer:
 
 1. More than 2 MB: **too big**.
-2. Not UTF-8 (see [The file](#the-file)), not JSON, or not a JSON object: **not a list**. A string anywhere in the file that holds an escaped surrogate without its pair (`"\ud800"`) is not Unicode text, as bytes that are not UTF-8 are not, and the file is not a list.
+2. Not UTF-8 (see [The file](#the-file)), not JSON, or not a JSON object: **not a list**. A string anywhere in the file that holds an escaped surrogate without its pair (`"\ud800"`) is not Unicode text, as bytes that are not UTF-8 are not, and the file is not a list. So is a file with a number out of a double's range or with arrays and objects nested more than 127 levels deep (see [The file](#the-file)).
 3. `format` is not `"koona"`: **not a list**.
 4. `app` is missing or not a valid name: **not a list**. `app` is not `"pin"`: **for another app**.
 5. `kind` is missing or not a valid name: **not a list**. `kind` is not `"list"`: **needs a newer app**.
@@ -321,7 +329,7 @@ The first occurrence wins: its address, title and description are kept. A later 
 A writer must produce a file that [schema-1.json](schema-1.json) accepts and that keeps the three limits the schema cannot check: at most 2 MB, at most 5,000 items in all, and addresses of at most 2,048 bytes in UTF-8. It also:
 
 - must give the list's title, and every section name, item title and tag it writes, a visible character once cleaned as [Text](#text) says (a title made only of tag characters passes the schema, and a reader refuses the file);
-- must not write a string with an escaped surrogate without its pair (see [The file](#the-file));
+- must not write a string with an escaped surrogate without its pair, a number out of a double's range, or arrays and objects nested more than 127 levels deep (see [The file](#the-file));
 - must write `"version": "1.0"` unless it uses something a later MINOR added, and then the lowest MINOR that has it;
 - must not write credentials in addresses, or anything private the person did not choose to publish;
 - should write `generator` with its name and version;
@@ -393,7 +401,7 @@ Pages must percent-encode the `url` value whenever the list's address has a `?`,
 
 ## Schema and readers
 
-[schema-1.json](schema-1.json) describes what a writer must produce. Readers are more tolerant, so that a list with one bad entry still imports: a file the schema refuses may still be read, with its bad items skipped and counted and its bad optional fields dropped. A file the schema accepts is refused only for what it is (another app, an unknown kind), for its size (more than 2 MB, or more than 5,000 items in all), or for one of two things in it the schema cannot see: a list's title made only of [tag characters](#text), which is empty to a reader, and a string with an escaped surrogate without its pair, which is no text (see [The file](#the-file)). Its items can still be skipped: one whose address is longer than 2,048 bytes is invalid to the reader, though the schema, which counts characters, accepts it.
+[schema-1.json](schema-1.json) describes what a writer must produce. Readers are more tolerant, so that a list with one bad entry still imports: a file the schema refuses may still be read, with its bad items skipped and counted and its bad optional fields dropped. A file the schema accepts is refused only for what it is (another app, an unknown kind), for its size (more than 2 MB, or more than 5,000 items in all), or for one of four things in it the schema cannot see: a list's title made only of [tag characters](#text), which is empty to a reader; a string with an escaped surrogate without its pair, which is no text; a number out of a double's range; and arrays and objects nested more than 127 levels deep (the last three, see [The file](#the-file)). Its items can still be skipped: one whose address is longer than 2,048 bytes is invalid to the reader, though the schema, which counts characters, accepts it.
 
 The schema allows any field and any item `type` beyond those of 1.0, so that it accepts files of later 1.x versions; it pins `version` to MAJOR 1. Its `$id`, `https://koona.app/pin/schema/list-1.json`, names the schema; a validator must not need to fetch it there. The schema's source is the repository [koona-project/kpin](https://github.com/koona-project/kpin), which holds this specification too.
 
@@ -427,7 +435,7 @@ So some files read differently than in Koona Pin 2.26.0 and earlier:
 - Emoji joined by U+200D (👩‍💻, 🏳️‍🌈) keep their joiner and show as one emoji, and Persian, Hindi or Sinhala words keep the joiners and non-joiners they are spelled with.
 - An `updated` date such as `2026-1-5` was read as `2026-01-05`; it is now dropped.
 
-Koona Pin also cleans the library's tag names the same way, the stored ones included ([How Koona Pin imports a list](#how-koona-pin-imports-a-list)). The spec now says what readers already did: U+0085 is white space, a cut trims the white space it leaves (in descriptions too), tracking parameters match in any case, the cleaning goes in a set order, how the repeat key reads a query, which addresses a feed may not have, that a section without a name still counts toward the 200, and that a string with an escaped surrogate without its pair makes a file not a list. The [conformance suite](#conformance) is published with the spec.
+Koona Pin also cleans the library's tag names the same way, the stored ones included ([How Koona Pin imports a list](#how-koona-pin-imports-a-list)). The spec now says what readers already did: U+0085 is white space, a cut trims the white space it leaves (in descriptions too), tracking parameters match in any case, the cleaning goes in a set order, how the repeat key reads a query, which addresses a feed may not have, that a section without a name still counts toward the 200, that a string with an escaped surrogate without its pair makes a file not a list, and so do a number out of a double's range and arrays and objects nested more than 127 levels deep, even under a key repeated later (Koona Pin's JSON parser has refused such files from the start). Koona Pin 2.27.0 also refuses a few numbers just below the limit that round to the largest double, such as `1.7976931348623158e308`, which are in range; a later release reads them as this revision says. The [conformance suite](#conformance) is published with the spec.
 
 ### 1.0 (October 2026, Koona Pin 2.4.0)
 

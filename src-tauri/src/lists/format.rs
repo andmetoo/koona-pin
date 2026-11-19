@@ -486,6 +486,35 @@ fn unknown_keys(object: &Map<String, Value>, known: &[&str]) -> u32 {
     object.keys().filter(|k| !known.contains(&k.as_str())).count() as u32
 }
 
+/// How deep arrays and objects may nest, the file's object the first level (reader rules 2026-11).
+/// serde_json's own recursion limit refuses a 128th level while parsing, a level under a repeated
+/// key included; `deeper_than` states the rule here too, so the parsed value keeps it if that limit
+/// is ever lifted (a dependency turns on serde_json's `unbounded_depth`, which lifts it for a parser
+/// that calls `disable_recursion_limit`); a repeated key's dropped values would then go unchecked.
+const MAX_DEPTH: usize = 127;
+
+/// Whether arrays and objects in `value` nest more than `max` levels, `value` itself the first.
+/// Without recursion, so a value parsed without serde_json's limit cannot overflow the stack here.
+fn deeper_than(value: &Value, max: usize) -> bool {
+    // Only arrays and objects go on the stack: scalars cannot nest.
+    let nests = |value: &&Value| matches!(value, Value::Array(_) | Value::Object(_));
+    if !nests(&value) {
+        return false;
+    }
+    let mut stack = vec![(value, 1)];
+    while let Some((value, depth)) = stack.pop() {
+        if depth > max {
+            return true;
+        }
+        match value {
+            Value::Array(items) => stack.extend(items.iter().filter(nests).map(|child| (child, depth + 1))),
+            Value::Object(fields) => stack.extend(fields.values().filter(nests).map(|child| (child, depth + 1))),
+            _ => {}
+        }
+    }
+    false
+}
+
 /// Reads a list. The checks go in this order, so each file gets one answer:
 /// size, JSON, `format`, `app`, `kind`, `version`, `title`, structure,
 /// the number of items.
@@ -493,7 +522,14 @@ pub fn parse(text: &str) -> Result<ParsedList, ListError> {
     if text.len() > MAX_BYTES {
         return Err(ListError::TooBig);
     }
+    // Reader rules 2026-11: a number out of a double's range (with serde_json's `float_roundtrip`) or
+    // nesting past MAX_DEPTH levels makes the file not a list. serde_json refuses both while parsing,
+    // so a value under a repeated key counts too; `deeper_than` sees only the parsed value, the last
+    // of a repeated key, and backs the depth rule up only for what is left.
     let value: Value = serde_json::from_str(text.strip_prefix('\u{feff}').unwrap_or(text)).map_err(|_| ListError::NotAList)?;
+    if deeper_than(&value, MAX_DEPTH) {
+        return Err(ListError::NotAList);
+    }
     let Value::Object(root) = value else {
         return Err(ListError::NotAList);
     };
@@ -773,6 +809,22 @@ mod tests {
 
     fn parsed(name: &str) -> ParsedList {
         parse(&suite::text(&format!("lists/{name}"))).unwrap()
+    }
+
+    #[test]
+    fn nesting_is_counted_from_the_files_object() {
+        let nested = |levels: usize| (1..levels).fold(json!({}), |inner, _| json!([inner]));
+        assert!(!deeper_than(&nested(MAX_DEPTH), MAX_DEPTH));
+        assert!(deeper_than(&nested(MAX_DEPTH + 1), MAX_DEPTH));
+        assert!(!deeper_than(&json!({ "a": [1, "b", null] }), 2));
+        assert!(deeper_than(&json!({ "a": [[]] }), 2));
+    }
+
+    #[test]
+    fn a_number_out_of_range_is_refused_even_under_a_repeated_key() {
+        let list = |x: &str| format!(r#"{{"format":"koona","app":"pin","kind":"list","version":"1.0","title":"T",{x}"items":[{{"type":"link","url":"https://example.com/"}}]}}"#);
+        assert!(matches!(parse(&list(r#""x":1e400,"x":1,"#)), Err(ListError::NotAList)));
+        assert!(parse(&list(r#""x":1.7976931348623158e308,"#)).is_ok());
     }
 
     /// `cases.json` of the suite says, for every file, whether the public
