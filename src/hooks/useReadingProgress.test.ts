@@ -14,12 +14,18 @@ import { useReadingProgress } from "./useReadingProgress";
 /** A scroller jsdom can measure: 1,000 px of article in a 200 px window, scrolled to `top`. */
 function scroller(top: number) {
   const element = document.createElement("div");
-  element.appendChild(document.createElement("article"));
   let height = 1000;
+  element.appendChild(article(() => height));
   Object.defineProperty(element, "clientHeight", { get: () => 200 });
   Object.defineProperty(element, "scrollHeight", { get: () => height });
   Object.defineProperty(element, "scrollTop", { value: top, writable: true });
   return { element, grow: (to: number) => (height = to) };
+}
+/** An article whose height jsdom can tell (it lays nothing out). */
+function article(height: () => number = () => 1000) {
+  const element = document.createElement("article");
+  Object.defineProperty(element, "offsetHeight", { get: height });
+  return element;
 }
 
 const bookmark = (reading_progress: number) => ({ id: 1, reading_progress, reading_at: "2026-11-19" }) as unknown as Bookmark;
@@ -46,14 +52,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** A ResizeObserver that reports when the test says so, and records what it watches. */
+/** A ResizeObserver that reports every watched element when the test says so, and records them. */
 function stubResizeObserver() {
   const watched = new Set<Element>();
-  let report: () => void = () => {};
+  let report: (entries: { target: Element }[]) => void = () => {};
   vi.stubGlobal(
     "ResizeObserver",
     class {
-      constructor(callback: () => void) {
+      constructor(callback: (entries: { target: Element }[]) => void) {
         report = callback;
       }
       observe(element: Element) {
@@ -64,7 +70,7 @@ function stubResizeObserver() {
       }
     },
   );
-  return { watched, report: () => act(() => report()) };
+  return { watched, report: () => act(() => report([...watched].map((target) => ({ target })))) };
 }
 
 describe("useReadingProgress, once ready", () => {
@@ -102,9 +108,12 @@ describe("useReadingProgress, once ready", () => {
   it("counts only forward when the article changes size without a scroll", () => {
     const resize = stubResizeObserver();
     const { element, grow } = scroller(400);
-    render(bookmark(0), element, true);
-    resize.report(); // the first report, as an observer gives when it starts watching
+    const save = fake.setReadingProgress;
+    render(bookmark(0), element, true); // counted on ready
     expect(progress).toBe(0.5);
+    expect(save).toHaveBeenCalledTimes(1);
+    resize.report(); // the report an observer gives as it starts watching: no change, skipped
+    expect(save).toHaveBeenCalledTimes(1);
     grow(2000); // grows: 400 of 1,800, less than read; nothing changes
     resize.report();
     expect(progress).toBe(0.5);
@@ -119,9 +128,34 @@ describe("useReadingProgress, once ready", () => {
     render(bookmark(0), element, true);
     const first = element.firstElementChild!;
     expect([...resize.watched]).toEqual([first]);
-    const next = document.createElement("article");
+    const next = article();
     element.replaceChild(next, first); // the queue's next article
     await act(async () => {}); // MutationObserver reports in a microtask
     expect([...resize.watched]).toEqual([next]);
+  });
+
+  it("counts a hidden article that appears, though the observer reports it only then", () => {
+    const resize = stubResizeObserver();
+    let shown = 0;
+    const element = document.createElement("div");
+    element.appendChild(article(() => shown));
+    Object.defineProperty(element, "clientHeight", { get: () => 200 });
+    Object.defineProperty(element, "scrollHeight", { get: () => Math.max(shown, 200) });
+    Object.defineProperty(element, "scrollTop", { value: 300, writable: true });
+    render(bookmark(0), element, true); // nothing to scroll yet
+    shown = 500; // appears, already scrolled to its end
+    resize.report();
+    expect(progress).toBe(1);
+  });
+
+  it("after a reset from outside, counts nothing a resize brings until past where it was left", () => {
+    const resize = stubResizeObserver();
+    const { element, grow } = scroller(800);
+    render(bookmark(1), element, true);
+    render({ ...bookmark(0), reading_at: "2026-11-19" } as Bookmark, element, true); // marked unread at its end
+    fake.setReadingProgress.mockClear();
+    grow(900); // an image loads: 800 of 700 px of room, still the end it was left at
+    resize.report();
+    expect(fake.setReadingProgress).not.toHaveBeenCalled();
   });
 });
