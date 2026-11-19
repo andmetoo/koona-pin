@@ -915,7 +915,8 @@ export function demoList(text: string): DemoList | Exclude<ListCheck, { outcome:
   } catch {
     return { outcome: "not_a_list" };
   }
-  // As serde_json: an escaped surrogate without its pair is no text, and the file is no list.
+  // As serde_json: an escaped surrogate without its pair is no text, a number out of a double's range
+  // or nesting past 127 levels is refused, and the file is no list.
   if (!raw || typeof raw !== "object" || Array.isArray(raw) || !wellFormed(raw) || raw.format !== "koona") return { outcome: "not_a_list" };
   const isName = (value: unknown): value is string => typeof value === "string" && /^[a-z][a-z0-9-]{0,31}$/.test(value);
   if (!isName(raw.app)) return { outcome: "not_a_list" };
@@ -1043,11 +1044,15 @@ function after(text: string, at: number): string {
   }
   return "";
 }
-/** Every string in a JSON value (keys too) is well formed: no surrogate without its pair. */
-function wellFormed(value: unknown): boolean {
+/** A JSON value is one serde_json reads (reader rules 2026-11): every string (keys too) is well formed,
+ *  no surrogate without its pair; every number is finite once rounded to a double (JSON.parse gives
+ *  Infinity for `1e400`); and arrays and objects nest at most 127 levels, the file's object the first. */
+function wellFormed(value: unknown, depth = 1): boolean {
   if (typeof value === "string") return !/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/.test(value);
-  if (Array.isArray(value)) return value.every(wellFormed);
-  if (value && typeof value === "object") return Object.entries(value).every(([key, v]) => wellFormed(key) && wellFormed(v));
+  if (typeof value === "number") return Number.isFinite(value);
+  if (value && typeof value === "object" && depth > 127) return false;
+  if (Array.isArray(value)) return value.every((v) => wellFormed(v, depth + 1));
+  if (value && typeof value === "object") return Object.entries(value).every(([key, v]) => wellFormed(key) && wellFormed(v, depth + 1));
   return true;
 }
 function joinerStays(text: string, joiner: string, at: number): boolean {
