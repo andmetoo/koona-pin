@@ -24,9 +24,12 @@ test.describe("the reader", () => {
     // The pill floats over the bottom of the screen, clear of the home indicator.
     const box = (await pill.boundingBox())!;
     expect(Math.round(box.y + box.height)).toBe(852 - 32);
-    // Scrolling to the end reads it all.
-    await reader.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
-    await expect(pill.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "100");
+    // Scrolling to the end reads it all. The article can still grow as it lays out (CI saw 84 after
+    // one scroll), so the scroll goes to the end again until the end is where it stays.
+    await expect(async () => {
+      await reader.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+      await expect(pill.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "100", { timeout: 1000 });
+    }).toPass();
     await expect(navPill(page)).toHaveAttribute("data-hidden");
   });
 
