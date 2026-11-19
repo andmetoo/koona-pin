@@ -487,10 +487,10 @@ fn unknown_keys(object: &Map<String, Value>, known: &[&str]) -> u32 {
 }
 
 /// How deep arrays and objects may nest, the file's object the first level (reader rules 2026-11).
-/// serde_json's own recursion limit refuses a 128th level while parsing, so a level under a repeated
-/// key is refused too; `deeper_than` states the rule here so it holds if that limit is ever lifted
-/// (a dependency turns on serde_json's `unbounded_depth`, which lifts it for a parser that calls
-/// `disable_recursion_limit`).
+/// serde_json's own recursion limit refuses a 128th level while parsing, a level under a repeated
+/// key included; `deeper_than` states the rule here too, so the parsed value keeps it if that limit
+/// is ever lifted (a dependency turns on serde_json's `unbounded_depth`, which lifts it for a parser
+/// that calls `disable_recursion_limit`); a repeated key's dropped values would then go unchecked.
 const MAX_DEPTH: usize = 127;
 
 /// Whether arrays and objects in `value` nest more than `max` levels, `value` itself the first.
@@ -498,15 +498,17 @@ const MAX_DEPTH: usize = 127;
 fn deeper_than(value: &Value, max: usize) -> bool {
     let mut stack = vec![(value, 1)];
     while let Some((value, depth)) = stack.pop() {
-        let children: Vec<&Value> = match value {
-            Value::Array(items) => items.iter().collect(),
-            Value::Object(fields) => fields.values().collect(),
-            _ => continue,
-        };
-        if depth > max {
+        let nests = matches!(value, Value::Array(_) | Value::Object(_));
+        if nests && depth > max {
             return true;
         }
-        stack.extend(children.into_iter().map(|child| (child, depth + 1)));
+        // Only containers go on the stack: scalars cannot nest.
+        let containers = |child: &&Value| matches!(child, Value::Array(_) | Value::Object(_));
+        match value {
+            Value::Array(items) => stack.extend(items.iter().filter(containers).map(|child| (child, depth + 1))),
+            Value::Object(fields) => stack.extend(fields.values().filter(containers).map(|child| (child, depth + 1))),
+            _ => {}
+        }
     }
     false
 }
@@ -519,7 +521,9 @@ pub fn parse(text: &str) -> Result<ParsedList, ListError> {
         return Err(ListError::TooBig);
     }
     // Reader rules 2026-11: a number out of a double's range (with serde_json's `float_roundtrip`) or
-    // nesting past MAX_DEPTH levels makes the file not a list, even under a repeated key.
+    // nesting past MAX_DEPTH levels makes the file not a list. serde_json refuses both while parsing,
+    // so a value under a repeated key counts too; `deeper_than` sees only the parsed value, the last
+    // of a repeated key, and backs the depth rule up only for what is left.
     let value: Value = serde_json::from_str(text.strip_prefix('\u{feff}').unwrap_or(text)).map_err(|_| ListError::NotAList)?;
     if deeper_than(&value, MAX_DEPTH) {
         return Err(ListError::NotAList);
@@ -805,13 +809,6 @@ mod tests {
         parse(&suite::text(&format!("lists/{name}"))).unwrap()
     }
 
-    /// `cases.json` of the suite says, for every file, whether the public
-    /// schema accepts it (checked by Vitest with a JSON Schema 2020-12
-    /// validator, `kpinSchema.test.ts`), what a reader answers and what it
-    /// reads out of it. A schema-valid file is never refused for its content,
-    /// only for what it is (another app, an unknown kind) or for its size,
-    /// unless the case names what the schema cannot see (`schema_cannot_see`);
-    /// a schema-invalid one may still be read, its bad items skipped and counted.
     #[test]
     fn nesting_is_counted_from_the_files_object() {
         let nested = |levels: usize| (1..levels).fold(json!({}), |inner, _| json!([inner]));
@@ -828,6 +825,13 @@ mod tests {
         assert!(parse(&list(r#""x":1.7976931348623158e308,"#)).is_ok());
     }
 
+    /// `cases.json` of the suite says, for every file, whether the public
+    /// schema accepts it (checked by Vitest with a JSON Schema 2020-12
+    /// validator, `kpinSchema.test.ts`), what a reader answers and what it
+    /// reads out of it. A schema-valid file is never refused for its content,
+    /// only for what it is (another app, an unknown kind) or for its size,
+    /// unless the case names what the schema cannot see (`schema_cannot_see`);
+    /// a schema-invalid one may still be read, its bad items skipped and counted.
     #[test]
     fn the_reader_answers_every_case_of_the_conformance_suite() {
         let doc: Value = serde_json::from_str(&suite::text("cases.json")).unwrap();

@@ -1044,9 +1044,9 @@ function after(text: string, at: number): string {
   return "";
 }
 const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
-/** JSON tokens of a text JSON.parse has already accepted: strings (with their quotes), numbers, and
- *  any other single character (brackets, commas, colons, the letters of true/false/null). */
-const TOKEN = /"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|[^]/gu;
+/** JSON tokens of a text JSON.parse has already accepted: strings (with their quotes), numbers, each
+ *  bracket, and runs of everything else (white space, commas, colons, true/false/null) as one. */
+const TOKEN = /"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|[^"\d\-[\]{}]+|[^]/gu;
 /**
  * Whether serde_json, as the Rust reader runs it, reads this JSON text (one JSON.parse accepted),
  * under reader rules 2026-11: every string (keys too) is Unicode text, no escaped surrogate without

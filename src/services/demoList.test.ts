@@ -29,7 +29,7 @@ describe("the browser preview's list reader", () => {
     expect(answer(`"x":[1.7976931348623157e308,-0,1e-400,"\\ud83d\\ude00"],`)).toBe("ready");
   });
 
-  type Text ={ rule: "line" | "description" | "tag"; max: number; in: string; out: string | null };
+  type Text = { rule: "line" | "description" | "tag"; max: number; in: string; out: string | null };
   const clean = { line: demoLine, description: demoParagraph, tag: (raw: string) => demoTag(raw) };
   it.each(vectors<Text>("text.json"))("cleans the $rule $in as the suite says", (v) => {
     expect(clean[v.rule](v.in, v.max)).toBe(v.out);

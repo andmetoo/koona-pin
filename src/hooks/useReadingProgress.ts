@@ -110,7 +110,23 @@ export function useReadingProgress(bookmark: Bookmark, scroller: RefObject<HTMLE
       else if (!s.timer) s.timer = window.setTimeout(save, wait);
     };
     element.addEventListener("scroll", onScroll, { passive: true });
-    return () => element.removeEventListener("scroll", onScroll);
+    // Where the article is now counts too without a scroll, but only forward: one scrolled before the
+    // listener was there (while it was getting ready), or an article that shrinks under a scroll that
+    // stays put. Only forward, so a finished article opened at its top keeps showing it is finished,
+    // and one that grows as it lays out (images, the hero) is not unread: the reader is no longer at
+    // its end, and the next scroll shows where they are. The scroller's own box keeps its size, so its
+    // children are watched.
+    const forward = () => {
+      const now = positionOf(element);
+      if (now !== null && now > state.current.reached) onScroll();
+    };
+    forward();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(forward);
+    for (const child of Array.from(element.children)) observer?.observe(child);
+    return () => {
+      element.removeEventListener("scroll", onScroll);
+      observer?.disconnect();
+    };
   }, [scroller, ready, save]);
 
   return progress;
