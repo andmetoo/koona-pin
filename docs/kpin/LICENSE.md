@@ -1,6 +1,6 @@
 # License
 
-Everything in this folder is dedicated to the public domain under **CC0 1.0 Universal**: the specification of the `.kpin` list format in `README.md`, its JSON Schema `schema-1.json`, the examples in `examples/`, the conformance suite in `conformance/` (its `.kpin` files included), and the reference reader and validator in `js/` (the package `kpin`, with its code and tests). To the extent possible under law, its authors have waived all copyright and related or neighboring rights to it. Copy, adapt and implement it in any tool, open or closed, without asking or crediting.
+Everything in this folder is dedicated to the public domain under **CC0 1.0 Universal**: the specification of the `.kpin` list format in `README.md`, its JSON Schema `schema-1.json`, the examples in `examples/`, the conformance suite in `conformance/` (its `.kpin` files included), and the reference reader and validator in `js/` (the package `@koona/kpin`, with its code and tests). To the extent possible under law, its authors have waived all copyright and related or neighboring rights to it. Copy, adapt and implement it in any tool, open or closed, without asking or crediting.
 
 The code in `js/` is under CC0 too, so the format, its suite and its reference reader share one licence and the reader can be copied into any project. CC0 grants no patent licence and comes with no warranty: the code is provided as is.
 
