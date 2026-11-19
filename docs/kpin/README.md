@@ -7,7 +7,7 @@ A `.kpin` file is a shareable list of links and feeds: "Rust blogs worth followi
 - [schema-1.json](schema-1.json): the JSON Schema (2020-12) of version 1.x.
 - [examples/](examples): a minimal list, a list with sections and feeds, and a file from a newer 1.x.
 - [conformance/](conformance): the conformance suite, files and test vectors that say what a reader must answer and read.
-- [js/](js): `kpin`, a reference reader in JavaScript that passes the whole suite, and `kpin validate`, a command that checks files.
+- [js/](https://github.com/koona-project/kpin/tree/main/js): `kpin`, a reference reader in JavaScript that passes the whole suite, and `kpin validate`, a command that checks files.
 
 The words **must**, **must not**, **should** and **may** are used as in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119). "Character" means a Unicode scalar value (a code point), as JSON Schema counts `maxLength`.
 

@@ -4,7 +4,7 @@ Files and test vectors that say what a reader of the [`.kpin` list format](../RE
 
 Everything here is dedicated to the public domain under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/), like the spec ([LICENSE.md](../LICENSE.md)): copy it into the tests of any tool, open or closed. Links in this file are to the spec and the schema one folder up; keep that layout, or point them at your copy.
 
-Koona Pin's reader, its one-click link and the schema are tested against this folder on every change of Koona Pin, and the reference reader in [js/](../js) (the package `kpin`) on every change of this repository.
+Koona Pin's reader, its one-click link and the schema are tested against this folder on every change of Koona Pin, and the reference reader in [js/](https://github.com/koona-project/kpin/tree/main/js) (the package `kpin`) on every change of this repository.
 
 ## What is here
 
