@@ -25,8 +25,10 @@ if (!tag || !/^[0-9a-f]{40}$/.test(commit ?? "")) {
   process.exit(1);
 }
 const REPOSITORY = "https://github.com/koona-project/kpin.git";
-/** The repository's own files, not the format's: never copied, never compared. */
-const TOOLING = new Set([".git", ".github", ".gitattributes", ".gitignore", "node_modules", "tools", "package.json", "package-lock.json", "CONTRIBUTING.md"]);
+/** The repository's own files, not the format's: never copied, never compared. `js/` is the reference
+ *  reader `kpin` (from r2026-11.2), a package of its own; Koona Pin's reader is tested against the suite,
+ *  not against it. */
+const TOOLING = new Set([".git", ".github", ".gitattributes", ".gitignore", "node_modules", "tools", "package.json", "package-lock.json", "CONTRIBUTING.md", "js"]);
 
 const problems = [];
 const fromArg = process.argv.indexOf("--from");

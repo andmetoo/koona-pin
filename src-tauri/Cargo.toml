@@ -36,7 +36,7 @@ store-appstore = ["dep:tauri-plugin-koona-appstore"]
 tauri = { version = "2.1", features = ["tray-icon"] }
 tauri-plugin-opener = "2.0"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde_json = { version = "1.0", features = ["float_roundtrip"] }
 # `functions`: `np_fold` for search terms shorter than a trigram (NP-011).
 rusqlite = { version = "0.41", features = ["bundled", "functions", "backup"] }
 # 2.7 is on rusqlite 0.41: rusqlite moves on when rusqlite_migration does.
