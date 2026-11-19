@@ -77,6 +77,13 @@ describe("useReadingProgress, once ready", () => {
     expect(fake.setReadingProgress).toHaveBeenCalledWith(1, 1);
   });
 
+  it("counts that scroll even when the ResizeObserver never reports (a hidden article)", () => {
+    stubResizeObserver();
+    const { element } = scroller(800);
+    render(bookmark(0), element, true);
+    expect(progress).toBe(1);
+  });
+
   it.each([799.2, 800])("does not finish an article restored just short of its end (scrollTop %d)", (top) => {
     // 0.999 of 800 px of room is 799.2, which a browser may round up to 800: the end's rounding
     // would make either 1.

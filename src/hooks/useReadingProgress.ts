@@ -15,12 +15,16 @@ function scrollOf(element: HTMLElement): { room: number; top: number } | null {
   return room <= 0 ? null : { room, top: element.scrollTop };
 }
 
+/** Where a measured scroll is, 0–1. The last pixels count as the end: a rounding scroll position
+ *  never quite reaches it. */
+function positionAt(at: { room: number; top: number }): number {
+  return Math.min(1, at.top >= at.room - 2 ? 1 : at.top / at.room);
+}
+
 /** Where the article is scrolled, 0–1; null when it does not scroll. */
 function positionOf(element: HTMLElement): number | null {
   const at = scrollOf(element);
-  if (!at) return null;
-  // The last pixels count as the end: a rounding scroll position never quite reaches it.
-  return Math.min(1, at.top >= at.room - 2 ? 1 : at.top / at.room);
+  return at && positionAt(at);
 }
 
 /**
@@ -113,7 +117,7 @@ export function useReadingProgress(bookmark: Bookmark, scroller: RefObject<HTMLE
       // article restored to just short of its end (0.999) is not read to the end by being opened,
       // though the browser rounds the restore's scroll to a whole (device) pixel, either way.
       if (forwardOnly && at.top <= s.reached * at.room + 1) return;
-      const now = positionOf(element)!;
+      const now = positionAt(at);
       setProgress(now);
       if (now <= s.reached || now <= s.floor) return;
       s.reached = now;
@@ -123,17 +127,15 @@ export function useReadingProgress(bookmark: Bookmark, scroller: RefObject<HTMLE
     };
     const onScroll = () => count(false);
     element.addEventListener("scroll", onScroll, { passive: true });
-    // Where the article is now counts too without a scroll, but only forward: one scrolled before the
-    // listener was there (while it was getting ready), or an article that shrinks under a scroll that
-    // stays put. Only forward, so a finished article opened at its top keeps showing it is finished,
-    // and one that grows as it lays out (images, the hero) is not unread: the reader is no longer at
-    // its end, and the next scroll shows where they are. The scroller's own box keeps its size, so its
-    // children are watched, and watched anew when they are replaced (the next article in the queue).
-    // A ResizeObserver reports each element once as it starts watching it, which is the count on
-    // ready; without one, it is counted here.
+    // Counted without a scroll too, only forward: a finished article opened at its top stays
+    // finished, and one that grows as it lays out (images, the hero) is not unread.
     const forward = () => count(true);
+    // A scroll made before the listener was there, while the reader was getting ready.
+    forward();
+    // An article that shrinks under a scroll that stays put. The scroller's own box keeps its
+    // size, so its children are watched...
     const resized = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(forward);
-    if (!resized) forward();
+    // ...and watched anew when they are replaced (the next article in the queue).
     const watch = () => {
       if (!resized) return;
       resized.disconnect();

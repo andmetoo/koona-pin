@@ -498,7 +498,10 @@ const MAX_DEPTH: usize = 127;
 fn deeper_than(value: &Value, max: usize) -> bool {
     // Only arrays and objects go on the stack: scalars cannot nest.
     let nests = |value: &&Value| matches!(value, Value::Array(_) | Value::Object(_));
-    let mut stack: Vec<(&Value, usize)> = Some(value).filter(nests).map(|v| (v, 1)).into_iter().collect();
+    if !nests(&value) {
+        return false;
+    }
+    let mut stack = vec![(value, 1)];
     while let Some((value, depth)) = stack.pop() {
         if depth > max {
             return true;
