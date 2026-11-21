@@ -9,6 +9,7 @@ import path from "node:path";
 import net from "node:net";
 import { assertNoOtherApp, capture, hello, hostMessage, pipeReady, testPipe } from "../../scripts/lib/native-host.mjs";
 import { registerLibraryFunctions } from "../../scripts/lib/library-functions.mjs";
+import { waitForAnimations } from "../phone/fixtures";
 
 // The test apps are single-instance too: a running Koona Pin would take them over.
 test.beforeAll(() => assertNoOtherApp());
@@ -161,7 +162,7 @@ test("real WebView2, SQLite, capture through the host, close-to-tray and single 
     ).toBeVisible();
     // The restored window can land a row under the cursor; the shot shows the list at rest.
     await page.mouse.move(1, 1);
-    await page.waitForTimeout(300);
+    await waitForAnimations(page);
     await page.screenshot({ path: "test-results/native-webview2.jpg" });
     await page
       .getByRole("button", { name: "Close window", exact: true })
@@ -212,7 +213,7 @@ test("real WebView2, SQLite, capture through the host, close-to-tray and single 
     await page.getByRole("button", { name: "Close window", exact: true }).click();
     const fromHost = spawn(executable, ["--autostart"], { env, windowsHide: true, stdio: "ignore" });
     await new Promise<void>((resolve) => fromHost.on("exit", () => resolve()));
-    await page.waitForTimeout(500);
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     expect(await page.evaluate(() => window.__TAURI_INTERNALS__.invoke("plugin:window|is_visible"))).toBe(false);
     const shown = spawn(executable, [], { env, windowsHide: true, stdio: "ignore" });
     await new Promise<void>((resolve) => shown.on("exit", () => resolve()));
@@ -688,18 +689,22 @@ test("import of 10 000 links keeps the window responsive", async ({ request }) =
   }
 });
 
-test("import of the three browsers' files: folders into collections in SQLite, the inbox, nothing twice", async ({ request }) => {
-  const data = await folder("import-browsers");
-  const app = await launch(request, isolated(data));
+test("native IPC: browser HTML import, JSON restore with backup, and SQLite duplicate detection/merge/undo", async ({ request }) => {
+  const data = await folder("ipc-import-restore-dupes");
+  const env = isolated(data);
+  const hostEnv = { ...process.env, ...env };
+  const app = await launch(request, env);
   try {
     const page = app.page;
     await emptyLibrary(page);
+
+    // 1. Browser HTML imports: nested folders become nested collections, inbox counts match, no duplicates on re-import.
     const files = Object.fromEntries(
       await Promise.all(
         ["chrome", "edge", "firefox"].map(async (name) => [name, await readFile(path.join("tests/fixtures/bookmarks", `${name}.html`), "utf8")]),
       ),
     );
-    const result = await page.evaluate(async (files) => {
+    const imported = await page.evaluate(async (files) => {
       const invoke = window.__TAURI_INTERNALS__.invoke;
       const run = (html: string, toInbox: boolean) => invoke("import_html_bookmarks", { htmlContent: html, toInbox });
       const chrome = await run(files.chrome, false);
@@ -710,34 +715,20 @@ test("import of the three browsers' files: folders into collections in SQLite, t
       const counts = await invoke("get_counts");
       return { chrome, edge, firefox, again, collections, counts };
     }, files);
-    // Nested folders are nested collections since 2.19.0, not tags.
-    expect(result.chrome).toMatchObject({ added: 7, not_web: 2, repeated: 1, collections: ["Работа", "Работа/Rust", "Работа/Rust/Async", "Чтение"], tags: 0 });
-    expect(result.edge).toMatchObject({ added: 4, not_web: 1, invalid: 1, collections: ["Design", "Design/Fonts"] });
-    expect(result.firefox).toMatchObject({ added: 7, not_web: 1, collections: ["Mozilla Firefox", "Recipes", "Recipes/Desserts", "Reading"] });
-    expect(result.again).toMatchObject({ added: 0, existing: 7, collections: [], tags: 0 });
-    // Edge's «работа» landed in Chrome's «Работа»; counts are each collection's own.
-    expect(result.collections).toEqual(
+    expect(imported.chrome).toMatchObject({ added: 7, not_web: 2, repeated: 1, collections: ["Работа", "Работа/Rust", "Работа/Rust/Async", "Чтение"], tags: 0 });
+    expect(imported.edge).toMatchObject({ added: 4, not_web: 1, invalid: 1, collections: ["Design", "Design/Fonts"] });
+    expect(imported.firefox).toMatchObject({ added: 7, not_web: 1, collections: ["Mozilla Firefox", "Recipes", "Recipes/Desserts", "Reading"] });
+    expect(imported.again).toMatchObject({ added: 0, existing: 7, collections: [], tags: 0 });
+    expect(imported.collections).toEqual(
       expect.arrayContaining(["Работа:2", "Rust:1", "Async:1", "Чтение:1", "Design:1", "Fonts:1", "Recipes:1", "Desserts:1", "Reading:1"]),
     );
-    expect(result.counts).toMatchObject({ total: 18, inbox: 7, inbox_imported: 7 });
+    expect(imported.counts).toMatchObject({ total: 18, inbox: 7, inbox_imported: 7 });
     await page.getByRole("button", { name: "Inbox 7", exact: true }).click();
     await expect(page.getByRole("region", { name: "New bookmarks" })).toContainText(/7 new in Inbox\s*From the import\./);
-  } finally {
-    await app.browser.close().catch(() => {});
-    app.processHandle.kill();
-  }
-});
 
-test("restore from JSON through IPC: a refused copy changes nothing, a replace leaves a backup of the old library first", async ({ request }) => {
-  const data = await folder("restore-json");
-  const app = await launch(request, isolated(data));
-  try {
-    const page = app.page;
-    await emptyLibrary(page);
-    const chrome = await readFile(path.join("tests/fixtures/bookmarks", "chrome.html"), "utf8");
-    const result = await page.evaluate(async (chrome) => {
+    // 2. JSON restore through IPC: refused version changes nothing; replace backs up old 18-link library first.
+    const restored = await page.evaluate(async () => {
       const invoke = window.__TAURI_INTERNALS__.invoke;
-      await invoke("import_html_bookmarks", { htmlContent: chrome, toInbox: false });
       const at = "2026-09-01T10:00:00.000Z";
       const copy = {
         format: "koona-pin", version: 1, exported_at: at, app_version: "0.1.0",
@@ -751,27 +742,77 @@ test("restore from JSON through IPC: a refused copy changes nothing, a replace l
       const refused = await invoke("restore_library", { content: JSON.stringify({ ...copy, version: 9 }), mode: "replace" });
       const countsAfterRefused = await invoke("get_counts");
       const check = await invoke("check_restore", { content: JSON.stringify(copy) });
-      const restored = await invoke("restore_library", { content: JSON.stringify(copy), mode: "replace" });
+      const result = await invoke("restore_library", { content: JSON.stringify(copy), mode: "replace" });
       const counts = await invoke("get_counts");
       const collections = ((await invoke("get_collections")) as { name: string }[]).map((c) => c.name);
-      return { refused, countsAfterRefused, check, restored, counts, collections };
-    }, chrome);
-    expect(result.refused).toEqual({ outcome: "rejected", problem: { problem: "newer", version: 9 } });
-    expect(result.countsAfterRefused).toMatchObject({ total: 7 });
-    expect(result.check).toMatchObject({ outcome: "ready", preview: { bookmarks: 1, collections: 1, current: 7 } });
-    expect(result.restored).toMatchObject({ outcome: "restored", summary: { added: 1, in_inbox: 1, collections: ["From the copy"] } });
-    expect(result.counts).toMatchObject({ total: 1, inbox: 1, favorites: 1 });
-    expect(result.collections).toEqual(["From the copy"]);
-    const backupName = (result.restored as { summary: { backup: string } }).summary.backup;
-    const backups = await readdir(path.join(data, "backups"));
-    expect(backups).toContain(backupName);
+      return { refused, countsAfterRefused, check, result, counts, collections };
+    });
+    expect(restored.refused).toEqual({ outcome: "rejected", problem: { problem: "newer", version: 9 } });
+    expect(restored.countsAfterRefused).toMatchObject({ total: 18 });
+    expect(restored.check).toMatchObject({ outcome: "ready", preview: { bookmarks: 1, collections: 1, current: 18 } });
+    expect(restored.result).toMatchObject({ outcome: "restored", summary: { added: 1, in_inbox: 1, collections: ["From the copy"] } });
+    expect(restored.counts).toMatchObject({ total: 1, inbox: 1, favorites: 1 });
+    expect(restored.collections).toEqual(["From the copy"]);
+    const backupName = (restored.result as { summary: { backup: string } }).summary.backup;
+    expect(await readdir(path.join(data, "backups"))).toContain(backupName);
     const saved = new DatabaseSync(path.join(data, "backups", backupName), { readOnly: true });
-    expect(saved.prepare("SELECT count(*) AS n FROM bookmarks").get()).toEqual({ n: 7 });
+    expect(saved.prepare("SELECT count(*) AS n FROM bookmarks").get()).toEqual({ n: 18 });
     saved.close();
+
+    // 3. Duplicates: captured twins group in SQLite, merge/undo/Not duplicates round-trip cleanly.
+    await emptyLibrary(page);
+    await captureOpen(env);
+    for (const [id, url] of [
+      ["one", "https://example.invalid/page"],
+      ["two", "http://www.example.invalid/page/?utm_source=mail"],
+      ["three", "https://example.invalid/page#part"],
+      ["other", "https://example.invalid/page?ref=x"],
+    ])
+      expect((await hostMessage(capture(id, url, id, "chrome"), { env: hostEnv })).reply).toMatchObject({ ok: true, outcome: "created" });
+    const nav = (name: string) => page.getByRole("complementary").getByRole("button", { name, exact: true });
+    await expect(nav("Duplicates 1")).toBeVisible();
+    const dupes = await page.evaluate(async () => {
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      const groups = (await invoke("get_duplicates")) as { key: string; main: number; bookmarks: { id: number; url: string }[] }[];
+      const [group] = groups;
+      const merged = await invoke("merge_duplicates", {
+        groups: [{ main: group.main, others: group.bookmarks.filter((b) => b.id !== group.main).map((b) => b.id) }],
+      });
+      const after = await invoke("get_counts");
+      const undone = await invoke("undo", { command: (merged as { command: number }).command });
+      const back = await invoke("get_counts");
+      return { groups, merged, after, undone: (undone as { outcome: string }).outcome, back };
+    });
+    expect(dupes.groups).toHaveLength(1);
+    expect(dupes.groups[0].key).toBe("example.invalid/page");
+    expect(dupes.groups[0].bookmarks[0].url).toBe("https://example.invalid/page");
+    expect(dupes.merged).toMatchObject({ groups: 1, trashed: 2 });
+    expect(dupes.after).toMatchObject({ total: 2, trash: 2, duplicates: 0 });
+    expect(dupes.undone).toBe("undone");
+    expect(dupes.back).toMatchObject({ total: 4, trash: 0, duplicates: 1 });
+
+    await nav("Duplicates 1").click();
+    const group = page.locator("[data-duplicate-group='example.invalid/page']");
+    await expect(group.getByRole("radio")).toHaveCount(3);
+    await expect.poll(() => page.evaluate(() => window.__TAURI_INTERNALS__.invoke("get_counts"))).toMatchObject({ total: 4, trash: 0, duplicates: 1 });
+    await group.getByRole("button", { name: "Not duplicates" }).click();
+    await expect(page.getByRole("heading", { name: "No duplicates" })).toBeVisible();
+    await expect(nav("Duplicates 0")).toBeVisible();
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect(group.getByRole("radio")).toHaveCount(3);
+    await expect(nav("Duplicates 1")).toBeVisible();
   } finally {
     await app.browser.close().catch(() => {});
     app.processHandle.kill();
   }
+  await app.exited;
+  const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
+  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: SCHEMA_VERSION });
+  expect(db.prepare("SELECT url_key, count(*) AS n FROM bookmarks GROUP BY url_key ORDER BY n DESC").all()).toEqual([
+    { url_key: "example.invalid/page", n: 3 },
+    { url_key: "example.invalid/page?ref=x", n: 1 },
+  ]);
+  db.close();
 });
 
 test("backup: copy, changes, restore in place with capture working after it; a broken file is replaced from the error screen", async ({ request }) => {
@@ -859,71 +900,6 @@ test("backup: copy, changes, restore in place with capture working after it; a b
   const kept = (await readdir(path.join(data, "backups"))).filter((name) => name.startsWith("koonapin.before-restore-"));
   const texts = await Promise.all(kept.map((name) => readFile(path.join(data, "backups", name), "utf8").catch(() => "")));
   expect(texts).toContain("This is not an SQLite file.\n");
-});
-
-test("duplicates: captured twins form a group in SQLite, merge is one command, Ctrl Z brings them back", async ({ request }) => {
-  const data = await folder("duplicates");
-  const env = isolated(data);
-  const hostEnv = { ...process.env, ...env };
-  const app = await launch(request, env);
-  try {
-    const page = app.page;
-    await emptyLibrary(page);
-    await captureOpen(env);
-    for (const [id, url] of [
-      ["one", "https://example.invalid/page"],
-      ["two", "http://www.example.invalid/page/?utm_source=mail"],
-      ["three", "https://example.invalid/page#part"],
-      ["other", "https://example.invalid/page?ref=x"],
-    ])
-      expect((await hostMessage(capture(id, url, id, "chrome"), { env: hostEnv })).reply).toMatchObject({ ok: true, outcome: "created" });
-    await expect(page.getByRole("complementary").getByRole("button", { name: "Duplicates 1", exact: true })).toBeVisible();
-    const result = await page.evaluate(async () => {
-      const invoke = window.__TAURI_INTERNALS__.invoke;
-      const groups = (await invoke("get_duplicates")) as { key: string; main: number; bookmarks: { id: number; url: string }[] }[];
-      const [group] = groups;
-      const merged = await invoke("merge_duplicates", {
-        groups: [{ main: group.main, others: group.bookmarks.filter((b) => b.id !== group.main).map((b) => b.id) }],
-      });
-      const after = await invoke("get_counts");
-      const undone = await invoke("undo", { command: (merged as { command: number }).command });
-      const back = await invoke("get_counts");
-      return { groups, merged, after, undone: (undone as { outcome: string }).outcome, back };
-    });
-    expect(result.groups).toHaveLength(1);
-    expect(result.groups[0].key).toBe("example.invalid/page");
-    expect(result.groups[0].bookmarks[0].url).toBe("https://example.invalid/page");
-    expect(result.merged).toMatchObject({ groups: 1, trashed: 2 });
-    expect(result.after).toMatchObject({ total: 2, trash: 2, duplicates: 0 });
-    expect(result.undone).toBe("undone");
-    expect(result.back).toMatchObject({ total: 4, trash: 0, duplicates: 1 });
-    // «Not duplicates» and its undo change no bookmark, yet reach the count and the section.
-    const nav = (name: string) => page.getByRole("complementary").getByRole("button", { name, exact: true });
-    await nav("Duplicates 1").click();
-    const group = page.locator("[data-duplicate-group='example.invalid/page']");
-    await expect(group.getByRole("radio")).toHaveCount(3);
-    // The counts read after the merge and the undo above (at most 150 ms later)
-    // are done first, so only the hiding itself can change them now.
-    await page.waitForTimeout(500);
-    await group.getByRole("button", { name: "Not duplicates" }).click();
-    await expect(page.getByRole("heading", { name: "No duplicates" })).toBeVisible();
-    await expect(nav("Duplicates 0")).toBeVisible();
-    await page.getByRole("button", { name: "Undo" }).click();
-    await expect(group.getByRole("radio")).toHaveCount(3);
-    await expect(nav("Duplicates 1")).toBeVisible();
-  } finally {
-    await app.browser.close().catch(() => {});
-    app.processHandle.kill();
-  }
-  // As in the link check: the library is read once the killed app has exited.
-  await app.exited;
-  const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
-  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: SCHEMA_VERSION });
-  expect(db.prepare("SELECT url_key, count(*) AS n FROM bookmarks GROUP BY url_key ORDER BY n DESC").all()).toEqual([
-    { url_key: "example.invalid/page", n: 3 },
-    { url_key: "example.invalid/page?ref=x", n: 1 },
-  ]);
-  db.close();
 });
 
 test("link check: runs in the background through IPC, a missing site is never broken, a local one is not requested, stop is at once", async ({ request }) => {
@@ -1244,12 +1220,21 @@ test("10 000 bookmarks scroll smoothly in the grid and the list", { tag: "@perf"
   }
 });
 
-test("find and edit in the new interface: search, site, editor, collection removal", async ({ request }) => {
-  const data = await folder("find-edit");
-  const app = await launch(request, isolated(data));
+test("SQLite round-trip and restart persistence", async ({ request }) => {
+  const data = await folder("sqlite-roundtrip");
+  const env = isolated(data);
+  let app = await launch(request, env);
   try {
-    const page = app.page;
+    let page = app.page;
     await emptyLibrary(page);
+    const starterTombstones = (() => {
+      const before = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
+      const { n } = before.prepare("SELECT count(*) AS n FROM tombstones WHERE kind = 'bookmark'").get() as { n: number };
+      before.close();
+      return n;
+    })();
+
+    // 1. Search (FTS5), site filter, editor write, and collection deletion keeping bookmarks.
     await page.evaluate(async () => {
       const invoke = window.__TAURI_INTERNALS__.invoke;
       const shelf = await invoke("create_collection", { name: "Shelf", color: null, icon: null });
@@ -1261,87 +1246,140 @@ test("find and edit in the new interface: search, site, editor, collection remov
     });
     const cards = page.locator("[data-bookmark-id]");
     await expect(cards).toHaveCount(3);
-
-    // Search through IPC and FTS5: «елочн» finds «Ёлочные».
     const search = page.getByRole("textbox", { name: "Search the library" });
     await search.fill("елочн");
     await expect(cards).toHaveCount(1);
     await search.press("Escape");
     await expect(cards).toHaveCount(3);
 
-    // The site filter is exact and shows a chip.
     await page.getByRole("button", { name: "Only bookmarks from site-a.invalid" }).first().click();
     await expect(cards).toHaveCount(2);
     await expect(page.getByRole("heading", { level: 1 })).toContainText("2 of 3");
     await page.getByRole("button", { name: "Remove site filter site-a.invalid" }).click();
 
-    // The editor writes title and tags to SQLite.
-    const card = page.locator("[data-bookmark-id]", { hasText: "Pie recipe" });
-    await card.hover();
-    await card.getByRole("button", { name: /^Actions:/ }).click();
+    const pieCard = page.locator("[data-bookmark-id]", { hasText: "Pie recipe" });
+    await pieCard.hover();
+    await pieCard.getByRole("button", { name: /^Actions:/ }).click();
     await page.getByRole("menuitem", { name: "Edit…" }).click();
     await page.getByLabel("Title", { exact: true }).fill("Apple pie");
     const tags = page.getByLabel("Tags", { exact: true });
     await tags.fill("baking");
     await tags.press("Control+Enter");
     await expect(page.getByRole("status")).toContainText("Changes saved");
-    const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
-    const saved = db
-      .prepare(
-        `SELECT b.title, group_concat(t.name, ',') AS tags FROM bookmarks b
-         LEFT JOIN bookmark_tags bt ON bt.bookmark_id = b.id LEFT JOIN tags t ON t.id = bt.tag_id
-         WHERE b.url = 'https://site-b.invalid/3' GROUP BY b.id`,
-      )
-      .get() as { title: string; tags: string };
-    expect(saved.title).toBe("Apple pie");
-    expect(saved.tags.split(",").sort()).toEqual(["baking", "kitchen"]);
 
-    // Deleting a collection keeps its bookmarks, without a collection.
     await page.getByRole("button", { name: /^Shelf/ }).hover();
     await page.getByRole("button", { name: "Delete collection Shelf" }).click();
     await page.getByRole("button", { name: "Delete", exact: true }).click();
     await expect(page.getByRole("button", { name: /^Shelf/ })).toHaveCount(0);
     await expect(cards).toHaveCount(3);
-    const left = () =>
-      db.prepare("SELECT count(*) AS n, sum(collection_id IS NULL) AS free FROM bookmarks").get();
-    await expect.poll(left).toEqual({ n: 3, free: 3 });
-    db.close();
-  } finally {
-    await app.browser.close().catch(() => {});
-    app.processHandle.kill();
-  }
-});
-test("trash survives a restart, empties itself at start, deletes for good on request, restores with every field", async ({ request }) => {
-  const data = await folder("trash-restart");
-  const env = isolated(data);
-  let app = await launch(request, env);
-  try {
-    let page = app.page;
+    {
+      const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
+      const saved = db
+        .prepare(
+          `SELECT b.title, group_concat(t.name, ',') AS tags FROM bookmarks b
+           LEFT JOIN bookmark_tags bt ON bt.bookmark_id = b.id LEFT JOIN tags t ON t.id = bt.tag_id
+           WHERE b.url = 'https://site-b.invalid/3' GROUP BY b.id`,
+        )
+        .get() as { title: string; tags: string };
+      expect(saved.title).toBe("Apple pie");
+      expect(saved.tags.split(",").sort()).toEqual(["baking", "kitchen"]);
+      await expect.poll(() => db.prepare("SELECT count(*) AS n, sum(collection_id IS NULL) AS free FROM bookmarks").get()).toEqual({ n: 3, free: 3 });
+      db.close();
+    }
+
+    // 2. Sort (locale collation, Site A–Z) & collection drag order.
     await emptyLibrary(page);
-    // The starter links removed for the empty library left tombstones of their own.
-    const before = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
-    const { n: starterTombstones } = before.prepare("SELECT count(*) AS n FROM tombstones WHERE kind = 'bookmark'").get() as { n: number };
-    before.close();
     await page.evaluate(async () => {
       const invoke = window.__TAURI_INTERNALS__.invoke;
-      const shelf = await invoke("create_collection", { name: "Shelf", color: null, icon: null });
-      const { bookmark } = await invoke("add_bookmark", { url: "https://trash.invalid/1", title: "To the trash and back", collectionId: shelf.id, tags: ["tag"] });
-      await invoke("update_bookmark", { id: bookmark.id, patch: { notes: "Note", is_favorite: true, collection: { action: "keep" } } });
+      for (const [title, site] of [
+        ["cvet", "b.example"],
+        ["čaj", "www.a.example"],
+        ["zec", "c.example"],
+        ["Chapter 10", "a.example"],
+        ["Chapter 9", "d.example"],
+      ])
+        await invoke("add_bookmark", { url: `https://${site}/${encodeURIComponent(title)}`, title, collectionId: null, tags: [] });
+      for (const name of ["Alpha", "Beta", "Gamma"]) await invoke("create_collection", { name, color: null, icon: null });
+    });
+    await page.reload();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const titles = () => page.locator("article[data-bookmark-id] h2, [data-bookmark-id] h2").allTextContents();
+    await expect(cards).toHaveCount(5, { timeout: 15000 });
+    await page.getByRole("button", { name: /^Sort: / }).click();
+    await page.getByRole("menuitemradio", { name: "Title A–Z" }).click();
+    await expect.poll(titles).toEqual(["čaj", "Chapter 9", "Chapter 10", "cvet", "zec"]);
+    await page.getByRole("button", { name: /^Sort: / }).click();
+    await page.getByRole("menuitemradio", { name: "Site A–Z" }).click();
+    await expect.poll(titles).toEqual(["Chapter 10", "čaj", "cvet", "zec", "Chapter 9"]);
+
+    const collections = () => page.getByRole("navigation", { name: "Collections" }).locator("[data-collection]");
+    const names = () => collections().evaluateAll((rows) => rows.map((r) => r.querySelector("span.fade-end")?.textContent));
+    await expect.poll(names).toEqual(["Alpha", "Articles / To read", "Beta", "Design & UI", "Development", "Gamma"]);
+    const gamma = (await collections().nth(5).boundingBox())!;
+    const alpha = (await collections().nth(0).boundingBox())!;
+    await page.mouse.move(gamma.x + 40, gamma.y + gamma.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(gamma.x + 46, gamma.y, { steps: 3 });
+    await page.mouse.move(alpha.x + 60, alpha.y + 3, { steps: 10 });
+    await page.mouse.up();
+    const moved = ["Gamma", "Alpha", "Articles / To read", "Beta", "Design & UI", "Development"];
+    await expect.poll(names).toEqual(moved);
+
+    // Locale switch rewrites sort keys in SQLite.
+    await page.evaluate(() => localStorage.setItem("koonapin.language", "sr-Latn"));
+    await page.reload();
+    const srOrder = () =>
+      page.evaluate(async () => {
+        const { items } = await window.__TAURI_INTERNALS__.invoke("get_bookmarks", { query: { sort: "title" } });
+        return items.map((b: { title: string }) => b.title);
+      });
+    await expect.poll(srOrder, { timeout: 15000 }).toEqual(["Chapter 9", "Chapter 10", "cvet", "čaj", "zec"]);
+    await page.evaluate(() => localStorage.setItem("koonapin.language", "en"));
+    await page.reload();
+
+    // 3. Undo & Trash + Triage + site suggestion seeded before a single restart.
+    await emptyLibrary(page);
+    const { suggestId } = await page.evaluate(async () => {
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      const list: { id: number; name: string }[] = await invoke("get_collections");
+      const shelf = list.find((c) => c.name === "Articles / To read")!;
+      // Undo & trash fixture
+      const { bookmark: kept } = await invoke("add_bookmark", { url: "https://trash.invalid/1", title: "To the trash and back", collectionId: shelf.id, tags: ["tag"] });
+      await invoke("update_bookmark", { id: kept.id, patch: { notes: "Note", is_favorite: true, collection: { action: "keep" } } });
       for (const url of ["https://trash.invalid/old", "https://trash.invalid/recent"]) {
         const added = await invoke("add_bookmark", { url, title: null, collectionId: null, tags: [] });
         await invoke("trash_bookmark", { id: added.bookmark.id });
       }
+      // Site suggestion fixture (2 links already filed in Articles / To read)
+      for (const n of [1, 2]) {
+        const { bookmark } = await invoke("add_bookmark", { url: `https://suggest.invalid/${n}`, title: `Article ${n}`, collectionId: null, tags: [] });
+        await invoke("update_bookmark", { id: bookmark.id, patch: { collection: { action: "set", id: shelf.id } } });
+      }
+      const { bookmark: suggest } = await invoke("add_bookmark", { url: "https://suggest.invalid/new", title: "New article", collectionId: null, tags: [] });
+      await invoke("add_bookmark", { url: "https://triage.invalid/1", title: "Triage 1", collectionId: null, tags: [] });
+      return { suggestId: suggest.id };
     });
-    const card = page.locator("[data-bookmark-id]");
-    await expect(card).toHaveCount(1);
-    // No confirmation: to the trash with an undo notice.
-    await card.click({ button: "right" });
+
+    // Undo round-trip & conflict check before restart.
+    const undoCard = page.locator("[data-bookmark-id]", { hasText: "To the trash and back" });
+    await expect(undoCard).toBeVisible();
+    await undoCard.click({ button: "right" });
     await page.getByRole("menuitem", { name: "Move to Trash" }).click();
     await expect(page.locator(".fixed[role=status]")).toContainText("Moved to Trash");
+    await page.keyboard.press("Control+z");
+    await expect(page.locator(".fixed[role=status]")).toContainText("Back from Trash: “To the trash and back”");
+    // Move back to trash so it survives the restart for Restore verification.
+    await undoCard.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Move to Trash" }).click();
     await expect(page.getByRole("button", { name: "Trash 3", exact: true })).toBeVisible();
 
-    // Quit; meanwhile one bookmark has lain in the trash 40 days, another 10,
-    // and the clock is trusted (looked at an hour ago).
+    // Triage midway: verify site suggestion without mutating until chosen, file one, leave the second for after restart.
+    await sortInbox(page, 2);
+    await expect(page.locator("[data-suggested]")).toHaveText(/1\s*Articles \/ To read\s*suggested/);
+    await page.keyboard.press("1");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(/2 of 2/);
+
+    // Quit, age the trashed links (40d old, 10d recent), and restart once.
     void page.evaluate(() => window.__TAURI_INTERNALS__.invoke("quit_app")).catch(() => {});
     await app.exited;
     await app.browser.close().catch(() => {});
@@ -1355,11 +1393,27 @@ test("trash survives a restart, empties itself at start, deletes for good on req
       .run("trash_clock_looked", ago(1 / 24), "trash_clock_wait_ms", "0");
     edit.close();
 
-    // Started again: the cleanup at start takes only the old one.
     app = await launch(request, env);
     page = app.page;
-    await page.getByRole("button", { name: "Trash 2", exact: true }).click({ timeout: 15000 });
-    // «Delete forever» through IPC: only from the trash, once.
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    // Sort choice and collection order survived restart.
+    await expect(page.getByRole("button", { name: "Sort: Site A–Z" })).toBeVisible({ timeout: 15000 });
+    await expect.poll(names).toEqual(moved);
+
+    // Undo journal reset on restart.
+    await page.locator("main").click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press("Control+z");
+    await expect(page.locator(".fixed[role=status]")).toContainText("Nothing to undo");
+
+    // Remaining inbox item survived restart; finishing triage writes to SQLite.
+    await expect(page.getByRole("button", { name: "Inbox 1", exact: true })).toBeVisible();
+    await sortInbox(page, 1);
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByRole("heading", { name: "Inbox sorted" })).toBeVisible();
+
+    // Trash startup cleanup purged the 40-day item, kept the 10-day + restored item; delete_forever and Restore work.
+    await page.getByRole("button", { name: "Trash 2", exact: true }).click();
     const second = await page.evaluate(async () => {
       const invoke = window.__TAURI_INTERNALS__.invoke;
       const { items } = await invoke("get_bookmarks", { query: { only_trash: true } });
@@ -1379,262 +1433,20 @@ test("trash survives a restart, empties itself at start, deletes for good on req
     await expect(page.getByRole("heading", { name: "Trash is empty" })).toBeVisible();
 
     const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
-    const back = db
+    const restoredRow = db
       .prepare(
         `SELECT b.deleted_at, b.notes, b.is_favorite, c.name AS collection, group_concat(t.name) AS tags
          FROM bookmarks b LEFT JOIN collections c ON c.id = b.collection_id
          LEFT JOIN bookmark_tags bt ON bt.bookmark_id = b.id LEFT JOIN tags t ON t.id = bt.tag_id
-         GROUP BY b.id`,
+         WHERE b.url = 'https://trash.invalid/1' GROUP BY b.id`,
       )
       .get();
-    const tombstones = db.prepare("SELECT count(*) AS n FROM tombstones WHERE kind = 'bookmark'").get();
+    const suggestedRow = db.prepare("SELECT collection_id IS NULL AS free, triaged_at IS NULL AS inbox FROM bookmarks WHERE id = ?").get(suggestId);
+    const tombstones = db.prepare("SELECT count(*) AS n FROM tombstones WHERE kind = 'bookmark'").get() as { n: number };
     db.close();
-    expect(back).toEqual({ deleted_at: null, notes: "Note", is_favorite: 1, collection: "Shelf", tags: "tag" });
-    expect(tombstones).toEqual({ n: starterTombstones + 2 });
-  } finally {
-    await app.browser.close().catch(() => {});
-    app.processHandle.kill();
-  }
-});
-test("sort: titles by the keys in SQLite in the interface's language, the collections' order and the choice survive a restart (NP-114)", async ({ request }) => {
-  const data = await folder("sort");
-  const env = isolated(data);
-  let app = await launch(request, env);
-  try {
-    let page = app.page;
-    await emptyLibrary(page);
-    await page.evaluate(async () => {
-      const invoke = window.__TAURI_INTERNALS__.invoke;
-      for (const [title, site] of [
-        ["cvet", "b.example"],
-        ["čaj", "www.a.example"],
-        ["zec", "c.example"],
-        ["Chapter 10", "a.example"],
-        ["Chapter 9", "d.example"],
-      ])
-        await invoke("add_bookmark", { url: `https://${site}/${encodeURIComponent(title)}`, title, collectionId: null, tags: [] });
-      for (const name of ["Alpha", "Beta", "Gamma"]) await invoke("create_collection", { name, color: null, icon: null });
-    });
-    await page.reload();
-    await page.setViewportSize({ width: 1440, height: 900 });
-    const titles = () => page.locator("article[data-bookmark-id] h2, [data-bookmark-id] h2").allTextContents();
-    await expect(page.locator("[data-bookmark-id]")).toHaveCount(5, { timeout: 15000 });
-
-    // «Title A–Z»: the database's order in English — «č» with «c», numbers by value.
-    await page.getByRole("button", { name: /^Sort: / }).click();
-    await page.getByRole("menuitemradio", { name: "Title A–Z" }).click();
-    await expect.poll(titles).toEqual(["čaj", "Chapter 9", "Chapter 10", "cvet", "zec"]);
-    // «Site A–Z» leaves «www.» out.
-    await page.getByRole("button", { name: /^Sort: / }).click();
-    await page.getByRole("menuitemradio", { name: "Site A–Z" }).click();
-    await expect.poll(titles).toEqual(["Chapter 10", "čaj", "cvet", "zec", "Chapter 9"]);
-
-    // A collection dragged to the top is stored there; the first collections of a new library
-    // (NP-085) sort by name with the others until then.
-    const collections = () => page.getByRole("navigation", { name: "Collections" }).locator("[data-collection]");
-    const names = () => collections().evaluateAll((rows) => rows.map((r) => r.querySelector("span.fade-end")?.textContent));
-    await expect.poll(names).toEqual(["Alpha", "Articles / To read", "Beta", "Design & UI", "Development", "Gamma"]);
-    const gamma = (await collections().nth(5).boundingBox())!;
-    const alpha = (await collections().nth(0).boundingBox())!;
-    await page.mouse.move(gamma.x + 40, gamma.y + gamma.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(gamma.x + 46, gamma.y, { steps: 3 });
-    await page.mouse.move(alpha.x + 60, alpha.y + 3, { steps: 10 });
-    await page.mouse.up();
-    const moved = ["Gamma", "Alpha", "Articles / To read", "Beta", "Design & UI", "Development"];
-    await expect.poll(names).toEqual(moved);
-    const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
-    expect(db.prepare("SELECT name, position FROM collections ORDER BY position").all()).toEqual(
-      moved.map((name, position) => ({ name, position })),
-    );
-    expect(db.prepare("SELECT value FROM app_settings WHERE key = 'sort_language'").get()).toEqual({ value: "en" });
-    db.close();
-
-    // Another language: the keys are written anew, «č» becomes a letter after «c».
-    await page.evaluate(() => localStorage.setItem("koonapin.language", "sr-Latn"));
-    await page.reload();
-    const order = () =>
-      page.evaluate(async () => {
-        const { items } = await window.__TAURI_INTERNALS__.invoke("get_bookmarks", { query: { sort: "title" } });
-        return items.map((b: { title: string }) => b.title);
-      });
-    await expect.poll(order, { timeout: 15000 }).toEqual(["Chapter 9", "Chapter 10", "cvet", "čaj", "zec"]);
-    const keys = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
-    expect(keys.prepare("SELECT value FROM app_settings WHERE key = 'sort_language'").get()).toEqual({ value: "sr-Latn" });
-    keys.close();
-    await page.evaluate(() => localStorage.setItem("koonapin.language", "en"));
-
-    // After a restart: the chosen order, the collections' order.
-    void page.evaluate(() => window.__TAURI_INTERNALS__.invoke("quit_app")).catch(() => {});
-    await app.exited;
-    await app.browser.close().catch(() => {});
-    app = await launch(request, env);
-    page = app.page;
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await expect(page.getByRole("button", { name: "Sort: Site A–Z" })).toBeVisible({ timeout: 15000 });
-    await expect.poll(names).toEqual(moved);
-  } finally {
-    await app.browser.close().catch(() => {});
-    app.processHandle.kill();
-  }
-});
-test("undo: Ctrl Z puts a decision back in SQLite, a later save wins, a restart starts a new journal", async ({ request }) => {
-  const data = await folder("undo");
-  const env = isolated(data);
-  let app = await launch(request, env);
-  try {
-    let page = app.page;
-    await emptyLibrary(page);
-    await page.evaluate(async () => {
-      const invoke = window.__TAURI_INTERNALS__.invoke;
-      await invoke("add_bookmark", { url: "https://undo.invalid/1", title: "Decision", collectionId: null, tags: ["tag"] });
-    });
-    const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
-    const row = () =>
-      db.prepare("SELECT is_favorite, triaged_at IS NULL AS inbox, deleted_at IS NULL AS live FROM bookmarks WHERE url = ?").get("https://undo.invalid/1");
-    const card = page.locator("[data-bookmark-id]");
-    await expect(card).toHaveCount(1);
-
-    // The star is a decision; Ctrl Z takes it back, into the inbox again.
-    await card.hover();
-    await card.getByRole("button", { name: "Add to Favorites" }).click();
-    await expect.poll(row).toEqual({ is_favorite: 1, inbox: 0, live: 1 });
-    await page.keyboard.press("Control+z");
-    await expect(page.locator(".fixed[role=status]")).toContainText("Undone: “Decision”");
-    await expect.poll(row).toEqual({ is_favorite: 0, inbox: 1, live: 1 });
-    await expect(page.getByRole("button", { name: "Inbox 1", exact: true })).toBeVisible();
-
-    // To the trash and back with Ctrl Z.
-    await card.click({ button: "right" });
-    await page.getByRole("menuitem", { name: "Move to Trash" }).click();
-    await expect.poll(row).toEqual({ is_favorite: 0, inbox: 1, live: 0 });
-    await page.keyboard.press("Control+z");
-    await expect(page.locator(".fixed[role=status]")).toContainText("Back from Trash: “Decision”");
-    await expect.poll(row).toEqual({ is_favorite: 0, inbox: 1, live: 1 });
-
-    // Saved again from the trash after «to the trash»: the undo is refused, nothing is written.
-    const outcome = await page.evaluate(async () => {
-      const invoke = window.__TAURI_INTERNALS__.invoke;
-      const { items } = await invoke("get_bookmarks", { query: {} });
-      const { command } = await invoke("trash_bookmark", { id: items[0].id });
-      await invoke("add_bookmark", { url: "https://undo.invalid/1", title: null, collectionId: null, tags: [] });
-      return invoke("undo", { command });
-    });
-    expect(outcome).toMatchObject({ outcome: "conflict", action: "trash", title: "Decision" });
-    expect(row()).toEqual({ is_favorite: 0, inbox: 1, live: 1 });
-
-    // The journal belongs to this run: after a restart there is nothing to undo.
-    await card.hover();
-    await card.getByRole("button", { name: "Add to Favorites" }).click();
-    await expect.poll(row).toEqual({ is_favorite: 1, inbox: 0, live: 1 });
-    db.close();
-    void page.evaluate(() => window.__TAURI_INTERNALS__.invoke("quit_app")).catch(() => {});
-    await app.exited;
-    await app.browser.close().catch(() => {});
-    app = await launch(request, env);
-    page = app.page;
-    await expect(page.locator("[data-bookmark-id]")).toHaveCount(1, { timeout: 15000 });
-    await page.locator("main").click({ position: { x: 5, y: 5 } });
-    await page.keyboard.press("Control+z");
-    await expect(page.locator(".fixed[role=status]")).toContainText("Nothing to undo");
-    const after = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
-    expect(after.prepare("SELECT is_favorite FROM bookmarks").get()).toEqual({ is_favorite: 1 });
-    after.close();
-  } finally {
-    await app.browser.close().catch(() => {});
-    app.processHandle.kill();
-  }
-});
-test("triage: decisions reach SQLite at once, a restart midway loses nothing", async ({ request }) => {
-  const data = await folder("triage");
-  const env = isolated(data);
-  let app = await launch(request, env);
-  try {
-    let page = app.page;
-    await emptyLibrary(page);
-    await page.evaluate(async () => {
-      const invoke = window.__TAURI_INTERNALS__.invoke;
-      for (const n of [1, 2, 3])
-        await invoke("add_bookmark", { url: `https://triage.invalid/${n}`, title: `Triage ${n}`, collectionId: null, tags: [] });
-    });
-    const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
-    const rows = () =>
-      db
-        .prepare(
-          `SELECT b.url, c.name AS collection, b.triaged_at IS NOT NULL AS sorted, b.deleted_at IS NOT NULL AS trashed
-           FROM bookmarks b LEFT JOIN collections c ON c.id = b.collection_id ORDER BY b.url`,
-        )
-        .all();
-    const heading = page.getByRole("heading", { level: 1 });
-    await sortInbox(page, 3);
-    await expect(heading).toHaveText(/Sort inbox\s*1 of 3/);
-    await expect(page.locator("[data-triage-card]")).toContainText("added by hand today at");
-
-    // 1 files into the first collection of the sidebar, ← to the trash: written at once.
-    await page.keyboard.press("1");
-    await expect(heading).toHaveText(/2 of 3/);
-    await page.keyboard.press("ArrowLeft");
-    await expect(heading).toHaveText(/3 of 3/);
-    await expect
-      .poll(rows)
-      .toEqual([
-        { url: "https://triage.invalid/1", collection: null, sorted: 0, trashed: 0 },
-        { url: "https://triage.invalid/2", collection: null, sorted: 0, trashed: 1 },
-        { url: "https://triage.invalid/3", collection: "Articles / To read", sorted: 1, trashed: 0 },
-      ]);
-    // A link saved meanwhile joins the end.
-    await page.evaluate(() =>
-      window.__TAURI_INTERNALS__.invoke("add_bookmark", { url: "https://triage.invalid/4", title: "Triage 4", collectionId: null, tags: [] }),
-    );
-    await expect(heading).toHaveText(/3 of 4\s*\+1 new/);
-
-    // Quit in the middle; nothing decided is lost, the rest waits.
-    void page.evaluate(() => window.__TAURI_INTERNALS__.invoke("quit_app")).catch(() => {});
-    await app.exited;
-    await app.browser.close().catch(() => {});
-    app = await launch(request, env);
-    page = app.page;
-    await expect(page.getByRole("button", { name: "Inbox 2", exact: true })).toBeVisible({ timeout: 15000 });
-    await sortInbox(page, 2);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Sort inbox\s*1 of 2/);
-    await expect(page.locator("[data-triage-card] h2")).toHaveText("Triage 4");
-    await page.keyboard.press("ArrowRight");
-    await page.keyboard.press("ArrowRight");
-    await expect(page.getByRole("heading", { name: "Inbox sorted" })).toBeVisible();
-    await expect.poll(() => (rows() as { sorted: number }[]).filter((r) => r.sorted).length).toBe(3);
-    db.close();
-  } finally {
-    await app.browser.close().catch(() => {});
-    app.processHandle.kill();
-  }
-});
-test("triage suggests a collection by the site from SQLite and changes nothing until chosen", async ({ request }) => {
-  const data = await folder("suggest");
-  const app = await launch(request, isolated(data));
-  try {
-    const page = app.page;
-    await emptyLibrary(page);
-    const id = await page.evaluate(async () => {
-      const invoke = window.__TAURI_INTERNALS__.invoke;
-      const collections: { id: number; name: string }[] = await invoke("get_collections");
-      const shelf = collections.find((c) => c.name === "Articles / To read")!;
-      for (const n of [1, 2]) {
-        const { bookmark } = await invoke("add_bookmark", { url: `https://suggest.invalid/${n}`, title: `Article ${n}`, collectionId: null, tags: [] });
-        await invoke("update_bookmark", { id: bookmark.id, patch: { collection: { action: "set", id: shelf.id } } });
-      }
-      const { bookmark } = await invoke("add_bookmark", { url: "https://suggest.invalid/new", title: "New article", collectionId: null, tags: [] });
-      return bookmark.id;
-    });
-    const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
-    const row = () => db.prepare("SELECT collection_id IS NULL AS free, triaged_at IS NULL AS inbox FROM bookmarks WHERE id = ?").get(id);
-    await sortInbox(page, 1);
-    const offered = page.locator("[data-suggested]");
-    await expect(offered).toHaveText(/1\s*Articles \/ To read\s*suggested/);
-    expect(row()).toEqual({ free: 1, inbox: 1 });
-    await page.keyboard.press("1");
-    await expect(page.getByRole("heading", { name: "Inbox sorted" })).toBeVisible();
-    await expect.poll(row).toEqual({ free: 0, inbox: 0 });
-    db.close();
+    expect(restoredRow).toEqual({ deleted_at: null, notes: "Note", is_favorite: 1, collection: "Articles / To read", tags: "tag" });
+    expect(suggestedRow).toEqual({ free: 0, inbox: 0 });
+    expect(tombstones.n).toBeGreaterThanOrEqual(starterTombstones + 2);
   } finally {
     await app.browser.close().catch(() => {});
     app.processHandle.kill();

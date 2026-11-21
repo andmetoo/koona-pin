@@ -775,7 +775,6 @@ mod tests {
         for old in ["koonapin.before-restore-20200101-000000.db", "koonapin.before-restore-20210101-000000.db"] {
             std::fs::write(backups.join(old), "old").unwrap();
         }
-        std::thread::sleep(std::time::Duration::from_millis(1100));
         let again = restore(&current, &check(&copy_of(&other)).unwrap(), RestoreMode::Replace, &backups).unwrap();
         let mut left: Vec<String> = std::fs::read_dir(&backups).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
         left.sort();

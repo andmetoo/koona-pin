@@ -86,12 +86,13 @@ test("Feeds: a swipe moves along the feed chips, All feeds first", async ({ page
 });
 
 test("a slow sideways drag held past the long press is a swipe, not the bookmark's menu", async ({ page }) => {
+  await page.clock.install();
   await openPhone(page);
   await page.mouse.move(300, 520);
   await page.mouse.down();
   await page.mouse.move(260, 522, { steps: 6 });
   // Held well past the 500 ms long press, still dragging.
-  await page.waitForTimeout(700);
+  await page.clock.runFor(700);
   await page.mouse.move(80, 524, { steps: 10 });
   await page.mouse.up();
   await expect(page.locator('[data-sheet-kind="bookmarkMenu"]')).toHaveCount(0);

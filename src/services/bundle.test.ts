@@ -24,7 +24,10 @@ const filters = (extra: Partial<FilterState> = {}): FilterState => ({
 });
 
 describe("the bundle store", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
 
   it("adds a bookmark once, in the section it entered first", () => {
     const bundle = createBundle();

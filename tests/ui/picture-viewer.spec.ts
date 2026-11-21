@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { openApp, opened, stubBrowser } from "../fixtures/app";
 import { ARTICLE, PICTURE } from "../fixtures/article";
+import { waitForAnimations } from "../phone/fixtures";
 
 // #400 (frames P1–P3): a picture of the article opens in a card over it, zooms and pans inside the
 // card, and the card goes back to the picture.
@@ -9,8 +10,8 @@ import { ARTICLE, PICTURE } from "../fixtures/article";
 const viewer = (page: Page) => page.locator("[data-picture-viewer]");
 const picture = (page: Page) => viewer(page).locator("[data-viewer-picture]");
 const scale = (page: Page) => picture(page).evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a);
-/** The lift and every glide take 300 ms. */
-const settled = (page: Page) => page.waitForTimeout(380);
+/** The lift and every glide finish their CSS transitions/animations. */
+const settled = (page: Page) => waitForAnimations(page, viewer(page));
 
 /** Reading mode with the article's body replaced by one with a picture (the demo's has none). */
 async function readingWithPicture(page: Page, html = ARTICLE, theme = "light") {
@@ -114,10 +115,14 @@ const svgOf = (width: number, height: number, fill: string) =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="${width}" height="${height}" fill="${fill}"/></svg>`;
 
 test("the widest picture of the srcset replaces the shown one, and the card and its percentage stay", async ({ page }) => {
-  // The large one comes a second late, so the card is seen settled before and after it.
+  // Hold the large image behind a manual gate so the card is seen settled before and after it.
+  let releaseLarge!: () => void;
+  const largeReady = new Promise<void>((resolve) => {
+    releaseLarge = resolve;
+  });
   await page.route("https://pictures.test/**", async (route) => {
     const large = route.request().url().endsWith("large.svg");
-    if (large) await new Promise((resolve) => setTimeout(resolve, 1000));
+    if (large) await largeReady;
     await route.fulfill({ contentType: "image/svg+xml", body: large ? svgOf(1600, 1000, "#3b4f6b") : svgOf(400, 250, "#c26a4a") });
   });
   const img = await readingWithPicture(
@@ -130,6 +135,7 @@ test("the widest picture of the srcset replaces the shown one, and the card and 
   await expect(picture(page)).toHaveAttribute("src", "https://pictures.test/small.svg");
   await expect(viewer(page).getByRole("button", { name: "Fit to window" })).toHaveText("48%");
   const before = (await card(page).boundingBox())!;
+  releaseLarge();
   await expect(picture(page)).toHaveAttribute("src", "https://pictures.test/large.svg");
   await expect(viewer(page).getByRole("button", { name: "Fit to window" })).toHaveText("48%");
   expect((await card(page).boundingBox())!.width).toBeCloseTo(before.width, 0);
@@ -158,7 +164,7 @@ test("reduced motion: the card fades in place, without growing out of the pictur
   await page.emulateMedia({ reducedMotion: "reduce" });
   const img = await readingWithPicture(page);
   await img.click();
-  await page.waitForTimeout(40);
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   const matrix = await card(page).evaluate((el) => new DOMMatrix(getComputedStyle(el).transform));
   expect([matrix.a, matrix.e, matrix.f]).toEqual([1, 0, 0]);
   await settled(page);
@@ -215,6 +221,7 @@ test("a pinch without a point zooms about the middle; one whose end never came l
   const img = await readingWithPicture(page);
   await img.click();
   await settled(page);
+  await page.clock.install();
   await viewer(page).locator("[data-viewer-picture]").evaluate((el) => {
     const gesture = (type: string, scale: number) => el.dispatchEvent(Object.assign(new Event(type, { bubbles: true, cancelable: true }), { scale }));
     gesture("gesturestart", 1);
@@ -224,7 +231,7 @@ test("a pinch without a point zooms about the middle; one whose end never came l
   expect(await scale(page)).toBeCloseTo(2, 2);
   const matrix = await picture(page).evaluate((el) => new DOMMatrix(getComputedStyle(el).transform));
   expect([matrix.e, matrix.f]).toEqual([0, 0]);
-  await page.waitForTimeout(400);
+  await page.clock.runFor(400);
   const box = (await viewer(page).locator("[data-viewer-box]").boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.wheel(0, 100);

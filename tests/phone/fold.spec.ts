@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { FOLD, navPill, openPhone, PHONE, systemBack, topScreen } from "./fixtures";
+import { FOLD, longPress, navPill, openPhone, PHONE, systemBack, topScreen } from "./fixtures";
 
 // The Galaxy Z Fold's inner screen (NP-072b wave 2, frames FL1–FL3): the vertical rail on the side
 // the person holds, the list pane next to it, the detail sheet on the far side; the handedness
@@ -17,14 +17,6 @@ const rows = (page: Page) => listPane(page).locator("[data-screen]:not([hidden])
 const editSheet = (page: Page) => page.locator('[data-sheet-kind="edit"]');
 
 const openFold = (page: Page, settings: Record<string, string> = {}) => openPhone(page, { viewport: FOLD, insets: INSETS, settings });
-
-async function longPress(page: Page, target: Locator, at = { x: 36, y: 30 }) {
-  const box = (await target.boundingBox())!;
-  await page.mouse.move(box.x + at.x, box.y + at.y);
-  await page.mouse.down();
-  await page.waitForTimeout(650);
-  await page.mouse.up();
-}
 
 const box = async (locator: Locator) => (await locator.boundingBox())!;
 
@@ -95,8 +87,8 @@ test("controls on the left are the exact mirror", async ({ page }) => {
 
 test("a long press on the rail opens its popover: it moves the controls, and the side stays after a reload", async ({ page }) => {
   await openFold(page);
-  await longPress(page, rail(page));
   const menu = page.locator("[data-rail-menu]");
+  await longPress(page, rail(page), menu, { x: 36, y: 30 });
   await expect(menu).toBeVisible();
   await expect(menu).toContainText("Navigation rail");
   await expect(menu.getByRole("menuitem", { name: "Move controls to the left" })).toBeFocused();
@@ -112,18 +104,18 @@ test("a long press on the rail opens its popover: it moves the controls, and the
   await expect(page.locator("[data-phone]")).toHaveAttribute("data-hand", "left");
 
   // Escape and Back close it without a change.
-  await longPress(page, rail(page));
+  await longPress(page, rail(page), menu, { x: 36, y: 30 });
   await expect(menu.getByRole("menuitem", { name: "Move controls to the right" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(menu).toHaveCount(0);
-  await longPress(page, rail(page));
+  await longPress(page, rail(page), menu, { x: 36, y: 30 });
   await expect(menu).toBeVisible();
   expect(await systemBack(page)).toBe(true);
   await expect(menu).toHaveCount(0);
   await expect(page.locator("[data-phone]")).toHaveAttribute("data-hand", "left");
 
   // "Layout settings…" opens Settings → Layout in the detail sheet.
-  await longPress(page, rail(page));
+  await longPress(page, rail(page), menu, { x: 36, y: 30 });
   await menu.getByRole("menuitem", { name: "Layout settings…" }).click();
   await expect(detailScreen(page).getByRole("heading", { level: 1 })).toHaveText("Layout");
   await expect(detailScreen(page).getByRole("radio", { name: "Controls on the left" })).toBeChecked();
@@ -235,7 +227,7 @@ test("folding and unfolding keeps the tab, the open bookmark or post, and an edi
 
   // An open sheet and what was typed in it.
   await navPill(page).getByRole("button", { name: "Bookmarks", exact: true }).click();
-  await longPress(page, topScreen(page).locator("[data-bookmark-id]").first(), { x: 40, y: 20 });
+  await longPress(page, topScreen(page).locator("[data-bookmark-id]").first(), page.locator('[data-sheet-kind="bookmarkMenu"]'), { x: 40, y: 20 });
   await page.locator('[data-sheet-kind="bookmarkMenu"]').getByRole("button", { name: "Edit" }).click();
   const field = editSheet(page).getByRole("textbox", { name: "Title" });
   await field.fill("A draft that survives the hinge");

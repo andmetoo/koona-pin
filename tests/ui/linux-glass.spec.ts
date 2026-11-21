@@ -24,9 +24,8 @@ async function gridWithPoster(page: Page) {
   return poster;
 }
 
-/** The bundle's capsule with three bookmarks in it (share-bundle.md, S14). */
-async function capsule(page: Page) {
-  await openApp(page, { viewport: { width: 1200, height: 800 }, settings: { view: "grid" }, cards: 6 });
+/** Adds three bookmarks to the bundle so its capsule appears on the current page. */
+async function showCapsule(page: Page) {
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
     const { bundle } = await import("/src/services/bundle.ts");
@@ -40,15 +39,7 @@ async function capsule(page: Page) {
 test.describe("on Linux", () => {
   test.use({ userAgent: LINUX });
 
-  test("the bundle's capsule has no backdrop blur, a plain ring and no light sweep", async ({ page }) => {
-    const shell = (await capsule(page)).locator(".bundle-shell");
-    await expect(shell).toHaveCSS("backdrop-filter", "none");
-    await expect(shell.locator(".bundle-sweep")).toHaveCSS("display", "none");
-    // The glow near it is a plain 2 px ring, not a blur.
-    await expect(page.locator(".bundle-glow")).toHaveCSS("box-shadow", /0px 0px 0px 2px inset$/);
-  });
-
-  test("grid cards draw no backdrop blur and no blurred halo", async ({ page }) => {
+  test("grid cards and bundle capsule draw no backdrop blur, no blurred halo, and no light sweep", async ({ page }) => {
     const poster = await gridWithPoster(page);
     await expect(page.locator("html")).toHaveAttribute("data-linux", "");
     await expect(poster.locator(".cover-chip")).toHaveCSS("backdrop-filter", "none");
@@ -69,20 +60,19 @@ test.describe("on Linux", () => {
     const halo = other.locator(".card-halo");
     await expect(halo).toHaveCSS("filter", "none");
     await expect(halo).toHaveCSS("background-image", /^linear-gradient/);
+
+    // Bundle capsule: no backdrop blur, plain 2 px ring, no light sweep.
+    const shell = (await showCapsule(page)).locator(".bundle-shell");
+    await expect(shell).toHaveCSS("backdrop-filter", "none");
+    await expect(shell.locator(".bundle-sweep")).toHaveCSS("display", "none");
+    await expect(page.locator(".bundle-glow")).toHaveCSS("box-shadow", /0px 0px 0px 2px inset$/);
   });
 });
 
 test.describe("elsewhere", () => {
   test.use({ userAgent: WINDOWS });
 
-  test("the bundle's capsule keeps its glass and its sweep", async ({ page }) => {
-    const shell = (await capsule(page)).locator(".bundle-shell");
-    await expect(shell).toHaveCSS("backdrop-filter", "blur(24px) saturate(1.7)");
-    await expect(shell.locator(".bundle-sweep")).toHaveCSS("display", "block");
-    await expect(page.locator(".bundle-glow")).toHaveCSS("box-shadow", /0px 0px 24px 6px$/);
-  });
-
-  test("the grid keeps its glass", async ({ page }) => {
+  test("grid cards and bundle capsule keep their glass and light sweep", async ({ page }) => {
     const poster = await gridWithPoster(page);
     await expect(page.locator("html")).not.toHaveAttribute("data-linux");
     await expect(poster.locator(".cover-chip")).toHaveCSS("backdrop-filter", "blur(6px)");
@@ -92,5 +82,10 @@ test.describe("elsewhere", () => {
     await other.locator("h2").click();
     await expect(other.locator(".card-halo")).toHaveCSS("filter", "blur(18px) saturate(1.6) brightness(1.06)");
     await expect(other.locator(".card-halo")).toHaveCSS("background-image", /^url\(.+\), linear-gradient/);
+
+    const shell = (await showCapsule(page)).locator(".bundle-shell");
+    await expect(shell).toHaveCSS("backdrop-filter", "blur(24px) saturate(1.7)");
+    await expect(shell.locator(".bundle-sweep")).toHaveCSS("display", "block");
+    await expect(page.locator(".bundle-glow")).toHaveCSS("box-shadow", /0px 0px 24px 6px$/);
   });
 });

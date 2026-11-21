@@ -1,18 +1,10 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { labelProblems } from "./labels";
-import { FOLD, navPill, openPhone, systemBack, topScreen } from "./fixtures";
+import { FOLD, longPress, navPill, openPhone, systemBack, topScreen, waitForAnimations } from "./fixtures";
 
 // Android's font size up to its largest, 2.0 (NP-072b), played by the fixture's text zoom: at 1.3
 // and 2.0 no label on a phone's screens and sheets is cut or runs into another. At 1.0 the frames
 // hold (the other specs and the screenshots).
-
-async function longPress(page: Page, target: Locator) {
-  const box = (await target.boundingBox())!;
-  await page.mouse.move(box.x + 40, box.y + 20);
-  await page.mouse.down();
-  await page.waitForTimeout(650);
-  await page.mouse.up();
-}
 
 const sheet = (page: Page, kind: string) => page.locator(`[data-sheet-kind="${kind}"]:not([data-leaving])`);
 const at = (textScale: number) => ({ powerSave: false, lowRam: false, textScale });
@@ -22,7 +14,7 @@ for (const scale of [1.3, 2]) {
     let problems: string[];
     const check = async (page: Page, frame: string) => {
       // Sheets and screens settle (their rise, the pill's measure) before they are measured.
-      await page.waitForTimeout(400);
+      await waitForAnimations(page);
       for (const problem of await labelProblems(page)) problems.push(`${frame}: ${problem}`);
     };
     test.beforeEach(() => {
@@ -64,7 +56,7 @@ for (const scale of [1.3, 2]) {
       await expect(topScreen(page).locator("[data-bookmark-id]").first()).toBeVisible();
       await check(page, "Q1");
       await systemBack(page);
-      await longPress(page, topScreen(page).locator("[data-bookmark-id]").first());
+      await longPress(page, topScreen(page).locator("[data-bookmark-id]").first(), sheet(page, "bookmarkMenu"), { x: 40, y: 20 });
       await expect(sheet(page, "bookmarkMenu")).toBeVisible();
       await check(page, "menu");
       await sheet(page, "bookmarkMenu").getByRole("button", { name: "Edit", exact: true }).click();
@@ -132,7 +124,7 @@ for (const scale of [1.3, 2]) {
       await check(page, "FL0");
       await page.locator("[data-bookmark-id]").first().click();
       await check(page, "FL1");
-      await longPress(page, page.locator("[data-rail]"));
+      await longPress(page, page.locator("[data-rail]"), page.locator("[data-rail-menu]"), { x: 40, y: 20 });
       await expect(page.locator("[data-rail-menu]")).toBeVisible();
       await check(page, "FL3");
     });

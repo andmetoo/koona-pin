@@ -1212,7 +1212,7 @@ mod tests {
             .unwrap();
         let damaged = folder.join("damaged.db");
         let big = fixtures::fresh_at(&damaged, 1);
-        fixtures::generated(&big, 3_000, 3);
+        fixtures::generated(&big, 100, 3);
         fixtures::finish(big);
         fixtures::damage(&damaged);
 

@@ -318,10 +318,7 @@ mod tests {
     type Tombstones = BTreeSet<(String, Option<String>)>;
 
     fn library() -> Connection {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::library::configure(&conn).unwrap();
-        crate::migrations::migrate(&mut conn, None).unwrap();
-        conn
+        crate::test_support::memory_db()
     }
 
     fn synced(n: u128) -> Connection {

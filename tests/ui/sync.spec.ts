@@ -264,18 +264,11 @@ test("Sync: the main computer allows or denies handing over (frame 12)", async (
   await expect(asking.locator('[data-sync-banner="hub_change:asking"]')).toContainText("Waiting for Home iMac");
 });
 
-// The words of each banner are checked in src/components/commercial/syncText.test.ts.
-// One test per state: eleven app loads in one test came within seconds of its 30-second limit on CI.
+// The words of each banner are checked in src/components/commercial/syncText.test.ts;
+// smoke-check one passive banner and one action banner here (update/added/started_over follow below).
 for (const [state, id, action] of [
   ["offline", "paused:offline", null],
-  ["others_offline", "online:others_offline", null],
-  ["added", "notice:device_added", "Review"],
-  ["skew", "paused:clock_skew", "Try again"],
-  ["update", "paused:update_needed", "Update"],
-  ["started_over", "notice:started_over", "Join…"],
   ["revoked", "paused:revoked", "Add again"],
-  ["signed_out", "paused:signed_out", "Sign in…"],
-  ["syncing", "syncing", null],
 ] as const) {
   test(`Sync: the state “${state}” has its banner and the action it offers (frame 11)`, async ({ page }) => {
     await start(page, state);

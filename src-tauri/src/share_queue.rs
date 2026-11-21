@@ -262,11 +262,7 @@ mod tests {
     use super::*;
 
     fn library() -> Mutex<Connection> {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::db::register_functions(&conn).unwrap();
-        conn.pragma_update(None, "foreign_keys", true).unwrap();
-        crate::migrations::migrate(&mut conn, None).unwrap();
-        Mutex::new(conn)
+        Mutex::new(crate::test_support::memory_db())
     }
 
     /// A queue folder of its own in the system's temp folder, removed with everything in it when
@@ -415,8 +411,9 @@ mod tests {
             .unwrap()
             .execute_batch("CREATE TEMP TRIGGER refuse BEFORE INSERT ON bookmarks WHEN NEW.url LIKE '%refused%' BEGIN SELECT RAISE(ABORT, 'refused'); END;")
             .unwrap();
-        share(&folder, "a.json", ID, "https://example.com/refused", "2026-10-20T09:41:00Z");
-        share(&folder, "b.json", "0b5e7c1d-2f4a-4e6b-8c9d-0e1f2a3b4c5d", "https://example.com/b", "2026-10-20T09:42:00Z");
+        let now = Utc::now().to_rfc3339();
+        share(&folder, "a.json", ID, "https://example.com/refused", &now);
+        share(&folder, "b.json", "0b5e7c1d-2f4a-4e6b-8c9d-0e1f2a3b4c5d", "https://example.com/b", &now);
         assert_eq!(Queue::new(folder.clone()).drain(&conn, |_| {}), Drained { saved: 1, rejected: 0, left: 1 });
         assert_eq!(bookmarks(&conn).len(), 1);
         assert_eq!(names(&folder), ["a.json"]);

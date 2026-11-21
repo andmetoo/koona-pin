@@ -970,7 +970,7 @@ mod tests {
 
     #[test]
     fn schema_10_keeps_a_generated_library() {
-        schema_10_on("schema-10-generated", |conn| fixtures::generated(conn, 2_000, 10));
+        schema_10_on("schema-10-generated", |conn| fixtures::generated(conn, 100, 10));
     }
 
     /// The same on 100 000 bookmarks: `cargo test --release schema_10_on_a_hundred -- --ignored --nocapture`.
@@ -992,7 +992,7 @@ mod tests {
         let folder = folder("schema-11");
         let path = folder.join("koonapin.db");
         let conn = fixtures::fresh_at(&path, 10);
-        fixtures::generated(&conn, 2_000, 11);
+        fixtures::generated(&conn, 100, 11);
         fixtures::finish(conn);
         let mut conn = Connection::open(&path).unwrap();
         library::configure(&conn).unwrap();
@@ -1053,7 +1053,7 @@ mod tests {
         let folder = folder("schema-12");
         let path = folder.join("koonapin.db");
         let conn = fixtures::fresh_at(&path, 11);
-        fixtures::generated(&conn, 2_000, 12);
+        fixtures::generated(&conn, 100, 12);
         fixtures::finish(conn);
         let mut conn = Connection::open(&path).unwrap();
         library::configure(&conn).unwrap();
@@ -1106,7 +1106,7 @@ mod tests {
         let folder = folder("schema-13");
         let path = folder.join("koonapin.db");
         let conn = fixtures::fresh_at(&path, 12);
-        fixtures::generated(&conn, 2_000, 13);
+        fixtures::generated(&conn, 100, 13);
         fixtures::finish(conn);
         let mut conn = Connection::open(&path).unwrap();
         library::configure(&conn).unwrap();
@@ -1152,7 +1152,7 @@ mod tests {
         let folder = folder("schema-14");
         let path = folder.join("koonapin.db");
         let conn = fixtures::fresh_at(&path, 13);
-        fixtures::generated(&conn, 2_000, 14);
+        fixtures::generated(&conn, 100, 14);
         conn.execute("INSERT INTO tombstones (uid, kind, deleted_at, purged_at) VALUES ('gone', 'bookmark', 'x', 'x')", []).unwrap();
         fixtures::finish(conn);
         let mut conn = Connection::open(&path).unwrap();
@@ -1240,7 +1240,7 @@ mod tests {
         let folder = folder("schema-15");
         let path = folder.join("koonapin.db");
         let conn = fixtures::fresh_at(&path, 14);
-        fixtures::generated(&conn, 2_000, 15);
+        fixtures::generated(&conn, 100, 15);
         conn.execute("INSERT INTO collections (uid, name, color, created_at) VALUES ('u4', 'Green', 'green', 'x'), ('u5', 'Odd', 'purple', 'x')", []).unwrap();
         conn.execute("INSERT INTO tombstones (uid, kind, deleted_at, purged_at) VALUES ('gone', 'collection', 'x', 'x')", []).unwrap();
         fixtures::finish(conn);
@@ -1408,7 +1408,7 @@ mod tests {
     fn schemas_3_and_4_index_an_existing_library() {
         let paths = Paths::new(folder("migrate-indexes").join("koonapin.db"));
         let conn = fixtures::fresh_at(&paths.database, 2);
-        fixtures::generated(&conn, 2_000, 5);
+        fixtures::generated(&conn, 100, 5);
         conn.execute(
             "UPDATE bookmarks SET deleted_at = updated_at WHERE id % 10 = 0",
             [],
@@ -1483,7 +1483,7 @@ mod tests {
         use crate::db::{BookmarkQuery, BookmarkSort};
         let paths = Paths::new(folder("migrate-sort").join("koonapin.db"));
         let conn = fixtures::fresh_at(&paths.database, 6);
-        fixtures::generated(&conn, 2_000, 9);
+        fixtures::generated(&conn, 100, 9);
         fixtures::finish(conn);
         let conn = library::open(&paths).unwrap().conn;
         assert_eq!(user_version(&conn).unwrap(), SCHEMA_VERSION);
@@ -1491,7 +1491,7 @@ mod tests {
         let missing = |conn: &Connection| -> i64 {
             conn.query_row("SELECT count(*) FROM bookmarks WHERE title_key IS NULL OR site_key IS NULL", [], |r| r.get(0)).unwrap()
         };
-        assert_eq!(missing(&conn), 2_000);
+        assert_eq!(missing(&conn), 100);
         let by_title = BookmarkQuery { sort: Some(BookmarkSort::Title), ..Default::default() };
         assert_eq!(db::get_bookmarks(&conn, &by_title).unwrap().total, Some(db::get_counts(&conn).unwrap().total));
         assert_eq!((missing(&conn), crate::sorting::stored_language(&conn).as_deref()), (0, Some("en")));

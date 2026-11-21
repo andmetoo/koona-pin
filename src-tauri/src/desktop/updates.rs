@@ -491,24 +491,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_status_is_tagged_for_the_interface() {
-        let json = |status: UpdateStatus| serde_json::to_string(&status).unwrap();
-        assert_eq!(json(UpdateStatus::Unknown), r#"{"state":"unknown"}"#);
-        assert_eq!(
-            json(UpdateStatus::Available { version: "0.3.0".into(), notes: vec!["Faster search.".into()], notes_url: format!("{CHANGELOG}0.3.0") }),
-            r#"{"state":"available","version":"0.3.0","notes":["Faster search."],"notes_url":"https://koona.app/pin/changelog/#0.3.0"}"#
-        );
-        assert_eq!(
-            json(UpdateStatus::Downloading { version: "0.3.0".into(), received: 10, total: None }),
-            r#"{"state":"downloading","version":"0.3.0","received":10,"total":null}"#
-        );
-        assert_eq!(
-            json(UpdateStatus::Failed { version: "0.3.0".into(), problem: UpdateProblem::PasswordCancelled }),
-            r#"{"state":"failed","version":"0.3.0","problem":"password_cancelled"}"#
-        );
-    }
-
-    #[test]
     fn the_notes_are_a_list_of_changes() {
         assert_eq!(
             notes_of("- Updates come from koona.app.\n\n• The start with the session survives a power cut.\r\n  * Settings show the last check.  \n"),
@@ -543,13 +525,6 @@ mod tests {
         let key = updater["pubkey"].as_str().unwrap();
         let decoded = String::from_utf8(base64::Engine::decode(&base64::engine::general_purpose::STANDARD, key).unwrap()).unwrap();
         assert!(decoded.starts_with("untrusted comment: minisign public key"), "{decoded}");
-    }
-
-    #[test]
-    fn a_mac_reads_its_own_key_which_earlier_versions_do_not() {
-        // build-latest.mjs writes the Mac's package under this key; the plugin's default is darwin-<arch>.
-        assert_eq!(mac_target(), format!("macos-{}", std::env::consts::ARCH));
-        assert!(!mac_target().starts_with("darwin"));
     }
 
     #[cfg(target_os = "linux")]

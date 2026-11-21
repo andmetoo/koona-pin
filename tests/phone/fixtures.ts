@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 // The phone in the browser demo (NP-072b): what the app's plugin and the koona-mobile bridge inject
 // on a phone, before the page's scripts — the platform with the phone's capabilities, a stub of the
@@ -219,3 +219,54 @@ export const systemBack = (page: Page) => page.evaluate(() => (window as unknown
 export const navPill = (page: Page) => page.locator("[data-navpill]");
 /** The screen on top (the others are hidden); on the Fold the detail pane's, else the list pane's. */
 export const topScreen = (page: Page) => page.locator("[data-screen]:not([hidden])").last();
+
+/**
+ * Long-press `target` with the mouse. When `expectedMenu` is provided, holds until it becomes
+ * visible instead of sleeping blindly; otherwise holds for 550ms.
+ */
+export async function longPress(
+  page: Page,
+  target: Locator,
+  expectedMenu?: Locator,
+  at?: { x: number; y: number },
+) {
+  const box = await target.boundingBox();
+  if (!box) throw new Error("longPress target has no bounding box");
+  const x = at ? box.x + at.x : box.x + box.width / 2;
+  const y = at ? box.y + at.y : box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  try {
+    if (expectedMenu) {
+      await expect(expectedMenu).toBeVisible({ timeout: 2000 });
+    } else {
+      await page.evaluate(() => new Promise((r) => setTimeout(r, 550)));
+    }
+  } finally {
+    await page.mouse.up();
+  }
+}
+
+/** Waits for running finite CSS animations/transitions on `locator` (or the document) to finish. */
+export async function waitForAnimations(page: Page, locator?: Locator) {
+  const wait = async (el: Element | Document) => {
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const anims = ("getAnimations" in el ? el.getAnimations({ subtree: true }) : []).filter((a) => {
+      const timing = a.effect?.getComputedTiming();
+      return !timing || Number.isFinite(timing.iterations ?? 1);
+    });
+    await Promise.allSettled(anims.map((a) => a.finished));
+  };
+  if (locator) {
+    await locator.evaluate(wait);
+  } else {
+    await page.evaluate(async () => {
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const anims = document.getAnimations().filter((a) => {
+        const timing = a.effect?.getComputedTiming();
+        return !timing || Number.isFinite(timing.iterations ?? 1);
+      });
+      await Promise.allSettled(anims.map((a) => a.finished));
+    });
+  }
+}

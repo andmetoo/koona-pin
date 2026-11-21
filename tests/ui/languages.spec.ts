@@ -152,15 +152,17 @@ test("search and the IME: the list waits for the finished character, Esc inside 
   await expect(cards).toHaveCount(all);
 
   // A character being composed searches for nothing yet.
+  await page.clock.install();
   await search.focus();
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Input.imeSetComposition", { text: "けんさく", selectionStart: 4, selectionEnd: 4 });
   await expect(search).toHaveValue("けんさく");
   // Longer than the list's own 150 ms wait: still the whole library.
-  await page.waitForTimeout(600);
+  await page.clock.runFor(600);
   await expect(cards).toHaveCount(all);
   await expect(page.getByText(/Nothing matches/)).toHaveCount(0);
   await cdp.send("Input.insertText", { text: "検索" });
+  await page.clock.runFor(300);
   await expect(search).toHaveValue("検索");
   await expect(page.getByText("Nothing matches “検索”")).toBeVisible();
 
@@ -176,7 +178,7 @@ test("search and the IME: the list waits for the finished character, Esc inside 
   await expect(search).toHaveValue("");
   await expect(cards).toHaveCount(all);
   await cdp.send("Input.insertText", { text: "" });
-  await page.waitForTimeout(400);
+  await page.clock.runFor(400);
   await expect(cards).toHaveCount(all);
 });
 

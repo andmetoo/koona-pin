@@ -1045,11 +1045,12 @@ mod tests {
         let port = listener.local_addr().unwrap().port();
         std::thread::spawn(move || {
             let _held: Vec<_> = listener.incoming().take(3).collect();
-            std::thread::sleep(Duration::from_secs(30));
+            std::thread::sleep(Duration::from_millis(300));
         });
+        let quick = Limits { timeout: Duration::from_millis(150), ..TEST };
         let started = Instant::now();
-        assert_eq!(fetch_with(&format!("http://127.0.0.1:{port}/"), &TEST).await.title, None);
-        assert!(started.elapsed() < Duration::from_secs(5), "{:?}", started.elapsed());
+        assert_eq!(fetch_with(&format!("http://127.0.0.1:{port}/"), &quick).await.title, None);
+        assert!(started.elapsed() < Duration::from_secs(2), "{:?}", started.elapsed());
     }
 
     #[tokio::test]

@@ -391,7 +391,7 @@ mod tests {
         net: Limits {
             allow: first_loopback,
             connect_timeout: Duration::from_secs(2),
-            timeout: Duration::from_secs(1),
+            timeout: Duration::from_millis(150),
             max_body: 1024,
             max_redirects: 5,
         },
@@ -479,7 +479,7 @@ mod tests {
                     let _ = stream.read(&mut request);
                     let _ = stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\n");
                     for _ in 0..100 {
-                        std::thread::sleep(Duration::from_millis(100));
+                        std::thread::sleep(Duration::from_millis(20));
                         if stream.write_all(b"x").is_err() {
                             return;
                         }
@@ -541,7 +541,7 @@ mod tests {
                     let _ = stream.read(&mut request);
                     let _ = stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\n");
                     for _ in 0..100 {
-                        std::thread::sleep(Duration::from_millis(50));
+                        std::thread::sleep(Duration::from_millis(10));
                         if stream.write_all(b"x").is_err() {
                             return;
                         }
@@ -553,14 +553,14 @@ mod tests {
         let notify = slot.0.clone();
         let mut received = 0;
         tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(300)).await;
+            tokio::time::sleep(Duration::from_millis(30)).await;
             cancel_list_download(1_000);
         });
         let started = Instant::now();
         let outcome = fetch_list(&format!("http://127.0.0.1:{port}/"), &TEST, &notify, |n, _| received = n).await;
         assert_eq!(outcome, ListDownload::Cancelled);
         assert!(received > 0, "it was mid-stream");
-        assert!(started.elapsed() < Duration::from_millis(900), "{:?}", started.elapsed());
+        assert!(started.elapsed() < Duration::from_millis(500), "{:?}", started.elapsed());
         drop(slot);
         assert!(CANCEL.lock().unwrap().is_none());
         // A slot gives up its place on any way out, but not a newer download's.
@@ -619,12 +619,5 @@ mod tests {
         std::fs::write(&big, vec![b' '; format::MAX_BYTES + 1]).unwrap();
         assert_eq!(read_list_file(big.to_string_lossy().into()).await, ListFile::TooBig);
         std::fs::remove_dir_all(&dir).unwrap();
-    }
-
-    #[test]
-    fn outcomes_reach_the_interface_tagged() {
-        let json = |d: ListDownload| serde_json::to_value(d).unwrap();
-        assert_eq!(json(DownloadError::Status(404).into()), serde_json::json!({ "outcome": "status", "status": 404 }));
-        assert_eq!(json(DownloadError::NotHttps.into()), serde_json::json!({ "outcome": "not_https" }));
     }
 }

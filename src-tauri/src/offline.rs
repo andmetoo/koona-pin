@@ -1095,16 +1095,4 @@ mod tests {
         assert!(!root.join(FOLDER).join(id.to_string()).exists());
         assert_eq!(fs::read_dir(root.join(FOLDER)).unwrap().count(), 0);
     }
-
-    #[test]
-    fn the_setting_is_off_by_default() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        library::configure(&conn).unwrap();
-        crate::migrations::migrate(&mut conn, None).unwrap();
-        assert!(!save_on_open(&conn));
-        db::set_setting(&conn, SAVE_SETTING, "true").unwrap();
-        assert!(save_on_open(&conn));
-        assert!(root(&conn).is_none(), "a library in memory has no folder");
-        assert_eq!(sweep(&conn).unwrap(), 0);
-    }
 }

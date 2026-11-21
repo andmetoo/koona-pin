@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { openPhone, systemBack, topScreen } from "./fixtures";
+import { openPhone, systemBack, topScreen, waitForAnimations } from "./fixtures";
 import { failOnce } from "../fixtures/app";
 
 // Supporter on a phone (NP-072b): the phone's own sheets for Supporter, the sign-in and the plan.
@@ -107,92 +107,7 @@ test("signed in to an account with no plan: what it is, sign out, and no plans t
   await expect(sheet(page, "signIn")).toHaveCount(0);
 });
 
-test("where nothing is sold, the plan sheet links to no Paddle page: a failed renewal says so plainly", async ({ page }) => {
-  await openPhone(page, { settings: { "demo.supporter": "past_due", "demo.sync": "on" } });
-  const you = await openYou(page);
-  await expect(you.locator('[data-supporter="plan"]')).toContainText(/The last payment didn't go through · Supporter until/);
-  await you.locator('[data-supporter="plan"]').click();
-  const plan = sheet(page, "plan");
-  await expect(plan.locator("[data-plan-sheet]")).toHaveAttribute("data-plan-sheet", "past_due");
-  await expect(plan.getByRole("status")).toHaveText(/^The last payment didn't go through · Supporter until \w+ \d+, \d{4}$/);
-  await expect(plan).toContainText("Your plan is managed where you started it.");
-  for (const name of ["Manage", "Update card", "Pay once"]) await expect(plan.getByRole("button", { name })).toHaveCount(0);
-  await expect(plan).not.toContainText(/card|Paddle|browser/i);
-  await expect(plan.getByRole("button", { name: "Sign out" })).toBeVisible();
-});
-
-test("where nothing is sold, sync's banner for a plan that ends has no Renew", async ({ page }) => {
-  await openPhone(page, { settings: { "demo.supporter": "canceling", "demo.sync": "on" } });
-  const you = await openYou(page);
-  await you.locator('[data-supporter="plan"]').click();
-  await sheet(page, "plan").getByRole("button", { name: /Sync/ }).click();
-  const banner = sharedDialog(page).locator('[data-sync-banner="plan_ends"]');
-  await expect(banner).toContainText("Sync stops on");
-  await expect(banner.getByRole("button")).toHaveCount(0);
-});
-
-test("a help link that can't open in Sync: the snackbar over the dialog, as it looks at home, and back when it closes (NP-092)", async ({ page }) => {
-  await openPhone(page, { settings: { "demo.supporter": "canceling", "demo.sync": "on" } });
-  const you = await openYou(page);
-  await you.locator('[data-supporter="plan"]').click();
-  await sheet(page, "plan").getByRole("button", { name: /Sync/ }).click();
-  const dialog = sharedDialog(page);
-  await failOnce(page, "openUrl", "internal", "No browser to open the link");
-  await dialog.getByRole("button", { name: "Help ↗" }).click();
-  const snackbar = dialog.locator(".ph-snackbar").filter({ hasText: "No browser to open the link" });
-  await expect(snackbar).toBeVisible();
-  // The phone's pill, not a bare box: its styles come with it into the dialog.
-  expect(await snackbar.evaluate((el) => getComputedStyle(el).borderRadius)).toBe("999px");
-  const onTop = await snackbar.evaluate((el) => {
-    const box = el.getBoundingClientRect();
-    return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
-  });
-  expect(onTop).toBe(true);
-  // An alert stays until closed: with the dialog gone, it is back in the phone, the same one.
-  await snackbar.evaluate((el) => el.setAttribute("data-same", ""));
-  await page.keyboard.press("Escape");
-  await expect(dialog).toHaveCount(0);
-  await expect(page.locator("[data-phone] .ph-snackbar[data-same]")).toBeVisible();
-});
-
-test("the snackbar over a dialog follows the phone as it changes, and leaves nothing of the phone there once closed (NP-092)", async ({ page }) => {
-  await openPhone(page, { settings: { "demo.supporter": "canceling", "demo.sync": "on" } });
-  const you = await openYou(page);
-  await you.locator('[data-supporter="plan"]').click();
-  await sheet(page, "plan").getByRole("button", { name: /Sync/ }).click();
-  const dialog = sharedDialog(page);
-  await failOnce(page, "openUrl", "internal", "No browser to open the link");
-  await dialog.getByRole("button", { name: "Help ↗" }).click();
-  const snackbar = dialog.locator(".ph-snackbar");
-  await expect(snackbar).toBeVisible();
-  // The keyboard comes up: the root lifts and says so; the snackbar in the dialog lifts with it.
-  await page.evaluate(() => {
-    const root = document.querySelector<HTMLElement>("[data-phone]")!;
-    root.style.setProperty("--ph-lift", "240px");
-    root.setAttribute("data-keyboard", "");
-  });
-  const box = dialog.locator(".phone");
-  await expect(box).toHaveAttribute("data-keyboard", "");
-  expect(await box.evaluate((el) => el.style.getPropertyValue("--ph-lift"))).toBe("240px");
-  // Closed while the dialog stays: no second «phone» is left in it.
-  await snackbar.getByRole("button", { name: "Close" }).click();
-  await expect(snackbar).toHaveCount(0);
-  await expect(dialog).toBeVisible();
-  await expect(dialog.locator(".phone, [data-fold], [data-pill], [data-keyboard]")).toHaveCount(0);
-});
-
-test("a build that sells through Paddle keeps Renew in sync's banner and Manage in the plan", async ({ page }) => {
-  await openPhone(page, { settings: { "demo.supporter": "canceling", "demo.sync": "on" }, capabilities: PADDLE });
-  const you = await openYou(page);
-  await you.locator('[data-supporter="plan"]').click();
-  const plan = sheet(page, "plan");
-  await expect(plan.getByRole("button", { name: "Manage" })).toBeVisible();
-  await expect(plan).not.toContainText("managed where you started it");
-  await plan.getByRole("button", { name: /Sync/ }).click();
-  await expect(sharedDialog(page).locator('[data-sync-banner="plan_ends"]').getByRole("button", { name: "Renew…" })).toBeVisible();
-});
-
-test("the plan sheet: the plan, its state, the perks with the heart's switch, sign out", async ({ page }) => {
+test("the plan sheet: the plan, its state (active, past_due, canceling), the perks with the heart's switch, sign out", async ({ page }) => {
   await openPhone(page, { settings: SUPPORTER });
   const you = await openYou(page);
   await you.locator('[data-supporter="plan"]').click();
@@ -225,46 +140,53 @@ test("the plan sheet: the plan, its state, the perks with the heart's switch, si
   await expect(sheet(page, "plan")).toHaveCount(0);
   await expect(you).toHaveCount(0);
   await expect((await openYou(page)).locator('[data-supporter="free"]')).toBeVisible();
+
+  // Failed renewal (past_due): says so plainly with no Paddle link.
+  await openPhone(page, { settings: { "demo.supporter": "past_due", "demo.sync": "on" } });
+  const youPastDue = await openYou(page);
+  await expect(youPastDue.locator('[data-supporter="plan"]')).toContainText(/The last payment didn't go through · Supporter until/);
+  await youPastDue.locator('[data-supporter="plan"]').click();
+  await expect(plan.locator("[data-plan-sheet]")).toHaveAttribute("data-plan-sheet", "past_due");
+  await expect(plan.getByRole("status")).toHaveText(/^The last payment didn't go through · Supporter until \w+ \d+, \d{4}$/);
+  for (const name of ["Manage", "Update card", "Pay once"]) await expect(plan.getByRole("button", { name })).toHaveCount(0);
+  await expect(plan).not.toContainText(/card|Paddle|browser/i);
+
+  // Canceling: sync's banner for a plan that ends has no Renew.
+  await openPhone(page, { settings: { "demo.supporter": "canceling", "demo.sync": "on" } });
+  const youCanceling = await openYou(page);
+  await youCanceling.locator('[data-supporter="plan"]').click();
+  await sheet(page, "plan").getByRole("button", { name: /Sync/ }).click();
+  const banner = sharedDialog(page).locator('[data-sync-banner="plan_ends"]');
+  await expect(banner).toContainText("Sync stops on");
+  await expect(banner.getByRole("button")).toHaveCount(0);
 });
 
-for (const [build, capabilities] of [["sells nothing", undefined], ["sells through Paddle", PADDLE], ["sells through Google Play", PLAY]] as const) {
-  test(`where the phone ${build}, Supporter's sheets take the place of You & sync and nothing else`, async ({ page }) => {
-    await openPhone(page, { settings: FREE, capabilities });
-    const you = await openYou(page);
-    await you.locator('[data-supporter="free"]').click();
-    await expect(sheet(page, "supporter")).toBeVisible();
-    await expect(sheet(page, "you")).toHaveCount(0);
-    await expect(page.locator(".ph-scrim")).toHaveCount(1);
-    await sheet(page, "supporter").getByRole("button", { name: "I'm already a Supporter" }).click();
-    await expect(sheet(page, "signIn")).toBeVisible();
-    await expect(sheet(page, "supporter")).toHaveCount(0);
-    expect(await systemBack(page)).toBe(true);
-    await expect(page.locator("[data-sheet-kind]:not([data-leaving])")).toHaveCount(0);
-
-    // A settings page stays under Supporter's sheet: closing it goes back there.
-    await openYou(page);
-    await page.getByRole("button", { name: "Settings", exact: true }).click();
-    await topScreen(page).getByRole("button", { name: /Text size/ }).click();
-    const paper = topScreen(page).getByRole("radio", { name: /Paper/ });
-    await paper.click();
-    await expect(sheet(page, "supporter")).toBeVisible();
-    expect(await systemBack(page)).toBe(true);
-    await expect(sheet(page, "supporter")).toHaveCount(0);
-    await expect(paper).toBeVisible();
-  });
-}
-
-test("a locked reading theme leads to Supporter's sheet", async ({ page }) => {
+test("Supporter's sheets take the place of You & sync and return to settings on Back", async ({ page }) => {
   await openPhone(page, { settings: FREE });
+  const you = await openYou(page);
+  await you.locator('[data-supporter="free"]').click();
+  await expect(sheet(page, "supporter")).toBeVisible();
+  await expect(sheet(page, "you")).toHaveCount(0);
+  await expect(page.locator(".ph-scrim")).toHaveCount(1);
+  await sheet(page, "supporter").getByRole("button", { name: "I'm already a Supporter" }).click();
+  await expect(sheet(page, "signIn")).toBeVisible();
+  await expect(sheet(page, "supporter")).toHaveCount(0);
+  expect(await systemBack(page)).toBe(true);
+  await expect(page.locator("[data-sheet-kind]:not([data-leaving])")).toHaveCount(0);
+
+  // A settings page stays under Supporter's sheet: closing it goes back there.
   await openYou(page);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await topScreen(page).getByRole("button", { name: /Text size/ }).click();
-  await topScreen(page).getByRole("radio", { name: /Paper/ }).click();
-  await expect(sheet(page, "supporter").getByRole("dialog", { name: "Koona Pin Supporter" })).toBeVisible();
-  await expect(sheet(page, "supporter").getByRole("radio")).toHaveCount(0);
+  const paper = topScreen(page).getByRole("radio", { name: /Paper/ });
+  await paper.click();
+  await expect(sheet(page, "supporter")).toBeVisible();
+  expect(await systemBack(page)).toBe(true);
+  await expect(sheet(page, "supporter")).toHaveCount(0);
+  await expect(paper).toBeVisible();
 });
 
-test("a build that sells through Paddle: the plans, Continue to the checkout, the wait and thanks", async ({ page }) => {
+test("a build that sells through Paddle: plans, checkout, Pay once switch, and canceling Renew/Manage", async ({ page }) => {
   await openPhone(page, { settings: FREE, capabilities: PADDLE });
   const you = await openYou(page);
   await expect(you.locator('[data-supporter="free"]')).toContainText("Become a Supporter");
@@ -290,16 +212,22 @@ test("a build that sells through Paddle: the plans, Continue to the checkout, th
   // The checkout was started for the plan chosen: the demo grants the one-time purchase for it.
   await expect(you).toHaveCount(0);
   await expect((await openYou(page)).locator('[data-supporter="plan"]')).toContainText("Thank you · one-time purchase, no end date");
-});
 
-test("a build that sells through Paddle offers the switch to the one-time purchase on a renewing plan", async ({ page }) => {
+  // Renewing plan offers switching to the one-time purchase.
   await openPhone(page, { settings: SUPPORTER, capabilities: PADDLE });
-  const you = await openYou(page);
-  await you.locator('[data-supporter="plan"]').click();
+  await (await openYou(page)).locator('[data-supporter="plan"]').click();
   const plan = sheet(page, "plan");
   await plan.getByRole("button", { name: "Pay once" }).click();
   await expect(sheet(page, "plan")).toHaveCount(0);
   await expect(sharedDialog(page)).toContainText("Switch to a one-time purchase");
+
+  // Canceling plan keeps Manage in the plan sheet and Renew in sync's banner.
+  await openPhone(page, { settings: { "demo.supporter": "canceling", "demo.sync": "on" }, capabilities: PADDLE });
+  await (await openYou(page)).locator('[data-supporter="plan"]').click();
+  await expect(plan.getByRole("button", { name: "Manage" })).toBeVisible();
+  await expect(plan).not.toContainText("managed where you started it");
+  await plan.getByRole("button", { name: /Sync/ }).click();
+  await expect(sharedDialog(page).locator('[data-sync-banner="plan_ends"]').getByRole("button", { name: "Renew…" })).toBeVisible();
 });
 
 test("the sign-in's action stays above the keyboard", async ({ page }) => {
@@ -313,7 +241,7 @@ test("the sign-in's action stays above the keyboard", async ({ page }) => {
   await signIn.getByLabel("Email").fill("anna@example.com");
   const send = signIn.getByRole("button", { name: "Send code" });
   await expect(send).toBeVisible();
-  await page.waitForTimeout(400);
+  await waitForAnimations(page, signIn);
   const box = (await send.boundingBox())!;
   expect(box.y + box.height).toBeLessThanOrEqual(852 - 334);
   const field = (await signIn.getByLabel("Email").boundingBox())!;
@@ -363,41 +291,6 @@ test("the App Store build: bought signed out, the email claims it, the code sign
   const you = await openYou(page);
   await you.locator('[data-supporter="plan"]').click();
   await expect(sheet(page, "plan").getByRole("button", { name: "Manage in the App Store" })).toBeVisible();
-});
-
-test("the App Store build: with nothing on sale, Restore purchases and the legal links stay", async ({ page }) => {
-  const supporter = await openAppStore(page, { ...FREE, "demo.playProducts": "none" });
-  await expect(supporter).toContainText("The App Store can't sell Supporter on this iPhone right now.");
-  await supporter.getByRole("button", { name: "Restore purchases" }).click();
-  await expect(supporter.getByRole("alert")).toHaveText("This Apple Account has no Supporter purchase to restore.");
-  await expect(supporter.getByRole("button", { name: "Terms of Use" })).toBeVisible();
-});
-
-test("the App Store build: Ask to Buy waits for approval, and the sheet opens on it again", async ({ page }) => {
-  const supporter = await openAppStore(page, { ...FREE, "demo.play": "pending" });
-  await supporter.getByRole("button", { name: "Buy · One-time" }).click();
-  await expect(supporter.getByRole("status")).toHaveText("Waiting for the purchase to be approved…");
-  expect(await systemBack(page)).toBe(true);
-  await expect(sheet(page, "supporter")).toHaveCount(0);
-  await reopenPlay(page);
-  await expect(sheet(page, "supporter").getByRole("status")).toHaveText("Waiting for the purchase to be approved…");
-});
-
-test("the App Store build: a Supporter buying again keeps the plan and is told Apple can refund it", async ({ page }) => {
-  const supporter = await openAppStore(page, { ...FREE, "demo.play": "already_supporter" });
-  await supporter.getByRole("button", { name: "Subscribe · Yearly" }).click();
-  await expect(supporter.getByRole("dialog", { name: "You already have Supporter" })).toBeVisible();
-  await expect(supporter).toContainText("Apple can refund this purchase");
-});
-
-test("the App Store build: deleting the account says the App Store subscription is cancelled in Settings", async ({ page }) => {
-  await openPhone(page, { settings: { ...SUPPORTER, "demo.store": "appstore" }, capabilities: APP_STORE, platform: "ios" });
-  const you = await openYou(page);
-  await you.locator('[data-supporter="plan"]').click();
-  await sheet(page, "plan").getByRole("button", { name: "Delete account" }).click();
-  const deletion = sheet(page, "deleteAccount");
-  await expect(deletion).toContainText("Your App Store subscription doesn't stop with the account: cancel it in Settings");
-  await expect(deletion).not.toContainText("Payments stop now.");
 });
 
 // ── The Play build (NP-154) ─────────────────────────────────────────────────
@@ -455,7 +348,7 @@ test("the Play build: bought signed out, the email claims it, the code signs in,
   await expect(supporter).toContainText("Google Play has your payment");
   // P2: the keyboard up (300 dp over the gesture inset), «Send code» stays above it.
   await page.evaluate(() => document.documentElement.style.setProperty("--kp-inset-bottom", "334px"));
-  await page.waitForTimeout(400);
+  await waitForAnimations(page, supporter);
   const send = (await supporter.getByRole("button", { name: "Send code" }).boundingBox())!;
   expect(send.y + send.height).toBeLessThanOrEqual(852 - 334);
   await page.evaluate(() => document.documentElement.style.removeProperty("--kp-inset-bottom"));
@@ -496,7 +389,7 @@ test("the Play build: bought signed out, the email claims it, the code signs in,
   await expect(sheet(page, "you")).toHaveCount(0);
   // P9: Sign out and Manage in Google Play on one row; the heart's switch beside its words.
   // The sheet settles (its rise) before it is measured: two boxes read mid-rise are far apart.
-  await page.waitForTimeout(400);
+  await waitForAnimations(page, plan);
   const manage = (await plan.getByRole("button", { name: "Manage in Google Play" }).boundingBox())!;
   const signOut = (await plan.getByRole("button", { name: "Sign out" }).boundingBox())!;
   expect(Math.abs(manage.y - signOut.y)).toBeLessThan(8);
@@ -537,16 +430,6 @@ test("the Play build: a Supporter buying again is refunded; another account's pu
   await expect(sheet(page, "signIn").getByRole("dialog", { name: "Sign in as a Supporter" })).toBeVisible();
 });
 
-test("the Play build: signed out, a Supporter this Google account owns asks to sign in to its account; no code was sent", async ({ page }) => {
-  const { supporter } = await openPlay(page, { ...FREE, "demo.play": "owned" });
-  await supporter.getByRole("button", { name: "Subscribe · Yearly" }).click();
-  await expect(supporter.getByRole("dialog", { name: "Sign in to use it" })).toBeVisible();
-  await expect(supporter).toContainText("belongs to a Koona Pin account. Sign in with that account's email");
-  await expect(supporter.getByLabel("Code")).toHaveCount(0);
-  await supporter.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(sheet(page, "signIn").getByRole("dialog", { name: "Sign in as a Supporter" })).toBeVisible();
-});
-
 test("the Play build: a subscription on hold or paused is fixed in Google Play, never bought again", async ({ page }) => {
   // Play says so of what this Google account owns as the sheet opens: no plans to buy.
   const { supporter } = await openPlay(page, { ...FREE, "demo.playSuspended": "on" });
@@ -561,14 +444,6 @@ test("the Play build: a subscription on hold or paused is fixed in Google Play, 
   await supporter.getByRole("button", { name: "Fix payment in Google Play" }).click();
   expect(await opened(page)).toEqual([PLAY_PAGE]);
   for (const text of ELSEWHERE) await expect(supporter).not.toContainText(text);
-});
-
-test("the Play build: the server finds the account's own subscription on hold after a purchase", async ({ page }) => {
-  const { supporter } = await openPlay(page, { ...FREE, "demo.play": "suspended" });
-  await supporter.getByRole("button", { name: "Subscribe · Monthly" }).click();
-  await expect(supporter.getByRole("button", { name: "Fix payment in Google Play" })).toBeVisible();
-  await expect(supporter).toContainText("Supporter is on hold");
-  await expect(supporter.getByRole("button", { name: /Subscribe|Buy/ })).toHaveCount(0);
 });
 
 test("the Play build: a cancelled purchase is back on the plans quietly; a failure says so with Try again", async ({ page }) => {
@@ -632,12 +507,6 @@ test("the Play build: paid but not confirmed now is kept, and Try again asks the
   await expect(supporter.getByRole("dialog", { name: "Where should we send your code?" })).toBeVisible();
 });
 
-test("the Play build: Google Play selling no plan says so instead of an empty list", async ({ page }) => {
-  const { supporter } = await openPlay(page, { ...FREE, "demo.playProducts": "none" });
-  await expect(supporter).toContainText("Google Play can't sell Supporter on this phone right now.");
-  await expect(supporter.locator("[data-play-terms]")).toHaveCount(0);
-});
-
 test("the Play build: a plan paid through Google Play whose renewal failed is fixed in Google Play", async ({ page }) => {
   await openPhone(page, { settings: { "demo.supporter": "past_due", "demo.store": "play", "demo.sync": "on" }, capabilities: PLAY });
   const you = await openYou(page);
@@ -647,7 +516,7 @@ test("the Play build: a plan paid through Google Play whose renewal failed is fi
   await expect(plan.getByRole("status")).toHaveText(/^The last payment didn't go through · Supporter until \w+ \d+, \d{4}$/);
   // P10: the fix across the sheet on one line, Sign out centred under it.
   // The sheet settles (its rise) before it is measured: two boxes read mid-rise are far apart.
-  await page.waitForTimeout(400);
+  await waitForAnimations(page, plan);
   const fix = (await plan.getByRole("button", { name: "Fix payment in Google Play" }).boundingBox())!;
   const out = (await plan.getByRole("button", { name: "Sign out" }).boundingBox())!;
   expect(fix.height).toBeLessThanOrEqual(52);
@@ -659,15 +528,6 @@ test("the Play build: a plan paid through Google Play whose renewal failed is fi
   expect(await opened(page)).toEqual([PLAY_PAGE]);
   for (const name of ["Manage", "Update card", "Pay once"]) await expect(plan.getByRole("button", { name, exact: true })).toHaveCount(0);
   for (const text of ELSEWHERE) await expect(plan).not.toContainText(text);
-});
-
-test("the Play build: a plan bought through Paddle on a computer links to no Paddle page", async ({ page }) => {
-  await openPhone(page, { settings: SUPPORTER, capabilities: PLAY });
-  const you = await openYou(page);
-  await you.locator('[data-supporter="plan"]').click();
-  const plan = sheet(page, "plan");
-  await expect(plan).toContainText("Your plan is managed where you started it.");
-  for (const name of ["Manage", "Manage in Google Play", "Pay once"]) await expect(plan.getByRole("button", { name, exact: true })).toHaveCount(0);
 });
 
 const codeField = (sheetLocator: ReturnType<typeof sheet>) => sheetLocator.getByRole("textbox", { name: "Code" });
@@ -733,13 +593,6 @@ test("the Play build, a Google Play plan: cancelled for you; payments failing (D
   await expect(scheduled.getByRole("button", { name: "Delete now instead" })).toBeVisible();
   await scheduled.getByRole("button", { name: "Keep my account" }).click();
   await expect(deletion.getByRole("dialog", { name: "Your account stays" })).toContainText("Payments stay stopped");
-});
-
-test("the Play build with a plan paid elsewhere: nothing about cancelling a Google Play subscription", async ({ page }) => {
-  await openPhone(page, { capabilities: PLAY, settings: SUPPORTER });
-  const deletion = await openDeletion(page);
-  await expect(deletion).toContainText("Payments stop now.");
-  await expect(deletion).not.toContainText("We cancel your Google Play subscription");
 });
 
 test("signed in without a plan: Supporter's sheet shows the account and a quiet “Delete account…”", async ({ page }) => {

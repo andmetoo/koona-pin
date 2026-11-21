@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { dropPoint, openApp } from "../fixtures/app";
+import { waitForAnimations } from "../phone/fixtures";
 
 // The list dialog (NP-138, frames K10a, K10b and K3) in the browser preview: a list request goes
 // through openRequests as the entry points send it; the demo previews and imports, and tests
@@ -70,7 +71,7 @@ test("a list: the preview (K10), Accept, the report, then “Show collection”"
   await expect(d.getByRole("checkbox", { name: "Keep new in Inbox" })).not.toBeChecked();
   await expect(d.locator("footer")).toContainText("3 links and 2 feeds will be added.");
   // 600 wide and 640 high at 1200×800: one box for every state.
-  await page.waitForTimeout(300);
+  await waitForAnimations(page, d);
   const first = await box(page);
   expect([first.width, first.height]).toEqual([600, 640]);
 
@@ -123,7 +124,7 @@ test("a list: the preview (K10), Accept, the report, then “Show collection”"
   await expect(d.locator("footer").getByRole("button")).toHaveText(["Close"]);
   await expect(d.locator("[data-list-choices]")).toHaveCount(0);
   // A dialog of its own, after its 200 ms appearance: the same box.
-  await page.waitForTimeout(300);
+  await waitForAnimations(page, d);
   expect(await box(page)).toEqual(first);
   await d.locator("footer").getByRole("button", { name: "Close" }).click();
   await expect(d).toHaveCount(0);
@@ -296,7 +297,7 @@ test("an open list dialog refuses another list in every state, aloud; an import 
   await d.getByRole("button", { name: "Accept" }).click();
   await expect(d.getByRole("status")).toHaveText("Importing the list…");
   await page.keyboard.press("Escape");
-  await page.waitForTimeout(200);
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   await expect(d.getByRole("status")).toHaveText("Importing the list…");
   // The dialog's own «×»: a notice over the dialog has a Close of its own.
   await expect(d.locator("header").getByRole("button", { name: "Close" })).toBeDisabled();
@@ -331,7 +332,7 @@ test("a koonapin:// link asks first; Download fails with its reason, Try again s
   await expect(d.locator("[data-list-address]")).toHaveText(url);
   // Nothing went over the network before Download.
   expect(await page.evaluate(() => (window as unknown as { downloads: string[] }).downloads)).toEqual([]);
-  await page.waitForTimeout(300);
+  await waitForAnimations(page, d);
   const first = await box(page);
 
   await d.getByRole("button", { name: "Download" }).click();

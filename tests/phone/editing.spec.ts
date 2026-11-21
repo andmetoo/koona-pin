@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { navPill, openPhone, systemBack, topScreen } from "./fixtures";
+import { longPress, navPill, openPhone, systemBack, topScreen, waitForAnimations } from "./fixtures";
 
 // Editing and adding on the phone (NP-072b, frames B1, C1, N1): the Edit link sheet, the
 // collection picker and the New link sheet, on the demo backend.
@@ -13,12 +13,9 @@ const snackbar = (page: Page) => page.locator("[data-snackbar]");
 async function fromMenu(page: Page, action: string) {
   const row = topScreen(page).locator("[data-bookmark-id]").first();
   await expect(row).toBeVisible();
-  const box = (await row.boundingBox())!;
-  await page.mouse.move(box.x + 40, box.y + 20);
-  await page.mouse.down();
-  await page.waitForTimeout(650);
-  await page.mouse.up();
-  await page.locator('[data-sheet-kind="bookmarkMenu"]').getByRole("button", { name: action }).click();
+  const menu = page.locator('[data-sheet-kind="bookmarkMenu"]');
+  await longPress(page, row, menu, { x: 40, y: 20 });
+  await menu.getByRole("button", { name: action }).click();
   return Number(await row.getAttribute("data-bookmark-id"));
 }
 
@@ -223,7 +220,7 @@ test("New link: Save link stays above the keyboard", async ({ page }) => {
   await page.evaluate(() => document.documentElement.style.setProperty("--kp-inset-bottom", "334px"));
   const save = newLink(page).getByRole("button", { name: "Save link" });
   await expect(save).toBeVisible();
-  await page.waitForTimeout(400);
+  await waitForAnimations(page, newLink(page));
   const box = (await save.boundingBox())!;
   expect(box.y + box.height).toBeLessThanOrEqual(852 - 334);
 });

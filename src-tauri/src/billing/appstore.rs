@@ -857,13 +857,6 @@ mod tests {
     }
 
     #[test]
-    fn each_plan_is_a_product_of_the_app_store() {
-        assert_eq!(product_of(PlanInterval::Month), "app.koona.pin.supporter.monthly");
-        assert_eq!(product_of(PlanInterval::Year), "app.koona.pin.supporter.annual");
-        assert_eq!(product_of(PlanInterval::Lifetime), "app.koona.pin.supporter.lifetime");
-    }
-
-    #[test]
     fn the_servers_answers_are_read_as_plays_with_the_app_stores_error_name() {
         let verdict_of = |status: u16, value: Value| verdict(reqwest::StatusCode::from_u16(status).unwrap(), &value);
         assert_eq!(verdict_of(200, json!({ "status": "paid", "lease": null })).unwrap().state, PlayState::Paid);

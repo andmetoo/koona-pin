@@ -68,38 +68,42 @@ test("a page with a feed: its real title, “Follow” off, and saving makes exa
 });
 
 test("a link typed by hand asks nothing; a pasted one asks once, and editing it asks no more", async ({ page }) => {
+  await page.clock.install();
   await page.getByRole("complementary").getByRole("button", { name: "New link", exact: true }).click();
   await field(page).pressSequentially("fieldnotes.example.c", { delay: 30 });
-  await page.waitForTimeout(600);
+  await page.clock.runFor(600);
   await field(page).pressSequentially("om/walking-the-old-railway", { delay: 30 });
-  await page.waitForTimeout(600);
+  await page.clock.runFor(600);
   expect(await calls(page, "previewLink")).toEqual([]);
   await expect(offer(page)).toHaveCount(0);
 
   await field(page).fill("");
   await paste(page, "fieldnotes.example.com/abc");
+  await page.clock.runFor(600);
   await expect(offer(page)).toContainText("Field Notes has a feed");
   await field(page).press("Backspace");
-  await page.waitForTimeout(600);
+  await page.clock.runFor(600);
   expect(await calls(page, "previewLink")).toEqual(['previewLink "https://fieldnotes.example.com/abc"']);
 
   // A paste that changes nothing leaves the next typed character a typed one.
   await field(page).fill("fieldnotes.example.com/ab");
   await paste(page, "fieldnotes.example.com/ab");
   await field(page).press("x");
-  await page.waitForTimeout(600);
+  await page.clock.runFor(600);
   expect(await calls(page, "previewLink")).toEqual(['previewLink "https://fieldnotes.example.com/abc"']);
 });
 
 test("a typed link is looked up on Enter, not saved; Enter again saves it", async ({ page }) => {
+  await page.clock.install();
   await page.getByRole("complementary").getByRole("button", { name: "New link", exact: true }).click();
   await field(page).pressSequentially("fieldnotes.example.com/walking-the-old-railway");
-  await page.waitForTimeout(600);
+  await page.clock.runFor(600);
   expect(await calls(page, "previewLink")).toEqual([]);
   await field(page).press("Enter");
   await expect(sheet(page)).toBeVisible();
   // While it is looked up saving waits, so it cannot save before the feed is known.
   await expect(sheet(page).getByRole("button", { name: "Save link" })).toBeDisabled();
+  await page.clock.runFor(600);
   await expect(offer(page)).toContainText("Field Notes has a feed");
   await expect(sheet(page).locator("[data-add-preview=new]")).toContainText("Walking the old railway");
   expect(await calls(page, "previewLink")).toEqual(['previewLink "https://fieldnotes.example.com/walking-the-old-railway"']);

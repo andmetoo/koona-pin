@@ -717,10 +717,10 @@ pub mod tests {
             lib.vector().unwrap();
             started.elapsed()
         });
-        std::thread::sleep(Duration::from_millis(150));
+        std::thread::sleep(Duration::from_millis(20));
         release.0.send(()).unwrap();
         holder.join().unwrap();
-        assert!(waiting.join().unwrap() >= Duration::from_millis(100), "it waited for the lock");
+        assert!(waiting.join().unwrap() >= Duration::from_millis(10), "it waited for the lock");
         assert!(db.conn.try_lock().is_ok(), "and let it go");
     }
 

@@ -22,7 +22,7 @@ The property test found two divergences, both fixed (see design change 2). `test
 
 ## Numbers at 100 000 bookmarks
 
-`cargo test -p koona-sync --release --test measure -- --ignored --nocapture`. The test library has 100 000 bookmarks, 30 collections, 300 tags and 200 000 tag links. Its text is longer than the app's own test library: 224 MB here, against about 110 MB for 100 000 bookmarks in `library.rs`. The settings are as in `library::configure` (WAL, FULL, 64 MiB cache), on an M-series Mac.
+`cargo test -p koona-sync --release --test integration measure -- --ignored --nocapture`. The test library has 100 000 bookmarks, 30 collections, 300 tags and 200 000 tag links. Its text is longer than the app's own test library: 224 MB here, against about 110 MB for 100 000 bookmarks in `library.rs`. The settings are as in `library::configure` (WAL, FULL, 64 MiB cache), on an M-series Mac.
 
 | | |
 |---|---|

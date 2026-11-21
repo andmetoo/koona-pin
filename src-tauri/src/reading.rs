@@ -103,10 +103,7 @@ mod tests {
     use crate::journal::{Action, Journal, Undo};
 
     fn library() -> Connection {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::library::configure(&conn).unwrap();
-        crate::migrations::migrate(&mut conn, None).unwrap();
-        conn
+        crate::test_support::memory_db()
     }
 
     fn add(conn: &Connection, path: &str) -> i64 {

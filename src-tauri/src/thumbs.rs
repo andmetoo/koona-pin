@@ -1258,11 +1258,12 @@ mod tests {
 
     #[test]
     fn every_input_format_becomes_a_preview_and_an_icon() {
-        let source = picture(800, 600, 255);
+        let wide = picture(680, 510, 255);
+        let small = picture(160, 120, 255);
         for format in [ImageFormat::Jpeg, ImageFormat::Png, ImageFormat::Gif, ImageFormat::WebP, ImageFormat::Bmp, ImageFormat::Ico] {
-            // ICO holds 256 px at most.
-            let source = if format == ImageFormat::Ico { picture(200, 150, 255) } else { source.clone() };
-            let bytes = encoded(&source, format);
+            // Only one format needs to cross the 640 px preview resize; the rest test decode -> preview/icon.
+            let source = if format == ImageFormat::Jpeg { &wide } else { &small };
+            let bytes = encoded(source, format);
             let (jpeg, kind) = make(&bytes, Size::Preview).unwrap_or_else(|| panic!("{format:?} preview"));
             assert_eq!(kind, Format::Jpeg, "{format:?}: opaque");
             assert_eq!(image::guess_format(&jpeg).unwrap(), ImageFormat::Jpeg);
@@ -1312,23 +1313,23 @@ mod tests {
 
     #[test]
     fn exif_orientation_is_applied_before_the_resize() {
-        let jpeg = encoded(&picture(1200, 600, 255), ImageFormat::Jpeg);
+        let jpeg = encoded(&picture(700, 350, 255), ImageFormat::Jpeg);
         assert_eq!(decoded(&make(&jpeg, Size::Preview).unwrap().0).dimensions(), (640, 320));
         // 6: turned 90° clockwise to be seen upright, so it is tall.
         let turned = with_orientation(&jpeg, 6);
-        assert_eq!(decoded(&make(&turned, Size::Preview).unwrap().0).dimensions(), (600, 1200));
+        assert_eq!(decoded(&make(&turned, Size::Preview).unwrap().0).dimensions(), (350, 700));
         assert_eq!(decoded(&make(&turned, Size::Icon).unwrap().0).dimensions(), (48, 96));
     }
 
     #[test]
     fn previews_are_never_upscaled_tall_ones_are_cropped_and_transparent_ones_stay_png() {
-        let small = encoded(&picture(300, 200, 255), ImageFormat::Png);
+        let small = encoded(&picture(300, 200, 255), ImageFormat::Bmp);
         assert_eq!(decoded(&make(&small, Size::Preview).unwrap().0).dimensions(), (300, 200));
-        let tall = encoded(&picture(400, 2000, 255), ImageFormat::Png);
-        assert_eq!(decoded(&make(&tall, Size::Preview).unwrap().0).dimensions(), (400, 800));
-        let tall_wide = encoded(&picture(1280, 4000, 255), ImageFormat::Png);
+        let tall = encoded(&picture(200, 600, 255), ImageFormat::Bmp);
+        assert_eq!(decoded(&make(&tall, Size::Preview).unwrap().0).dimensions(), (200, 400));
+        let tall_wide = encoded(&picture(700, 1600, 255), ImageFormat::Bmp);
         assert_eq!(decoded(&make(&tall_wide, Size::Preview).unwrap().0).dimensions(), (640, 1280));
-        let clear = encoded(&picture(800, 400, 100), ImageFormat::Png);
+        let clear = encoded(&picture(660, 330, 100), ImageFormat::Png);
         let (png, format) = make(&clear, Size::Preview).unwrap();
         assert_eq!(format, Format::Png);
         let kept = decoded(&png);
@@ -1543,8 +1544,8 @@ mod tests {
     static TEST: Limits = Limits {
         allow: loopback,
         // Shorter than the whole request, as in [`LIMITS`]: Windows takes about 2 s to refuse a closed port.
-        connect_timeout: Duration::from_millis(500),
-        timeout: Duration::from_secs(2),
+        connect_timeout: Duration::from_millis(150),
+        timeout: Duration::from_millis(150),
         max_body: 64 * 1024,
         max_redirects: 5,
     };
@@ -1569,7 +1570,6 @@ mod tests {
                     }
                     counted.fetch_add(1, Ordering::SeqCst);
                     let path = text.split_whitespace().nth(1).unwrap_or("/").to_string();
-                    std::thread::sleep(Duration::from_millis(50));
                     let _ = stream.write_all(&route(&path));
                 });
             }
@@ -1589,16 +1589,19 @@ mod tests {
 
     #[tokio::test]
     async fn the_handler_serves_fetches_once_and_remembers_failures() {
-        let jpeg = encoded(&picture(1000, 500, 255), ImageFormat::Jpeg);
+        let jpeg = encoded(&picture(660, 330, 255), ImageFormat::Jpeg);
         let (port, count) = server(move |path| match path {
             // Sent as PNG: the bytes decide.
-            "/a.png" => answer("200 OK", "image/png", &jpeg),
+            "/a.png" => {
+                std::thread::sleep(Duration::from_millis(25));
+                answer("200 OK", "image/png", &jpeg)
+            }
             "/page.png" => answer("200 OK", "text/html", b"<html>login</html>"),
             "/forbidden.png" => answer("403 Forbidden", "text/plain", b"no"),
             "/busy.png" => answer("503 Service Unavailable", "text/plain", b"later"),
             "/huge.png" => answer("200 OK", "image/png", &vec![0u8; 100 * 1024]),
             "/slow.png" => {
-                std::thread::sleep(Duration::from_secs(3));
+                std::thread::sleep(Duration::from_millis(300));
                 answer("200 OK", "image/png", b"late")
             }
             _ => answer("404 Not Found", "text/plain", b"gone"),
@@ -1613,10 +1616,14 @@ mod tests {
         let root = folder.join(FOLDER);
         let thumbs = Arc::new(Thumbs::new(root.clone(), folder.join("koonapin.db"), None, &TEST).unwrap());
 
+        let start = Arc::new(tokio::sync::Barrier::new(6));
         let mut many = tokio::task::JoinSet::new();
         for _ in 0..6 {
-            let thumbs = thumbs.clone();
-            many.spawn(async move { respond(&thumbs, &format!("/b%2F{a}%2Fimage")).await });
+            let (thumbs, start) = (thumbs.clone(), start.clone());
+            many.spawn(async move {
+                start.wait().await;
+                respond(&thumbs, &format!("/b%2F{a}%2Fimage")).await
+            });
         }
         for response in many.join_all().await {
             assert_eq!(response.status(), 200);

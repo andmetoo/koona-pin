@@ -34,26 +34,6 @@ const toList = async (page: Page) => {
   await expect(page.locator("[data-view=list]")).toBeVisible();
 };
 
-test("the bar is icons at every width, each named with its key by its hint; no line of keys under it (#319)", async ({ page }) => {
-  await spot(card(page, TITLES[0])).click();
-  await expect(bar(page).getByRole("status")).toHaveText("1 selected");
-  const buttons = bar(page).getByRole("button");
-  const names = ["Read", "Move to…", "Tag", "Favorite", "Send to Reading", "Refresh previews", "Export", "Trash", "Clear selection"];
-  await expect(buttons).toHaveCount(names.length);
-  for (const [i, name] of names.entries()) {
-    const button = buttons.nth(i);
-    await expect(button).toHaveAccessibleName(name);
-    // Only the icon on the bar: the words are in the hint.
-    await expect(button).toHaveText("");
-  }
-  await expect(buttons.nth(0)).toHaveAttribute("aria-keyshortcuts", "Space");
-  const mac = await page.evaluate(() => /Mac/.test(navigator.platform));
-  await expect(buttons.nth(7)).toHaveAttribute("aria-keyshortcuts", mac ? "Backspace Meta+Backspace Delete" : "Delete");
-  await expect(buttons.nth(8)).toHaveAttribute("aria-keyshortcuts", "Escape");
-  await expect(bar(page).getByRole("tooltip").filter({ hasText: "Trash" })).toHaveText(mac ? "Trash⌫" : "TrashDel");
-  await expect(page.getByText(/click — add/)).toHaveCount(0);
-});
-
 test("on a Mac ⌫ and ⌘⌫ trash the selection and, in the trash, delete it forever; fields, dialogs and the sheet keep ⌫ (#297)", async ({ page }) => {
   await page.addInitScript(() => Object.defineProperty(Navigator.prototype, "platform", { get: () => "MacIntel" }));
   await page.reload();
@@ -114,6 +94,20 @@ test("a click selects and never opens; focus and selection look different and ar
   await spot(silence).click();
   await expect(silence).toHaveAttribute("data-selected", "true");
   await expect(bar(page).getByRole("status")).toHaveText("1 selected");
+  // The selection bar is icon-only with accessible names and shortcut hints (#319).
+  const buttons = bar(page).getByRole("button");
+  const names = ["Read", "Move to…", "Tag", "Favorite", "Send to Reading", "Refresh previews", "Export", "Trash", "Clear selection"];
+  await expect(buttons).toHaveCount(names.length);
+  for (const [i, name] of names.entries()) {
+    await expect(buttons.nth(i)).toHaveAccessibleName(name);
+    await expect(buttons.nth(i)).toHaveText("");
+  }
+  await expect(buttons.nth(0)).toHaveAttribute("aria-keyshortcuts", "Space");
+  const mac = await page.evaluate(() => /Mac/.test(navigator.platform));
+  await expect(buttons.nth(7)).toHaveAttribute("aria-keyshortcuts", mac ? "Backspace Meta+Backspace Delete" : "Delete");
+  await expect(buttons.nth(8)).toHaveAttribute("aria-keyshortcuts", "Escape");
+  await expect(bar(page).getByRole("tooltip").filter({ hasText: "Trash" })).toHaveText(mac ? "Trash⌫" : "TrashDel");
+  await expect(page.getByText(/click — add/)).toHaveCount(0);
   await voice.locator("[data-preview]").click({ position: { x: 30, y: 140 } });
   await expect(voice).toHaveAttribute("data-selected", "true");
   await expect(silence).not.toHaveAttribute("data-selected");
@@ -190,10 +184,19 @@ test("arrows move the selection between cards and rows; a focused selected card 
   expect(columns).toBeLessThan(6);
 
   await spot(cards.nth(0)).click();
+  // Esc after a pointer click leaves no keyboard focus ring and hides hover actions; an arrow brings the ring back.
+  await page.keyboard.press("Escape");
+  await expect(cards.nth(0)).not.toHaveAttribute("data-selected");
+  await expect(cards.nth(0)).toBeFocused();
+  await expect(cards.nth(0)).toHaveCSS("outline-style", "none");
+  await page.mouse.move(5, 5);
+  await expect(cards.nth(0).locator(".card-action").first()).toHaveCSS("opacity", "0");
+
   await page.keyboard.press("ArrowRight");
   await expect(selected).toHaveCount(1);
   await expect(cards.nth(1)).toHaveAttribute("data-selected", "true");
   await expect(cards.nth(1)).toBeFocused();
+  await expect(cards.nth(1)).toHaveCSS("outline-style", "solid");
   // One ring: the ink one of focus around the whole card, none around its cover; the glass says selected.
   await expect(cards.nth(1)).toHaveCSS("outline-color", "rgb(46, 48, 43)");
   await expect(cards.nth(1).locator("[data-ring]")).toHaveCSS("outline-style", "none");
@@ -493,12 +496,16 @@ test("selecting in a short list moves nothing sideways: the grid keeps the scrol
 });
 
 test("↑/↓ through pages that cannot be read keep the card, its height while the next loads; an article makes it the sheet again", async ({ page }) => {
-  // Linear answers 403 at once, Are.na after half a second: long enough to see it load in the card.
+  // Linear answers 403 at once; Are.na waits on a manual gate so we can assert the loading card height deterministically.
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
     const fetch = api.fetchReaderPage;
     api.fetchReaderPage = async (url: string) => {
-      if (url.includes("are.na")) await new Promise((resolve) => setTimeout(resolve, 500));
+      if (url.includes("are.na")) {
+        await new Promise<void>((resolve) => {
+          (window as unknown as { release?: () => void }).release = resolve;
+        });
+      }
       return url.includes("linear") || url.includes("are.na") ? { kind: "status", url, status: 403 } : fetch(url);
     };
   });
@@ -529,6 +536,7 @@ test("↑/↓ through pages that cannot be read keep the card, its height while 
   await page.keyboard.press("ArrowDown");
   await expect(s.locator("[data-reader-opening]")).toBeVisible();
   expect(Math.round((await panel.boundingBox())!.height)).toBeGreaterThanOrEqual(Math.round(cardHeight));
+  await page.evaluate(() => (window as unknown as { release?: () => void }).release?.());
   await expect(s.locator("[data-reader-failure]")).toContainText("error 403");
   expect(await page.evaluate(() => (window as unknown as { shapes: boolean[] }).shapes)).toEqual([]);
 
@@ -637,21 +645,4 @@ test("the compact grid: smaller cards, more of them in a row, two even in a narr
   await expect.poll(() => firstRow(page)).toBe(2);
   await page.reload();
   await expect(page.getByRole("button", { name: "Compact grid", exact: true })).toHaveAttribute("aria-pressed", "true");
-});
-
-test("a click and Esc leave no ring of keyboard focus; an arrow brings it back", async ({ page }) => {
-  const cards = page.locator("[data-bookmark-id]");
-  await cards.nth(1).click({ position: { x: 20, y: 150 } });
-  await expect(cards.nth(1)).toHaveAttribute("data-selected", "true");
-  await page.keyboard.press("Escape");
-  await expect(cards.nth(1)).not.toHaveAttribute("data-selected");
-  await expect(cards.nth(1)).toBeFocused();
-  await expect(cards.nth(1)).toHaveCSS("outline-style", "none");
-  // The pointer leaves the card: its corner buttons go with it, focus does not bring them back.
-  await page.mouse.move(5, 5);
-  await expect(cards.nth(1).locator(".card-action").first()).toHaveCSS("opacity", "0");
-
-  await page.keyboard.press("ArrowRight");
-  await expect(cards.nth(2)).toBeFocused();
-  await expect(cards.nth(2)).toHaveCSS("outline-style", "solid");
 });

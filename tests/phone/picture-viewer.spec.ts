@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { openPhone, systemBack, topScreen } from "./fixtures";
+import { openPhone, systemBack, topScreen, waitForAnimations } from "./fixtures";
 import { ARTICLE } from "../fixtures/article";
 
 // #400 on a phone (frame P4): a tap opens the picture in a card, Back or a swipe down puts it back.
@@ -41,32 +41,31 @@ const swipe = (page: Page, from: number, to: number) =>
       [from, to],
     );
 
-test("a tap opens the picture; Back closes it and leaves the reader open", async ({ page }) => {
+test("a tap opens the picture; a short swipe springs back, a long swipe or Back closes it and leaves the reader open", async ({ page }) => {
   const img = await readerWithPicture(page);
   await img.click();
   await expect(viewer(page)).toBeVisible();
-  await page.waitForTimeout(380);
-  await systemBack(page);
-  await expect(viewer(page)).toHaveCount(0);
-  await expect(topScreen(page).locator(".reader-body")).toBeVisible();
-});
-
-test("a swipe down closes it; a short one springs back", async ({ page }) => {
-  const img = await readerWithPicture(page);
-  await img.click();
-  await page.waitForTimeout(380);
+  await waitForAnimations(page, viewer(page));
   await swipe(page, 400, 440);
-  await page.waitForTimeout(380);
+  await waitForAnimations(page, viewer(page));
   await expect(viewer(page)).toBeVisible();
   await swipe(page, 400, 640);
   await expect(viewer(page)).toHaveCount(0);
+
+  await img.click();
+  await expect(viewer(page)).toBeVisible();
+  await waitForAnimations(page, viewer(page));
+  await systemBack(page);
+  await expect(viewer(page)).toHaveCount(0);
+  await expect(topScreen(page).locator(".reader-body")).toBeVisible();
 });
 
 test("reduced motion: the card still follows a swipe, and a long one closes it", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   const img = await readerWithPicture(page);
   await img.click();
-  await page.waitForTimeout(200);
+  await expect(viewer(page)).toBeVisible();
+  await waitForAnimations(page, viewer(page));
   await swipe(page, 400, 440);
   await expect(viewer(page)).toBeVisible();
   await swipe(page, 400, 640);

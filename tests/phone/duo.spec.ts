@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { DUO_INNER, DUO_OUTER, navPill, openPhone, systemBack } from "./fixtures";
+import { DUO_INNER, DUO_OUTER, longPress, navPill, openPhone, systemBack } from "./fixtures";
 
 // iPhone Duo on iOS 27.1 (frames DU1–DU4): the system's vertical bar is a column on the right
 // edge of both displays, and our rail lives in it where UIKit puts its tab bar; a screen's
@@ -160,11 +160,7 @@ test("the controls cannot change sides beside the vertical bar: no Layout row, n
   await expect(page.locator('[data-sheet-kind="you"]').getByText("Layout", { exact: true })).toHaveCount(0);
   await page.keyboard.press("Escape");
   // A long press on the rail opens no "move the controls" popover.
-  const r = await box(rail(page));
-  await page.mouse.move(r.x + 36, r.y + 30);
-  await page.mouse.down();
-  await page.waitForTimeout(650);
-  await page.mouse.up();
+  await longPress(page, rail(page), undefined, { x: 36, y: 30 });
   await expect(page.locator("[data-rail-menu]")).toHaveCount(0);
 });
 
