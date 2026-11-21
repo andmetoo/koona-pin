@@ -128,17 +128,15 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-macos-arm64-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-macos-arm64-
       - name: Rust from rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
+      # Reuse main's macOS release dependency cache (ci.yml) without saving dead tag-scoped caches.
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          key: macos-release-arm64
+          key: macos-test-arm64
+          cache-bin: false
+          save-if: false
       - run: bun install --frozen-lockfile
       # dmgbuild, which makes the DMG (build-macos.mjs), needs Python 3.10 or later.
       - uses: actions/setup-python@v7
@@ -227,12 +225,6 @@ jobs:
         if: steps.key.outputs.key == 'true'
         with:
           bun-version-file: .bun-version
-      - uses: actions/cache@v6
-        if: steps.key.outputs.key == 'true'
-        with:
-          path: ~/.bun/install/cache
-          key: bun-android-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-android-
       - name: Rust from rust-toolchain.toml, with the Android target
         if: steps.key.outputs.key == 'true'
         run: |
@@ -422,11 +414,6 @@ jobs:
             echo "::error::Start finalize from the tag: gh workflow run release.yml --ref $TAG -f tag=$TAG (this run: $GITHUB_REF)"
             exit 1
           fi
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-linux-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-linux-
       # The Tauri CLI signs (tauri signer sign).
       - run: bun install --frozen-lockfile
       # The draft's packages into the folders build-latest.mjs and build-aur.mjs read

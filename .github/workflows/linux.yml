@@ -135,13 +135,16 @@ jobs:
         with:
           name: linux-compile
           path: dist-linux/
+          retention-days: 7
           if-no-files-found: error
       # The WebDriver server of the native tests on WebKitGTK (NP-095), from the image: the package jobs have
       # no compiler. A tool of the tests, kept out of the packages' artifact.
       - uses: actions/upload-artifact@v7
+        if: ${{ !inputs.release }}
         with:
           name: tauri-driver
           path: /usr/local/bin/tauri-driver
+          retention-days: 7
           if-no-files-found: error
 
   # The main tests, from the sources: Rust, the generated IPC types against the repository, the Vite build,
@@ -187,7 +190,7 @@ jobs:
       # NP-054), which need Debian's browsers: the image here has none. Debug info stripped for the artifact.
       - name: Development build
         run: |
-          su dev -s /bin/bash -c "cd src-tauri && cargo build --locked"
+          su dev -s /bin/bash -c "cd src-tauri && cargo build --locked --bin koonapin --bin koonapin-host"
           mkdir -p dist-debug
           strip --strip-debug -o dist-debug/koonapin src-tauri/target/debug/koonapin
           strip --strip-debug -o dist-debug/koonapin-host src-tauri/target/debug/koonapin-host
@@ -195,6 +198,7 @@ jobs:
         with:
           name: linux-debug
           path: dist-debug/
+          retention-days: 7
           if-no-files-found: error
 
   # Playwright UI without Rust. Screenshot baselines (@visual) depend on font rendering and are checked on
@@ -231,6 +235,7 @@ jobs:
           path: |
             test-results/
             playwright-report/
+          retention-days: 7
           if-no-files-found: ignore
 
   # Pack the .deb as soon as the release binaries are ready. Debian, Ubuntu and Arch then test the same
@@ -261,6 +266,7 @@ jobs:
         with:
           name: linux-deb
           path: dist-linux/koonapin_*_amd64.deb
+          retention-days: 7
           if-no-files-found: error
 
   # On Debian 13: lintian (NP-055), the AppImage before any package (NP-116), the installed package,
@@ -341,11 +347,13 @@ jobs:
           name: linux-compile
           path: dist-linux/
       - uses: actions/download-artifact@v8
+        if: ${{ !inputs.release }}
         with:
           name: tauri-driver
           path: dist-tools/
       - run: |
-          chmod +x dist-linux/bin/* dist-linux/*.AppImage dist-tools/tauri-driver
+          chmod +x dist-linux/bin/* dist-linux/*.AppImage
+          if [ -f dist-tools/tauri-driver ]; then chmod +x dist-tools/tauri-driver; fi
           chown -R dev "$GITHUB_WORKSPACE"
       - name: Pack the .rpm as «dev»
         run: su dev -s /bin/bash -c "bun scripts/build-linux-packages.mjs --stage rpm"
@@ -353,6 +361,7 @@ jobs:
         with:
           name: linux-rpm
           path: dist-linux/koonapin-*.x86_64.rpm
+          retention-days: 7
           if-no-files-found: error
       - name: The AppImage without a package as «dev»
         if: ${{ !inputs.release }}
@@ -507,6 +516,7 @@ jobs:
         with:
           name: webkitgtk-${{ matrix.distro }}
           path: .test-data/webkitgtk-check/
+          retention-days: 7
           if-no-files-found: ignore
 
   # The three packages and SHA256SUMS.txt in one artifact (bun run build:linux's collect stage), the one

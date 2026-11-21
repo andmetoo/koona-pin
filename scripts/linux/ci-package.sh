@@ -45,7 +45,7 @@ install() {
   case "$ID" in
     # The CI images leave apt's lists out: the package's dependencies come from the archive.
     ubuntu | debian) apt-get update -qq && apt-get install -y -qq "$@" "$package" > /dev/null ;;
-    fedora) dnf install -y -q "$@" "$package" ;;
+    fedora) dnf install -y -q --setopt=install_weak_deps=False "$@" "$package" ;;
     arch) pacman -U --noconfirm "$package" > /dev/null ;;
   esac
 }
