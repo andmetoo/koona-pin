@@ -44,7 +44,10 @@ library="/home/dev/.local/share/Koona/Pin/koonapin.db"
 install() {
   case "$ID" in
     # The CI images leave apt's lists out: the package's dependencies come from the archive.
-    ubuntu | debian) apt-get update -qq && apt-get install -y -qq "$@" "$package" > /dev/null ;;
+    ubuntu | debian)
+      local apt_opts=(-o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Acquire::Retries=3)
+      apt-get "${apt_opts[@]}" update -qq && apt-get "${apt_opts[@]}" install -y -qq "$@" "$package" > /dev/null
+      ;;
     fedora) dnf install -y -q --setopt=install_weak_deps=False "$@" "$package" ;;
     arch) pacman -U --noconfirm "$package" > /dev/null ;;
   esac

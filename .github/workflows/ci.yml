@@ -7,12 +7,13 @@ name: CI
 # Playwright UI, and checks the packages on every distribution. Windows and macOS check only what is
 # their own: the Rust tests on that system and the packaging.
 #
-# A pull request runs what its files can break («changes»): only docs and the changelog, nothing (the .kpin
-# spec and its conformance suite in docs/kpin, Linux: the tests read them); scripts,
-# tests and the Linux pipeline, Linux; the app, its dependencies and toolchains, or this file, everything.
-# Pushes to main and runs by hand run everything. «CI» sums the jobs up: it is the one check main
-# requires (with CLA), green when no job that ran failed. The package and distribution jobs of linux.yml
-# do not count outside a release (continue-on-error there).
+# A pull request runs only what its files can break («changes»): docs/changelog, nothing; docs/kpin, Linux
+# tests and .kpin copy; tests/ui and tests/phone, Playwright UI; src/*, Linux tests and Playwright UI;
+# platform-specific paths, their own platform job; shared Rust/app configs and toolchains, all required jobs.
+# Advisory Linux packaging, distribution and WebKitGTK checks («linux-packages») run on pushes to main,
+# workflow_dispatch, and PRs touching Linux packaging/desktop paths, outside «CI»'s needs so they never delay
+# the required check. Pushes to main and runs by hand run everything. «CI» sums the required jobs up: it is
+# the one check main requires (with CLA), green when no job that ran failed.
 on:
   pull_request:
   push:
@@ -36,9 +37,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      linux: ${{ steps.paths.outputs.linux }}
-      native: ${{ steps.paths.outputs.native }}
+      linux_test: ${{ steps.paths.outputs.linux_test }}
+      linux_ui: ${{ steps.paths.outputs.linux_ui }}
+      linux_pkg: ${{ steps.paths.outputs.linux_pkg }}
+      windows: ${{ steps.paths.outputs.windows }}
       macos: ${{ steps.paths.outputs.macos }}
+      android: ${{ steps.paths.outputs.android }}
+      ios: ${{ steps.paths.outputs.ios }}
       kpin: ${{ steps.paths.outputs.kpin }}
     steps:
       # The pull request's merge commit with main as its first parent: two commits are enough.
@@ -52,10 +57,10 @@ jobs:
         run: |
           if [ "$EVENT" != pull_request ]; then
             echo "$EVENT: everything runs"
-            printf 'linux=true\nnative=true\nmacos=true\nkpin=true\n' >> "$GITHUB_OUTPUT"
+            printf 'linux_test=true\nlinux_ui=true\nlinux_pkg=true\nwindows=true\nmacos=true\nandroid=true\nios=true\nkpin=true\n' >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          linux=false native=false macos=false kpin=false
+          linux_test=false linux_ui=false linux_pkg=false windows=false macos=false android=false ios=false kpin=false
           while IFS= read -r file; do
             echo "$file"
             # The .kpin copy can only drift through these: its check clones koona-project/kpin, so it
@@ -64,30 +69,79 @@ jobs:
               docs/kpin/* | docs/kpin.tag | scripts/check-kpin-copy.mjs | .github/workflows/ci.yml) kpin=true ;;
             esac
             case "$file" in
-              # The .kpin spec, schema and conformance suite: the Rust reader's tests and Vitest read them,
-              # and run on Linux; nothing in them differs on Windows or macOS.
-              docs/kpin/* | docs/kpin.tag) linux=true ;;
+              # The .kpin spec, schema and conformance suite: Rust reader tests and Vitest read them on Linux.
+              docs/kpin/* | docs/kpin.tag) linux_test=true ;;
               docs/* | changelog/* | design/* | *.md | LICENSE* | .github/workflows/cla.yml | .github/workflows/release.yml | .github/workflows/extension.yml) ;;
-              # The Safari extension on macOS embeds the web extension built from extension/.
-              extension/*) linux=true macos=true ;;
-              # src-tauri/* includes the Safari extension's Xcode project (src-tauri/macos/safari).
-              src/* | src-tauri/* | scripts/build-macos.mjs | scripts/build-extension.mjs | scripts/build-android.mjs | scripts/check-apk-billing.mjs | scripts/build-ios-sim.mjs | \
-                scripts/lib/paths.mjs | scripts/lib/ios.mjs | scripts/lib/env.mjs | package.json | bun.lock | .bun-version | rust-toolchain.toml | .cargo/* | \
-                vite.config.ts | tsconfig*.json | index.html | .github/workflows/ci.yml)
-                linux=true native=true ;;
-              *) linux=true ;;
+              # Playwright UI tests only.
+              tests/ui/* | tests/phone/* | playwright.config.ts) linux_ui=true ;;
+              # Linux workflow edits check every Linux job (tests, UI, packaging/distro).
+              .github/workflows/linux.yml) linux_test=true linux_ui=true linux_pkg=true ;;
+              # Linux packaging, distribution and WebKitGTK checks.
+              scripts/linux/* | scripts/build-linux-packages.mjs | scripts/build-aur.mjs | scripts/smoke-host.mjs | \
+                scripts/smoke-registration.mjs | scripts/smoke-extension.mjs | scripts/webkitgtk-check.mjs | \
+                src-tauri/linux/*)
+                linux_pkg=true ;;
+              # Browser extension: Linux lint/tests and macOS Safari appex build.
+              extension/* | scripts/build-extension.mjs) linux_test=true macos=true ;;
+              # Supabase SQL tests and Vitest config.
+              supabase/* | vitest.config.ts) linux_test=true ;;
+              # capture.ts is embedded by src-tauri/src/desktop/native_host.rs tests (include_str!).
+              src/services/capture.ts) linux_test=true linux_ui=true windows=true macos=true ;;
+              # Frontend sources: checked by Linux tsc/Vite/Vitest + Playwright UI.
+              src/* | vite.config.ts | tsconfig*.json | index.html) linux_test=true linux_ui=true ;;
+              # Platform-specific native paths.
+              src-tauri/gen/android/* | src-tauri/tauri.android.conf.json | src-tauri/commercial/koona-play/android/* | \
+                src-tauri/plugins/koona-mobile/android/* | src-tauri/plugins/koona-share/android/* | \
+                scripts/build-android.mjs | scripts/check-apk-billing.mjs)
+                android=true ;;
+              src-tauri/gen/apple/* | src-tauri/tauri.ios.conf.json | src-tauri/commercial/koona-appstore/ios/* | \
+                src-tauri/plugins/koona-mobile/ios/* | src-tauri/plugins/koona-share/ios/* | \
+                src-tauri/plugins/koona-share/ios-extension/* | scripts/build-ios-sim.mjs | scripts/lib/ios.mjs)
+                ios=true ;;
+              src-tauri/macos/* | src-tauri/tauri.macos*.conf.json | scripts/build-macos.mjs) macos=true ;;
+              src-tauri/windows/* | src-tauri/nsis/* | src-tauri/tauri.windows.conf.json) windows=true ;;
+              src-tauri/src/desktop/*) linux_test=true linux_pkg=true windows=true macos=true ;;
+              src-tauri/src/mobile/*) android=true ios=true ;;
+              # Shared dependencies, toolchains, and workflow definitions run everything.
+              src-tauri/Cargo.toml | src-tauri/Cargo.lock | package.json | bun.lock | .bun-version | \
+                rust-toolchain.toml | .cargo/* | scripts/lib/paths.mjs | scripts/lib/env.mjs | .github/workflows/ci.yml)
+                linux_test=true linux_ui=true linux_pkg=true windows=true macos=true android=true ios=true ;;
+              # Remaining Rust / Tauri core changes run all required platform builds and tests.
+              src-tauri/*) linux_test=true windows=true macos=true android=true ios=true ;;
+              *) linux_test=true ;;
             esac
           done < <(git diff --name-only HEAD^1 HEAD)
-          echo "Linux: $linux, Windows/macOS/mobile: $native, macOS only: $macos, .kpin copy: $kpin"
-          printf 'linux=%s\nnative=%s\nmacos=%s\nkpin=%s\n' "$linux" "$native" "$macos" "$kpin" >> "$GITHUB_OUTPUT"
+          echo "linux_test=$linux_test linux_ui=$linux_ui linux_pkg=$linux_pkg windows=$windows macos=$macos android=$android ios=$ios kpin=$kpin"
+          printf 'linux_test=%s\nlinux_ui=%s\nlinux_pkg=%s\nwindows=%s\nmacos=%s\nandroid=%s\nios=%s\nkpin=%s\n' \
+            "$linux_test" "$linux_ui" "$linux_pkg" "$windows" "$macos" "$android" "$ios" "$kpin" >> "$GITHUB_OUTPUT"
 
   linux:
     name: Linux
     needs: changes
-    if: needs.changes.outputs.linux == 'true'
+    if: needs.changes.outputs.linux_test == 'true' || needs.changes.outputs.linux_ui == 'true'
     uses: ./.github/workflows/linux.yml
+    with:
+      run_tests: ${{ needs.changes.outputs.linux_test == 'true' }}
+      run_ui: ${{ needs.changes.outputs.linux_ui == 'true' }}
+      run_packages: false
     secrets: inherit
     # The images job builds a missing CI image and pushes it to GHCR (ghcr.io/andmetoo/koona-ci-*).
+    permissions:
+      contents: read
+      packages: write
+
+  # Advisory Linux packaging, distribution and WebKitGTK checks: kept outside «ci»'s needs so
+  # mirror hiccups or slow WebKitGTK runs never block the required CI check.
+  linux-packages:
+    name: Linux packaging
+    needs: changes
+    if: needs.changes.outputs.linux_pkg == 'true'
+    uses: ./.github/workflows/linux.yml
+    with:
+      run_tests: false
+      run_ui: false
+      run_packages: true
+    secrets: inherit
     permissions:
       contents: read
       packages: write
@@ -95,7 +149,7 @@ jobs:
   windows:
     name: Windows / Rust tests
     needs: changes
-    if: needs.changes.outputs.native == 'true'
+    if: needs.changes.outputs.windows == 'true'
     runs-on: windows-2025
     timeout-minutes: 30
     steps:
@@ -126,7 +180,7 @@ jobs:
     # expression of the matrix would show unexpanded when the job is skipped (a pull request of scripts).
     name: macOS 15
     needs: changes
-    if: needs.changes.outputs.native == 'true' || needs.changes.outputs.macos == 'true'
+    if: needs.changes.outputs.macos == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -161,9 +215,17 @@ jobs:
       - name: Rust tests
         run: cargo test --locked --workspace --manifest-path src-tauri/Cargo.toml
       # The app bundle alone, so a packaging problem shows here; Tauri's beforeBuildCommand runs the
-      # TypeScript and Vite build first. Nothing is zipped or uploaded.
+      # TypeScript and Vite build first. On PRs, build --debug to reuse target/debug from Rust tests;
+      # on main/workflow_dispatch, build release so main also warms the release dependency cache for release.yml.
       - name: TypeScript, Vite and the app bundle
-        run: bun run tauri build --config src-tauri/tauri.macos-test.conf.json --bundles app
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+            bun run tauri build --debug --config src-tauri/tauri.macos-test.conf.json --bundles app
+          else
+            bun run tauri build --config src-tauri/tauri.macos-test.conf.json --bundles app
+          fi
       # The Safari app extension (NP-119), so a broken handler or Xcode project shows in the pull request:
       # its relay check, then the target as build:macos:safari builds it, signed to run locally (no team,
       # no profile). Its web part is release/dev/safari. Not embedded, nothing uploaded.
@@ -191,7 +253,7 @@ jobs:
   android:
     name: Android / build
     needs: changes
-    if: needs.changes.outputs.native == 'true'
+    if: needs.changes.outputs.android == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -269,7 +331,7 @@ jobs:
   ios:
     name: iOS Simulator / build
     needs: changes
-    if: needs.changes.outputs.native == 'true'
+    if: needs.changes.outputs.ios == 'true'
     # The Xcode the release builds with (27.1, Swift 6.4), so the plugin's iPhone Duo and scroll edge code
     # behind `#if compiler(>=6.4)` / `#if compiler(>=6.2)` is compiled here too. Only the xcode-27 image
     # (a public preview, actions/runner-images#14404) has it; its default Xcode is 27.0.

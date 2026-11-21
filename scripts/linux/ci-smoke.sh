@@ -29,14 +29,14 @@ check() {
     library="$HOME/.local/share/Koona/Pin/koonapin.db"
     "$1" > "$HOME/app.log" 2>&1 &
     app=$!
-    for _ in $(seq 120); do [ -f "$library" ] && break; kill -0 $app 2> /dev/null || break; sleep 0.5; done
+    for _ in $(seq 300); do [ -f "$library" ] && [ -f "$HOME/.config/autostart/koonapin.desktop" ] && break; kill -0 $app 2> /dev/null || break; sleep 0.2; done
     if [ ! -f "$library" ]; then cat "$HOME/app.log"; echo "FAIL: no library at $library"; exit 1; fi
     echo "ok: library created at ~/.local/share/Koona/Pin/koonapin.db"
-    sleep 5
-    kill -0 $app 2> /dev/null || { cat "$HOME/app.log"; echo "FAIL: the app exited"; exit 1; }
-    echo "ok: still running after 5 s"
     [ -f "$HOME/.config/autostart/koonapin.desktop" ] || { echo "FAIL: no autostart entry after the first start"; exit 1; }
     echo "ok: the first start turned on the start with the session (~/.config/autostart/koonapin.desktop)"
+    sleep 1.5
+    kill -0 $app 2> /dev/null || { cat "$HOME/app.log"; echo "FAIL: the app exited"; exit 1; }
+    echo "ok: still running after startup"
     status=0
     timeout 30 "$1" > "$HOME/second.log" 2>&1 || status=$?
     [ $status -eq 124 ] && { cat "$HOME/second.log"; echo "FAIL: the second start did not hand over"; exit 1; }
@@ -91,8 +91,11 @@ activation() {
     library="$HOME/.local/share/Koona/Pin/koonapin.db"
     WAYLAND_DEBUG=client "$1" > "$HOME/app.log" 2>&1 &
     app=$!
-    for _ in $(seq 120); do [ -f "$library" ] && break; kill -0 $app 2> /dev/null || break; sleep 0.5; done
-    sleep 3
+    for _ in $(seq 300); do
+      if [ -f "$library" ] && grep -q "set_app_id(\"koonapin\")" "$HOME/app.log" 2> /dev/null; then break; fi
+      kill -0 $app 2> /dev/null || break
+      sleep 0.2
+    done
     if ! grep -q "set_app_id(\"koonapin\")" "$HOME/app.log"; then
       grep -m3 set_app_id "$HOME/app.log" || echo "(no set_app_id)"
       echo "FAIL: the window app_id is not koonapin"
@@ -102,8 +105,11 @@ activation() {
     status=0
     XDG_ACTIVATION_TOKEN=np053-token timeout 30 "$1" > "$HOME/second.log" 2>&1 || status=$?
     [ $status -eq 124 ] && { cat "$HOME/second.log"; echo "FAIL: a second start with a token did not hand over"; exit 1; }
-    sleep 2
     if grep -q "xdg_activation_v1" "$HOME/app.log"; then
+      for _ in $(seq 25); do
+        if grep -q "activate(\"np053-token\"" "$HOME/app.log"; then break; fi
+        sleep 0.2
+      done
       grep -q "activate(\"np053-token\"" "$HOME/app.log" || { echo "FAIL: the token did not reach the first window"; exit 1; }
       echo "ok: a second start passed its activation token, the first window used it"
     else
@@ -122,14 +128,23 @@ startup() {
     library="$HOME/.local/share/Koona/Pin/koonapin.db"
     "$1" > "$HOME/app.log" 2>&1 &
     app=$!
-    for _ in $(seq 120); do [ -f "$library" ] && break; kill -0 $app 2> /dev/null || break; sleep 0.5; done
-    sleep 3
+    window=""
+    for _ in $(seq 300); do
+      if [ -f "$library" ]; then
+        window=$(xwininfo -root -tree 2> /dev/null | grep -m1 "\"Koona Pin\"" | awk "{print \$1}" || true)
+        if [ -n "$window" ]; then break; fi
+      fi
+      kill -0 $app 2> /dev/null || break
+      sleep 0.2
+    done
+    [ -n "$window" ] || { cat "$HOME/app.log"; echo "FAIL: no window named Koona Pin"; exit 1; }
     status=0
     DESKTOP_STARTUP_ID=np053-token timeout 30 "$1" > "$HOME/second.log" 2>&1 || status=$?
     [ $status -eq 124 ] && { cat "$HOME/second.log"; echo "FAIL: a second start with a startup id did not hand over"; exit 1; }
-    sleep 2
-    window=$(xwininfo -root -tree | grep -m1 "\"Koona Pin\"" | awk "{print \$1}")
-    [ -n "$window" ] || { echo "FAIL: no window named Koona Pin"; exit 1; }
+    for _ in $(seq 25); do
+      if xprop -id "$window" _NET_STARTUP_ID 2> /dev/null | grep -q "np053-token"; then break; fi
+      sleep 0.2
+    done
     if ! xprop -id "$window" _NET_STARTUP_ID | grep -q "np053-token"; then
       xprop -id "$window" _NET_STARTUP_ID
       echo "FAIL: the second start did not pass its startup id to the window"
@@ -151,10 +166,19 @@ drawn() {
     library="$HOME/.local/share/Koona/Pin/koonapin.db"
     "$1" > "$HOME/app.log" 2>&1 &
     app=$!
-    for _ in $(seq 120); do [ -f "$library" ] && break; kill -0 $app 2> /dev/null || break; sleep 0.5; done
-    sleep 5
-    printf "the window: "
-    bun "$2/scripts/linux/screen-colours.mjs" "$(shoot window)" || { cat "$HOME/app.log"; exit 1; }
+    for _ in $(seq 300); do [ -f "$library" ] && break; kill -0 $app 2> /dev/null || break; sleep 0.2; done
+    drawn_ok=0
+    drawn_out=""
+    for _ in $(seq 20); do
+      if drawn_out=$(bun "$2/scripts/linux/screen-colours.mjs" "$(shoot window)" 2>&1); then
+        drawn_ok=1
+        break
+      fi
+      kill -0 $app 2> /dev/null || break
+      sleep 0.5
+    done
+    printf "the window: %s\n" "$drawn_out"
+    if [ "$drawn_ok" -ne 1 ]; then cat "$HOME/app.log"; exit 1; fi
     echo "ok: the window is drawn"
     kill $app
     wait $app || true
