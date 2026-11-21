@@ -360,9 +360,9 @@ fn faulty_sync(
     let mut session = Session::new();
     for index in order {
         session.receive(receiver, index, &chunks[index]);
+        check_invariants(receiver);
     }
     check_invariants(&replicas[from].conn);
-    check_invariants(&replicas[to].conn);
 }
 
 fn run(replica_count: usize, steps: &[Step]) -> Result<(), TestCaseError> {
@@ -447,7 +447,7 @@ fn run(replica_count: usize, steps: &[Step]) -> Result<(), TestCaseError> {
 }
 
 fn cases() -> u32 {
-    let default = if cfg!(debug_assertions) { 32 } else { 300 };
+    let default = if cfg!(debug_assertions) { 64 } else { 300 };
     std::env::var("PROPTEST_CASES").ok().and_then(|v| v.parse().ok()).unwrap_or(default)
 }
 

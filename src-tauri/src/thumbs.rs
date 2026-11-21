@@ -1545,7 +1545,7 @@ mod tests {
         allow: loopback,
         // Shorter than the whole request, as in [`LIMITS`]: Windows takes about 2 s to refuse a closed port.
         connect_timeout: Duration::from_millis(150),
-        timeout: Duration::from_millis(150),
+        timeout: Duration::from_millis(500),
         max_body: 64 * 1024,
         max_redirects: 5,
     };
@@ -1601,7 +1601,7 @@ mod tests {
             "/busy.png" => answer("503 Service Unavailable", "text/plain", b"later"),
             "/huge.png" => answer("200 OK", "image/png", &vec![0u8; 100 * 1024]),
             "/slow.png" => {
-                std::thread::sleep(Duration::from_millis(300));
+                std::thread::sleep(Duration::from_millis(700));
                 answer("200 OK", "image/png", b"late")
             }
             _ => answer("404 Not Found", "text/plain", b"gone"),

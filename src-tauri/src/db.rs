@@ -2598,6 +2598,17 @@ pub fn get_domains(conn: &Connection) -> Result<Vec<DomainCount>> {
 mod tests {
     use super::*;
 
+    #[cfg(desktop)]
+    #[test]
+    fn the_library_lives_in_the_brand_folder() {
+        // Р-56, and Р-9: the folder never changes after the first public installer.
+        if std::env::var_os(DATA_DIR_ENV).is_some() {
+            return;
+        }
+        let data = dirs::data_dir().unwrap();
+        assert_eq!(db_path(), data.join("Koona").join("Pin").join("koonapin.db"));
+    }
+
     #[test]
     fn collection_patch_keeps_clears_and_rolls_back_on_write_error() {
         let conn = setup_test_db();

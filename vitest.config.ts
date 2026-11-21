@@ -1,5 +1,7 @@
 import { defineConfig } from "vitest/config";
 
+// `node-fast` runs all other test files with `isolate: false` (shared worker context).
+// Any new test file that requires a DOM (`jsdom`) MUST be added to `jsdomFiles`.
 const jsdomFiles = [
   "extension/src/search.test.js",
   "src/hooks/useLibrary.test.ts",
@@ -12,6 +14,8 @@ const jsdomFiles = [
   "src/services/reader.test.ts",
 ];
 
+// Any new Node test file that uses `vi.mock()`, `vi.resetModules()`, or mutates
+// module/process globals MUST be added to `nodeIsolatedFiles` (`isolate: true`).
 const nodeIsolatedFiles = [
   "src/components/bundle/actions.test.ts",
   "src/platform/haptics.test.ts",

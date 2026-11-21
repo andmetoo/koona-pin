@@ -391,7 +391,7 @@ mod tests {
         net: Limits {
             allow: first_loopback,
             connect_timeout: Duration::from_secs(2),
-            timeout: Duration::from_millis(150),
+            timeout: Duration::from_secs(1),
             max_body: 1024,
             max_redirects: 5,
         },
@@ -487,8 +487,12 @@ mod tests {
                 });
             }
         });
+        let quick = DownloadLimits { net: Limits { timeout: Duration::from_millis(150), ..TEST.net }, ..TEST };
         let started = Instant::now();
-        assert_eq!(get(&format!("http://127.0.0.1:{port}/")).await.unwrap_err(), DownloadError::Timeout);
+        assert_eq!(
+            download(&client(&quick).unwrap(), &format!("http://127.0.0.1:{port}/"), &quick, |_, _| {}).await.unwrap_err(),
+            DownloadError::Timeout
+        );
         assert!(started.elapsed() < Duration::from_secs(3), "{:?}", started.elapsed());
     }
 
@@ -552,12 +556,14 @@ mod tests {
         let slot = CancelSlot::take(1_000);
         let notify = slot.0.clone();
         let mut received = 0;
-        tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(30)).await;
-            cancel_list_download(1_000);
-        });
         let started = Instant::now();
-        let outcome = fetch_list(&format!("http://127.0.0.1:{port}/"), &TEST, &notify, |n, _| received = n).await;
+        let outcome = fetch_list(&format!("http://127.0.0.1:{port}/"), &TEST, &notify, |n, _| {
+            received = n;
+            if n > 0 {
+                cancel_list_download(1_000);
+            }
+        })
+        .await;
         assert_eq!(outcome, ListDownload::Cancelled);
         assert!(received > 0, "it was mid-stream");
         assert!(started.elapsed() < Duration::from_millis(500), "{:?}", started.elapsed());

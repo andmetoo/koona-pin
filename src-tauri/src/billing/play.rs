@@ -1022,6 +1022,16 @@ mod tests {
     }
 
     #[test]
+    fn each_plan_is_a_product_of_play() {
+        assert_eq!(product_of(PlanInterval::Month), ("supporter", Some("monthly")));
+        assert_eq!(product_of(PlanInterval::Year), ("supporter", Some("annual")));
+        assert_eq!(product_of(PlanInterval::Lifetime), ("supporter_5_years", None));
+        let fresh = started(PlanInterval::Lifetime, Some("anna@example.com".into()), at("2026-10-20T12:00:00Z"));
+        assert_eq!((fresh.product.as_str(), fresh.base_plan, fresh.token, fresh.state), ("supporter_5_years", None, None, None));
+        assert_eq!(fresh.secret.len(), 64);
+    }
+
+    #[test]
     fn the_servers_answers_are_play_states() {
         for (name, expected) in [
             ("paid", PlayState::Paid),

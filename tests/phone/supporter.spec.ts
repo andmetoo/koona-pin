@@ -274,9 +274,16 @@ test("the App Store build: StoreKit's prices, what renews and how to cancel, Res
   // Nothing this Apple Account owns: said under the plans.
   await supporter.getByRole("button", { name: "Restore purchases" }).click();
   await expect(supporter.getByRole("alert")).toHaveText("This Apple Account has no Supporter purchase to restore.");
+
+  // With nothing on sale, Restore purchases and the legal links stay.
+  const empty = await openAppStore(page, { ...FREE, "demo.playProducts": "none" });
+  await expect(empty).toContainText("The App Store can't sell Supporter on this iPhone right now.");
+  await empty.getByRole("button", { name: "Restore purchases" }).click();
+  await expect(empty.getByRole("alert")).toHaveText("This Apple Account has no Supporter purchase to restore.");
+  await expect(empty.getByRole("button", { name: "Terms of Use" })).toBeVisible();
 });
 
-test("the App Store build: bought signed out, the email claims it, the code signs in, and the plan is managed in the App Store", async ({ page }) => {
+test("the App Store build: bought signed out, the email claims it, the code signs in, managed in the App Store, and Ask to Buy persists", async ({ page }) => {
   const supporter = await openAppStore(page);
   await supporter.getByRole("button", { name: "Subscribe · Monthly" }).click();
   await expect(supporter.getByRole("dialog", { name: "Where should we send your code?" })).toBeVisible();
@@ -291,6 +298,15 @@ test("the App Store build: bought signed out, the email claims it, the code sign
   const you = await openYou(page);
   await you.locator('[data-supporter="plan"]').click();
   await expect(sheet(page, "plan").getByRole("button", { name: "Manage in the App Store" })).toBeVisible();
+
+  // Ask to Buy waits for approval, and the sheet opens on it again after closing.
+  const pending = await openAppStore(page, { ...FREE, "demo.play": "pending" });
+  await pending.getByRole("button", { name: "Buy · One-time" }).click();
+  await expect(pending.getByRole("status")).toHaveText("Waiting for the purchase to be approved…");
+  expect(await systemBack(page)).toBe(true);
+  await expect(sheet(page, "supporter")).toHaveCount(0);
+  await reopenPlay(page);
+  await expect(sheet(page, "supporter").getByRole("status")).toHaveText("Waiting for the purchase to be approved…");
 });
 
 // ── The Play build (NP-154) ─────────────────────────────────────────────────
@@ -507,12 +523,19 @@ test("the Play build: paid but not confirmed now is kept, and Try again asks the
   await expect(supporter.getByRole("dialog", { name: "Where should we send your code?" })).toBeVisible();
 });
 
-test("the Play build: a plan paid through Google Play whose renewal failed is fixed in Google Play", async ({ page }) => {
+test("the Play build: Paddle plan shows no external link (anti-steering), and a Play past-due plan is fixed in Google Play", async ({ page }) => {
+  // Anti-steering: a plan bought through Paddle on a computer links to no Paddle page in a Play build.
+  await openPhone(page, { settings: SUPPORTER, capabilities: PLAY });
+  await (await openYou(page)).locator('[data-supporter="plan"]').click();
+  const plan = sheet(page, "plan");
+  await expect(plan).toContainText("Your plan is managed where you started it.");
+  for (const name of ["Manage", "Manage in Google Play", "Pay once"]) await expect(plan.getByRole("button", { name, exact: true })).toHaveCount(0);
+  for (const text of ELSEWHERE) await expect(plan).not.toContainText(text);
+
   await openPhone(page, { settings: { "demo.supporter": "past_due", "demo.store": "play", "demo.sync": "on" }, capabilities: PLAY });
   const you = await openYou(page);
   await expect(you.locator('[data-supporter="plan"]')).toContainText("The renewal didn't go through — fix the payment in Google Play");
   await you.locator('[data-supporter="plan"]').click();
-  const plan = sheet(page, "plan");
   await expect(plan.getByRole("status")).toHaveText(/^The last payment didn't go through · Supporter until \w+ \d+, \d{4}$/);
   // P10: the fix across the sheet on one line, Sign out centred under it.
   // The sheet settles (its rise) before it is measured: two boxes read mid-rise are far apart.

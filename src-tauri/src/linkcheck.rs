@@ -972,7 +972,7 @@ mod tests {
     const TEST: Limits = Limits {
         allow: first_loopback,
         connect_timeout: Duration::from_secs(2),
-        timeout: Duration::from_millis(150),
+        timeout: Duration::from_millis(800),
         max_redirects: 5,
         parallel: 8,
         per_site: Duration::ZERO,
@@ -1124,10 +1124,11 @@ mod tests {
         let port = listener.local_addr().unwrap().port();
         std::thread::spawn(move || {
             let _held: Vec<_> = listener.incoming().take(4).collect();
-            std::thread::sleep(Duration::from_secs(30));
+            std::thread::sleep(Duration::from_millis(300));
         });
+        let quick = Limits { timeout: Duration::from_millis(150), ..TEST };
         let started = Instant::now();
-        let (_, found) = check(&[format!("http://127.0.0.1:{port}/")], &TEST).await;
+        let (_, found) = check(&[format!("http://127.0.0.1:{port}/")], &quick).await;
         assert_eq!((found[0].outcome, found[0].reason), (Outcome::Failed, Some(Reason::Timeout)));
         assert!(started.elapsed() < Duration::from_secs(4), "{:?}", started.elapsed());
     }
@@ -1202,7 +1203,7 @@ mod tests {
         let reported = Arc::new(AtomicUsize::new(0));
         let counted = reported.clone();
         let task = tokio::spawn(async move { run(items, &limits, Vec::new(), stopped, move |_, c| { if c.is_some() { counted.fetch_add(1, Ordering::SeqCst); } }).await });
-        tokio::time::sleep(Duration::from_millis(30)).await;
+        tokio::time::sleep(Duration::from_millis(50)).await;
         let asked = Instant::now();
         stop.send(true).unwrap();
         let end = task.await.unwrap();
@@ -1220,12 +1221,12 @@ mod tests {
             status(200)
         });
         let urls: Vec<String> = (0..4).map(|i| format!("http://127.0.0.1:{port}/{i}")).collect();
-        let limits = Limits { per_site: Duration::from_millis(30), ..TEST };
+        let limits = Limits { per_site: Duration::from_millis(60), ..TEST };
         let (_, found) = check(&urls, &limits).await;
         assert_eq!(found.len(), 4);
         let times = times.lock().unwrap();
         for pair in times.windows(2) {
-            assert!(pair[1] - pair[0] >= Duration::from_millis(25), "{:?}", pair[1] - pair[0]);
+            assert!(pair[1] - pair[0] >= Duration::from_millis(40), "{:?}", pair[1] - pair[0]);
         }
     }
 

@@ -188,8 +188,14 @@ test("a Mac trackpad's pinch (WebKit gesture events) and a Mac mouse's small whe
   expect(await scale(page)).toBeCloseTo(2, 2);
   await viewer(page).getByRole("button", { name: "Fit to window" }).click();
   await settled(page);
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  for (let i = 0; i < 10; i++) await page.mouse.wheel(0, -40);
+  // Dispatch the wheel burst inside the page (one frame apart so React commits each step)
+  // so CI IPC jitter >200ms cannot reset PictureViewer's 200ms burst window.
+  await viewer(page).locator("[data-viewer-box]").evaluate(async (el, [x, y]) => {
+    for (let i = 0; i < 10; i++) {
+      el.dispatchEvent(new WheelEvent("wheel", { deltaY: -40, clientX: x, clientY: y, bubbles: true, cancelable: true }));
+      await new Promise((r) => requestAnimationFrame(r));
+    }
+  }, [box.x + box.width / 2, box.y + box.height / 2]);
   await expect.poll(() => scale(page)).toBeGreaterThan(1.5);
 });
 

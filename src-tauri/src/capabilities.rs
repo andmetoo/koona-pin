@@ -157,6 +157,13 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_phone_sells_nothing_outside_the_store_builds() {
+        assert_eq!(purchase(false), Purchase::None);
+        assert_eq!(serde_json::to_string(&Purchase::Play).unwrap(), r#""play""#);
+        assert_eq!(serde_json::to_string(&Purchase::AppStore).unwrap(), r#""appstore""#);
+    }
+
+    #[test]
     fn the_script_defines_the_object_once() {
         let script = script(&AppInfo::current());
         assert!(script.starts_with("Object.defineProperty(window, '__KOONA__'"), "{script}");

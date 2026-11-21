@@ -213,7 +213,8 @@ test("real WebView2, SQLite, capture through the host, close-to-tray and single 
     await page.getByRole("button", { name: "Close window", exact: true }).click();
     const fromHost = spawn(executable, ["--autostart"], { env, windowsHide: true, stdio: "ignore" });
     await new Promise<void>((resolve) => fromHost.on("exit", () => resolve()));
-    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    // Bounded host-side wait: WebView2 pauses requestAnimationFrame on hidden windows.
+    await new Promise((r) => setTimeout(r, 200));
     expect(await page.evaluate(() => window.__TAURI_INTERNALS__.invoke("plugin:window|is_visible"))).toBe(false);
     const shown = spawn(executable, [], { env, windowsHide: true, stdio: "ignore" });
     await new Promise<void>((resolve) => shown.on("exit", () => resolve()));

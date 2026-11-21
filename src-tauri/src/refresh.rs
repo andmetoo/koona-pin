@@ -648,7 +648,7 @@ mod tests {
                     most.fetch_max(active.values().sum(), Ordering::SeqCst);
                     most_per_site.fetch_max(active[&host], Ordering::SeqCst);
                 }
-                tokio::time::sleep(Duration::from_millis(2)).await;
+                tokio::time::sleep(Duration::from_millis(10)).await;
                 *active.lock().unwrap().get_mut(&host).unwrap() -= 1;
                 Done::Updated
             }

@@ -527,6 +527,13 @@ mod tests {
         assert!(decoded.starts_with("untrusted comment: minisign public key"), "{decoded}");
     }
 
+    #[test]
+    fn a_mac_reads_its_own_key_which_earlier_versions_do_not() {
+        // build-latest.mjs writes the Mac's package under this key; the plugin's default is darwin-<arch>.
+        assert_eq!(mac_target(), format!("macos-{}", std::env::consts::ARCH));
+        assert!(!mac_target().starts_with("darwin"));
+    }
+
     #[cfg(target_os = "linux")]
     #[test]
     fn a_dismissed_password_dialog_is_not_a_failed_install() {
