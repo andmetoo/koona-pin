@@ -237,6 +237,8 @@ jobs:
     continue-on-error: ${{ !inputs.release }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      uploaded: ${{ steps.upload.outcome == 'success' && 'true' || 'false' }}
     container:
       image: ${{ needs.images.outputs.void }}
       credentials:
@@ -259,7 +261,8 @@ jobs:
           mkdir -p dist-debug
           strip --strip-debug -o dist-debug/koonapin src-tauri/target/debug/koonapin
           strip --strip-debug -o dist-debug/koonapin-host src-tauri/target/debug/koonapin-host
-      - uses: actions/upload-artifact@v7
+      - id: upload
+        uses: actions/upload-artifact@v7
         with:
           name: linux-debug
           path: dist-debug/
@@ -267,8 +270,8 @@ jobs:
           if-no-files-found: error
 
   # Playwright UI without Rust. Screenshot baselines (@visual) depend on font rendering and are checked on
-  # local runs only (docs/testing.md). Two shards of both projects (fullyParallel splits them by test) with
-  # 3 workers per 4-vCPU runner. The image brings the packages and Chromium, so a shard starts in seconds.
+  # local runs only (docs/testing.md). Three shards of both projects (fullyParallel splits them by test): one
+  # job took 16 minutes. The image brings the packages and Chromium, so a shard starts in seconds.
   ui:
     # A plain name: GitHub adds the matrix in brackets, «Playwright UI (1)».
     name: Playwright UI
@@ -280,7 +283,7 @@ jobs:
       # Every shard reports its own failures.
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     container:
       image: ${{ needs.images.outputs.ui }}
       credentials:
@@ -292,7 +295,7 @@ jobs:
       - name: bun install
         run: su dev -s /bin/bash -c "bun install --frozen-lockfile"
       - name: Playwright UI, functional, as «dev»
-        run: su dev -s /bin/bash -c 'bun run test:ui -- --grep-invert "@visual" --shard=${{ matrix.shard }}/2 --workers=3'
+        run: su dev -s /bin/bash -c 'bun run test:ui -- --grep-invert "@visual" --shard=${{ matrix.shard }}/3'
       - uses: actions/upload-artifact@v7
         if: ${{ failure() }}
         with:
@@ -341,7 +344,7 @@ jobs:
   deb:
     name: .deb, Debian 13
     needs: [images, build, test, debug-build, deb-package]
-    if: ${{ !cancelled() && !inputs.release && inputs.run_packages && needs.images.result == 'success' && needs.build.result == 'success' && needs.deb-package.result == 'success' && (needs.test.result == 'success' || needs.debug-build.result == 'success') }}
+    if: ${{ !cancelled() && !inputs.release && inputs.run_packages && needs.images.result == 'success' && needs.build.result == 'success' && needs.deb-package.result == 'success' && (needs.test.result == 'success' || needs.debug-build.outputs.uploaded == 'true') }}
     # These tests are advisory in CI; releases skip the tests and require the packaging jobs to succeed.
     continue-on-error: ${{ !inputs.release }}
     runs-on: ubuntu-latest

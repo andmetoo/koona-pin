@@ -10,9 +10,9 @@ name: CI
 # A pull request runs only what its files can break («changes»): docs/changelog, nothing; docs/kpin, Linux
 # tests and .kpin copy; tests/ui and tests/phone, Playwright UI; src/*, Linux tests and Playwright UI;
 # platform-specific paths, their own platform job; shared Rust/app configs and toolchains, all required jobs.
-# Advisory Linux packaging, distribution and WebKitGTK checks («linux-packages») run on pushes to main,
-# workflow_dispatch, and PRs touching Linux packaging/desktop paths, outside «CI»'s needs so they never delay
-# the required check. Pushes to main and runs by hand run everything. «CI» sums the required jobs up: it is
+# Advisory Linux packaging, distribution and WebKitGTK checks run inside «linux-packages» (outside «CI»'s
+# needs) on PRs touching Linux packaging/desktop paths so they never delay the required check, and inside
+# «linux» in one pass on pushes to main and workflow_dispatch. «CI» sums the required jobs up: it is
 # the one check main requires (with CLA), green when no job that ran failed.
 on:
   pull_request:
@@ -71,16 +71,22 @@ jobs:
             case "$file" in
               # The .kpin spec, schema and conformance suite: Rust reader tests and Vitest read them on Linux.
               docs/kpin/* | docs/kpin.tag) linux_test=true ;;
+              # Vitest extension/src/feedback.test.js reads the flat brand SVGs under design/.
+              design/brand/pin-spirit-flat/*) linux_test=true ;;
               docs/* | changelog/* | design/* | *.md | LICENSE* | .github/workflows/cla.yml | .github/workflows/release.yml | .github/workflows/extension.yml) ;;
+              # Shared test fixtures: Rust embeds bookmarks/url-keys; Playwright uses app/article fixtures.
+              tests/fixtures/*) linux_test=true linux_ui=true windows=true macos=true ;;
               # Playwright UI tests only.
               tests/ui/* | tests/phone/* | playwright.config.ts) linux_ui=true ;;
-              # Linux workflow edits check every Linux job (tests, UI, packaging/distro).
-              .github/workflows/linux.yml) linux_test=true linux_ui=true linux_pkg=true ;;
-              # Linux packaging, distribution and WebKitGTK checks.
+              # Linux workflow or CI image definitions check every Linux job (tests, UI, packaging/distro).
+              .github/workflows/linux.yml | scripts/linux/images/* | scripts/linux/images.mjs)
+                linux_test=true linux_ui=true linux_pkg=true ;;
+              # Linux packaging, distribution and WebKitGTK scripts.
               scripts/linux/* | scripts/build-linux-packages.mjs | scripts/build-aur.mjs | scripts/smoke-host.mjs | \
-                scripts/smoke-registration.mjs | scripts/smoke-extension.mjs | scripts/webkitgtk-check.mjs | \
-                src-tauri/linux/*)
+                scripts/smoke-registration.mjs | scripts/smoke-extension.mjs | scripts/webkitgtk-check.mjs)
                 linux_pkg=true ;;
+              # src-tauri/linux/* includes aur/PKGBUILD (embedded by channel.rs) and Linux package assets.
+              src-tauri/linux/*) linux_test=true linux_pkg=true windows=true macos=true ;;
               # Browser extension: Linux lint/tests and macOS Safari appex build.
               extension/* | scripts/build-extension.mjs) linux_test=true macos=true ;;
               # Supabase SQL tests and Vitest config.
@@ -89,19 +95,25 @@ jobs:
               src/services/capture.ts) linux_test=true linux_ui=true windows=true macos=true ;;
               # Frontend sources: checked by Linux tsc/Vite/Vitest + Playwright UI.
               src/* | vite.config.ts | tsconfig*.json | index.html) linux_test=true linux_ui=true ;;
-              # Platform-specific native paths.
-              src-tauri/gen/android/* | src-tauri/tauri.android.conf.json | src-tauri/commercial/koona-play/android/* | \
-                src-tauri/plugins/koona-mobile/android/* | src-tauri/plugins/koona-share/android/* | \
-                scripts/build-android.mjs | scripts/check-apk-billing.mjs)
+              # Platform-specific native paths (gen/ and koona-share strings are also checked by Vitest nativeStrings.test.ts).
+              src-tauri/gen/android/* | src-tauri/plugins/koona-share/android/*) linux_test=true android=true ;;
+              src-tauri/tauri.android.conf.json | src-tauri/commercial/koona-play/android/* | \
+                src-tauri/plugins/koona-mobile/android/* | scripts/build-android.mjs | scripts/check-apk-billing.mjs)
                 android=true ;;
-              src-tauri/gen/apple/* | src-tauri/tauri.ios.conf.json | src-tauri/commercial/koona-appstore/ios/* | \
+              src-tauri/gen/apple/* | src-tauri/plugins/koona-share/ios-extension/*) linux_test=true ios=true ;;
+              src-tauri/tauri.ios.conf.json | src-tauri/commercial/koona-appstore/ios/* | \
                 src-tauri/plugins/koona-mobile/ios/* | src-tauri/plugins/koona-share/ios/* | \
-                src-tauri/plugins/koona-share/ios-extension/* | scripts/build-ios-sim.mjs | scripts/lib/ios.mjs)
+                scripts/build-ios-sim.mjs | scripts/lib/ios.mjs)
                 ios=true ;;
               src-tauri/macos/* | src-tauri/tauri.macos*.conf.json | scripts/build-macos.mjs) macos=true ;;
-              src-tauri/windows/* | src-tauri/nsis/* | src-tauri/tauri.windows.conf.json) windows=true ;;
+              # native_host.rs embeds src-tauri/nsis/hooks.nsh across desktop tests.
+              src-tauri/nsis/*) linux_test=true windows=true macos=true ;;
+              src-tauri/windows/* | src-tauri/tauri.windows.conf.json) windows=true ;;
               src-tauri/src/desktop/*) linux_test=true linux_pkg=true windows=true macos=true ;;
               src-tauri/src/mobile/*) android=true ios=true ;;
+              # App metadata/icons drive Linux packaging as well as every platform build.
+              src-tauri/tauri.conf.json | src-tauri/icons/*)
+                linux_test=true linux_pkg=true windows=true macos=true android=true ios=true ;;
               # Shared dependencies, toolchains, and workflow definitions run everything.
               src-tauri/Cargo.toml | src-tauri/Cargo.lock | package.json | bun.lock | .bun-version | \
                 rust-toolchain.toml | .cargo/* | scripts/lib/paths.mjs | scripts/lib/env.mjs | .github/workflows/ci.yml)
@@ -118,24 +130,25 @@ jobs:
   linux:
     name: Linux
     needs: changes
-    if: needs.changes.outputs.linux_test == 'true' || needs.changes.outputs.linux_ui == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.linux_test == 'true' || needs.changes.outputs.linux_ui == 'true'
     uses: ./.github/workflows/linux.yml
     with:
       run_tests: ${{ needs.changes.outputs.linux_test == 'true' }}
       run_ui: ${{ needs.changes.outputs.linux_ui == 'true' }}
-      run_packages: false
+      run_packages: ${{ github.event_name != 'pull_request' }}
     secrets: inherit
     # The images job builds a missing CI image and pushes it to GHCR (ghcr.io/andmetoo/koona-ci-*).
     permissions:
       contents: read
       packages: write
 
-  # Advisory Linux packaging, distribution and WebKitGTK checks: kept outside «ci»'s needs so
-  # mirror hiccups or slow WebKitGTK runs never block the required CI check.
+  # Advisory Linux packaging, distribution and WebKitGTK checks on PRs only (pushes to main and
+  # workflow_dispatch run them inside «linux» in one pass): kept outside «ci»'s needs so mirror
+  # hiccups or slow WebKitGTK runs never block the required CI check on pull requests.
   linux-packages:
     name: Linux packaging
     needs: changes
-    if: needs.changes.outputs.linux_pkg == 'true'
+    if: github.event_name == 'pull_request' && needs.changes.outputs.linux_pkg == 'true'
     uses: ./.github/workflows/linux.yml
     with:
       run_tests: false
