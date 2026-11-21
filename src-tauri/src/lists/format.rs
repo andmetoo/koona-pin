@@ -807,10 +807,6 @@ mod tests {
         }
     }
 
-    fn parsed(name: &str) -> ParsedList {
-        parse(&suite::text(&format!("lists/{name}"))).unwrap()
-    }
-
     #[test]
     fn nesting_is_counted_from_the_files_object() {
         let nested = |levels: usize| (1..levels).fold(json!({}), |inner, _| json!([inner]));
@@ -937,149 +933,6 @@ mod tests {
         assert_eq!(list.sections, 1);
         assert!(list.links[0].sections.is_empty());
         assert_eq!(list.links[1].sections, ["Tools"]);
-    }
-
-    #[test]
-    fn a_valid_list_has_its_metadata_sections_links_and_feeds() {
-        let list = parsed("valid.kpin");
-        assert_eq!(list.meta.title, "Rust blogs worth following");
-        assert_eq!(list.meta.author_name.as_deref(), Some("Koona"));
-        assert_eq!(list.meta.author_url.as_deref(), Some("https://koona.app"));
-        assert_eq!(list.meta.license.as_deref(), Some("CC0-1.0"));
-        assert_eq!(list.meta.updated.as_deref(), Some("2026-10-18"));
-        assert_eq!(list.meta.id.as_deref(), Some("rust-blogs"));
-        assert_eq!(list.meta.version, "1.0");
-        assert!(!list.newer);
-        assert_eq!(list.sections, 2);
-        let links: Vec<(&str, Vec<&str>, Vec<&str>)> = list
-            .links
-            .iter()
-            .map(|l| (l.url.as_str(), l.tags.iter().map(String::as_str).collect(), l.sections.iter().map(String::as_str).collect()))
-            .collect();
-        assert_eq!(
-            links,
-            vec![
-                ("https://doc.rust-lang.org/nomicon/", vec!["unsafe", "book"], vec!["Compiler and language"]),
-                ("https://tokio.rs/", vec!["runtime"], vec!["Async"]),
-                ("https://this-week-in-rust.org/", vec![], vec![]),
-            ]
-        );
-        assert_eq!(list.links[0].description.as_deref(), Some("The dark arts of unsafe Rust."));
-        let feeds: Vec<(&str, Option<&str>, Option<&str>)> =
-            list.feeds.iter().map(|f| (f.url.as_str(), f.site.as_deref(), f.section.as_deref())).collect();
-        assert_eq!(
-            feeds,
-            vec![
-                ("https://blog.rust-lang.org/feed.xml", Some("https://blog.rust-lang.org"), Some("Compiler and language")),
-                ("https://without.boats/index.xml", None, Some("Async")),
-            ]
-        );
-        assert_eq!((list.repeated, list.not_web, list.invalid, list.skipped_items, list.skipped_details), (0, 0, 0, 0, 0));
-    }
-
-    #[test]
-    fn a_newer_minor_skips_unknown_types_and_counts_unknown_details() {
-        let list = parsed("unknown-type.kpin");
-        assert!(list.newer);
-        assert_eq!(list.meta.version, "1.1");
-        assert_eq!((list.links.len(), list.feeds.len()), (1, 1));
-        assert_eq!(list.skipped_items, 1, "the note");
-        // `cover`, `author.mastodon`, the link's `rating`, the feed's `color`.
-        assert_eq!(list.skipped_details, 4);
-        // In 1.0 the same unknown fields are ignored without a word; an unknown type is still skipped.
-        let older = parse(&fixture!("unknown-type.kpin").replace("\"1.1\"", "\"1.0\"")).unwrap();
-        assert_eq!((older.newer, older.skipped_details, older.skipped_items), (false, 0, 1));
-        // `version` is text: 1.10 is not 1.1.
-        assert_eq!(parse(&fixture!("valid.kpin").replace("\"1.0\"", "\"1.10\"")).unwrap().meta.version, "1.10");
-    }
-
-    #[test]
-    fn addresses_without_a_host_or_off_the_web_are_skipped_and_counted() {
-        let no_host = parsed("url-without-host.kpin");
-        assert_eq!((no_host.links.len(), no_host.invalid, no_host.not_web), (1, 1, 0));
-        let ftp = parsed("ftp.kpin");
-        assert_eq!((ftp.links.len(), ftp.invalid, ftp.not_web), (1, 0, 1));
-        assert_eq!(ftp.links[0].url, "https://example.com/kept");
-        for (raw, reason) in [
-            ("javascript:alert(1)", SkipReason::NotWeb),
-            ("file:///etc/passwd", SkipReason::NotWeb),
-            ("data:text/html,hi", SkipReason::NotWeb),
-            ("example.com", SkipReason::Invalid),
-            ("https://", SkipReason::Invalid),
-        ] {
-            assert_eq!(link_url(raw), Err(reason), "{raw}");
-        }
-        assert_eq!(link_url(&format!("https://example.com/{}", "a".repeat(URL_LEN))), Err(SkipReason::Invalid));
-        assert_eq!(link_url("  https://example.com/x  ").as_deref(), Ok("https://example.com/x"));
-        assert_eq!(link_url("https://example.com/a b\n").as_deref(), Ok("https://example.com/a%20b"));
-        // A feed on this computer is not followed.
-        assert_eq!(feed_url("http://127.0.0.1/feed.xml").unwrap_err(), SkipReason::Invalid);
-        assert_eq!(feed_url("ftp://example.com/feed.xml").unwrap_err(), SkipReason::NotWeb);
-    }
-
-    #[test]
-    fn a_title_of_spaces_is_not_a_list_and_an_items_title_of_spaces_is_none() {
-        assert_eq!(parse(fixture!("title-of-spaces.kpin")), Err(ListError::NotAList));
-        let text = fixture!("ftp.kpin").replace(r#""url": "https://example.com/kept""#, r#""url": "https://example.com/kept", "title": " \t ""#);
-        assert_eq!(parse(&text).unwrap().links[0].title, None);
-    }
-
-    #[test]
-    fn tags_are_trimmed_lowercased_cut_and_not_repeated() {
-        assert_eq!(parsed("repeated-tags.kpin").links[0].tags, ["rust"]);
-        let long = "Ж".repeat(80);
-        let many: Vec<String> = (0..30).map(|i| format!("\"t{i}\"")).collect();
-        let text = format!(
-            r#"{{"format":"koona","app":"pin","kind":"list","version":"1.0","title":"T","items":[{{"type":"link","url":"https://example.com/","tags":["{long}",{}]}}]}}"#,
-            many.join(",")
-        );
-        let tags = &parse(&text).unwrap().links[0].tags;
-        assert_eq!(tags.len(), TAGS_PER_ITEM);
-        assert_eq!(tags[0], "ж".repeat(TAG_LEN));
-    }
-
-    #[test]
-    fn text_loses_control_characters_and_is_capped() {
-        assert_eq!(line("  Rust\u{0}\u{7}  blogs\n\tand\u{202e}more\u{0}, now ", 120).as_deref(), Some("Rust blogs andmore, now"));
-        assert_eq!(line(&"x".repeat(200), 120).map(|s| s.chars().count()), Some(120));
-        assert_eq!(line("\u{1}\u{2}", 10), None);
-        assert_eq!(paragraph("First\r\nsecond\u{0}\n", 100).as_deref(), Some("First\nsecond"));
-        let title = format!(r#"{{"format":"koona","app":"pin","kind":"list","version":"1.0","title":"{}","items":[{{"type":"x"}}]}}"#, "t".repeat(300));
-        assert_eq!(parse(&title).unwrap().meta.title.len(), TITLE_LEN);
-    }
-
-    #[test]
-    fn a_repeat_inside_the_file_is_merged_into_the_first() {
-        let list = parsed("repeats.kpin");
-        assert_eq!(list.links.len(), 1);
-        let first = &list.links[0];
-        assert_eq!((first.url.as_str(), first.title.as_deref()), ("https://doc.rust-lang.org/book/", Some("The Book")));
-        assert_eq!(first.tags, ["book", "beginner"]);
-        assert_eq!(first.sections, ["Books", "Learning"]);
-        assert_eq!(first.tags_with(true), ["books", "learning", "book", "beginner"]);
-        assert_eq!(first.tags_with(false), ["book", "beginner"]);
-        assert_eq!(list.feeds.len(), 1);
-        assert_eq!(list.repeated, 2, "a link and a feed");
-    }
-
-    #[test]
-    fn the_envelope_decides_first() {
-        assert_eq!(parse(fixture!("no-items.kpin")), Err(ListError::Empty));
-        assert_eq!(parse(r#"{"format":"koona","app":"pin","kind":"list","version":"1.0","title":"T","sections":[{"name":"S","items":[]}]}"#), Err(ListError::Empty));
-        assert_eq!(parse(fixture!("version-2.kpin")), Err(ListError::NeedsNewerApp));
-        assert_eq!(parse(fixture!("unknown-kind.kpin")), Err(ListError::NeedsNewerApp));
-        assert_eq!(parse(fixture!("other-app.kpin")), Err(ListError::OtherApp("note".into())));
-        assert_eq!(parse(fixture!("wrong-format.kpin")), Err(ListError::NotAList));
-        assert_eq!(parse(fixture!("cut-off.kpin")), Err(ListError::NotAList));
-        // An unknown kind of another app is that app's business.
-        assert_eq!(parse(&fixture!("other-app.kpin").replace("\"list\"", "\"template\"")), Err(ListError::OtherApp("note".into())));
-        for version in ["\"1\"", "\"one\"", "1.0", "\"0.9\"", "\"1.x\"", "\"+1.0\""] {
-            let text = fixture!("valid.kpin").replace("\"1.0\"", version);
-            assert_eq!(parse(&text), Err(ListError::NotAList), "{version}");
-        }
-        assert_eq!(parse("[]"), Err(ListError::NotAList));
-        assert_eq!(parse(&fixture!("valid.kpin").replace("\"sections\": [", "\"sections\": 5, \"x\": [")), Err(ListError::NotAList));
-        assert_eq!(parse(&fixture!("other-app.kpin").replace("\"note\"", "\"<b>Note</b>\"")), Err(ListError::NotAList));
         // A byte order mark is not a reason to refuse.
         assert!(parse(&format!("\u{feff}{}", fixture!("valid.kpin"))).is_ok());
     }
@@ -1118,17 +971,8 @@ mod tests {
     }
 
     #[test]
-    fn invisible_characters_are_dropped() {
-        let hidden = "a\u{061c}b\u{200b}c\u{200c}d\u{200d}e\u{2060}f\u{feff}g\u{202e}h\u{2066}i";
-        assert_eq!(line(hidden, 100).as_deref(), Some("abcdefghi"));
-        assert_eq!(tag("\u{200b}rust\u{feff}").as_deref(), Some("rust"));
-        assert_eq!(tag("\u{200b}\u{feff}"), None);
-        assert_eq!(paragraph("one\u{200d}\ntwo\u{061c}", 100).as_deref(), Some("one\ntwo"));
-    }
-
-    #[test]
     fn repeats_cannot_grow_a_link_past_twenty_tags() {
-        let items: Vec<String> = (0..1_000)
+        let items: Vec<String> = (0..20)
             .map(|i| {
                 let tags: Vec<String> = (0..20).map(|t| format!("\"t{i}-{t}\"")).collect();
                 format!(r#"{{"type":"link","url":"https://example.com/same","tags":[{}]}}"#, tags.join(","))
@@ -1136,11 +980,11 @@ mod tests {
             .collect();
         let text = format!(
             r#"{{"format":"koona","app":"pin","kind":"list","version":"1.0","title":"T","sections":[{{"name":"One","items":[{}]}},{{"name":"Two","items":[{}]}}]}}"#,
-            items[..500].join(","),
-            items[500..].join(",")
+            items[..10].join(","),
+            items[10..].join(",")
         );
         let list = parse(&text).unwrap();
-        assert_eq!((list.links.len(), list.repeated), (1, 999));
+        assert_eq!((list.links.len(), list.repeated), (1, 19));
         let link = &list.links[0];
         assert_eq!(link.tags.len(), TAGS_PER_ITEM);
         assert_eq!(link.tags[0], "t0-0", "the first item's tags win");

@@ -41,7 +41,7 @@ export const FALLBACK: SupporterPrices = {
 const PRICES_KEY = "supporterPrices";
 const PRICES_KEPT_MS = 7 * 86_400_000;
 type RememberedPrices = { at: number; prices: SupporterPrices };
-function rememberedPrices(): SupporterPrices | null {
+export function rememberedPrices(): SupporterPrices | null {
   try {
     const kept = JSON.parse(storedValue(PRICES_KEY) ?? "null") as RememberedPrices | null;
     const fresh = kept && Date.now() - kept.at < PRICES_KEPT_MS && kept.at <= Date.now();
@@ -53,7 +53,7 @@ function rememberedPrices(): SupporterPrices | null {
     return null;
   }
 }
-const rememberPrices = (prices: SupporterPrices) =>
+export const rememberPrices = (prices: SupporterPrices) =>
   savePreference(PRICES_KEY, JSON.stringify({ at: Date.now(), prices } satisfies RememberedPrices));
 
 /**

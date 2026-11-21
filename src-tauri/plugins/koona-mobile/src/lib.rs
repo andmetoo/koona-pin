@@ -77,14 +77,3 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
         })
         .build()
 }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn the_bridge_fills_in_the_platform_and_leaves_naming_it_to_the_app() {
-        let bridge = super::bridge();
-        assert!(!bridge.contains("__PLATFORM__"));
-        assert!(bridge.contains(&format!("'{}' !== 'android'", super::PLATFORM)));
-        assert!(!bridge.contains("platform:"), "the page reads its platform from window.__KOONA__");
-    }
-}

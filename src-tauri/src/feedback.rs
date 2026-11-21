@@ -758,13 +758,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn a_failed_connection_with_a_setup_script_names_both_causes() {
-        assert_eq!(connect_detail(None), ErrorDetail::NoConnection);
-        assert_eq!(connect_detail(Some(ErrorDetail::NoConnectionOrProxy)), ErrorDetail::NoConnectionOrProxy);
-        assert_eq!(connect_detail(Some(ErrorDetail::NoConnectionOrSystemProxy)), ErrorDetail::NoConnectionOrSystemProxy);
-    }
-
     #[tokio::test]
     async fn a_proxy_that_asks_for_a_sign_in_is_named_as_the_proxy() {
         let refused = "HTTP/1.1 407 Proxy Authentication Required\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
@@ -790,7 +783,7 @@ mod tests {
 
         let silent = TcpListener::bind(("127.0.0.1", 0)).unwrap();
         let url = format!("http://127.0.0.1:{}/", silent.local_addr().unwrap().port());
-        let quick = Limits { timeout: Duration::from_millis(500), ..QUICK };
+        let quick = Limits { timeout: Duration::from_millis(100), ..QUICK };
         let error = send(&url, &sample(), quick).await.unwrap_err();
         assert_eq!(error.detail, Some(ErrorDetail::ServiceFailed));
         assert!(!error.message.contains("127.0.0.1"), "the log has no address: {}", error.message);

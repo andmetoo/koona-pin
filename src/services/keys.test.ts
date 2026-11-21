@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import i18n from "../i18n";
+import { browserKey } from "./browserChrome";
+import { inputModeOf } from "./inputMode";
 import { arrowTarget, deleteKey, isDeleteKey, isMac, shiftShortcut, shortcut } from "./keys";
+
+afterEach(async () => {
+  if (i18n.language !== "en") await i18n.changeLanguage("en");
+});
 
 describe("the platform's modifier (#319)", () => {
   it("is ⌘ on a Mac, Ctrl elsewhere", () => {
@@ -25,13 +31,12 @@ describe("the platform's modifier (#319)", () => {
     expect(shortcut("K", false)).toBe("Ctrl K");
     expect(deleteKey(true)).toBe("⌫");
     expect(deleteKey(false)).toBe("Del");
-    const language = i18n.language;
     await i18n.changeLanguage("de");
     expect(shortcut("Z", false)).toBe("Strg Z");
     expect(shortcut("Z", true)).toBe("⌘Z");
     expect(shiftShortcut("A", false)).toBe("Umschalt A");
     expect(shiftShortcut("A", true)).toBe("⇧A");
-    await i18n.changeLanguage(language);
+    await i18n.changeLanguage("en");
     expect(shiftShortcut("A", false)).toBe("Shift A");
   });
   it("no string of any language names Ctrl itself: the shortcut comes in as {{undo}} or {{quit}}", () => {
@@ -71,5 +76,35 @@ describe("arrows in the library (#319)", () => {
     expect(arrowTarget(-1, "ArrowUp", 3, 4)).toBe(0);
     expect(arrowTarget(-1, "ArrowLeft", 3, 1)).toBe(0);
     expect(arrowTarget(-1, "ArrowDown", 0, 4)).toBeNull();
+  });
+});
+
+describe("the webview's own keys", () => {
+  const press = (code: string, key: string, mods: { ctrl?: boolean; meta?: boolean; alt?: boolean } = {}) =>
+    browserKey({ code, key, ctrlKey: !!mods.ctrl, metaKey: !!mods.meta, altKey: !!mods.alt });
+
+  it("takes reload, print and save the page", () => {
+    expect(press("F5", "F5")).toBe(true);
+    expect(press("F5", "F5", { ctrl: true })).toBe(true);
+    expect(press("KeyR", "r", { ctrl: true })).toBe(true);
+    expect(press("KeyP", "p", { ctrl: true })).toBe(true);
+    expect(press("KeyS", "s", { meta: true })).toBe(true);
+  });
+  it("counts a Russian layout by the physical key", () => {
+    expect(press("KeyR", "к", { ctrl: true })).toBe(true);
+    expect(press("KeyP", "з", { ctrl: true })).toBe(true);
+  });
+  it("leaves typing and the app's shortcuts alone", () => {
+    expect(press("KeyR", "r")).toBe(false);
+    expect(press("KeyC", "c", { ctrl: true })).toBe(false);
+    expect(press("KeyK", "k", { ctrl: true })).toBe(false);
+    expect(press("KeyR", "r", { ctrl: true, alt: true })).toBe(false);
+  });
+});
+
+describe("inputModeOf", () => {
+  it("keys that move focus show it; Esc, Space, letters and modifiers do not", () => {
+    for (const key of ["Tab", "ArrowDown", "ArrowRight", "Home", "End", "PageDown"]) expect(inputModeOf(key)).toBe("keys");
+    for (const key of ["Escape", " ", "Enter", "f", "r", "Delete", "Shift", "Meta"]) expect(inputModeOf(key)).toBeNull();
   });
 });

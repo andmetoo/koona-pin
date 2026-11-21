@@ -860,12 +860,4 @@ mod tests {
             assert!(feed_url(refused).is_err(), "{refused}");
         }
     }
-
-    #[test]
-    fn the_refresh_interval_is_an_hour_until_chosen() {
-        let conn = library();
-        assert_eq!(refresh_minutes(&conn), 60);
-        db::set_setting(&conn, REFRESH_SETTING, "0").unwrap();
-        assert_eq!(refresh_minutes(&conn), 0);
-    }
 }

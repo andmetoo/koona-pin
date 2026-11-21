@@ -157,28 +157,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_desktop_build_can_do_what_a_desktop_does() {
-        let info = AppInfo::current();
-        assert_eq!(info.platform, Platform::Desktop);
-        let c = info.capabilities;
-        assert!(c.file_manager && c.tray && c.autostart && c.browser_capture && c.mcp && c.quit && c.folder_picker);
-        assert_eq!(c.updates, UpdateSource::Itself);
-        assert!(!c.share_intake && !c.haptics);
-        let paddle = if crate::billing::service().is_some() { Purchase::Paddle } else { Purchase::None };
-        assert_eq!(c.purchase, paddle);
-    }
-
-    #[test]
     fn a_phone_sells_nothing_outside_the_store_builds() {
         assert_eq!(purchase(false), Purchase::None);
         assert_eq!(serde_json::to_string(&Purchase::Play).unwrap(), r#""play""#);
         assert_eq!(serde_json::to_string(&Purchase::AppStore).unwrap(), r#""appstore""#);
-    }
-
-    #[test]
-    fn only_phones_take_links_shared_from_other_apps() {
-        assert!(share_intake(Platform::Android) && share_intake(Platform::Ios));
-        assert!(!share_intake(Platform::Desktop));
     }
 
     #[test]

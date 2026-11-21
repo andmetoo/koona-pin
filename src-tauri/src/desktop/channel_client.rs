@@ -277,8 +277,8 @@ mod tests {
         std::env::set_var("PATH", format!("{}:{}", bin.display(), std::env::var("PATH").unwrap_or_default()));
         std::env::set_var("XDG_RUNTIME_DIR", &runtime);
         let started = |file: &Path| {
-            (0..100).any(|_| {
-                thread::sleep(Duration::from_millis(50));
+            (0..1000).any(|_| {
+                thread::sleep(Duration::from_millis(5));
                 std::fs::read_to_string(file).is_ok_and(|text| text.ends_with('\n'))
             })
         };

@@ -22,15 +22,14 @@ const record = [
   { key: "tag_cleanup//000000/t1", at: "", action: "renamed", parts: [code("U+0020"), text("to "), code("U+0020"), text("read")], now_named: "to read", bookmarks: 0 },
 ];
 
-test("nothing cleaned: no row in Storage", async ({ page }) => {
+test("the record: hidden when empty, otherwise folded with count and expandable read-only entries", async ({ page }) => {
   await openApp(page, { settings: { "demo.tagCleanups": null } });
   const group = await storage(page);
   await expect(group.getByText("Search index")).toBeVisible();
   await expect(row(page)).toHaveCount(0);
-});
 
-test("the record: folded with its count, then each entry with its old name, what it became and its bookmarks", async ({ page }) => {
-  await openApp(page, { settings: { "demo.tagCleanups": JSON.stringify(record) } });
+  await page.evaluate((data) => localStorage.setItem("koonapin.demo.tagCleanups", data), JSON.stringify(record));
+  await page.reload();
   await storage(page);
   await expect(row(page)).toHaveAttribute("data-settings-cleaned-tags", "folded");
   await expect(row(page)).toContainText("Cleaned tag names");

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,11 +10,14 @@ const svg = (file) => readFileSync(path.join(brand, file), "utf8");
 /** A 2D context that records what is drawn; Path2D keeps its path. */
 function recorder() {
   const calls = [];
-  globalThis.Path2D = class {
-    constructor(d) {
-      this.d = d;
-    }
-  };
+  vi.stubGlobal(
+    "Path2D",
+    class {
+      constructor(d) {
+        this.d = d;
+      }
+    },
+  );
   const ctx = new Proxy(
     { calls },
     {
@@ -33,6 +36,8 @@ function recorder() {
 }
 
 describe("save feedback (NP-080)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   it("ends every state on its own mark, and only the last frame without animation", () => {
     for (const state of STATES) {
       const all = frames(state, true);

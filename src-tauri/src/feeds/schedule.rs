@@ -57,6 +57,9 @@ const JITTER: f64 = 0.10;
 /// Fetches at once, overall; one per host, this far apart. A phone fetches two at a time
 /// (NP-151): its radio and memory are shared with everything else on it.
 const PARALLEL: usize = if cfg!(mobile) { 2 } else { 4 };
+#[cfg(test)]
+const HOST_SPACING: Duration = Duration::ZERO;
+#[cfg(not(test))]
 const HOST_SPACING: Duration = Duration::from_secs(1);
 /// «Only when I refresh» still counts its backoff from an hour.
 const MANUAL_BASE_MINUTES: u32 = super::DEFAULT_REFRESH_MINUTES;

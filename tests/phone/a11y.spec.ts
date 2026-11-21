@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { navPill, openPhone, systemBack, topScreen } from "./fixtures";
+import { navPill, openPhone, systemBack, topScreen, waitForAnimations } from "./fixtures";
 
 // Screen readers on the phone (NP-072b): the Inbox's place says how many links wait there, and
 // on L1, I1, R1 and A1 every control has a name and nothing that takes the focus is hidden
@@ -21,7 +21,7 @@ const hiddenFocus = (page: Page) =>
   );
 
 async function check(page: Page, frame: string, problems: string[]) {
-  await page.waitForTimeout(300);
+  await waitForAnimations(page);
   for (const line of await unnamed(page)) problems.push(`${frame}: no name: ${line.trim()}`);
   for (const html of await hiddenFocus(page)) problems.push(`${frame}: focusable but hidden: ${html}`);
 }

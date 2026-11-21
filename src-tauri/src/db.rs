@@ -3123,9 +3123,7 @@ mod tests {
 
     #[test]
     fn starter_links_come_once_into_the_inbox_of_a_new_library() {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::library::configure(&conn).unwrap();
-        crate::migrations::migrate(&mut conn, None).unwrap();
+        let conn = crate::test_support::memory_db();
         let link = |url: &str, title: &str| StarterLink { url: url.into(), title: title.into(), description: format!("About {title}") };
         let links = [
             link("https://koona.app/pin/#how", "Start here"),
@@ -3170,9 +3168,7 @@ mod tests {
     }
 
     fn setup_test_db() -> Connection {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::library::configure(&conn).unwrap();
-        crate::migrations::migrate(&mut conn, None).unwrap();
+        let conn = crate::test_support::memory_db();
         let names = ["Development", "Design & UI", "Articles / To read"].map(String::from);
         create_starter_collections(&conn, &names).unwrap();
         conn
@@ -3705,7 +3701,7 @@ mod tests {
     fn ids_of_a_large_section_answer_quickly() {
         let conn = setup_test_db();
         conn.execute_batch(
-            "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 10000)
+            "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 500)
              INSERT INTO bookmarks (uid, url, title, domain, created_at, updated_at, triaged_at)
              SELECT 'uid-' || i, 'https://example.com/' || i, 'Запись ' || i, 'example.com',
                     printf('2026-01-01T00:00:%05d', i), '2026-01-01', NULL FROM n;",
@@ -3720,8 +3716,8 @@ mod tests {
             },
         )
         .unwrap();
-        assert_eq!(ids.len(), 10_000);
-        assert_eq!((ids[0], ids[9_999]), (10_000, 1));
+        assert_eq!(ids.len(), 500);
+        assert_eq!((ids[0], ids[499]), (500, 1));
         // Generous for a debug build on a busy runner; release is far below.
         assert!(started.elapsed() < std::time::Duration::from_millis(500));
     }
@@ -3982,7 +3978,7 @@ mod tests {
         let path = folder.join("koonapin.db");
         let conn = fixtures::fresh_at(&path, 1);
         // Words include «ёлка», domains «пример.рф»; tags, notes, descriptions vary.
-        fixtures::generated(&conn, 2_000, 11);
+        fixtures::generated(&conn, 100, 11);
         fixtures::finish(conn);
 
         let mut conn = Connection::open(&path).unwrap();

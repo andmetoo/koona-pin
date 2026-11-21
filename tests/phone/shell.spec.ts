@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { FOLD, navPill, openPhone, systemBack, topScreen } from "./fixtures";
+import { FOLD, longPress, navPill, openPhone, systemBack, topScreen, waitForAnimations } from "./fixtures";
+import { failOnce } from "../fixtures/app";
 
 // The phone shell (NP-072b wave 0): the nav pill, the stack of screens, sheets and system Back.
 
@@ -84,7 +85,7 @@ test('"+" opens the New link sheet; dragging its grabber down dismisses it', asy
   const sheet = page.locator('[data-sheet-kind="newLink"]');
   const dialog = sheet.getByRole("dialog", { name: "New link" });
   await expect(dialog).toBeVisible();
-  await page.waitForTimeout(400);
+  await waitForAnimations(page, dialog);
   const grab = (await sheet.locator(".ph-sheet-grab").boundingBox())!;
   await page.mouse.move(grab.x + grab.width / 2, grab.y + grab.height / 2);
   await page.mouse.down();
@@ -97,13 +98,8 @@ test('"+" opens the New link sheet; dragging its grabber down dismisses it', asy
 test("an Edit from the long-press menu opens the edit sheet; Cancel closes the editor", async ({ page }) => {
   await openPhone(page);
   const row = topScreen(page).locator("[data-bookmark-id]").first();
-  const box = (await row.boundingBox())!;
-  await page.mouse.move(box.x + 40, box.y + 20);
-  await page.mouse.down();
-  await page.waitForTimeout(650);
-  await page.mouse.up();
   const menu = page.locator('[data-sheet-kind="bookmarkMenu"]');
-  await expect(menu.getByRole("dialog")).toBeVisible();
+  await longPress(page, row, menu.getByRole("dialog"), { x: 40, y: 20 });
   await menu.getByRole("button", { name: "Edit" }).click();
   const edit = page.locator('[data-sheet-kind="edit"]');
   await expect(edit.getByRole("dialog", { name: "Edit link" })).toBeVisible();
@@ -153,6 +149,50 @@ test("the snackbar goes after 5 s, and waits while a finger is on it", async ({ 
   await page.mouse.move(box.x + 40, box.y - 200);
   await page.clock.runFor(6000);
   await expect(snackbar).toHaveCount(0);
+});
+
+test("snackbar over a shared dialog inherits phone styles, tracks keyboard lift, and cleans up on close (NP-092)", async ({ page }) => {
+  await openPhone(page, { settings: { "demo.supporter": "canceling", "demo.sync": "on" } });
+  await topScreen(page).locator("[data-account]").click();
+  const you = page.locator('[data-sheet-kind="you"]:not([data-leaving])');
+  await expect(you).toBeVisible();
+  await you.locator('[data-supporter="plan"]').click();
+  await page.locator('[data-sheet-kind="plan"]:not([data-leaving])').getByRole("button", { name: /Sync/ }).click();
+  const dialog = page.locator("dialog[open]");
+  await failOnce(page, "openUrl", "internal", "No browser to open the link");
+  await dialog.getByRole("button", { name: "Help ↗" }).click();
+  const snackbar = dialog.locator(".ph-snackbar").filter({ hasText: "No browser to open the link" });
+  await expect(snackbar).toBeVisible();
+  // The phone's pill, not a bare box: its styles come with it into the dialog.
+  expect(await snackbar.evaluate((el) => getComputedStyle(el).borderRadius)).toBe("999px");
+  const onTop = await snackbar.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+  });
+  expect(onTop).toBe(true);
+  // The keyboard comes up: the root lifts and says so; the snackbar in the dialog lifts with it.
+  await page.evaluate(() => {
+    const root = document.querySelector<HTMLElement>("[data-phone]")!;
+    root.style.setProperty("--ph-lift", "240px");
+    root.setAttribute("data-keyboard", "");
+  });
+  const box = dialog.locator(".phone");
+  await expect(box).toHaveAttribute("data-keyboard", "");
+  expect(await box.evaluate((el) => el.style.getPropertyValue("--ph-lift"))).toBe("240px");
+  // Closed while the dialog stays: no second «phone» is left in it.
+  await snackbar.getByRole("button", { name: "Close" }).click();
+  await expect(snackbar).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator(".phone, [data-fold], [data-pill], [data-keyboard]")).toHaveCount(0);
+
+  // Triggered again and dialog dismissed: the same alert returns to the phone.
+  await failOnce(page, "openUrl", "internal", "No browser to open the link");
+  await dialog.getByRole("button", { name: "Help ↗" }).click();
+  await expect(snackbar).toBeVisible();
+  await snackbar.evaluate((el) => el.setAttribute("data-same", ""));
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator("[data-phone] .ph-snackbar[data-same]")).toBeVisible();
 });
 
 test.describe("on the Fold's inner screen", () => {

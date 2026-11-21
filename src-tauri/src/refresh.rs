@@ -576,10 +576,7 @@ mod tests {
     use std::time::Duration;
 
     fn library() -> Connection {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::library::configure(&conn).unwrap();
-        crate::migrations::migrate(&mut conn, None).unwrap();
-        conn
+        crate::test_support::memory_db()
     }
 
     fn saved(conn: &Connection, url: &str, image: Option<&str>, site: Option<&str>) -> Bookmark {
@@ -675,7 +672,7 @@ mod tests {
             let (now, most) = (now.clone(), most.clone());
             async move {
                 most.fetch_max(now.fetch_add(1, Ordering::SeqCst) + 1, Ordering::SeqCst);
-                tokio::time::sleep(Duration::from_millis(5)).await;
+                tokio::time::sleep(Duration::from_millis(1)).await;
                 now.fetch_sub(1, Ordering::SeqCst);
                 Done::Unchanged
             }
@@ -694,7 +691,7 @@ mod tests {
             let (started, finished) = (started.clone(), finished.clone());
             started.fetch_add(1, Ordering::SeqCst);
             async move {
-                tokio::time::sleep(Duration::from_millis(20)).await;
+                tokio::time::sleep(Duration::from_millis(2)).await;
                 finished.fetch_add(1, Ordering::SeqCst);
                 Done::Updated
             }
@@ -730,7 +727,7 @@ mod tests {
                 if item.id == 0 {
                     return Done::Updated;
                 }
-                tokio::time::sleep(Duration::from_millis(5)).await;
+                tokio::time::sleep(Duration::from_millis(1)).await;
                 Done::Network
             }
         };
@@ -786,13 +783,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn an_empty_run_is_done() {
-        let (_stop, stopped) = watch::channel(false);
-        let work = |_item: Item| async move { Done::Updated };
-        assert_eq!(run(Vec::new(), &Limits::APP, work, never, stopped, &mut None, |_| {}).await.end, End::Done);
-    }
-
-    #[tokio::test]
     async fn bookmarks_added_while_it_runs_join_it_once() {
         let urls: Vec<String> = (0..6).map(|i| format!("https://site{i}.example/")).collect();
         let urls: Vec<&str> = urls.iter().map(String::as_str).collect();
@@ -802,7 +792,7 @@ mod tests {
             let read = read.clone();
             async move {
                 read.lock().unwrap().push(item.id);
-                tokio::time::sleep(Duration::from_millis(5)).await;
+                tokio::time::sleep(Duration::from_millis(1)).await;
                 Done::Updated
             }
         };
@@ -841,5 +831,9 @@ mod tests {
         let (_stop, stopped) = watch::channel(false);
         let ended = run(items(&urls), &Limits::APP, work, never, stopped, &mut None, |_| {}).await;
         assert_eq!((ended.end, ended.failed), (End::Offline, vec![]), "no network checks nothing");
+
+        let (_stop, stopped) = watch::channel(false);
+        let empty = run(Vec::new(), &Limits::APP, |_item: Item| async move { Done::Updated }, never, stopped, &mut None, |_| {}).await;
+        assert_eq!(empty.end, End::Done);
     }
 }

@@ -264,6 +264,11 @@ impl Journal {
         if changes.is_empty() {
             return Ok((bookmarks, None));
         }
+        let id = self.push(action, changes);
+        Ok((bookmarks, Some(id)))
+    }
+
+    fn push(&mut self, action: Action, changes: Vec<Change>) -> i64 {
         self.last += 1;
         self.commands.push_back(Command {
             id: self.last,
@@ -277,7 +282,7 @@ impl Journal {
         while held > CHANGE_LIMIT && self.commands.len() > 1 {
             held -= self.commands.pop_front().map_or(0, |c| c.changes.len());
         }
-        Ok((bookmarks, Some(self.last)))
+        self.last
     }
 
     /// Takes back the last command, or `command` (an undo notice names its
@@ -360,10 +365,7 @@ mod tests {
     };
 
     fn library() -> Connection {
-        let mut conn = Connection::open_in_memory().unwrap();
-        crate::library::configure(&conn).unwrap();
-        crate::migrations::migrate(&mut conn, None).unwrap();
-        conn
+        crate::test_support::memory_db()
     }
 
     /// A captured link: it waits in the inbox.
@@ -957,12 +959,12 @@ mod tests {
     }
 
     #[test]
-    fn a_thousand_bookmarks_in_one_go_and_the_journal_keeps_its_size() {
+    fn a_hundred_bookmarks_in_one_go_and_the_journal_keeps_its_size() {
         let conn = library();
         let mut journal = Journal::default();
         let shelf = create_collection(&conn, "Полка", None, None).unwrap();
         conn.execute_batch(
-            "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 1000)
+            "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 100)
              INSERT INTO bookmarks (uid, url, title, domain, created_at, updated_at)
              SELECT 'u' || i, 'https://example.com/' || i, 'Запись ' || i, 'example.com',
                     '2026-10-04T12:00:00.000Z', '2026-10-04T12:00:00.000Z' FROM n;",
@@ -975,37 +977,25 @@ mod tests {
             .unwrap()
             .collect::<Result<_>>()
             .unwrap();
-        let started = std::time::Instant::now();
         let (count, changed, _) = bulk(&mut journal, &conn, Action::Move, &ids, Bulk::Move(Some(shelf.id)));
         let (_, tagged, _) = bulk(&mut journal, &conn, Action::Tag, &ids, Bulk::Tag("пачка".into()));
-        let took = started.elapsed();
-        assert_eq!((count, changed.len(), tagged.len()), (1000, 1000, 1000));
+        assert_eq!((count, changed.len(), tagged.len()), (100, 100, 100));
         assert_eq!(search(&conn, "пачка"), 100, "the first page of the search");
-        let started = std::time::Instant::now();
-        assert_eq!(undone(journal.undo(&conn, None).unwrap()).len(), 1000);
-        println!("1000 bookmarks: move + tag {took:?}, undo {:?}", started.elapsed());
+        assert_eq!(undone(journal.undo(&conn, None).unwrap()).len(), 100);
 
         // Commands of a thousand each: the oldest go once they hold too many.
-        for i in 0..(CHANGE_LIMIT / 1000 + 5) {
-            bulk(&mut journal, &conn, Action::Favorite, &ids, Bulk::Favorite(i % 2 == 0));
+        let sample = Fields::from(&changed[0]);
+        let mut after = sample.clone();
+        after.is_favorite = !sample.is_favorite;
+        let mut eviction = Journal::default();
+        for _ in 0..(CHANGE_LIMIT / 1000 + 5) {
+            let changes = (0..1000)
+                .map(|i| Change { id: i as i64, before: sample.clone(), after: after.clone() })
+                .collect();
+            eviction.push(Action::Favorite, changes);
         }
-        let held: usize = journal.commands.iter().map(|c| c.changes.len()).sum();
+        let held: usize = eviction.commands.iter().map(|c| c.changes.len()).sum();
         assert!(held <= CHANGE_LIMIT, "{held} bookmarks held");
-        assert_eq!(journal.commands.len(), CHANGE_LIMIT / 1000);
-    }
-
-    #[test]
-    fn undo_outcomes_reach_the_interface_tagged() {
-        let json = serde_json::to_value(Undo::Conflict {
-            action: Action::Trash,
-            title: "Т".into(),
-        })
-        .unwrap();
-        assert_eq!(
-            json,
-            serde_json::json!({ "outcome": "conflict", "action": "trash", "title": "Т" })
-        );
-        let nothing = serde_json::to_value(Undo::Nothing).unwrap();
-        assert_eq!(nothing, serde_json::json!({ "outcome": "nothing" }));
+        assert_eq!(eviction.commands.len(), CHANGE_LIMIT / 1000);
     }
 }

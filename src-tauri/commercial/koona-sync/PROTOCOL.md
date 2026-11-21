@@ -683,5 +683,5 @@ hub Ed25519 seed `22` x32, X25519 keys from RFC 7748 section 6.1.
 | `changes.json` | A `changes` message and a deflated encoding of it | no |
 | `pairing.json` | Pairing and rekey: commitment, transcript, signatures, code, exchange keys, sealed library key, messages | no |
 
-`KOONA_WRITE_VECTORS=1 cargo test -p koona-sync --test protocol_vectors` regenerates them; any diff
+`KOONA_WRITE_VECTORS=1 cargo test -p koona-sync --test integration protocol_vectors` regenerates them; any diff
 is a protocol change and needs a new `proto`.

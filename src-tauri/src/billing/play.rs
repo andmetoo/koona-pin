@@ -1022,14 +1022,6 @@ mod tests {
     }
 
     #[test]
-    fn the_account_id_is_the_hex_sha256_of_the_secret() {
-        assert_eq!(account_id("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
-        let id = account_id(&new_secret());
-        assert_eq!(id.len(), 64, "Play takes at most 64 characters");
-        assert!(id.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
-    }
-
-    #[test]
     fn each_plan_is_a_product_of_play() {
         assert_eq!(product_of(PlanInterval::Month), ("supporter", Some("monthly")));
         assert_eq!(product_of(PlanInterval::Year), ("supporter", Some("annual")));

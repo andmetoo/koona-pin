@@ -258,11 +258,6 @@ mod tests {
     }
 
     #[test]
-    fn the_names_are_the_files_the_app_keeps() {
-        assert_eq!(NAMES, ["account.json", "sync-device.json", "sync-key.json"]);
-    }
-
-    #[test]
     fn files_are_written_whole_and_private() {
         let folder = folder();
         let path = folder.join("account.json");

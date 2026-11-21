@@ -70,11 +70,6 @@ jobs:
         with:
           bun-version-file: .bun-version
       - run: bun scripts/extension-tag.mjs --verify "$TAG"
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-linux-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-linux-
       # web-ext signs on AMO, the Tauri CLI signs for the server.
       - run: bun install --frozen-lockfile
 

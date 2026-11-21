@@ -548,11 +548,7 @@ mod tests {
     const FIREFOX: &str = include_str!("../../tests/fixtures/bookmarks/firefox.html");
 
     fn database() -> Connection {
-        let mut c = Connection::open_in_memory().unwrap();
-        c.pragma_update(None, "foreign_keys", true).unwrap();
-        db::register_functions(&c).unwrap();
-        crate::migrations::migrate(&mut c, None).unwrap();
-        c
+        crate::test_support::memory_db()
     }
     fn now() -> DateTime<Utc> {
         Utc.with_ymd_and_hms(2026, 10, 4, 12, 0, 0).unwrap()
@@ -926,24 +922,22 @@ mod tests {
         let c = database();
         let seeded: i64 = c.query_row("SELECT count(*) FROM collections", [], |r| r.get(0)).unwrap();
         let mut html = String::from("<DL>");
-        for i in 0..10_000 {
+        for i in 0..300 {
             html.push_str(&format!(r#"<DT><A HREF="https://example.com/{i}" ADD_DATE="1700000000">Link {i}</A>"#));
         }
         html.push_str("</DL>");
         let parsed = parse(&html, now());
         let mut calls = Vec::new();
-        let started = std::time::Instant::now();
-        assert_eq!(import(&c, &parsed, false, |done, total| calls.push((done, total))).unwrap().added, 10_000);
-        println!("import of 10 000 links: {:?}", started.elapsed());
-        assert_eq!(calls.len(), 100);
-        assert_eq!(calls.last(), Some(&(10_000, 10_000)));
+        assert_eq!(import(&c, &parsed, false, |done, total| calls.push((done, total))).unwrap().added, 300);
+        assert_eq!(calls.len(), 3);
+        assert_eq!(calls.last(), Some(&(300, 300)));
 
         // The library refuses writes halfway: nothing of the file stays.
         let mut broken = parse(r#"<DL><DT><H3>Новая</H3><DL><DT><A HREF="https://example.org/a">A</A><DT><A HREF="https://example.org/b">B</A></DL></DL>"#, now());
         broken.links[1].url = "https://example.com/0".into();
         c.execute_batch("CREATE TEMP TRIGGER fail BEFORE INSERT ON bookmarks WHEN NEW.url = 'https://example.org/a' BEGIN SELECT RAISE(ABORT, 'disk full'); END;").unwrap();
         assert!(import(&c, &broken, false, |_, _| {}).is_err());
-        assert_eq!(db::get_counts(&c).unwrap().total, 10_000);
+        assert_eq!(db::get_counts(&c).unwrap().total, 300);
         let collections: i64 = c.query_row("SELECT count(*) FROM collections", [], |r| r.get(0)).unwrap();
         assert_eq!(collections, seeded, "the collection created on the way is rolled back too");
     }

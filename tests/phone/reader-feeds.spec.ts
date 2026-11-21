@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { navPill, openPhone, systemBack, topScreen } from "./fixtures";
+import { longPress, navPill, openPhone, systemBack, topScreen } from "./fixtures";
 
 // NP-072b wave 1, part D: the reader (R1), Feeds (F1) and a feed's post.
 
@@ -312,13 +312,8 @@ test.describe("Feeds", () => {
   test("a long press on a feed chip opens the feed's menu as a sheet", async ({ page }) => {
     const feeds = await openFeeds(page);
     const chip = feeds.locator(".fd-chip[data-feed-uid]").first();
-    const box = (await chip.boundingBox())!;
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await page.mouse.down();
-    await page.waitForTimeout(650);
-    await page.mouse.up();
     const menu = page.locator('[data-sheet-kind="feedMenu"]');
-    await expect(menu.getByRole("dialog")).toBeVisible();
+    await longPress(page, chip, menu.getByRole("dialog"));
     await expect(menu.getByRole("button", { name: "Unfollow…" })).toBeVisible();
     // The press did not also open the feed.
     await expect(chip).toHaveAttribute("aria-pressed", "false");
@@ -327,6 +322,7 @@ test.describe("Feeds", () => {
   });
 
   test("a post opens over the list, saves as a bookmark, and Back returns with it kept", async ({ page }) => {
+    await page.clock.install();
     const feeds = await openFeeds(page);
     const row = feeds.locator("[data-feed-item-id]").first();
     const id = await row.getAttribute("data-feed-item-id");
@@ -344,7 +340,7 @@ test.describe("Feeds", () => {
     await expect(page.locator("[data-snackbar]")).toContainText("Saved to");
 
     // Read after a second; on Unread it stays where it was until the list changes.
-    await page.waitForTimeout(1300);
+    await page.clock.runFor(1300);
     expect(await systemBack(page)).toBe(true);
     const back = topScreen(page).locator(`[data-feed-item-id="${id}"]`);
     await expect(back).toBeVisible();

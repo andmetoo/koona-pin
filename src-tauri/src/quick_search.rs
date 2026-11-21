@@ -103,12 +103,7 @@ mod tests {
     use super::*;
 
     fn library() -> Connection {
-        let mut c = Connection::open_in_memory().unwrap();
-        // The SQL functions the triggers call, as every connection of the app has.
-        crate::db::register_functions(&c).unwrap();
-        c.pragma_update(None, "foreign_keys", true).unwrap();
-        crate::migrations::migrate(&mut c, None).unwrap();
-        c
+        crate::test_support::memory_db()
     }
     fn save(conn: &Connection, url: &str, title: &str, at: &str) -> i64 {
         conn.execute(

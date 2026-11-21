@@ -37,18 +37,23 @@ beforeAll(async () => {
 describe("search page", () => {
   beforeEach(() => tabs.create.mockClear());
   it("Enter waits for the answer to the query already sent, not the list before it", async () => {
-    const query = document.getElementById("query");
-    query.value = "new";
-    query.dispatchEvent(new Event("input", { bubbles: true }));
-    await wait(150);
-    expect(answers.map((a) => a.message.query)).toEqual(["new"]);
-    enter();
-    await wait();
-    expect(tabs.create).not.toHaveBeenCalled();
-    answers.shift().resolve(results("fresh"));
-    await wait();
-    expect(tabs.create).toHaveBeenCalledTimes(1);
-    expect(tabs.create).toHaveBeenLastCalledWith({ url: "https://example.com/fresh" });
+    vi.useFakeTimers();
+    try {
+      const query = document.getElementById("query");
+      query.value = "new";
+      query.dispatchEvent(new Event("input", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(150);
+      expect(answers.map((a) => a.message.query)).toEqual(["new"]);
+      enter();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(tabs.create).not.toHaveBeenCalled();
+      answers.shift().resolve(results("fresh"));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(tabs.create).toHaveBeenCalledTimes(1);
+      expect(tabs.create).toHaveBeenLastCalledWith({ url: "https://example.com/fresh" });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("Enter right after a filter chip waits for that filter's answer", async () => {

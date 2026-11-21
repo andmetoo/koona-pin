@@ -452,16 +452,6 @@ mod tests {
     }
 
     #[test]
-    fn a_tag_section_is_named_by_the_tag() {
-        let (c, _) = library();
-        let tokio = id_of(&c, "https://tokio.rs/");
-        let m = model(vec![section("runtime", BundleOrigin::Tag { name: "runtime".into() }, vec![bookmark(tokio)])]);
-        let value = json(&built(&c, &m).text);
-        assert_eq!(names(&value), ["runtime"]);
-        assert!(value["items"].as_array().unwrap().is_empty());
-    }
-
-    #[test]
     fn past_a_limit_the_bundle_is_too_big() {
         let c = database();
         let insert = |n: usize, long: bool| -> Vec<i64> {
@@ -528,7 +518,9 @@ mod tests {
         let (c, _) = library();
         let tokio = id_of(&c, "https://tokio.rs/");
         let m = model(vec![section("Runtime, as added", BundleOrigin::Tag { name: "runtime".into() }, vec![bookmark(tokio)])]);
-        assert_eq!(names(&json(&built(&c, &m).text)), ["runtime"]);
+        let value = json(&built(&c, &m).text);
+        assert_eq!(names(&value), ["runtime"]);
+        assert!(value["items"].as_array().unwrap().is_empty());
         let blank = model(vec![section("runtime", BundleOrigin::Tag { name: "  ".into() }, vec![bookmark(tokio)])]);
         assert_eq!(names(&json(&built(&c, &blank).text)), ["runtime"]);
     }

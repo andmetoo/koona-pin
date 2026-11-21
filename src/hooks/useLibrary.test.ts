@@ -69,7 +69,6 @@ const filters: FilterState = {
   onlyFeed: false,
 };
 
-const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 let root: Root;
 let state: ReturnType<typeof useLibrary>;
 function Probe() {
@@ -78,6 +77,7 @@ function Probe() {
 }
 
 beforeEach(() => {
+  vi.useFakeTimers();
   fake.onBookmarkChanged.mockImplementation((fn: (c: BookmarkChange) => void) => ((handlers.one = fn), () => {}));
   fake.onBookmarksChanged.mockImplementation((fn: (c: BookmarkChange[]) => void) => ((handlers.many = fn), () => {}));
   fake.getBookmarks.mockImplementation(async (_f: FilterState, cursor: { id?: number; limit?: number }) =>
@@ -86,6 +86,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   act(() => root.unmount());
+  vi.useRealTimers();
   vi.clearAllMocks();
 });
 
@@ -93,7 +94,7 @@ describe("useLibrary events", () => {
   it("a batch answered after a newer deletion does not bring the row back", async () => {
     root = createRoot(document.createElement("div"));
     await act(async () => root.render(createElement(Probe)));
-    await act(() => wait(200));
+    await act(() => vi.advanceTimersByTimeAsync(200));
     expect(state.bookmarks.map((b) => b.id)).toEqual([1]);
     expect(state.total).toBe(1);
 
@@ -110,7 +111,7 @@ describe("useLibrary events", () => {
 
     // The answer was read before the deletion: the row matched then.
     await act(async () => answer([1]));
-    await act(() => wait(500));
+    await act(() => vi.advanceTimersByTimeAsync(500));
     expect(state.bookmarks).toEqual([]);
     expect(state.total).toBe(0);
   });
@@ -137,7 +138,7 @@ describe("useLibrary events", () => {
     current = { ...current, search: "wor" };
     await act(async () => root.render(createElement(Switching)));
     expect(reads()).toHaveLength(2);
-    await act(() => wait(200));
+    await act(() => vi.advanceTimersByTimeAsync(200));
     // The pause read the last word once.
     expect(reads()).toHaveLength(3);
     expect(reads()[2].search).toBe("wor");

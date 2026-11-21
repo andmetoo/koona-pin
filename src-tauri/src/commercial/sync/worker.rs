@@ -712,15 +712,18 @@ pub mod tests {
             release.1.recv().unwrap();
         });
         locked.1.recv().unwrap();
+        let (waiting_ready, wait_started) = std::sync::mpsc::channel();
         let waiting = std::thread::spawn(move || {
+            waiting_ready.send(()).unwrap();
             let started = Instant::now();
             lib.vector().unwrap();
             started.elapsed()
         });
-        std::thread::sleep(Duration::from_millis(150));
+        wait_started.recv().unwrap();
+        std::thread::sleep(Duration::from_millis(50));
         release.0.send(()).unwrap();
         holder.join().unwrap();
-        assert!(waiting.join().unwrap() >= Duration::from_millis(100), "it waited for the lock");
+        assert!(waiting.join().unwrap() >= Duration::from_millis(20), "it waited for the lock");
         assert!(db.conn.try_lock().is_ok(), "and let it go");
     }
 

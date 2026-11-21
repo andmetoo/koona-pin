@@ -1,7 +1,6 @@
-// @vitest-environment jsdom
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { SupporterStatus } from "../types";
 import {
   clearSupporterLook,
@@ -31,8 +30,21 @@ const active = plan({ status: "active", interval: "year", valid_until: "2027-10-
 const choice = (over: Partial<ReaderChoice> = {}): ReaderChoice => ({ theme: "auto", font: "serif", size: 18, column: "medium", ...over });
 
 // The module registers itself when imported; each test states the build it means.
-beforeEach(() => registerSupporterLook(supporterLook));
-afterEach(() => localStorage.clear());
+const storage = new Map<string, string>();
+beforeEach(() => {
+  storage.clear();
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => void storage.set(key, String(value)),
+    removeItem: (key: string) => void storage.delete(key),
+    clear: () => storage.clear(),
+  });
+  registerSupporterLook(supporterLook);
+});
+afterEach(() => {
+  registerSupporterLook(supporterLook);
+  vi.unstubAllGlobals();
+});
 
 describe("the plan check (Р-64, point 6: the plan the app keeps, like the backup folder)", () => {
   test("a kept plan unlocks; none, or no status yet, does not", () => {

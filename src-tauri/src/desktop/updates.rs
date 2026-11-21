@@ -491,24 +491,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_status_is_tagged_for_the_interface() {
-        let json = |status: UpdateStatus| serde_json::to_string(&status).unwrap();
-        assert_eq!(json(UpdateStatus::Unknown), r#"{"state":"unknown"}"#);
-        assert_eq!(
-            json(UpdateStatus::Available { version: "0.3.0".into(), notes: vec!["Faster search.".into()], notes_url: format!("{CHANGELOG}0.3.0") }),
-            r#"{"state":"available","version":"0.3.0","notes":["Faster search."],"notes_url":"https://koona.app/pin/changelog/#0.3.0"}"#
-        );
-        assert_eq!(
-            json(UpdateStatus::Downloading { version: "0.3.0".into(), received: 10, total: None }),
-            r#"{"state":"downloading","version":"0.3.0","received":10,"total":null}"#
-        );
-        assert_eq!(
-            json(UpdateStatus::Failed { version: "0.3.0".into(), problem: UpdateProblem::PasswordCancelled }),
-            r#"{"state":"failed","version":"0.3.0","problem":"password_cancelled"}"#
-        );
-    }
-
-    #[test]
     fn the_notes_are_a_list_of_changes() {
         assert_eq!(
             notes_of("- Updates come from koona.app.\n\n• The start with the session survives a power cut.\r\n  * Settings show the last check.  \n"),

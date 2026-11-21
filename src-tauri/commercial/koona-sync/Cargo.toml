@@ -29,6 +29,8 @@ futures-util = { version = "0.3", optional = true, default-features = false, fea
 net = ["dep:tokio", "dep:tokio-tungstenite", "dep:rustls", "dep:webpki-roots", "dep:futures-util"]
 
 [dev-dependencies]
+# The tests copy a migrated template library with SQLite's online backup API.
+rusqlite = { version = "0.41", features = ["backup"] }
 # Convergence: random edits on several replicas, delivered in random order, end in one state.
 proptest = "1"
 # The relay client's test runs a local WebSocket server.

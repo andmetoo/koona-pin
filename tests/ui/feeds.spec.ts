@@ -73,10 +73,18 @@ test("J and K move through the posts; a post opened is read after a second, U ta
   await expect(posts(page).first()).toHaveAttribute("aria-selected", "true");
 });
 
-test("S, R, F and O work from the keys and the toolbar", async ({ page }) => {
+test("S, R, F, O and Save Undo work from the keys and the toolbar", async ({ page }) => {
   await open(page);
   await stubBrowser(page);
   await openFeeds(page);
+  // Save + Undo takes the post back out of Bookmarks.
+  await posts(page).first().click();
+  await sheet(page).getByRole("button", { name: "Save", exact: true }).click();
+  await expect(posts(page).first().locator("[data-feed-saved]")).toBeVisible();
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(posts(page).first().locator("[data-feed-saved]")).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: /^Saved from feeds/ })).toContainText("0");
+
   await posts(page).nth(2).click();
   await expect(sheet(page).getByRole("heading", { level: 1 })).toHaveText("Weeknight braised beans that taste like they took all day");
   // Beside the list there is nothing to go back to: no ← (2.1.3).
@@ -106,17 +114,6 @@ test("S, R, F and O work from the keys and the toolbar", async ({ page }) => {
   await page.keyboard.press("o");
   await sheet(page).getByRole("button", { name: "Open in browser" }).click();
   expect(await opened(page)).toEqual([expect.stringContaining("kottke.org/demo/"), expect.stringContaining("kottke.org/demo/")]);
-});
-
-test("a post saved by S goes again with Undo", async ({ page }) => {
-  await open(page);
-  await openFeeds(page);
-  await posts(page).first().click();
-  await sheet(page).getByRole("button", { name: "Save", exact: true }).click();
-  await expect(posts(page).first().locator("[data-feed-saved]")).toBeVisible();
-  await page.getByRole("button", { name: "Undo" }).click();
-  await expect(posts(page).first().locator("[data-feed-saved]")).toHaveCount(0);
-  await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: /^Saved from feeds/ })).toContainText("0");
 });
 
 test("⇧A marks all read; a feed's menu marks its own", async ({ page }) => {
@@ -281,14 +278,11 @@ test("the card spreads over the list with E; at the end of a post Next story and
   // The first post has nothing before it.
   await posts(page).first().click();
   await expect(sheet(page).last().locator("[data-feed-previous]")).toHaveCount(0);
-});
 
-test("⌃ and ⌄ in the toolbar move like K and J and dim at the ends of the list (2.17.0)", async ({ page }) => {
-  await open(page);
+  // Toolbar ⌃ and ⌄ move like K and J and dim at the ends of a feed's list (2.17.0).
   await row(page, "The Verge").click();
   await expect(posts(page)).toHaveCount(4);
   await posts(page).first().click();
-  const toolbar = sheet(page).last();
   const previous = () => sheet(page).last().getByRole("button", { name: "Previous story", exact: true });
   const next = () => sheet(page).last().getByRole("button", { name: "Next story", exact: true });
   await expect(previous()).toBeDisabled();
@@ -300,7 +294,6 @@ test("⌃ and ⌄ in the toolbar move like K and J and dim at the ends of the li
   await expect(posts(page).first()).toHaveAttribute("aria-selected", "true");
   await posts(page).nth(3).click();
   await expect(next()).toBeDisabled();
-  await expect(toolbar).toBeVisible();
 });
 
 test("Unread | All: Unread keeps the open post until another opens, and is remembered (2.17.0)", async ({ page }) => {
@@ -356,61 +349,6 @@ test("Mark all read in the list header; Unread then says everything is read and 
   await empty.getByRole("button", { name: "Show all posts" }).click();
   await expect(page.getByRole("group", { name: "Show posts" }).getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
   await expect(posts(page).first()).toBeVisible();
-});
-
-test("a post's picture spans the row at 16:9 under its excerpt; a post without one has no box (2.17.0)", async ({ page }) => {
-  await open(page);
-  await openFeeds(page);
-  const picture = page.locator("[data-feed-item] [data-feed-picture]").first();
-  await expect(picture).toBeVisible();
-  await expect(picture).toHaveAttribute("loading", "lazy");
-  const box = (await picture.boundingBox())!;
-  const rowBox = (await picture.locator("xpath=ancestor::*[@data-feed-item]").boundingBox())!;
-  expect(box.width).toBeGreaterThan(rowBox.width - 30);
-  expect(Math.abs(box.width / box.height - 16 / 9)).toBeLessThan(0.02);
-  // Rows follow one another without overlapping, pictures or not.
-  const tops = await posts(page).evaluateAll((rows) => rows.slice(0, 6).map((r) => [r.getBoundingClientRect().top, r.getBoundingClientRect().bottom]));
-  for (let i = 1; i < tops.length; i++) expect(tops[i][0]).toBeGreaterThanOrEqual(tops[i - 1][1]);
-});
-
-test("the list's text starts under «All feeds» and its cards end with the header; the key's icon and label stand in the rows' columns (2.25.2)", async ({ page }) => {
-  await open(page);
-  await openFeeds(page);
-  await page.getByRole("button", { name: "Search posts" }).click();
-  const list = page.locator("[data-feed-list]");
-  const title = (await list.getByRole("heading", { level: 1 }).boundingBox())!.x;
-  const starts = await list.evaluate((l) => {
-    const text = (e: Element) => {
-      const r = document.createRange();
-      r.selectNodeContents(e);
-      return r.getBoundingClientRect().left;
-    };
-    const row = l.querySelector("[data-feed-item]")!;
-    return {
-      day: text(l.querySelector("h2")!),
-      source: row.querySelector(":scope > .flex")!.getBoundingClientRect().left,
-      search: l.querySelector("input[type=search]")!.closest("div")!.querySelector("svg")!.getBoundingClientRect().left,
-      rowEnd: row.getBoundingClientRect().right,
-      headerEnd: l.querySelector("header [aria-label='Search posts']")!.getBoundingClientRect().right,
-      fieldEnd: l.querySelector("input[type=search]")!.closest("div")!.getBoundingClientRect().right,
-    };
-  });
-  // The day label, the post's source icon and the search icon on the title's line (the icon's own 1 px aside).
-  expect(Math.abs(starts.day - title)).toBeLessThanOrEqual(1);
-  expect(Math.abs(starts.source - title)).toBeLessThanOrEqual(1);
-  expect(Math.abs(starts.search - title)).toBeLessThanOrEqual(1.5);
-  // A card hangs out on the left only; on the right it ends where the header's buttons and the field do.
-  expect(Math.abs(starts.rowEnd - starts.headerEnd)).toBeLessThanOrEqual(1);
-  expect(Math.abs(starts.fieldEnd - starts.headerEnd)).toBeLessThanOrEqual(1);
-  // «Follow a site»: its icon and label where «Today»'s are below it («All» draws its icon inside a tile).
-  const columns = (button: Element) => {
-    const label = [...button.querySelectorAll("span")].find((s) => s.children.length === 0 && /\p{L}{2}/u.test(s.textContent ?? ""))!;
-    return [button.querySelector("svg")!.getBoundingClientRect().left, label.getBoundingClientRect().left];
-  };
-  const key = await page.locator("[data-follow-site]").evaluate(columns);
-  const today = await page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: /^Today/ }).evaluate(columns);
-  expect(Math.abs(key[0] - today[0])).toBeLessThanOrEqual(0.5);
-  expect(Math.abs(key[1] - today[1])).toBeLessThanOrEqual(0.5);
 });
 
 test("Settings → Feeds: how often to check, OPML import and export", async ({ page }) => {
@@ -505,20 +443,31 @@ test("R and F act on the open post's bookmark, not on the one of the post before
   await posts(page).nth(1).click();
   await page.keyboard.press("s");
   await expect(posts(page).nth(1).locator("[data-feed-saved]")).toBeVisible();
-  // From now on the bookmark of an opened post takes a while to arrive.
+  // From now on the bookmark lookup of an opened post waits on a manual gate.
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
+    const w = window as unknown as { releaseLookups: (() => void)[] };
+    w.releaseLookups = [];
     const original = api.getBookmarks;
     api.getBookmarks = async (filters, request = {}) => {
-      if (request.id !== undefined) await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (request.id !== undefined) await new Promise<void>((resolve) => w.releaseLookups.push(resolve));
       return original(filters, request);
     };
   });
+  const releaseAll = () =>
+    page.evaluate(() => {
+      const w = window as unknown as { releaseLookups: (() => void)[] };
+      while (w.releaseLookups.length) w.releaseLookups.shift()!();
+    });
   await posts(page).nth(0).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { releaseLookups: unknown[] }).releaseLookups.length)).toBeGreaterThan(0);
+  await releaseAll();
   await expect(sheet(page).getByRole("button", { name: "Favorite" })).toHaveAttribute("aria-pressed", "true");
   await posts(page).nth(1).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { releaseLookups: unknown[] }).releaseLookups.length)).toBeGreaterThan(0);
   // Before it arrives, F favourites this post; the first one stays a favourite.
   await page.keyboard.press("f");
+  await releaseAll();
   await favorites(2).toBeVisible();
 });
 
@@ -532,23 +481,42 @@ test("F finishing on a post left behind does not lose the bookmark of the post o
   await posts(page).nth(1).click();
   await page.keyboard.press("f");
   await expect(favorite).toHaveAttribute("aria-pressed", "true");
-  // From now on a bookmark's lookup takes 1.5 s and a bulk action 0.5 s.
+  // Hold bookmark lookups and bulk updates behind manual gates so we deterministically interleave them.
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
+    const w = window as unknown as { releaseLookups: (() => void)[]; releaseBulk: (() => void)[] };
+    w.releaseLookups = [];
+    w.releaseBulk = [];
     const getBookmarks = api.getBookmarks;
     api.getBookmarks = async (filters, request = {}) => {
-      if (request.id !== undefined) await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (request.id !== undefined) await new Promise<void>((resolve) => w.releaseLookups.push(resolve));
       return getBookmarks(filters, request);
     };
     const bulkUpdate = api.bulkUpdate;
-    api.bulkUpdate = async (...args) => (await new Promise((resolve) => setTimeout(resolve, 500)), bulkUpdate(...args));
+    api.bulkUpdate = async (...args) => {
+      await new Promise<void>((resolve) => w.releaseBulk.push(resolve));
+      return bulkUpdate(...args);
+    };
   });
   await posts(page).nth(0).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { releaseLookups: unknown[] }).releaseLookups.length)).toBeGreaterThan(0);
+  await page.evaluate(() => (window as unknown as { releaseLookups: (() => void)[] }).releaseLookups.shift()!());
   await expect(favorite).toHaveAttribute("aria-pressed", "true");
   // F takes the first post out of Favorites; the second opens while that is still on its way.
   await page.keyboard.press("f");
+  await expect.poll(() => page.evaluate(() => (window as unknown as { releaseBulk: unknown[] }).releaseBulk.length)).toBeGreaterThan(0);
   await posts(page).nth(1).click();
-  await expect(favorite).toHaveAttribute("aria-pressed", "true", { timeout: 4000 });
+  await expect.poll(() => page.evaluate(() => (window as unknown as { releaseLookups: unknown[] }).releaseLookups.length)).toBeGreaterThan(0);
+  // Bulk update finishes first, then the second post's lookup finishes.
+  await page.evaluate(() => {
+    const w = window as unknown as { releaseLookups: (() => void)[]; releaseBulk: (() => void)[] };
+    while (w.releaseBulk.length) w.releaseBulk.shift()!();
+  });
+  await page.evaluate(() => {
+    const w = window as unknown as { releaseLookups: (() => void)[] };
+    while (w.releaseLookups.length) w.releaseLookups.shift()!();
+  });
+  await expect(favorite).toHaveAttribute("aria-pressed", "true");
 });
 
 // The page against the Lunacy frame «RSS · Three columns · Light», light and dark, at 1200 and 1600.

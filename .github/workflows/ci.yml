@@ -38,6 +38,7 @@ jobs:
     outputs:
       linux: ${{ steps.paths.outputs.linux }}
       native: ${{ steps.paths.outputs.native }}
+      macos: ${{ steps.paths.outputs.macos }}
       kpin: ${{ steps.paths.outputs.kpin }}
     steps:
       # The pull request's merge commit with main as its first parent: two commits are enough.
@@ -51,10 +52,10 @@ jobs:
         run: |
           if [ "$EVENT" != pull_request ]; then
             echo "$EVENT: everything runs"
-            printf 'linux=true\nnative=true\nkpin=true\n' >> "$GITHUB_OUTPUT"
+            printf 'linux=true\nnative=true\nmacos=true\nkpin=true\n' >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          linux=false native=false kpin=false
+          linux=false native=false macos=false kpin=false
           while IFS= read -r file; do
             echo "$file"
             # The .kpin copy can only drift through these: its check clones koona-project/kpin, so it
@@ -66,7 +67,9 @@ jobs:
               # The .kpin spec, schema and conformance suite: the Rust reader's tests and Vitest read them,
               # and run on Linux; nothing in them differs on Windows or macOS.
               docs/kpin/* | docs/kpin.tag) linux=true ;;
-              docs/* | changelog/* | design/* | *.md | LICENSE* | .github/workflows/cla.yml | .github/workflows/release.yml) ;;
+              docs/* | changelog/* | design/* | *.md | LICENSE* | .github/workflows/cla.yml | .github/workflows/release.yml | .github/workflows/extension.yml) ;;
+              # The Safari extension on macOS embeds the web extension built from extension/.
+              extension/*) linux=true macos=true ;;
               # src-tauri/* includes the Safari extension's Xcode project (src-tauri/macos/safari).
               src/* | src-tauri/* | scripts/build-macos.mjs | scripts/build-extension.mjs | scripts/build-android.mjs | scripts/check-apk-billing.mjs | scripts/build-ios-sim.mjs | \
                 scripts/lib/paths.mjs | scripts/lib/ios.mjs | scripts/lib/env.mjs | package.json | bun.lock | .bun-version | rust-toolchain.toml | .cargo/* | \
@@ -75,8 +78,8 @@ jobs:
               *) linux=true ;;
             esac
           done < <(git diff --name-only HEAD^1 HEAD)
-          echo "Linux: $linux, Windows and macOS: $native, .kpin copy: $kpin"
-          printf 'linux=%s\nnative=%s\nkpin=%s\n' "$linux" "$native" "$kpin" >> "$GITHUB_OUTPUT"
+          echo "Linux: $linux, Windows/macOS/mobile: $native, macOS only: $macos, .kpin copy: $kpin"
+          printf 'linux=%s\nnative=%s\nmacos=%s\nkpin=%s\n' "$linux" "$native" "$macos" "$kpin" >> "$GITHUB_OUTPUT"
 
   linux:
     name: Linux
@@ -97,15 +100,6 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: .bun-version
-      # Bun's package cache.
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-windows-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-windows-
       - name: Rust toolchain from rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
       # Saved from main only, as on Linux: every pull request saved 3 GB of Rust caches and pushed main's out
@@ -113,8 +107,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          cache-bin: false
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - run: bun install --frozen-lockfile
       # What differs on Windows: paths, the registry of the native host (NP-016), the single-instance pipe.
       # The IPC types they regenerate are checked on Linux (linux.yml, check:bindings).
       # No installer here: a second, release build of every crate doubled the job, and the one that ships
@@ -132,7 +126,7 @@ jobs:
     # expression of the matrix would show unexpanded when the job is skipped (a pull request of scripts).
     name: macOS 15
     needs: changes
-    if: needs.changes.outputs.native == 'true'
+    if: needs.changes.outputs.native == 'true' || needs.changes.outputs.macos == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -147,17 +141,13 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-macos-${{ matrix.arch }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-macos-${{ matrix.arch }}-
       - name: Rust from rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
           key: macos-test-${{ matrix.arch }}
+          cache-bin: false
           cache-on-failure: true
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: bun install --frozen-lockfile
@@ -212,19 +202,22 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-android-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-android-
       - name: Rust from rust-toolchain.toml, with the Android target
         run: |
           rustup show active-toolchain || rustup toolchain install
           rustup target add aarch64-linux-android
+          # Remove preinstalled runner toolchains so rust-cache hashes only rust-toolchain.toml's active toolchain.
+          active=$(rustup show active-toolchain | awk '{print $1}')
+          while read -r tc _; do
+            if [ -n "$tc" ] && [ "$tc" != "$active" ]; then
+              rustup toolchain uninstall "$tc"
+            fi
+          done < <(rustup toolchain list)
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
           key: android
+          cache-bin: false
           cache-on-failure: true
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: actions/setup-java@v6
@@ -299,11 +292,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-ios-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-ios-
       # llvm-tools: swift-rs keeps the plugins' Swift entry points exported with its llvm-objcopy, which a
       # release build needs (scripts/build-ios-sim.mjs); here only, not in rust-toolchain.toml for every job.
       - name: Rust from rust-toolchain.toml, with the Simulator target and llvm-tools
@@ -316,6 +304,7 @@ jobs:
           workspaces: src-tauri
           # Per Xcode: the swift-rs objects of the plugins are built by its Swift.
           key: ios-sim-xcode-27.1
+          cache-bin: false
           cache-on-failure: true
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: bun install --frozen-lockfile

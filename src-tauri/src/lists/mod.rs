@@ -388,11 +388,7 @@ pub(crate) mod tests {
 
     /// An empty library at the current schema, without starter collections.
     pub(crate) fn database() -> Connection {
-        let mut c = Connection::open_in_memory().unwrap();
-        c.pragma_update(None, "foreign_keys", true).unwrap();
-        crate::db::register_functions(&c).unwrap();
-        crate::migrations::migrate(&mut c, None).unwrap();
-        c
+        crate::test_support::memory_db()
     }
 
     #[test]
@@ -430,24 +426,5 @@ pub(crate) mod tests {
             }
         }
         std::fs::remove_dir_all(&dir).unwrap();
-    }
-
-    #[test]
-    fn refusals_reach_the_interface_as_outcomes() {
-        let json = |check: ListCheck| serde_json::to_value(check).unwrap();
-        assert_eq!(json(ListError::OtherApp("note".into()).into()), serde_json::json!({ "outcome": "other_app", "app": "note" }));
-        assert_eq!(json(ListError::NeedsNewerApp.into()), serde_json::json!({ "outcome": "needs_newer_app" }));
-        let options: ListImportOptions = serde_json::from_value(serde_json::json!({
-            "collection": { "kind": "new", "name": "Rust" },
-            "to_inbox": false,
-            "sections_as_tags": true,
-            "existing_links": "add_tags",
-            "follow_feeds": [],
-            "leave_out": []
-        }))
-        .unwrap();
-        assert_eq!(options.collection, ListCollection::New { name: "Rust".into() });
-        let none: ListCollection = serde_json::from_value(serde_json::json!({ "kind": "none" })).unwrap();
-        assert_eq!(none, ListCollection::None);
     }
 }

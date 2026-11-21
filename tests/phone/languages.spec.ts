@@ -1,19 +1,11 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { catalog, text } from "../fixtures/app";
 import { labelProblems } from "./labels";
-import { navPill, openPhone, systemBack, topScreen } from "./fixtures";
+import { longPress, navPill, openPhone, systemBack, topScreen, waitForAnimations } from "./fixtures";
 
 // Long languages on a narrow phone (NP-072b), as the desktop's @languages: at 393 wide no label
 // is cut or runs into another on L1, I1 with its decision pill, Q1, B1's bar and A1. Labels wrap
 // (docs/translating.md, "Length"); the ones too long for their pill are shortened in their locale.
-
-async function longPress(page: Page, target: Locator) {
-  const box = (await target.boundingBox())!;
-  await page.mouse.move(box.x + 40, box.y + 20);
-  await page.mouse.down();
-  await page.waitForTimeout(650);
-  await page.mouse.up();
-}
 
 /** The open sheet of `kind`, not one on its way out. */
 const sheet = (page: Page, kind: string) => page.locator(`[data-sheet-kind="${kind}"]:not([data-leaving])`);
@@ -25,7 +17,7 @@ for (const code of ["de", "pl", "fr", "ru"])
     const problems: string[] = [];
     const check = async (frame: string) => {
       // Sheets and screens settle (their rise, the pill's measure) before they are measured.
-      await page.waitForTimeout(400);
+      await waitForAnimations(page);
       for (const problem of await labelProblems(page)) problems.push(`${frame}: ${problem}`);
     };
 
@@ -42,7 +34,7 @@ for (const code of ["de", "pl", "fr", "ru"])
     await expect(topScreen(page).locator(".lib-search")).toBeVisible();
 
     // B1: Edit link from a bookmark's menu
-    await longPress(page, topScreen(page).locator("[data-bookmark-id]").first());
+    await longPress(page, topScreen(page).locator("[data-bookmark-id]").first(), sheet(page, "bookmarkMenu"), { x: 40, y: 20 });
     await sheet(page, "bookmarkMenu").getByRole("button", { name: t("phone.bookmarkMenu.edit"), exact: true }).click();
     await expect(sheet(page, "edit")).toBeVisible();
     await check("B1");

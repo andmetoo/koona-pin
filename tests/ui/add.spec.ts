@@ -149,7 +149,7 @@ test("⌘V in the library saves a link at once; Undo takes it away; text and fie
     data.setData("text/plain", "https://example.com/into-the-field");
     el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
   });
-  await page.waitForTimeout(300);
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(count);
 
   // In the inbox it waits there.
@@ -227,7 +227,9 @@ test("a link dragged over the window shows the drop zone; dropped, it is saved, 
   await expect(zone).toHaveCount(0);
 });
 
-test("over the sidebar or the toolbar a drag from outside shows no zone and its drop does nothing", async ({ page }) => {
+const settle = (page: Page) => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+
+test("over the sidebar, toolbar, or search field a drag from outside shows no zone and its drop is not saved", async ({ page }) => {
   const zone = page.locator("[data-drop-zone]");
   const cards = await page.locator("[data-bookmark-id]").count();
   const inbox = await sidebar(page).getByRole("button", { name: /^Inbox/ }).first().textContent();
@@ -242,12 +244,29 @@ test("over the sidebar or the toolbar a drag from outside shows no zone and its 
     await expect(zone).toHaveCount(0);
     await dragFiles(page, "drop", [{ name: "feeds.opml", text: OPML }], false, where);
   }
-  // A save would land within a frame or two: give it time, then nothing is in Library or Inbox.
-  await page.waitForTimeout(400);
+  // A save would land within a frame or two: give it two frames, then nothing is in Library or Inbox.
+  await settle(page);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator("[data-glass-toast]")).toHaveCount(0);
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(cards);
   await expect(sidebar(page).getByRole("button", { name: /^Inbox/ }).first()).toHaveText(inbox!);
+
+  // A link or text dragged over the search field is the field's; a file over it is still refused.
+  const search = page.getByLabel("Search the library");
+  await dragAt(page, "dragenter", { link: "https://example.com/typed" });
+  await expect(zone).toHaveAttribute("data-drop-zone", "link");
+  expect(await dragAt(page, "dragover", { link: "https://example.com/typed" }, search)).toBe("unset");
+  await expect(zone).toHaveCount(0);
+  expect(await dragAt(page, "drop", { link: "https://example.com/typed" }, search)).toBe("unset");
+  expect(await dragAt(page, "dragenter", { link: "https://example.com/typed" }, search)).toBe("unset");
+  expect(await dragAt(page, "drop", { link: "https://example.com/typed" }, search)).toBe("unset");
+  await expect(zone).toHaveCount(0);
+  expect(await dragFiles(page, "dragenter", [{ name: "feeds.opml", text: OPML }], false, search)).toBe("none");
+  await dragFiles(page, "drop", [{ name: "feeds.opml", text: OPML }], false, search);
+  await settle(page);
+  await expect(page.locator("[data-glass-toast]")).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(cards);
 
   // From the sidebar into the list the zone shows; back over the sidebar it goes, with no leave in between.
   await dragAt(page, "dragenter", { link: "https://example.com/moving" }, "sidebar");
@@ -264,7 +283,7 @@ test("over the sidebar or the toolbar a drag from outside shows no zone and its 
   await expect(page.locator("[data-glass-toast]")).toContainText("Saved to Bookmarks");
   await dragAt(page, "dragenter", { link: "https://example.com/zero-off" }, "sidebar");
   await dragAt(page, "drop", { link: "https://example.com/zero-off" }, "zero");
-  await page.waitForTimeout(400);
+  await settle(page);
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(cards + 1);
 });
 
@@ -319,7 +338,7 @@ const zoneOver = async (page: Page, where: DropWhere, shows: boolean) => {
   expect(await dragFiles(page, "dragenter", [{ name: "feeds.opml" }], true, where)).toBe(shows ? "copy" : "none");
   if (shows) await expect(zone).toHaveAttribute("data-drop-zone", "hero");
   else {
-    await page.waitForTimeout(100);
+    await settle(page);
     await expect(zone).toHaveCount(0);
   }
   await dragFiles(page, "dragleave", [], true, where);
@@ -355,9 +374,8 @@ test("Feeds: the zone lies over the posts and the article, wide and narrow; over
   await expect(article).toBeVisible();
   await zoneOver(page, article, true);
   await zoneOver(page, page.locator("[data-feed-article] header"), false);
-});
 
-test("Settings: the zone lies over the content, not over its header", async ({ page }) => {
+  // Settings: the zone lies over the content, not over its header or sidebar.
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
   await zoneOver(page, "list", true);
@@ -460,13 +478,12 @@ test("the app's own drags are told by what they carry: one that never ends or wa
     await dragFiles(page, "dragleave", [], true);
     await expect(zone).toHaveCount(0);
   }
-  await page.waitForTimeout(400);
+  await settle(page);
   await expect(page.locator("[data-glass-toast]")).toHaveCount(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(cards);
-});
 
-test("nothing in the list starts a drag of its own: on a Mac a cancelled one leaves the next drag from outside without data", async ({ page }) => {
+  // Nothing in the list starts a native drag of its own (on a Mac a cancelled one leaves the next external drag empty).
   const draggable = await page.evaluate(() =>
     Array.from(document.querySelectorAll("[data-no-native-drag] img, [data-no-native-drag] a, [data-no-native-drag] [data-bookmark-id]"), (element) =>
       getComputedStyle(element).getPropertyValue("-webkit-user-drag"),
@@ -474,36 +491,12 @@ test("nothing in the list starts a drag of its own: on a Mac a cancelled one lea
   );
   expect(draggable.length).toBeGreaterThan(0);
   expect(new Set(draggable)).toEqual(new Set(["none"]));
-  // A preview image's drag is not cancelled at its start: none starts.
   const cancelled = await page.evaluate(() => {
     const event = new DragEvent("dragstart", { bubbles: true, cancelable: true });
     document.querySelector("[data-no-native-drag] [data-bookmark-id]")!.dispatchEvent(event);
     return event.defaultPrevented;
   });
   expect(cancelled).toBe(false);
-});
-
-test("a link or text dragged over the search field is the field's: no zone, and the window neither takes nor refuses it", async ({ page }) => {
-  const zone = page.locator("[data-drop-zone]");
-  const search = page.getByLabel("Search the library");
-  const cards = await page.locator("[data-bookmark-id]").count();
-  // From the list onto the field: the zone goes, and the window leaves the drag to the field.
-  await dragAt(page, "dragenter", { link: "https://example.com/typed" });
-  await expect(zone).toHaveAttribute("data-drop-zone", "link");
-  expect(await dragAt(page, "dragover", { link: "https://example.com/typed" }, search)).toBe("unset");
-  await expect(zone).toHaveCount(0);
-  expect(await dragAt(page, "drop", { link: "https://example.com/typed" }, search)).toBe("unset");
-  // Straight onto the field as well.
-  expect(await dragAt(page, "dragenter", { link: "https://example.com/typed" }, search)).toBe("unset");
-  expect(await dragAt(page, "drop", { link: "https://example.com/typed" }, search)).toBe("unset");
-  await expect(zone).toHaveCount(0);
-  // A file over the field is still refused: the webview would open it.
-  expect(await dragFiles(page, "dragenter", [{ name: "feeds.opml", text: OPML }], false, search)).toBe("none");
-  await dragFiles(page, "drop", [{ name: "feeds.opml", text: OPML }], false, search);
-  await page.waitForTimeout(400);
-  await expect(page.locator("[data-glass-toast]")).toHaveCount(0);
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.locator("[data-bookmark-id]")).toHaveCount(cards);
 });
 
 test("a dropped file goes by what it holds: a list, OPML, bookmarks and a backup open their dialogs; others are refused", async ({ page }) => {
