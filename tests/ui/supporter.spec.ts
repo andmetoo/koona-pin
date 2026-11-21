@@ -331,7 +331,7 @@ test("Supporter: unreachable server keeps chosen plan; signed in without active 
   expect(await page.evaluate(async () => (await import("/src/services/api.ts")).api.getSupporterStatus().then((s) => s.email))).toBeNull();
 });
 
-test("Supporter: signed in while plan is unknown warns before buying, retries on Try again, and auto-closes when found on reopen (NP-066)", async ({ page }) => {
+test("Supporter: signed in while plan is unknown warns before buying and retries on Try again (NP-066)", async ({ page }) => {
   await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
   await page.reload();
   const row = page.locator("[data-plan-row]");
@@ -348,23 +348,28 @@ test("Supporter: signed in while plan is unknown warns before buying, retries on
     "The plan of unknown@example.com couldn't be checked yet. Already a Supporter? Wait before buying again — the app tries again within the hour. Delete account…",
   );
   const warned = Math.round((await plans.boundingBox())!.height);
-  // Once the server has the plan, reopening the plans asks, finds it, and closes without «thank you».
-  await plans.getByRole("button", { name: "Not now" }).click();
-  await page.evaluate(() => localStorage.setItem("koonapin.demo.serverPlan", "supporter"));
-  await row.click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(row).toHaveAttribute("data-plan-row", "supporter");
 
   // Fresh unknown state: notice fits the usual height, and «Try again» finds the plan.
-  await page.evaluate(() => {
-    localStorage.removeItem("koonapin.demo.serverPlan");
-    localStorage.setItem("koonapin.demo.supporter", "free");
-  });
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
   await page.reload();
   await row.click();
   expect(Math.round((await plans.boundingBox())!.height), "the notice fits the usual height").toBe(warned);
   await signInAsSupporter(page, "unknown@example.com");
   await signedIn.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(row).toHaveAttribute("data-plan-row", "supporter");
+});
+
+test("Supporter: the plans opened while the plan is not known ask again and close when it is found (NP-066)", async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
+  await page.reload();
+  const row = page.locator("[data-plan-row]");
+  await row.click();
+  await signInAsSupporter(page, "unknown@example.com");
+  await page.getByRole("dialog", { name: "Signed in" }).locator("footer").getByRole("button", { name: "Close" }).click();
+  // The server has the plan now: opening the plans asks, finds it and closes, no «thank you».
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.serverPlan", "supporter"));
+  await row.click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(row).toHaveAttribute("data-plan-row", "supporter");
 });
