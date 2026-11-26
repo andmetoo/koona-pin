@@ -79,12 +79,12 @@ base64 = "0.22"
 # (`commercial/koona-sync`). Schema 10 and its triggers are called from the GPL code like the
 # other commercial modules; the app's glue is `src/commercial/sync`.
 koona-sync = { path = "commercial/koona-sync", features = ["net"] }
-# Feeds (NP-128, Р-71): RSS 0.9/1.0/2.0, Atom and JSON Feed into one model. Pinned: a 3.0.x patch
+# Feeds (NP-128, Р-71): RSS 0.9/1.0/2.0, Atom and JSON Feed into one model. Pinned: a 3.1.x patch
 # is taken by hand after the fixture tests pass. No `sanitize`: DOMPurify in the interface is the
-# one sanitizer. Its dependencies are in the tree already but `mediatype` (MIT).
-feed-rs = "=3.0.0"
-# OPML import and export, and the item-level `media:thumbnail` pass feed-rs 3.0.0 drops. Already
-# in the tree through `plist`.
+# one sanitizer. Its dependencies are in the tree already but `mediatype` and, since 3.1.0, `jiff`
+# (MIT or Unlicense) for its dates; ours stay `chrono`.
+feed-rs = "=3.1.0"
+# OPML import and export. Already in the tree through `plist`.
 quick-xml = "0.42"
 # The picture cache (NP-146): previews and icons decoded and made small, pure Rust only (zune-jpeg,
 # png, gif, image-webp); no AVIF, no rayon. Keys are SHA-256 of the address; `sha2` is in the tree

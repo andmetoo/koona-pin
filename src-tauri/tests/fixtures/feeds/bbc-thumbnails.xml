@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Synthetic, written for the tests (NP-129). Shaped like a large news site's feed: the only
-     picture of each item is a media:thumbnail directly in it, which feed-rs 3.0.0 drops
-     (feed-rs/feed-rs#296). -->
+     picture of each item is a media:thumbnail directly in it, which feed-rs 3.0.0 dropped
+     (feed-rs/feed-rs#296, fixed in 3.1.0). -->
 <rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
   <channel>
     <title><![CDATA[Example News - Home]]></title>

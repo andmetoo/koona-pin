@@ -1,27 +1,18 @@
-//! A fetched document into posts (NP-129, plan §4.1): feed-rs 3.0.0 with a
-//! base URI, then our own layer (keys, excerpts, thumbnails, the item-level
-//! `media:thumbnail` pass, limits, one repair retry).
+//! A fetched document into posts (NP-129, plan §4.1): feed-rs 3.1.0 with a
+//! base URI, then our own layer (keys, excerpts, thumbnails, limits, one
+//! repair).
 //!
-//! What feed-rs 3.0.0 gets wrong and this layer covers, each to go when its
-//! upstream issue ships in a 3.0.x release (the fixtures show the day):
+//! feed-rs 3.1.0 fixed what 3.0.0 got wrong and this layer used to cover:
+//! feed-rs/feed-rs#295 (unescaped markup in RSS text), #296 (an item-level
+//! `media:thumbnail`), #297 (an `<rss>` without `version`), #298 (JSON Feed
+//! `image` and `banner_image`) and numeric JSON Feed ids. What is left:
 //!
-//! - feed-rs/feed-rs#296: a `media:thumbnail` directly in an item (BBC,
-//!   GitHub releases) is dropped. [`recover_thumbnails`] reads it again;
-//! - feed-rs/feed-rs#297: an `<rss>` without `version` is no feed. [`repair`]
-//!   adds `version="2.0"` and parses once more;
-//! - feed-rs/feed-rs#298: JSON Feed `image` and `banner_image` are not read.
-//!   [`json_images`] reads them with `serde_json`;
-//! - feed-rs/feed-rs#295 (reported by someone else): unescaped markup inside
-//!   an RSS text element is cut at the first child element, so
-//!   `<title>Hello <b>world</b></title>` reads «Hello». Such feeds are
-//!   invalid; nothing here repairs them, and a fixture pins what they give.
-//!
-//! Not reported: a JSON Feed item whose `id` is a number fails the whole
-//! document, though JSON Feed 1.1 tells readers to take it as a string.
-//! [`repair`] makes it one.
+//! - feed-rs reads a JSON Feed `image` or `banner_image` only when it is an
+//!   absolute address. [`json_images`] reads relative ones against the feed;
+//! - a bare `&` is ill-formed XML, and feed-rs 3.1.0 reads the elements
+//!   around it as empty; [`repair`] escapes it before the document is read.
 
 use feed_rs::model::{Entry, Feed, FeedType, Text};
-use quick_xml::{encoding::DecodingReader, events::Event, name::ResolveResult, NsReader};
 use scraper::{Html, Selector};
 use std::{borrow::Cow, collections::{HashMap, HashSet}};
 use url::Url;
@@ -77,8 +68,6 @@ pub const MAX_CONTENT: usize = 512 * 1024;
 pub const FULL_WORDS: usize = 150;
 /// A post without a title takes this much of its text.
 const UNTITLED: usize = 80;
-/// The Media RSS namespace.
-const MRSS: &str = "http://search.yahoo.com/mrss/";
 
 /// Why a document gave no posts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -89,27 +78,27 @@ pub enum ParseError {
     Invalid,
 }
 
-/// A document fetched from `base` into posts. When feed-rs refuses it, one
-/// repair (a missing RSS version, a bare `&`) and one more try.
+/// A document fetched from `base` into posts. An XML document with a bare
+/// `&` is repaired before it is read: feed-rs 3.1.0 no longer refuses it but
+/// leaves the elements around it empty, so the repair cannot wait for an error.
 pub fn parse(bytes: &[u8], base: &Url) -> Result<ParsedFeed, ParseError> {
     if bytes.len() > MAX_BODY {
         return Err(ParseError::TooLarge);
     }
-    let (feed, source) = match read(bytes, base) {
-        Ok(feed) => (feed, Cow::Borrowed(bytes)),
-        Err(_) => {
-            let repaired = repair(bytes).ok_or(ParseError::Invalid)?;
-            let feed = read(&repaired, base).map_err(|_| ParseError::Invalid)?;
-            (feed, Cow::Owned(repaired))
-        }
+    let json = bytes.strip_prefix("\u{feff}".as_bytes()).unwrap_or(bytes).trim_ascii_start().starts_with(b"{");
+    let source = match (!json).then(|| repair(bytes)).flatten() {
+        Some(repaired) => Cow::Owned(repaired),
+        None => Cow::Borrowed(bytes),
     };
+    let feed = read(&source, base).map_err(|_| ParseError::Invalid)?;
     Ok(map(feed, &source, base))
 }
 
 /// Whether bytes look like a feed rather than a page: the root an XML feed
 /// has, or a JSON Feed's version. For a pasted link (NP-129, plan §4.2).
 pub fn looks_like_feed(bytes: &[u8]) -> bool {
-    let head = String::from_utf8_lossy(&bytes[..bytes.len().min(4096)]).to_ascii_lowercase();
+    let head = &bytes[..bytes.len().min(4096)];
+    let head = if wide(head) { utf16_lossy(head) } else { String::from_utf8_lossy(head).into_owned() }.to_ascii_lowercase();
     let head = head.trim_start_matches('\u{feff}').trim_start();
     if head.starts_with('{') {
         return head.contains("jsonfeed.org/version");
@@ -139,67 +128,93 @@ fn read(bytes: &[u8], base: &Url) -> Result<Feed, feed_rs::parser::ParseFeedErro
         .parse(bytes)
 }
 
-/// The one repair (feed-rs/feed-rs#297, and ill-formed XML): `version="2.0"`
-/// on an `<rss>` root without one, and a bare `&` escaped outside CDATA and
-/// comments; for JSON Feed, numeric item ids as strings. None when there was
-/// nothing to repair.
+/// The one repair (ill-formed XML): a bare `&` escaped outside CDATA,
+/// comments and processing instructions. None when there was nothing to
+/// repair, found without copying the document, since it runs on every fetch.
+/// The scan reads single bytes, so a document whose bytes are not ASCII where
+/// they look like it is left alone: UTF-16 and UTF-32, and what encoding_rs
+/// (feed-rs's decoder) calls not ASCII-compatible under any of its labels, such
+/// as ISO-2022-JP, whose characters are pairs of ASCII bytes. UTF-7, which
+/// encoding_rs does not know, is one too.
 fn repair(bytes: &[u8]) -> Option<Vec<u8>> {
-    let json = bytes.strip_prefix("\u{feff}".as_bytes()).unwrap_or(bytes);
-    if json.trim_ascii_start().starts_with(b"{") {
-        return repair_json(json);
+    let narrow_only = |label: String| {
+        label == "utf-7" || encoding_rs::Encoding::for_label(label.as_bytes()).is_some_and(|e| !e.is_ascii_compatible())
+    };
+    if wide(bytes) || declared_encoding(bytes).is_some_and(narrow_only) {
+        return None;
     }
+    let mut at = bare_ampersand(bytes, 0)?;
     let mut out = Vec::with_capacity(bytes.len() + 64);
-    let mut changed = false;
-    let mut i = 0;
-    let mut root_seen = false;
-    while i < bytes.len() {
+    let mut copied = 0;
+    loop {
+        out.extend_from_slice(&bytes[copied..at]);
+        out.extend_from_slice(b"&amp;");
+        copied = at + 1;
+        match bare_ampersand(bytes, copied) {
+            Some(next) => at = next,
+            None => break,
+        }
+    }
+    out.extend_from_slice(&bytes[copied..]);
+    Some(out)
+}
+
+/// The next `&` from `from` that starts no reference, outside CDATA,
+/// comments and processing instructions (what is inside them is not markup).
+fn bare_ampersand(bytes: &[u8], from: usize) -> Option<usize> {
+    let mut i = from;
+    while let Some(offset) = bytes[i..].iter().position(|&b| b == b'<' || b == b'&') {
+        i += offset;
         let rest = &bytes[i..];
-        // Copied as they are: what is inside is not markup.
+        if rest[0] == b'&' {
+            if !is_reference(&rest[1..]) {
+                return Some(i);
+            }
+            i += 1;
+            continue;
+        }
         let verbatim = [(&b"<![CDATA["[..], &b"]]>"[..]), (b"<!--", b"-->"), (b"<?", b"?>")]
             .into_iter()
             .find(|(open, _)| rest.starts_with(open));
-        if let Some((_, close)) = verbatim {
-            let end = find(rest, close).map_or(rest.len(), |at| at + close.len());
-            out.extend_from_slice(&rest[..end]);
-            i += end;
-            continue;
-        }
-        if !root_seen && rest.starts_with(b"<") && !rest.starts_with(b"<?") && !rest.starts_with(b"<!") {
-            root_seen = true;
-            let is_rss = rest.len() > 4 && rest[1..4].eq_ignore_ascii_case(b"rss") && matches!(rest[4], b' ' | b'>' | b'\t' | b'\r' | b'\n');
-            if is_rss {
-                let tag_end = rest.iter().position(|&b| b == b'>').unwrap_or(rest.len());
-                if find(&rest[..tag_end], b"version").is_none() {
-                    out.extend_from_slice(b"<rss version=\"2.0\"");
-                    i += 4;
-                    changed = true;
-                    continue;
-                }
-            }
-        }
-        if rest[0] == b'&' && !is_reference(&rest[1..]) {
-            out.extend_from_slice(b"&amp;");
-            i += 1;
-            changed = true;
-            continue;
-        }
-        out.push(rest[0]);
-        i += 1;
+        i += match verbatim {
+            Some((open, close)) => find(&rest[open.len()..], close).map_or(rest.len(), |at| open.len() + at + close.len()),
+            None => 1,
+        };
     }
-    changed.then_some(out)
+    None
 }
 
-/// JSON Feed items with a numeric `id`, which feed-rs refuses, given a string one.
-fn repair_json(bytes: &[u8]) -> Option<Vec<u8>> {
-    let mut json: serde_json::Value = serde_json::from_slice(bytes).ok()?;
-    let mut changed = false;
-    for item in json.get_mut("items")?.as_array_mut()? {
-        if let Some(id) = item.get_mut("id").filter(|id| id.is_number()) {
-            *id = serde_json::Value::String(id.to_string());
-            changed = true;
-        }
-    }
-    changed.then(|| serde_json::to_vec(&json).ok()).flatten()
+/// A UTF-16 or UTF-32 document: its byte order mark, or a NUL in the first
+/// bytes, which UTF-8 and the single-byte encodings never have there.
+fn wide(bytes: &[u8]) -> bool {
+    bytes.starts_with(&[0xFF, 0xFE]) || bytes.starts_with(&[0xFE, 0xFF]) || bytes.iter().take(4).any(|&b| b == 0)
+}
+
+/// A [`wide`] document's text, its byte order (the mark, else where the NUL
+/// of the first ASCII character is) read from its start. UTF-32 reads as
+/// UTF-16 with a NUL after each character, and the NULs are left out.
+fn utf16_lossy(bytes: &[u8]) -> String {
+    let (little, bytes) = match bytes {
+        [0xFF, 0xFE, rest @ ..] => (true, rest),
+        [0xFE, 0xFF, rest @ ..] => (false, rest),
+        [0, ..] => (false, bytes),
+        _ => (true, bytes),
+    };
+    let units = bytes.as_chunks::<2>().0.iter().map(|&pair| if little { u16::from_le_bytes(pair) } else { u16::from_be_bytes(pair) });
+    char::decode_utf16(units).map(|c| c.unwrap_or(char::REPLACEMENT_CHARACTER)).filter(|&c| c != '\0').collect()
+}
+
+/// The `encoding` of the XML declaration, lowercased, when there is one;
+/// whitespace before it (ill-formed, but served) is passed over.
+fn declared_encoding(bytes: &[u8]) -> Option<String> {
+    let bytes = bytes.strip_prefix("\u{feff}".as_bytes()).unwrap_or(bytes).trim_ascii_start();
+    let decl = bytes.strip_prefix(b"<?xml")?;
+    let decl = &decl[..find(decl, b"?>")?];
+    let after = &decl[find(decl, b"encoding")? + b"encoding".len()..];
+    let after = after.trim_ascii_start().strip_prefix(b"=")?.trim_ascii_start();
+    let (&quote, value) = after.split_first()?;
+    let value = &value[..value.iter().position(|&b| b == quote)?];
+    Some(String::from_utf8_lossy(value).trim().to_ascii_lowercase())
 }
 
 fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
@@ -222,21 +237,16 @@ fn is_reference(after: &[u8]) -> bool {
 
 fn map(feed: Feed, source: &[u8], base: &Url) -> ParsedFeed {
     let entries = &feed.entries[..feed.entries.len().min(MAX_ITEMS)];
-    // The pass runs only when it may find something (NP-129).
-    let recovered = (feed.feed_type != FeedType::JSON
-        && find(source, MRSS.as_bytes()).is_some()
-        && entries.iter().any(|e| media_thumbnail(e, base).is_none()))
-    .then(|| recover_thumbnails(source));
-    let images = (feed.feed_type == FeedType::JSON).then(|| json_images(source)).unwrap_or_default();
+    let json = feed.feed_type == FeedType::JSON;
+    let images = if json { json_images(source) } else { HashMap::new() };
 
     let mut keys = HashSet::new();
     let items = entries
         .iter()
         .enumerate()
         .map(|(index, entry)| {
-            let found = recovered.as_deref().and_then(|list| match_recovered(list, entry, index, feed.entries.len(), base));
-            let image = images.get(&entry.id).or_else(|| images.get(&format!("#{index}"))).cloned();
-            item(entry, base, found, image)
+            let image = images.get(entry.id.trim()).or_else(|| images.get(&format!("#{index}"))).cloned();
+            item(entry, base, json, image)
         })
         // A guid repeated in one document is one post: the first.
         .filter(|item| keys.insert(item.key.clone()))
@@ -267,7 +277,7 @@ fn language_tag(raw: &str) -> Option<String> {
     (valid && tag.split('-').next().is_some_and(|primary| (2..=3).contains(&primary.len()) && primary.bytes().all(|b| b.is_ascii_alphabetic()))).then_some(tag)
 }
 
-fn item(entry: &Entry, base: &Url, recovered: Option<String>, json_image: Option<String>) -> ParsedItem {
+fn item(entry: &Entry, base: &Url, json: bool, json_image: Option<String>) -> ParsedItem {
     let url = entry
         .links
         .iter()
@@ -301,10 +311,15 @@ fn item(entry: &Entry, base: &Url, recovered: Option<String>, json_image: Option
         title = url.clone().unwrap_or_else(|| entry.id.clone());
     }
 
-    let thumbnail_url = media_thumbnail(entry, base)
-        .or_else(|| recovered.and_then(|raw| web_url(&item_base, &raw)))
-        .or_else(|| media_image(entry, base))
-        .or_else(|| json_image.and_then(|raw| web_url(base, &raw)))
+    // JSON Feed: `image` before `banner_image`, relative or not, from our own
+    // read; feed-rs's (absolute only, the banner as a thumbnail) when that
+    // found none.
+    let thumbnail_url = if json {
+        json_image.and_then(|raw| web_url(base, &raw)).or_else(|| json_media(entry, base))
+    } else {
+        media_thumbnail(entry, base).or_else(|| media_image(entry, base))
+    };
+    let thumbnail_url = thumbnail_url
         .or_else(|| content.as_deref().and_then(|h| first_img(h, &item_base)))
         .or_else(|| summary.as_deref().and_then(|h| first_img(h, &item_base)));
 
@@ -322,13 +337,32 @@ fn item(entry: &Entry, base: &Url, recovered: Option<String>, json_image: Option
         content_html,
         full,
         thumbnail_url,
-        published_at: entry.published.or(entry.updated).map(crate::db::stamp),
+        // feed-rs's dates are `jiff`'s; the library's are `chrono`'s. jiff
+        // counts a time before 1970 toward zero, with negative nanoseconds;
+        // chrono wants the second below and nanoseconds from it.
+        published_at: entry
+            .published
+            .as_ref()
+            .or(entry.updated.as_ref())
+            .map(|time| time.timestamp())
+            .and_then(|at| {
+                let (second, nano) = (at.as_second(), at.subsec_nanosecond());
+                let (second, nano) = if nano < 0 { (second - 1, nano + 1_000_000_000) } else { (second, nano) };
+                chrono::DateTime::from_timestamp(second, nano.try_into().ok()?)
+            })
+            .map(crate::db::stamp),
     }
 }
 
-/// A Media RSS thumbnail feed-rs kept (inside `media:content` or `media:group`).
+/// A Media RSS thumbnail: directly in the item, or inside `media:content` or `media:group`.
 fn media_thumbnail(entry: &Entry, base: &Url) -> Option<String> {
     entry.media.iter().flat_map(|m| m.thumbnails.iter()).find_map(|t| web_url(base, &t.image.uri))
+}
+
+/// A JSON Feed item's `image`, else its `banner_image`, as feed-rs read them.
+fn json_media(entry: &Entry, base: &Url) -> Option<String> {
+    let image = entry.media.iter().flat_map(|m| m.content.iter()).find_map(|c| web_url(base, c.url.as_ref()?.as_str()));
+    image.or_else(|| media_thumbnail(entry, base))
 }
 
 /// An image `media:content`, an image enclosure, or an Atom enclosure link.
@@ -558,135 +592,9 @@ fn find_attr(lower: &str, from: usize, name: &str) -> Option<(usize, usize, usiz
     None
 }
 
-/// What the item-level pass found in one `<item>` or `<entry>`.
-#[derive(Debug, Clone, Default, PartialEq)]
-struct Recovered {
-    id: Option<String>,
-    link: Option<String>,
-    thumbnail: Option<String>,
-}
-
-/// One streaming pass over the document (feed-rs/feed-rs#296): for each
-/// `<item>`/`<entry>`, the first `media:thumbnail@url` directly inside it,
-/// with its guid/id and link to match it to feed-rs's entry. A document
-/// quick-xml cannot read to the end gives what it read before.
-fn recover_thumbnails(source: &[u8]) -> Vec<Recovered> {
-    let mut reader = NsReader::from_reader(DecodingReader::new(source));
-    reader.config_mut().trim_text(true);
-    let mut buf = Vec::new();
-    let mut found = Vec::new();
-    let mut depth = 0usize;
-    // The depth of the open item, and what it has so far.
-    let mut item: Option<(usize, Recovered)> = None;
-    // A direct child whose text is wanted: `id` or `link`.
-    let mut capture: Option<(&'static str, String)> = None;
-    loop {
-        let Ok((ns, event)) = reader.read_resolved_event_into(&mut buf) else {
-            break;
-        };
-        let mrss = matches!(&ns, ResolveResult::Bound(n) if n.as_ref() == MRSS);
-        match event {
-            Event::Decl(decl) => {
-                if let Some(encoding) = decl.encoder() {
-                    reader.get_mut().set_encoding(encoding);
-                }
-            }
-            Event::Start(ref e) | Event::Empty(ref e) => {
-                let empty = matches!(event, Event::Empty(_));
-                let local = e.local_name().as_ref().to_string();
-                let attr = |name: &str| {
-                    e.attributes().flatten().find(|a| a.key.local_name().as_ref() == name).map(|a| {
-                        quick_xml::escape::unescape(&a.value).map(|v| v.into_owned()).unwrap_or_else(|_| a.value.to_string())
-                    })
-                };
-                match &mut item {
-                    None if !empty && (local == "item" || local == "entry") => {
-                        item = Some((depth + 1, Recovered::default()));
-                    }
-                    Some((at, current)) if depth == *at => {
-                        if mrss && local == "thumbnail" && current.thumbnail.is_none() {
-                            current.thumbnail = attr("url");
-                        } else if (local == "guid" || local == "id") && current.id.is_none() && !empty {
-                            capture = Some(("id", String::new()));
-                        } else if local == "link" && current.link.is_none() {
-                            match attr("href") {
-                                // Atom: the alternate link's href.
-                                Some(href) if attr("rel").is_none_or(|r| r == "alternate") => current.link = Some(href),
-                                Some(_) => {}
-                                None if !empty => capture = Some(("link", String::new())),
-                                None => {}
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-                if !empty {
-                    depth += 1;
-                }
-            }
-            Event::Text(ref t) => {
-                if let Some((_, text)) = &mut capture {
-                    text.push_str(t);
-                }
-            }
-            Event::CData(ref t) => {
-                if let Some((_, text)) = &mut capture {
-                    text.push_str(t);
-                }
-            }
-            Event::GeneralRef(ref r) => {
-                if let Some((_, text)) = &mut capture {
-                    match r.resolve_char_ref() {
-                        Ok(Some(ch)) => text.push(ch),
-                        _ => {
-                            if let Some(resolved) = quick_xml::escape::resolve_predefined_entity(r.as_ref()) {
-                                text.push_str(resolved);
-                            }
-                        }
-                    }
-                }
-            }
-            Event::End(_) => {
-                depth = depth.saturating_sub(1);
-                if let Some((field, text)) = capture.take() {
-                    if let Some((_, current)) = &mut item {
-                        let text = Some(text.trim().to_string()).filter(|t| !t.is_empty());
-                        match field {
-                            "id" => current.id = text,
-                            _ => current.link = text,
-                        }
-                    }
-                }
-                if item.as_ref().is_some_and(|(at, _)| depth + 1 == *at) {
-                    found.push(item.take().map(|(_, r)| r).unwrap_or_default());
-                }
-            }
-            Event::Eof => break,
-            _ => {}
-        }
-        buf.clear();
-    }
-    found
-}
-
-/// The recovered thumbnail of feed-rs's `entry`: by guid/id, else by link,
-/// else by position when both saw the same number of entries.
-fn match_recovered(list: &[Recovered], entry: &Entry, index: usize, total: usize, base: &Url) -> Option<String> {
-    let link = entry.links.first().map(|l| l.href.as_str());
-    let by_id = list.iter().find(|r| r.id.as_deref() == Some(entry.id.trim()));
-    let by_link = || {
-        list.iter().find(|r| {
-            let resolved = r.link.as_deref().and_then(|l| base.join(l).ok());
-            resolved.is_some() && resolved.as_ref().map(Url::as_str) == link
-        })
-    };
-    let by_position = || (list.len() == total).then(|| list.get(index)).flatten();
-    by_id.or_else(by_link).or_else(by_position).and_then(|r| r.thumbnail.clone())
-}
-
 /// JSON Feed `image`, else `banner_image`, of each item, by its id (and by
-/// `#position` for an item without one), which feed-rs 3.0.0 does not read
-/// (feed-rs/feed-rs#298).
+/// `#position` for an item without one): for the relative addresses feed-rs
+/// 3.1.0 leaves out.
 fn json_images(source: &[u8]) -> HashMap<String, String> {
     let source = source.strip_prefix("\u{feff}".as_bytes()).unwrap_or(source);
     let Ok(json) = serde_json::from_slice::<serde_json::Value>(source) else {
@@ -695,19 +603,18 @@ fn json_images(source: &[u8]) -> HashMap<String, String> {
     let Some(items) = json.get("items").and_then(|i| i.as_array()) else {
         return HashMap::new();
     };
-    items
-        .iter()
-        .enumerate()
-        .filter_map(|(index, item)| {
-            let image = ["image", "banner_image"].iter().find_map(|k| item.get(*k)?.as_str().filter(|s| !s.trim().is_empty()))?;
-            let id = match item.get("id") {
-                Some(serde_json::Value::String(id)) => id.trim().to_string(),
-                Some(serde_json::Value::Number(id)) => id.to_string(),
-                _ => format!("#{index}"),
-            };
-            Some((id, image.to_string()))
-        })
-        .collect()
+    // A repeated id is one post, the first (as `map` keeps it): its image, or none.
+    let mut first: HashMap<String, Option<String>> = HashMap::new();
+    for (index, item) in items.iter().enumerate() {
+        let image = ["image", "banner_image"].iter().find_map(|k| item.get(*k)?.as_str().filter(|s| !s.trim().is_empty()));
+        let id = match item.get("id") {
+            Some(serde_json::Value::String(id)) => id.trim().to_string(),
+            Some(serde_json::Value::Number(id)) => id.to_string(),
+            _ => format!("#{index}"),
+        };
+        first.entry(id).or_insert(image.map(str::to_string));
+    }
+    first.into_iter().filter_map(|(id, image)| Some((id, image?))).collect()
 }
 
 #[cfg(test)]
@@ -737,7 +644,7 @@ mod tests {
         assert_eq!(first.id, "kitchen-0002", "the guid is the key");
         assert_eq!(first.links[0].href, "https://kitchen.example.com/posts/roast-potatoes");
         assert_eq!(first.authors[0].name.as_deref(), Some("Ann Example"));
-        assert_eq!(first.published.unwrap().to_rfc3339(), "2026-10-15T09:12:00+00:00");
+        assert_eq!(first.published.as_ref().unwrap().timestamp().to_string(), "2026-10-15T09:12:00Z");
         assert!(first.summary.as_ref().unwrap().content.contains("<em>rough up</em>"));
 
         let atom = parser("https://notes.example.org/atom.xml").parse(fixture("atom.xml").as_slice()).unwrap();
@@ -869,8 +776,8 @@ mod tests {
     }
 
     #[test]
-    fn item_level_thumbnails_are_recovered() {
-        // BBC-shaped: a media:thumbnail directly in each item (feed-rs/feed-rs#296).
+    fn item_level_thumbnails_are_read() {
+        // BBC-shaped: a media:thumbnail directly in each item (feed-rs/feed-rs#296, fixed in 3.1.0).
         let feed = parsed("bbc-thumbnails.xml", "https://news.example.co.uk/rss.xml");
         let thumbs: Vec<_> = feed.items.iter().map(|i| i.thumbnail_url.as_deref()).collect();
         assert_eq!(
@@ -892,27 +799,7 @@ mod tests {
     }
 
     #[test]
-    fn the_pass_matches_by_id_then_link_then_position() {
-        let base = Url::parse("https://example.com/feed").unwrap();
-        let entry = |id: &str, link: &str| {
-            let mut e = Entry { id: id.into(), ..Default::default() };
-            e.links.push(feed_rs::model::Link { href: link.to_string(), target: None, rel: None, media_type: None, href_lang: None, title: None, length: None });
-            e
-        };
-        let found = |id: Option<&str>, link: Option<&str>, thumb: &str| Recovered {
-            id: id.map(Into::into),
-            link: link.map(Into::into),
-            thumbnail: Some(thumb.into()),
-        };
-        let list = [found(Some("a"), None, "1"), found(None, Some("/b"), "2"), found(None, None, "3")];
-        assert_eq!(match_recovered(&list, &entry("a", "https://example.com/x"), 2, 3, &base).as_deref(), Some("1"));
-        assert_eq!(match_recovered(&list, &entry("z", "https://example.com/b"), 0, 3, &base).as_deref(), Some("2"));
-        assert_eq!(match_recovered(&list, &entry("z", "https://example.com/c"), 2, 3, &base).as_deref(), Some("3"));
-        assert_eq!(match_recovered(&list, &entry("z", "https://example.com/c"), 2, 4, &base), None, "counts differ: no guessing");
-    }
-
-    #[test]
-    fn rss_without_version_and_a_bare_ampersand_are_repaired_once() {
+    fn rss_without_version_is_read_and_a_bare_ampersand_is_repaired_once() {
         let feed = parsed("rss-no-version.xml", "https://plain.example.com/rss");
         assert_eq!(feed.items[0].title, "Still a feed");
         let feed = parsed("bare-ampersand.xml", "https://plain.example.com/rss");
@@ -922,16 +809,93 @@ mod tests {
         assert!(feed.items[0].excerpt.contains("R&D"), "{}", feed.items[0].excerpt);
         // CDATA is left as it is, and so are proper references.
         assert_eq!(repair(b"<rss version=\"2.0\"><![CDATA[a & b]]>&amp;&#38;&#x26;</rss>"), None);
-        assert_eq!(repair(b"<rss>x</rss>").as_deref(), Some(&b"<rss version=\"2.0\">x</rss>"[..]));
         assert_eq!(repair(b"<rss version=\"2.0\">a & b</rss>").as_deref(), Some(&b"<rss version=\"2.0\">a &amp; b</rss>"[..]));
+        assert_eq!(repair(b"<a>& <!-- & --> &x; <?p & ?> & <![CDATA[&]]>&</a>").as_deref(), Some(&b"<a>&amp; <!-- & --> &x; <?p & ?> &amp; <![CDATA[&]]>&amp;</a>"[..]));
+        assert_eq!(repair(b"<a>&amp;</a>"), None, "nothing to repair: no copy");
+    }
+
+    /// The repair reads single bytes, so a UTF-16 document is not touched:
+    /// its `&amp;` stays a reference.
+    #[test]
+    fn a_utf_16_feed_is_not_repaired() {
+        let xml = r#"<?xml version="1.0" encoding="UTF-16"?><rss version="2.0"><channel><title>Fish &amp; chips</title><item><guid>a</guid><title>One</title></item></channel></rss>"#;
+        let utf16: Vec<u8> = [0xFF, 0xFE].into_iter().chain(xml.encode_utf16().flat_map(u16::to_le_bytes)).collect();
+        assert_eq!(repair(&utf16), None);
+        let no_bom: Vec<u8> = xml.encode_utf16().flat_map(u16::to_be_bytes).collect();
+        assert_eq!(repair(&no_bom), None);
+        let feed = parse(&utf16, &Url::parse("https://wide.example.com/rss").unwrap()).unwrap();
+        assert_eq!(feed.title.as_deref(), Some("Fish & chips"));
+        assert_eq!(feed.items[0].title, "One");
+        // A pasted link to it is a feed, a comment of Cyrillic before the root
+        // included (U+043E is the byte `>` and a 0x04).
+        let commented = xml.replace("<rss", "<!-- о --><rss");
+        assert!(looks_like_feed(&utf16));
+        assert!(looks_like_feed(&no_bom));
+        let le: Vec<u8> = commented.encode_utf16().flat_map(u16::to_le_bytes).collect();
+        assert!(looks_like_feed(&le));
+        let utf32: Vec<u8> = [0xFF, 0xFE, 0, 0].into_iter().chain(xml.chars().flat_map(|c| (c as u32).to_le_bytes())).collect();
+        assert!(looks_like_feed(&utf32));
+        let page: Vec<u8> = "<html><body>no</body></html>".encode_utf16().flat_map(u16::to_le_bytes).collect();
+        assert!(!looks_like_feed(&page));
+    }
+
+    /// ISO-2022-JP writes each kanji as two ASCII bytes, `&` among them: the
+    /// repair would cut a character in two.
+    #[test]
+    fn a_7_bit_stateful_encoding_is_not_repaired() {
+        // 漢 in ISO-2022-JP: ESC $ B, 0x34 0x41; a pair with 0x26 (`&`) as its first byte, ESC ( B.
+        let doc = b"<?xml version=\"1.0\" encoding=\"ISO-2022-JP\"?><rss version=\"2.0\"><channel><title>\x1b$B4A&A\x1b(B</title></channel></rss>";
+        assert_eq!(repair(doc), None);
+        assert_eq!(declared_encoding(doc).as_deref(), Some("iso-2022-jp"));
+        assert_eq!(repair(b"<?xml version='1.0' encoding = 'utf-7' ?><a>&</a>"), None);
+        // Any label encoding_rs knows for one, and a declaration after whitespace.
+        for label in ["csISO2022JP", "hz-gb-2312", "ISO-2022-KR", "utf-16"] {
+            let doc = format!("<?xml version=\"1.0\" encoding=\"{label}\"?><a>&</a>");
+            assert_eq!(repair(doc.as_bytes()), None, "{label}");
+        }
+        assert_eq!(repair(b"\n  <?xml version=\"1.0\" encoding=\"ISO-2022-JP\"?><a>&</a>"), None);
+        assert!(repair(b"<?xml version=\"1.0\" encoding=\"Shift_JIS\"?><a>&</a>").is_some(), "ASCII-compatible: repaired");
+        assert!(repair(b"<?xml version=\"1.0\" encoding=\"windows-1251\"?><a>&</a>").is_some(), "ASCII-compatible: repaired");
+        assert!(repair(b"<a>&</a>").is_some(), "no declaration: UTF-8");
+    }
+
+    #[test]
+    fn json_feed_image_wins_over_an_absolute_banner() {
+        let json = br#"{"version": "https://jsonfeed.org/version/1.1", "title": "P", "items": [
+            {"id": "a", "url": "https://p.example.com/a", "title": "A", "content_html": "<p>a</p>",
+             "image": "/img/a.jpg", "banner_image": "https://cdn.example.com/b.jpg"},
+            {"id": "b", "url": "https://p.example.com/b", "title": "B", "content_html": "<p>b</p>",
+             "banner_image": "https://cdn.example.com/b.jpg"}]}"#;
+        let feed = parse(json, &Url::parse("https://p.example.com/feed.json").unwrap()).unwrap();
+        assert_eq!(feed.items[0].thumbnail_url.as_deref(), Some("https://p.example.com/img/a.jpg"));
+        assert_eq!(feed.items[1].thumbnail_url.as_deref(), Some("https://cdn.example.com/b.jpg"));
+
+        // A repeated id is the first post, with the first item's image or none.
+        let json = br#"{"version": "https://jsonfeed.org/version/1.1", "title": "P", "items": [
+            {"id": "x", "url": "https://p.example.com/x", "title": "First", "content_html": "<p>1</p>", "image": "/img/first.jpg"},
+            {"id": "x", "url": "https://p.example.com/x2", "title": "Again", "content_html": "<p>2</p>", "image": "/img/again.jpg"},
+            {"id": "y", "url": "https://p.example.com/y", "title": "Bare", "content_html": "<p>3</p>"},
+            {"id": "y", "url": "https://p.example.com/y2", "title": "Again", "content_html": "<p>4</p>", "image": "/img/later.jpg"}]}"#;
+        let feed = parse(json, &Url::parse("https://p.example.com/feed.json").unwrap()).unwrap();
+        assert_eq!(feed.items.len(), 2);
+        assert_eq!((feed.items[0].title.as_str(), feed.items[0].thumbnail_url.as_deref()), ("First", Some("https://p.example.com/img/first.jpg")));
+        assert_eq!((feed.items[1].title.as_str(), feed.items[1].thumbnail_url.as_deref()), ("Bare", None));
+    }
+
+    #[test]
+    fn a_date_before_1970_keeps_its_fraction() {
+        let xml = br#"<feed xmlns="http://www.w3.org/2005/Atom"><title>Old</title><id>old</id><updated>2026-01-01T00:00:00Z</updated>
+            <entry><id>e</id><title>Moon</title><published>1969-12-31T23:59:59.5Z</published><updated>1969-12-31T23:59:59.5Z</updated></entry></feed>"#;
+        let feed = parse(xml, &Url::parse("https://old.example.com/atom").unwrap()).unwrap();
+        assert_eq!(feed.items[0].published_at.as_deref(), Some("1969-12-31T23:59:59.500Z"));
     }
 
     /// feed-rs/feed-rs#295: markup inside an RSS title is cut at the first
-    /// child element on 3.0.0. Invalid feeds; this pins what they give.
+    /// child element on 3.0.0; 3.1.0 keeps the whole text.
     #[test]
-    fn unescaped_markup_in_rss_text_is_cut_as_feed_rs_reads_it() {
+    fn unescaped_markup_in_rss_text_keeps_its_text() {
         let feed = parsed("unescaped-markup.xml", "https://loose.example.com/rss");
-        assert_eq!(feed.items[0].title, "Hello");
+        assert_eq!(feed.items[0].title, "Hello world");
         assert_eq!(feed.items.len(), 1);
     }
 
