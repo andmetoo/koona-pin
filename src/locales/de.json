@@ -1424,10 +1424,10 @@
         "description": "Desktop-Apps für Lesezeichen, Notizen und Bücher."
       },
       "books": {
-        "description": "Eine Bibliothek für deine E-Books, ein direkter Ersatz für Calibre."
+        "description": "Eine Bibliothek für Ihre E-Books, ein direkter Ersatz für Calibre."
       },
       "pin": {
-        "description": "Deine Lesezeichen und Leseliste in einer Datei auf deinem Computer."
+        "description": "Ihre Lesezeichen und Ihre Leseliste in einer Datei auf Ihrem Computer."
       },
       "lightcal": {
         "description": "Ein kleiner Kalender im Windows-Infobereich und in der Mac-Menüleiste."
