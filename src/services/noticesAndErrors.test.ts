@@ -128,14 +128,16 @@ describe("command errors", () => {
 });
 
 describe("starter links (NP-117)", () => {
-  it("are web pages in the order of the set: Koona Pin, then Firefox and Bun", () => {
+  it("are the koona.app pages in the order of the set: the front page, then each product", () => {
     const links = starterLinks(i18n.getFixedT("en"));
     expect(links.map((l) => l.url)).toEqual([
-      "https://koona.app/pin/help/getting-started/",
-      "https://www.firefox.com/",
-      "https://bun.com/",
+      "https://koona.app/",
+      "https://koona.app/books/",
+      "https://koona.app/pin/",
+      "https://koona.app/lightcal/",
+      "https://koona.app/notes/",
     ]);
-    expect(links.slice(-2).map((l) => l.title)).toEqual(["Firefox", "Bun"]);
+    expect(links.map((l) => l.title)).toEqual(["Koona", "Koona Books", "Koona Pin", "Lightcal", "Ko Notes"]);
   });
 
   // English is enough: locales.test.ts keeps every other language's keys in step with it.

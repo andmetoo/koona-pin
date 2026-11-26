@@ -1340,15 +1340,20 @@
     "design": "디자인 및 UI",
     "reading": "글 / 나중에 읽기",
     "links": {
-      "start": {
-        "title": "여기서 시작하세요: Koona Pin 사용법",
-        "description": "몇 분 만에 링크를 저장하고 정리하고 찾아보세요."
+      "koona": {
+        "description": "북마크, 메모, 책을 위한 데스크톱 앱."
       },
-      "firefox": {
-        "description": "Mozilla의 빠르고 개인 정보를 지키는 브라우저."
+      "books": {
+        "description": "전자책 서재, Calibre를 그대로 대신합니다."
       },
-      "bun": {
-        "description": "빠른 JavaScript 런타임이자 도구 모음."
+      "pin": {
+        "description": "북마크와 읽기 목록을 컴퓨터의 파일 하나에."
+      },
+      "lightcal": {
+        "description": "Windows 트레이와 Mac 메뉴 막대의 작은 달력."
+      },
+      "notes": {
+        "description": "단축키 하나로 메모, Mac용."
       }
     }
   },

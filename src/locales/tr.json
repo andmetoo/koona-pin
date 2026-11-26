@@ -1420,15 +1420,20 @@
     "design": "Tasarım ve UI",
     "reading": "Makaleler / Okunacaklar",
     "links": {
-      "start": {
-        "title": "Buradan başlayın: Koona Pin nasıl çalışır",
-        "description": "Bağlantıları birkaç dakikada kaydedin, ayırın ve bulun."
+      "koona": {
+        "description": "Yer imleri, notlar ve kitaplar için masaüstü uygulamaları."
       },
-      "firefox": {
-        "description": "Mozilla'dan hızlı ve gizliliğe saygılı bir tarayıcı."
+      "books": {
+        "description": "E-kitaplarınız için bir kitaplık, Calibre’nin yerini doğrudan alır."
       },
-      "bun": {
-        "description": "Hızlı bir JavaScript çalışma ortamı ve araç takımı."
+      "pin": {
+        "description": "Yer imleriniz ve okuma listeniz, bilgisayarınızda tek bir dosyada."
+      },
+      "lightcal": {
+        "description": "Windows sistem tepsisinde ve Mac menü çubuğunda küçük bir takvim."
+      },
+      "notes": {
+        "description": "Bir kısayolla notlar, Mac için."
       }
     }
   },

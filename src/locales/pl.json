@@ -1580,15 +1580,20 @@
     "design": "Design i UI",
     "reading": "Artykuły / Do przeczytania",
     "links": {
-      "start": {
-        "title": "Zacznij tutaj: jak działa Koona Pin",
-        "description": "Zapisuj, porządkuj i znajduj linki w kilka minut."
+      "koona": {
+        "description": "Aplikacje na komputer do zakładek, notatek i książek."
       },
-      "firefox": {
-        "description": "Szybka i prywatna przeglądarka od Mozilli."
+      "books": {
+        "description": "Biblioteka e-booków, która zastępuje Calibre."
       },
-      "bun": {
-        "description": "Szybkie środowisko uruchomieniowe i zestaw narzędzi JavaScript."
+      "pin": {
+        "description": "Twoje zakładki i lista do przeczytania w jednym pliku na komputerze."
+      },
+      "lightcal": {
+        "description": "Mały kalendarz w zasobniku Windows i na pasku menu Maca."
+      },
+      "notes": {
+        "description": "Notatki pod skrótem klawiszowym, na Maca."
       }
     }
   },
