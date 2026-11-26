@@ -1500,15 +1500,20 @@
     "design": "Design et UI",
     "reading": "Articles / À lire",
     "links": {
-      "start": {
-        "title": "Commencer ici : comment marche Koona Pin",
-        "description": "Enregistrez, classez et retrouvez vos liens en quelques minutes."
+      "koona": {
+        "description": "Des applications de bureau pour les signets, les notes et les livres."
       },
-      "firefox": {
-        "description": "Un navigateur rapide et respectueux de la vie privée, par Mozilla."
+      "books": {
+        "description": "Une bibliothèque pour vos livres numériques, qui remplace Calibre."
       },
-      "bun": {
-        "description": "Un environnement d’exécution et une boîte à outils JavaScript rapides."
+      "pin": {
+        "description": "Vos signets et votre liste de lecture, dans un fichier sur votre ordinateur."
+      },
+      "lightcal": {
+        "description": "Un petit calendrier dans la zone de notification de Windows et la barre des menus du Mac."
+      },
+      "notes": {
+        "description": "Des notes à un raccourci clavier, pour Mac."
       }
     }
   },

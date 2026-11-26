@@ -1420,15 +1420,20 @@
     "design": "Design & UI",
     "reading": "Artikel / Zum Lesen",
     "links": {
-      "start": {
-        "title": "Hier anfangen: So funktioniert Koona Pin",
-        "description": "Links speichern, sortieren und finden – in wenigen Minuten."
+      "koona": {
+        "description": "Desktop-Apps für Lesezeichen, Notizen und Bücher."
       },
-      "firefox": {
-        "description": "Ein schneller, privater Browser von Mozilla."
+      "books": {
+        "description": "Eine Bibliothek für deine E-Books, ein direkter Ersatz für Calibre."
       },
-      "bun": {
-        "description": "Eine schnelle JavaScript-Laufzeit samt Werkzeugen."
+      "pin": {
+        "description": "Deine Lesezeichen und Leseliste in einer Datei auf deinem Computer."
+      },
+      "lightcal": {
+        "description": "Ein kleiner Kalender im Windows-Infobereich und in der Mac-Menüleiste."
+      },
+      "notes": {
+        "description": "Notizen per Tastenkürzel, für den Mac."
       }
     }
   },

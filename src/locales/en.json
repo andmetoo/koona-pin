@@ -1420,15 +1420,20 @@
     "design": "Design & UI",
     "reading": "Articles / To read",
     "links": {
-      "start": {
-        "title": "Start here: how Koona Pin works",
-        "description": "Save, sort and find links in a few minutes."
+      "koona": {
+        "description": "Desktop apps for bookmarks, notes and books."
       },
-      "firefox": {
-        "description": "A fast, private browser from Mozilla."
+      "books": {
+        "description": "A library for your e-books, a drop-in replacement for Calibre."
       },
-      "bun": {
-        "description": "A fast JavaScript runtime and toolkit."
+      "pin": {
+        "description": "Your bookmarks and reading list, in one file on your computer."
+      },
+      "lightcal": {
+        "description": "A small calendar in the Windows tray and the Mac menu bar."
+      },
+      "notes": {
+        "description": "Notes on a shortcut, for Mac."
       }
     }
   },

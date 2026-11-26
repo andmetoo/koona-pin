@@ -1340,15 +1340,20 @@
     "design": "デザインと UI",
     "reading": "記事 / あとで読む",
     "links": {
-      "start": {
-        "title": "はじめに：Koona Pin の使い方",
-        "description": "数分でリンクの保存・整理・検索を覚えられます。"
+      "koona": {
+        "description": "ブックマーク、メモ、本のためのデスクトップアプリ。"
       },
-      "firefox": {
-        "description": "Mozilla の高速でプライバシーを守るブラウザー。"
+      "books": {
+        "description": "電子書籍のライブラリ。Calibre の代わりにそのまま使えます。"
       },
-      "bun": {
-        "description": "高速な JavaScript ランタイム兼ツールキット。"
+      "pin": {
+        "description": "ブックマークと読書リストを、パソコン上の 1 つのファイルに。"
+      },
+      "lightcal": {
+        "description": "Windows のタスクトレイと Mac のメニューバーにある小さなカレンダー。"
+      },
+      "notes": {
+        "description": "ショートカットひとつでメモ。Mac 用。"
       }
     }
   },

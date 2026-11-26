@@ -6,7 +6,6 @@
  */
 export const HELP = {
   home: "",
-  gettingStarted: "getting-started/",
   addExtension: "getting-started/#add-the-browser-extension",
   savingFails: "troubleshooting/#saving-from-the-browser-fails",
   libraryWontOpen: "troubleshooting/#the-library-wont-open",

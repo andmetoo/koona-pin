@@ -1500,15 +1500,20 @@
     "design": "Dizajn i UI",
     "reading": "Članci / Za čitanje",
     "links": {
-      "start": {
-        "title": "Počnite ovde: kako radi Koona Pin",
-        "description": "Čuvajte, razvrstavajte i pronalazite veze za par minuta."
+      "koona": {
+        "description": "Programi za obeleživače, beleške i knjige."
       },
-      "firefox": {
-        "description": "Brz i privatan pregledač kompanije Mozilla."
+      "books": {
+        "description": "Biblioteka za vaše e-knjige, direktna zamena za Calibre."
       },
-      "bun": {
-        "description": "Brzo okruženje za izvršavanje i skup alata za JavaScript."
+      "pin": {
+        "description": "Vaši obeleživači i lista za čitanje, u jednoj datoteci na računaru."
+      },
+      "lightcal": {
+        "description": "Mali kalendar u Windows traci i Mac traci menija."
+      },
+      "notes": {
+        "description": "Beleške na prečicu, za Mac."
       }
     }
   },
