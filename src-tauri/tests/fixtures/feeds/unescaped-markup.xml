@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Synthetic, written for the tests (NP-129): unescaped markup inside an RSS title, invalid
-     but seen in the wild. feed-rs 3.0.0 cuts the text at the first child (feed-rs/feed-rs#295). -->
+     but seen in the wild. feed-rs 3.0.0 cut the text at the first child (feed-rs/feed-rs#295, fixed in 3.1.0). -->
 <rss version="2.0">
   <channel>
     <title>Loose</title>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Synthetic, written for the tests (NP-129). Shaped like a code host's releases feed: Atom,
-     the author's avatar as a media:thumbnail directly in each entry (feed-rs/feed-rs#296). -->
+     the author's avatar as a media:thumbnail directly in each entry (feed-rs/feed-rs#296, fixed in 3.1.0). -->
 <feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/" xml:lang="en-US">
   <id>tag:code.example.com,2008:https://code.example.com/tool/releases</id>
   <link type="text/html" rel="alternate" href="https://code.example.com/tool/releases"/>
